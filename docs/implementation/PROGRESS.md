@@ -511,3 +511,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Reused the historical ISO round-trip regression for both APFS-clone and real DiskImageKit-layered snapshots. The layered case creates a real ASIF disk, asserts the selected backend, removes the original ISO, independently clones current state, validates/imports the export and restores its protected historical point. Restored media bytes and snapshot integrity are verified.
 - All 24 portability tests passed. This adds coverage for the layered disk-root resolution introduced by 7643f30, without claiming a booted Guest or signed GUI restore. No product behavior changed in this follow-up.
+
+### 2026-09-07 — Signed build 24 GUI export
+
+- Built and installed signed build 24 from a6714505e7abdd3a1242b559845a33296c31368a. ZIP SHA-256: bf754cec75a2e82d7e34db96539fe255737d95d81efd9e897e862074670f0bc5. Resource, entitlement, round-trip and strict installed signature checks passed. No VM runtimes were running during replacement.
+- Through the unified library Export Workspace action, exported the retained stopped Debian fixture to /private/tmp/riftvm-candidate7/Build24-Portability.riftvmexport. Independently checked all 13 payload file sizes and SHA-256 hashes and verified current storage references are relative and resolve inside the payload. Manifest SHA-256: 3ff02fd15425aab8c225cfbebfeccaff93597d4edcd129c5e15ba56de1536674. The library remained available after completion.
+- This fixture has no historical snapshots, so this GUI result does not prove historical GUI restore. Historical ISO restoration remains covered by the APFS and real ASIF backend regressions. Build 24 full CLI, full unified input/Guest matrix and distribution gates remain open.
