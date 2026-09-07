@@ -175,6 +175,11 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
+    func hasLiveOmarchy(at url: URL) -> Bool {
+        guard let machine = omarchyMachines[WorkspaceRegistry.canonical(url)] else { return false }
+        return machine.state != .stopped && machine.state != .error
+    }
+
     func retainCommandLineWindow(_ window: NSWindow, at url: URL) {
         guard let identity = try? WorkspaceIdentity.load(at: url) else { return }
         window.isReleasedWhenClosed = false
