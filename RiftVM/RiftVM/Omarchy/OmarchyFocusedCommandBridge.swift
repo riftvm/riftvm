@@ -324,7 +324,8 @@ final class OmarchyFocusedCommandBridge {
     /// Physical events redirected by the tap are consumed before this monitor;
     /// fallback events carry syntheticMarker and therefore never loop.
     func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
-        guard event.window == nil || event.window === NSApp.keyWindow,
+        let releasesCapturedKey = event.type == .keyUp && agentForwardedKeys.contains(event.keyCode)
+        guard releasesCapturedKey || event.window == nil || event.window === NSApp.keyWindow,
               let cgEvent = event.cgEvent else { return event }
         return handle(type: cgEvent.type, event: cgEvent) == nil ? nil : event
     }
@@ -336,6 +337,15 @@ final class OmarchyFocusedCommandBridge {
         }
         let synthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticMarker
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        // A captured key belongs to this bridge until release, even if Command
+        // was released first or focus moved. Passing its key-up to VZ would
+        // mix an Agent-owned down with an unrelated native-device up.
+        if !synthetic, type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
+            if commandSpaceState.observe(type: type, keyCode: keyCode) {
+                DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
+            }
+            return nil
+        }
         let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
             type: type,
             keyCode: keyCode,
@@ -356,9 +366,6 @@ final class OmarchyFocusedCommandBridge {
             if event.getIntegerValueField(.eventSourceUserData) == Self.acceptanceMarker {
                 NSLog("Omarchy acceptance Command chord forwarded through Guest Agent keyCode=%hu", keyCode)
             }
-            return nil
-        }
-        if type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
             return nil
         }
         if type == .keyDown, isRepeat, agentForwardedKeys.contains(keyCode) {

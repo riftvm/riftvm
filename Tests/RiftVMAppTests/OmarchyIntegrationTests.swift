@@ -579,6 +579,38 @@ final class OmarchyIntegrationTests: XCTestCase {
         bridge.stop()
     }
 
+    @MainActor
+    func testCapturedKeyReleaseKeepsOwnershipAfterCommandAndFocusRelease() throws {
+        var focused = true
+        let previousWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        previousWindow.isReleasedWhenClosed = false
+        defer { previousWindow.close() }
+        var forwarded = 0
+        let bridge = OmarchyFocusedCommandBridge(focusProbe: { focused }, stateChanged: { _ in },
+            redirectedCommandChord: { _, _ in forwarded += 1; return true })
+        func event(_ down: Bool, command: Bool) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = command ? .maskCommand : []
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        XCTAssertNil(bridge.handleLocalEvent(try event(true, command: true)))
+        focused = false
+        let releaseInPreviousWindow = try XCTUnwrap(NSEvent.keyEvent(with: .keyUp,
+            location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: previousWindow.windowNumber, context: nil,
+            characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        XCTAssertTrue(releaseInPreviousWindow.window === previousWindow)
+        XCTAssertNil(bridge.handleLocalEvent(releaseInPreviousWindow))
+        // Ownership ended: an unrelated ordinary key-up must pass through.
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(false, command: false)))
+        focused = true
+        XCTAssertNil(bridge.handleLocalEvent(try event(true, command: true)))
+        XCTAssertNil(bridge.handleLocalEvent(try event(false, command: false)))
+        XCTAssertEqual(forwarded, 2)
+        bridge.stop()
+    }
+
     func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {
         XCTAssertTrue(OmarchyCommandCapturePolicy.shouldRedirect(
             type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: false
