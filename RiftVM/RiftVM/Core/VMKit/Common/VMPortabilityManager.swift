@@ -58,8 +58,11 @@ enum VMPortabilityManager {
 
     static func estimate(sourceURL: URL, destinationParent: URL, availableBytes override: Int64? = nil) throws -> VMPortabilityEstimate {
         let files = try regularFiles(in: sourceURL)
-        let logical = saturatingSum(files.map(\.size))
-        let allocated = saturatingSum(files.map(\.allocatedSize))
+        let media = FileManager.default.fileExists(atPath: sourceURL.appendingPathComponent("config.json").path)
+            ? try externalInstallationMedia(in: sourceURL) : []
+        let mediaSizes = try media.map { try $0.url.resourceValues(forKeys: [.fileSizeKey, .fileAllocatedSizeKey]) }
+        let logical = saturatingSum(files.map(\.size) + mediaSizes.map { UInt64($0.fileSize ?? 0) })
+        let allocated = saturatingSum(files.map(\.allocatedSize) + mediaSizes.map { UInt64($0.fileAllocatedSize ?? 0) })
         let available = override ?? (try? destinationParent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
             .volumeAvailableCapacityForImportantUsage)
         return VMPortabilityEstimate(logicalBytes: logical, allocatedBytes: allocated, availableBytes: available)
@@ -127,6 +130,8 @@ enum VMPortabilityManager {
         return transactDirectory(destinationURL: destinationURL) { staging in
             let payload = staging.appendingPathComponent(payloadDirectoryName, isDirectory: true)
             try copyTree(from: sourceURL, to: payload)
+            try embedInstallationMedia(from: sourceURL, in: payload)
+            try validateStorageReferences(in: payload)
             let files = try portableFiles(in: payload)
             let manifest = VMExportManifest(
                 schemaVersion: VMExportManifest.currentSchemaVersion,
@@ -171,6 +176,7 @@ enum VMPortabilityManager {
             guard FileManager.default.fileExists(atPath: payload.appendingPathComponent("config.json").path) else {
                 return .failure("The exported machine has no config.json.")
             }
+            try validateStorageReferences(in: payload)
             return .success(manifest)
         } catch {
             return .failure("The export is unreadable: \(error.localizedDescription)")
@@ -216,6 +222,60 @@ enum VMPortabilityManager {
                 try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: name)
             }
         )
+    }
+
+    private static func storageDevices(in root: URL) throws -> [[String: Any]] {
+        guard let config = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("config.json"))) as? [String: Any] else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        guard let value = config["storageDevices"] else { return [] }
+        guard let devices = value as? [[String: Any]] else { throw CocoaError(.fileReadCorruptFile) }
+        return devices
+    }
+
+    private static func externalInstallationMedia(in root: URL) throws -> [(index: Int, url: URL)] {
+        try storageDevices(in: root).enumerated().compactMap { index, device in
+            guard let path = device["imagePath"] as? String, !path.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+            guard (path as NSString).isAbsolutePath else { return nil }
+            guard device["type"] as? String == "USB" else {
+                throw NSError(domain: "RiftVMPortability", code: 1, userInfo: [NSLocalizedDescriptionKey: "Move external writable disks into the workspace before exporting."])
+            }
+            let url = URL(fileURLWithPath: path)
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
+            return (index, url)
+        }
+    }
+
+    private static func embedInstallationMedia(from source: URL, in payload: URL) throws {
+        let media = try externalInstallationMedia(in: source)
+        guard !media.isEmpty else { return }
+        let directory = "InstallationMedia-" + UUID().uuidString
+        try FileManager.default.createDirectory(at: payload.appendingPathComponent(directory), withIntermediateDirectories: false)
+        let configURL = payload.appendingPathComponent("config.json")
+        guard var config = try JSONSerialization.jsonObject(with: Data(contentsOf: configURL)) as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }
+        var devices = try storageDevices(in: source)
+        for item in media {
+            let relative = "\(directory)/\(item.index)-\(item.url.lastPathComponent)"
+            try FileManager.default.copyItem(at: item.url, to: payload.appendingPathComponent(relative))
+            devices[item.index]["imagePath"] = relative
+        }
+        config["storageDevices"] = devices
+        try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]).write(to: configURL, options: .atomic)
+    }
+
+    private static func validateStorageReferences(in root: URL) throws {
+        for device in try storageDevices(in: root) {
+            guard let path = device["imagePath"] as? String, !path.isEmpty,
+                  !(path as NSString).isAbsolutePath else {
+                throw NSError(domain: "RiftVMPortability", code: 2, userInfo: [NSLocalizedDescriptionKey: "The export contains an external storage reference."])
+            }
+            let url = root.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
+            guard isInside(url, parent: root.resolvingSymlinksInPath()),
+                  try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+                throw NSError(domain: "RiftVMPortability", code: 3, userInfo: [NSLocalizedDescriptionKey: "The export is missing a referenced disk or installation image."])
+            }
+        }
     }
 
     private static func transactCopy(

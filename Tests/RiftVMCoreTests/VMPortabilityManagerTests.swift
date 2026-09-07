@@ -342,6 +342,48 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertTrue(leftovers.isEmpty)
     }
 
+    func testExportEmbedsExternalISOAndImportsWithoutOriginalMedia() throws {
+        let source = try makeMachine(name: "WithISO")
+        let iso = root.appendingPathComponent("installer.iso")
+        let bytes = Data("installation media".utf8)
+        try bytes.write(to: iso)
+        let configURL = source.appendingPathComponent("config.json")
+        var config = try json(configURL)
+        config["storageDevices"] = [
+            ["type": "Block", "imagePath": "Disk.img"],
+            ["type": "USB", "imagePath": iso.path]
+        ]
+        let original = try JSONSerialization.data(withJSONObject: config)
+        try original.write(to: configURL)
+        let export = root.appendingPathComponent("WithISO.riftvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        XCTAssertEqual(try Data(contentsOf: configURL), original)
+        try FileManager.default.removeItem(at: iso)
+        _ = try unwrap(VMPortabilityManager.validateExport(at: export))
+        let imported = root.appendingPathComponent("Independent.riftvm")
+        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: imported,
+            identityMode: .copy(machineIdentifierData: Data("new".utf8), name: "Independent")))
+        let devices = try XCTUnwrap(try json(imported.appendingPathComponent("config.json"))["storageDevices"] as? [[String: Any]])
+        let mediaPath = try XCTUnwrap(devices[1]["imagePath"] as? String)
+        XCTAssertFalse((mediaPath as NSString).isAbsolutePath)
+        XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent(mediaPath)), bytes)
+    }
+
+    func testExportRejectsMissingAndEscapingDiskReferences() throws {
+        for path in ["missing.img", "../outside.img"] {
+            let source = try makeMachine(name: UUID().uuidString)
+            try Data("outside".utf8).write(to: root.appendingPathComponent("outside.img"))
+            var config = try json(source.appendingPathComponent("config.json"))
+            config["storageDevices"] = [["type": "Block", "imagePath": path]]
+            try JSONSerialization.data(withJSONObject: config).write(to: source.appendingPathComponent("config.json"))
+            let export = root.appendingPathComponent(UUID().uuidString + ".riftvmexport")
+            if case .success = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export) {
+                XCTFail("An incomplete export must not succeed")
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: export.path))
+        }
+    }
+
     private func makeMachine(name: String) throws -> URL {
         let url = root.appendingPathComponent("\(name).riftvm")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
