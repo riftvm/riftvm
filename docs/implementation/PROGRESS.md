@@ -279,3 +279,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - All 14 CLI tests pass, including a live unrelated-process regression that checks all three commands preserve the original state bytes.
 - Cleanup removed 17 obsolete build/test directories and released approximately 7.4 GiB of actual space. Downloaded ISO/IPSW/factory images and installed base fixtures were retained. The obsolete headless test did not exit after its normal shutdown signal and was explicitly terminated; its disk was retained. Current GUI testing uses one fixed installation at ~/Applications/RiftVM.app (signed build 8).
 - User completed Device Control and Data Access authorization; Omarchy permission banner disappeared. A normal stop/cold-start followed by existing-password login reached the desktop and authenticated text/image clipboard readiness. Guest-file rollback is still pending; automatic menu interaction has not yet provided reliable terminal access.
+
+### 2026-09-07 — Signed build 8 window continuity and protected recovery
+
+- Closed the running Omarchy-Rollback window through its native close control. The library continued to show Running. Reopened using Open Workspace; both the app PID (71251) and Virtualization service PID (72528) remained unchanged. The initially black guest display responded to input with its lock screen, consistent with guest idle blanking rather than a VM restart.
+- The Recovery menu correctly disabled backup/restore while running. After normal Stop Omarchy, Create Protected Backup completed and the protected point appeared in the menu. Restored that point through the confirmation sheet and started the workspace again; the visible Omarchy login screen returned and Integration reported ready.
+- This validates the native backup/restore/start path on an installed guest, but does not establish rollback of a subsequently modified guest file. That distinct data-continuity check remains open.
