@@ -245,3 +245,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Full-screen diagnostics on both displays reported matching 1920x1080 window, hosting, and framebuffer bounds with zero safe-area insets. Captured white top/right edges persisted for Linux and macOS. A black display-layer experiment did not improve them and was removed, together with temporary diagnostics. The cause and full-screen visual acceptance remain unresolved.
 
 - Follow-up on the now-bootable copied guest: selecting Save State and Stop from its full-screen window failed with `Could not pause before saving: Internal Virtualization error. The virtual machine stopped unexpectedly.` No saved-state file was produced. This development-build lifecycle result is a failure, not covered by the earlier framework-only roundtrip checks; reproduce with the current signed candidate and a booted guest before release. A later captured frame no longer showed white margins, but followed this failure and cannot establish healthy full-screen operation.
+
+## Booted macOS audio/lifecycle comparison
+
+- Reproduced the full-screen save failure with the notarized build 6, using a complete isolated clone of the installed macOS fixture. The original development failure's Virtualization service report recorded GUARD/SIGKILL termination after CoreAudio proxy errors; this is evidence of a service failure, not proof of its cause.
+- In windowed mode, the microphone-and-speakers configuration paused successfully, saved/stopped, and restored in a new signed-App process to the visible macOS Hello animation. Its subsequent full-screen save failed without producing a committed state.
+- Separate no-audio and speakers-only clones both booted visibly and completed full-screen save/stop, each producing a 1,543,507,968-byte state plus a compatibility manifest. Microphone input is therefore the next isolation target; do not remove audio support or claim the microphone path fixed from these comparisons.
+- Native automatic window tabbing combined the later test workspaces into the existing full-screen window. Its interaction with workspace window ownership needs review.
