@@ -267,7 +267,7 @@ static void write_context_fence_callback(void *cookie,
     (void)cookie;
     (void)context_id;
     (void)ring_index;
-    // EZVM allocates host fence IDs in the non-zero uint32_t range before
+    // RiftVM allocates host fence IDs in the non-zero uint32_t range before
     // passing them to virgl_renderer_context_create_fence. Completion
     // reports that same ID through the version-4 callback.
     if (fence_id == 0 || fence_id > UINT32_MAX) {

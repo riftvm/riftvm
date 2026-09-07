@@ -66,9 +66,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     let onZeroCopyFrame: @MainActor (ScanoutFrame) -> Void
     let onScanoutInvalidated: @MainActor (UInt64) -> Void
-    let onCursor: @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void
+    let onCursor: @MainActor (RiftVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
-    let deviceQueue = DispatchQueue(label: "com.everettjf.ezvm.prototype.virtio-gpu")
+    let deviceQueue = DispatchQueue(label: "com.riftvm.app.prototype.virtio-gpu")
     private let deviceQueueKey = DispatchSpecificKey<UInt8>()
 
     private(set) var device: VZCustomVirtioDevice?
@@ -120,7 +120,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         zeroCopyPresentationEnabled: Bool = true,
         onZeroCopyFrame: @escaping @MainActor (ScanoutFrame) -> Void,
         onScanoutInvalidated: @escaping @MainActor (UInt64) -> Void = { _ in },
-        onCursor: @escaping @MainActor (EZVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
+        onCursor: @escaping @MainActor (RiftVMVirGLRuntime.CursorUpdate) -> Void = { _ in },
         onFrame: @escaping @MainActor (CGImage) -> Void
     ) {
         self.width = width
@@ -215,10 +215,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
     }
 
-    private let logger = Logger(subsystem: "com.everettjf.ezvm", category: "virtio-gpu")
+    private let logger = Logger(subsystem: "com.riftvm.app", category: "virtio-gpu")
 
     private var diagnosticsEnabled: Bool {
-        ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1"
+        ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1"
     }
 
     private func log(_ message: String, error: Bool = false) {
@@ -231,7 +231,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             let line = "[virtio-gpu] \(message)\n"
             fputs(line, stderr)
             fflush(stderr)
-            if let file = fopen("/tmp/ezvm-virtio-gpu.log", "a") {
+            if let file = fopen("/tmp/riftvm-virtio-gpu.log", "a") {
                 fputs(line, file)
                 fclose(file)
             }
@@ -244,7 +244,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     private func recordDiagnosticsIfNeeded(trigger: String) {
-        guard ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" else { return }
+        guard ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1" else { return }
         let now = CFAbsoluteTimeGetCurrent()
         guard now - diagnosticWindowStartedAt >= 1 else { return }
         log(

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-notification.XXXXXX")
+work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-notification.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 revision=0123456789abcdef0123456789abcdef01234567
 observed=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
@@ -16,7 +16,7 @@ write_observation() {
       sourceRevision: ARGV.fetch(1),
       guestBootID: "boot-id",
       guestNotificationID: "guest-notification-id",
-      notificationTitle: "EZVM notification 12345678-1234-1234-1234-123456789abc",
+      notificationTitle: "RiftVM notification 12345678-1234-1234-1234-123456789abc",
       macOSRequestAccepted: true
     }
     File.write(ARGV.fetch(2), JSON.pretty_generate(value))

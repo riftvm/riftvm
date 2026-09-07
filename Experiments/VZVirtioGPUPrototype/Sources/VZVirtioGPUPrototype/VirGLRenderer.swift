@@ -94,7 +94,7 @@ final class VirGLRenderer {
     private var nextHostFenceID: UInt32 = 1
     private var pendingFences: [UInt32: PendingFence] = [:]
     private var lastLoggedScanoutDiagnosticGeneration: UInt64 = 0
-    private let logger = Logger(subsystem: "com.everettjf.ezvm", category: "virgl-fence")
+    private let logger = Logger(subsystem: "com.riftvm.app", category: "virgl-fence")
 
     init(libraryURL: URL) throws {
         self.libraryURL = libraryURL
@@ -106,7 +106,7 @@ final class VirGLRenderer {
             let initialize = vzvg_renderer_initialize()
             guard initialize == 0 else { return (load, initialize, Self.lastError, 0, 0) }
             vzvg_renderer_set_diagnostics_enabled(
-                ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" ? 1 : 0
+                ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1" ? 1 : 0
             )
             var version: UInt32 = 0
             var size: UInt32 = 0
@@ -154,7 +154,7 @@ final class VirGLRenderer {
         // the same process (the second vrend_renderer_init returns EINVAL).
         // Device teardown has already destroyed every guest context/resource;
         // keep the empty global renderer initialized for the next VM window.
-        // The OS reclaims the ANGLE display when EZVM exits.
+        // The OS reclaims the ANGLE display when RiftVM exits.
         Self.sharedLock.lock()
         if Self.sharedRenderer === self {
             Self.sharedRendererIsLeased = false
@@ -345,7 +345,7 @@ final class VirGLRenderer {
                 self.logger.error(
                     "scanout presentation failed: resource=\(resourceID, privacy: .public) source=\(width, privacy: .public)x\(height, privacy: .public) renderer=\(Self.lastError, privacy: .public)"
                 )
-            } else if ProcessInfo.processInfo.environment["EZVM_VIRGL_DIAGNOSTICS"] == "1" {
+            } else if ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1" {
                 let diagnostics = ScanoutDiagnostics(
                     signature: vzvg_renderer_scanout_signature(),
                     generation: vzvg_renderer_scanout_signature_generation()
@@ -356,7 +356,7 @@ final class VirGLRenderer {
                     self.logger.info(
                         "scanout content changed: generation=\(diagnostics.generation, privacy: .public) signature=\(String(diagnostics.signature, radix: 16), privacy: .public)"
                     )
-                    if let file = fopen("/tmp/ezvm-virgl-content.log", "a") {
+                    if let file = fopen("/tmp/riftvm-virgl-content.log", "a") {
                         fputs(
                             "resource=\(resourceID) size=\(width)x\(height) generation=\(diagnostics.generation) signature=\(String(diagnostics.signature, radix: 16))\n",
                             file

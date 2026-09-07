@@ -1,12 +1,12 @@
 import Foundation
 import Testing
-@testable import EZVMVirGLRuntime
+@testable import RiftVMVirGLRuntime
 
 @Test func runtimeDependencyResolverUsesExplicitDevelopmentOverride() {
     let dependencies = VirGLRuntimeDependencies.resolve(
-        environment: [VirGLRuntimeDependencies.environmentOverrideKey: "/tmp/ezvm-virgl-test"]
+        environment: [VirGLRuntimeDependencies.environmentOverrideKey: "/tmp/riftvm-virgl-test"]
     )
-    #expect(dependencies.directoryURL.path == "/tmp/ezvm-virgl-test")
+    #expect(dependencies.directoryURL.path == "/tmp/riftvm-virgl-test")
     #expect(dependencies.virglRendererURL.lastPathComponent == "libvirglrenderer.1.dylib")
     #expect(dependencies.epoxyURL.lastPathComponent == "libepoxy.0.dylib")
     #expect(dependencies.eglURL.lastPathComponent == "libEGL.dylib")

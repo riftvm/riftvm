@@ -107,7 +107,7 @@ func secureCreateUpload(path string) (*os.File, secureUploadTarget, error) {
 		syscall.Close(parentFD)
 		return nil, nil, fmt.Errorf("generate upload temporary name: %w", err)
 	}
-	temporaryName := ".ezvm-upload-" + hex.EncodeToString(random[:])
+	temporaryName := ".riftvm-upload-" + hex.EncodeToString(random[:])
 	// The parent was resolved with openat2 beneath / and the random basename
 	// contains no separators. Use openat for creation because virtiofs can
 	// reject openat2(O_CREAT) despite permitting ordinary writes.

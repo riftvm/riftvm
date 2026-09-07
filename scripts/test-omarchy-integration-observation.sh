@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-observation.XXXXXX")
+work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-observation.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 revision=0123456789abcdef0123456789abcdef01234567
 factory_version=factory-test-1

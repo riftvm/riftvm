@@ -3,8 +3,8 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-project_file="$project_root/EZVM/EZVM.xcodeproj/project.pbxproj"
-release_branch="${EZVM_RELEASE_BRANCH:-main}"
+project_file="$project_root/RiftVM/RiftVM.xcodeproj/project.pbxproj"
+release_branch="${RIFTVM_RELEASE_BRANCH:-main}"
 
 fail() {
   echo "release-patch: $*" >&2
@@ -33,8 +33,8 @@ done
 for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
   require_environment "$variable"
 done
-if [[ -z ${EZVM_RELEASE_SMOKE_VM:-} && -z ${EZVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
-  fail "set EZVM_RELEASE_SMOKE_VM or EZVM_RELEASE_PREINSTALLED_MANIFEST and EZVM_RELEASE_PREINSTALLED_IMAGE"
+if [[ -z ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
+  fail "set RIFTVM_RELEASE_SMOKE_VM or RIFTVM_RELEASE_PREINSTALLED_MANIFEST and RIFTVM_RELEASE_PREINSTALLED_IMAGE"
 fi
 
 [[ -f "$project_file" ]] || fail "Xcode project not found: $project_file"
@@ -79,32 +79,32 @@ next_build="$configured_builds"
 if [[ "$current_version" == "${latest_tag#v}" ]]; then
   next_build="$((configured_builds + 1))"
   ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
-  git -C "$project_root" add -- EZVM/EZVM.xcodeproj/project.pbxproj
-  git -C "$project_root" commit -m "Prepare EZVM $version (build $next_build)"
+  git -C "$project_root" add -- RiftVM/RiftVM.xcodeproj/project.pbxproj
+  git -C "$project_root" commit -m "Prepare RiftVM $version (build $next_build)"
 elif [[ "$current_version" != "$version" ]]; then
   fail "project version is $current_version, expected ${latest_tag#v} or $version"
 fi
 
-echo "Running EZVM $version release checks…"
+echo "Running RiftVM $version release checks…"
 (cd "$project_root" && swift test)
 (cd "$project_root/GuestAgent/linux" && go test ./...)
-(cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/ezvm-agent-release-check" .)
-(cd "$project_root/EZVM" && xcodebuild \
+(cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/rift-agent-release-check" .)
+(cd "$project_root/RiftVM" && xcodebuild \
   -quiet \
-  -project EZVM.xcodeproj \
-  -scheme EZVM \
+  -project RiftVM.xcodeproj \
+  -scheme RiftVM \
   -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath "${TMPDIR:-/tmp}/ezvm-release-check-$version" \
+  -derivedDataPath "${TMPDIR:-/tmp}/riftvm-release-check-$version" \
   CODE_SIGNING_ALLOWED=NO \
   build)
 
-git -C "$project_root" tag -a "$tag" -m "EZVM $version"
+git -C "$project_root" tag -a "$tag" -m "RiftVM $version"
 
 APPLE_ID="$APPLE_ID" \
 APPLE_SPECIFIC_PASSWORD="$APPLE_SPECIFIC_PASSWORD" \
 APPLE_TEAM_ID="$APPLE_TEAM_ID" \
-EZVM_RELEASE_BRANCH="$release_branch" \
+RIFTVM_RELEASE_BRANCH="$release_branch" \
   "$project_root/scripts/publish-release.sh" "$version"
 
-echo "EZVM $version is signed, notarized, published, and available from the Homebrew tap."
+echo "RiftVM $version is signed, notarized, published, and available from the Homebrew tap."

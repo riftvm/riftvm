@@ -81,7 +81,7 @@ type status struct {
 }
 
 func main() {
-	configPath := flag.String("config", "/etc/ezvm-agent/config.json", "enrollment configuration")
+	configPath := flag.String("config", "/etc/rift-agent/config.json", "enrollment configuration")
 	sessionMode := flag.Bool("session", false, "report desktop-session capabilities to the system agent")
 	flag.Parse()
 	if *sessionMode {
@@ -104,7 +104,7 @@ func main() {
 	if err := startSessionRegistry(); err != nil {
 		log.Printf("desktop session registry unavailable: %v", err)
 	}
-	log.Printf("EZVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
+	log.Printf("RiftVM guest agent %s listening on AF_VSOCK port %d", version, configuration.Port)
 	for {
 		connection, err := acceptSocket(fd)
 		if err != nil {
@@ -420,7 +420,7 @@ func procNetTCPHasListener(data []byte, port uint16) bool {
 
 func sharedFolderMounted() bool {
 	data, err := os.ReadFile("/proc/self/mountinfo")
-	return err == nil && mountInfoHasVirtioFS(data, "ezvm_shared", "/mnt/ezvm-shared")
+	return err == nil && mountInfoHasVirtioFS(data, "riftvm_shared", "/mnt/riftvm-shared")
 }
 
 func mountInfoHasVirtioFS(data []byte, tag, mountPoint string) bool {

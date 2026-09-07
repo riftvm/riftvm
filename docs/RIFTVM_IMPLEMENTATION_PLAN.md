@@ -1,6 +1,6 @@
 # RiftVM 0.1.0 Implementation Plan
 
-Status: product decisions confirmed; source baseline imported; implementation pending.
+Status: implementation in progress. See implementation/PROGRESS.md for verified milestones and remaining release requirements.
 
 ## Confirmed product contract
 

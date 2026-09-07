@@ -469,8 +469,11 @@ enum VirtioGPU {
         bytes[dtd + 14] = 0x30
         bytes[dtd + 17] = 0x1a
 
-        let name = Array("EZVM Display\n".utf8)
-        bytes[72..<90] = [0, 0, 0, 0xfc, 0] + name
+        // EDID monitor descriptors have exactly 13 text bytes. Branding must
+        // never resize the 128-byte block or move its checksum.
+        let name = Array("RiftVM\n".utf8)
+        let paddedName = name + Array(repeating: UInt8(0x20), count: 13 - name.count)
+        bytes[72..<90] = [0, 0, 0, 0xfc, 0] + paddedName
         bytes[126] = 0
         bytes[127] = UInt8(truncatingIfNeeded: 256 - bytes.prefix(127).reduce(0) { ($0 + Int($1)) & 0xff })
         return Data(bytes)

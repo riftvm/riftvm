@@ -49,7 +49,7 @@ func handleOwnerProvisioning(payload []byte) inputResult {
 	return handleOwnerProvisioningAt(
 		payload,
 		"/var/lib/omarchy/provisioning/pending",
-		"/run/ezvm-owner-provisioning.json",
+		"/run/riftvm-owner-provisioning.json",
 		"/usr/share/zoneinfo",
 	)
 }

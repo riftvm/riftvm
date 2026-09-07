@@ -4,23 +4,23 @@ set -euo pipefail
 
 manifest=${1:-}
 image=${2:-}
-timeout=${EZVM_PREINSTALLED_SMOKE_TIMEOUT:-180}
-app_path=${EZVM_APP_PATH:-/Applications/EZVM.app}
+timeout=${RIFTVM_PREINSTALLED_SMOKE_TIMEOUT:-180}
+app_path=${RIFTVM_APP_PATH:-/Applications/RiftVM.app}
 
 fail() { echo "verify-homebrew-preinstalled-image: $*" >&2; exit 1; }
 
 [[ -f $manifest && -f $image ]] || fail "usage: $0 <preinstalled-image-manifest.json> <decoded-disk.raw>"
-[[ $timeout =~ ^[1-9][0-9]*$ ]] || fail "EZVM_PREINSTALLED_SMOKE_TIMEOUT must be a positive integer"
-[[ -d $app_path ]] || fail "EZVM app was not found: $app_path"
-cli="$app_path/Contents/Helpers/ezvm"
-[[ -x $cli ]] || fail "the EZVM CLI is missing from $app_path"
+[[ $timeout =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_PREINSTALLED_SMOKE_TIMEOUT must be a positive integer"
+[[ -d $app_path ]] || fail "RiftVM app was not found: $app_path"
+cli="$app_path/Contents/Helpers/riftvm"
+[[ -x $cli ]] || fail "the RiftVM CLI is missing from $app_path"
 
-work=$(mktemp -d /tmp/ezvm-preinstalled-e2e.XXXXXX)
-destination="$work/Preinstalled Smoke.ezvm"
+work=$(mktemp -d /tmp/riftvm-preinstalled-e2e.XXXXXX)
+destination="$work/Preinstalled Smoke.riftvm"
 started=0
 cleanup() {
   if ((started)); then "$cli" stop "$destination" --timeout 30 >/dev/null 2>&1 || true; fi
-  if [[ ${EZVM_KEEP_SMOKE_ARTIFACTS:-0} == 1 ]]; then
+  if [[ ${RIFTVM_KEEP_SMOKE_ARTIFACTS:-0} == 1 ]]; then
     echo "verify-homebrew-preinstalled-image: retained $work" >&2
   else
     rm -rf "$work"
@@ -42,7 +42,7 @@ jq -e '.success == true and .result.valid == true and .result.osType == "linux"'
    -f $destination/MachineIdentifier && -f $destination/state.json ]] ||
   fail "installed bundle is incomplete"
 state_image_path=$(jq -r '.imagePath // empty' "$destination/state.json")
-[[ $state_image_path == file://* && $state_image_path == *"/Preinstalled%20Smoke.ezvm/Disk.img" ]] ||
+[[ $state_image_path == file://* && $state_image_path == *"/Preinstalled%20Smoke.riftvm/Disk.img" ]] ||
   fail "installed state does not reference the committed disk image: $state_image_path"
 [[ $state_image_path != *".install-"* ]] ||
   fail "installed state still references the staging directory"

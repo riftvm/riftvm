@@ -15,7 +15,7 @@ fail() { printf 'copy-sparse-raw-to-asif: %s\n' "$*" >&2; exit 1; }
 source_size=$(stat -f %z "$source_disk")
 [[ $source_size =~ ^[0-9]+$ && $source_size -gt 0 ]] || fail "source disk has an invalid size"
 
-attach_plist=$(mktemp "${TMPDIR:-/tmp}/ezvm-asif-attach.XXXXXX")
+attach_plist=$(mktemp "${TMPDIR:-/tmp}/riftvm-asif-attach.XXXXXX")
 attached_device=
 completed=0
 cleanup() {

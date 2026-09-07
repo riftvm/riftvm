@@ -1,0 +1,1127 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0CF30965B4E3C85C49EA1C52 /* VMOmarchyStorageForecast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F6DF03A334C225A9076940D /* VMOmarchyStorageForecast.swift */; };
+		10C2371D415C6F54EA449BC7 /* VMOmarchyWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEEFC72FD2851671548482B /* VMOmarchyWorkspace.swift */; };
+		1122FD58D47E39863D595D77 /* VMOmarchyProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 447F0FEEC2C1DDC6715BC413 /* VMOmarchyProfile.swift */; };
+		18E10E84FD786649CDD16765 /* OmarchyOwnerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E34AC8033F803D224B4E4BA /* OmarchyOwnerSetupView.swift */; };
+		1C08FEB6E7C2EC27D487D42F /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DC76D89318C34DF29ED55B3 /* WorkspaceCoordinator.swift */; };
+		39B4319D37300BF35FA9AC75 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA43C760BDD521106D3B0945 /* OmarchyFullScreenAcceptanceProbe.swift */; };
+		4007086649B937776C471CB6 /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF772F6DDE31823B7DBF714 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
+		425B3E081A649C4800E8040B /* OmarchyIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC1C71329CAD6E8D21E904E /* OmarchyIntegrationTests.swift */; };
+		4B12A339BBDD12AF44DD86A5 /* OmarchyAgentClipboardController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 706DACD18EEEB2C45512D418 /* OmarchyAgentClipboardController.swift */; };
+		56A3E7DD29152F1FDF4476A4 /* VMOmarchySharedFolderImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D253E3FBA3F432AD0942D7 /* VMOmarchySharedFolderImporter.swift */; };
+		572A4273DB17F2AA5BF35A76 /* OmarchyApplicationTermination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FE515911FE2B6C4A6EA88B /* OmarchyApplicationTermination.swift */; };
+		5AC15986E7B3BD35BF54E152 /* VMOmarchyFactoryInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C403CBE173B74810168F5DDB /* VMOmarchyFactoryInstaller.swift */; };
+		60C205E2B620E3D483E7681C /* OmarchyReleaseReadinessReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D375F68810C1A844AA5DD76E /* OmarchyReleaseReadinessReporter.swift */; };
+		6EC33C29F2509DC199312704 /* OmarchyLockAcceptanceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF85F93E9A68E14191438C5 /* OmarchyLockAcceptanceState.swift */; };
+		7611A1353AAD54B2BB829D91 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641F5A019372A84CE48ACEEB /* OmarchyVirtualMachineView.swift */; };
+		89C7F14836CB6A807A116181 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03636D8BD89C57573ECF02D8 /* Cocoa.framework */; };
+		89EF622E536CE6BDBAFBEF3C /* VMOmarchyVirtualMachineBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD2D1D187373B0E23F32417 /* VMOmarchyVirtualMachineBuilder.swift */; };
+		8F2A9C4DE8BB719D591A408F /* VMOmarchyGuestAgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A0BD14E4F6DC57C7FAB26E /* VMOmarchyGuestAgentClient.swift */; };
+		97C367578D200BAEA991917C /* OmarchyFocusedCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169DC65ADEE4ADCB332F6DA7 /* OmarchyFocusedCommandBridge.swift */; };
+		ADA45D163C4A19E1FD636A36 /* WorkspaceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E86A16D2DF53DF5DF57129A /* WorkspaceRegistry.swift */; };
+		BD5F6E472C3D4809D61FA209 /* VMOmarchyDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30D40A4F2CD04EF8FD8457C /* VMOmarchyDiagnostics.swift */; };
+		C16D3B95AE4ECE86D122361A /* OmarchyClipboardAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8DCD4267F0EBCED7BD4F1 /* OmarchyClipboardAcceptanceProbe.swift */; };
+		CA5E5AFE000000000000D001 /* VMSystemImageCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */; };
+		CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */; };
+		CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */; };
+		CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */; };
+		CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */; };
+		CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
+		CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
+		CA5E5AFE000000000000D008 /* VMPortabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */; };
+		CA5E5AFE000000000000D009 /* VMGuestAgentProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */; };
+		CA5E5AFE000000000000D010 /* VMGuestAgentEnrollmentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A010 /* VMGuestAgentEnrollmentStore.swift */; };
+		CA5E5AFE000000000000D011 /* VMGuestAgentHostClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A011 /* VMGuestAgentHostClient.swift */; };
+		CA5E5AFE000000000000E002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000E003 /* Localizable.xcstrings */; };
+		CB8F012BAA2A77422095BF40 /* OmarchyOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA049110B684933F185ABF1 /* OmarchyOnboardingView.swift */; };
+		CFD646D368D1E297CEB754CF /* OmarchyNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC81B9EF02CA2DCD6404B58 /* OmarchyNotificationController.swift */; };
+		D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */; };
+		D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */; };
+		D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */; };
+		D1196EA928E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */; };
+		D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */; };
+		D1196EAE28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */; };
+		D1196EB128E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */; };
+		D1196EB328E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB228E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift */; };
+		D1196EB528E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB428E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift */; };
+		D1196EB728E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB628E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift */; };
+		D1196EB928E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EB828E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift */; };
+		D1196EBB28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBA28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift */; };
+		D1196EBD28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBC28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift */; };
+		D1196EC028E7D65000CCC04D /* VMOSCreator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */; };
+		D1196EC228E7D8D500CCC04D /* VMOSCreatorForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */; };
+		D1196EC428E868BC00CCC04D /* VMOSHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1196EC328E868BC00CCC04D /* VMOSHelper.swift */; };
+		D11A80E928C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */; };
+		D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */ = {isa = PBXBuildFile; fileRef = D120BD5028CF25E3009297E8 /* MacKitUtil.swift */; };
+		D132336D28E27C2E002C26A2 /* VMOSDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */; };
+		D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132336F28E27C6B002C26A2 /* VMOSType.swift */; };
+		D132337328E282AF002C26A2 /* VMOSDownloaderForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */; };
+		D132337728E28453002C26A2 /* VMOSResultVoid.swift in Sources */ = {isa = PBXBuildFile; fileRef = D132337628E28453002C26A2 /* VMOSResultVoid.swift */; };
+		D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */; };
+		D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D166803328E93DA300F70110 /* MachinesEmptyView.swift */; };
+		D184CB0428EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */; };
+		D184CB0628EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */; };
+		D184CB0828EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0728EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift */; };
+		D184CB1028EB2581001E3664 /* VMEditConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */; };
+		D184CB1228EB295A001E3664 /* MachineDetailInvalidCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */; };
+		D184CB1428EB29DE001E3664 /* MachinesHomeStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1328EB29DE001E3664 /* MachinesHomeStateObject.swift */; };
+		D184CB1628EBE106001E3664 /* VMOSCreatorForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */; };
+		D184CB1828ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1728ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift */; };
+		D184CB1A28ED21F2001E3664 /* VMOSRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1928ED21F2001E3664 /* VMOSRunner.swift */; };
+		D184CB1C28ED23F9001E3664 /* VMOSRunnerForMacOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */; };
+		D184CB1E28ED2496001E3664 /* VMOSRunnerForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = D184CB1D28ED2496001E3664 /* VMOSRunnerForLinux.swift */; };
+		D18AE4D928D2B0F600B5C3E2 /* VMCreateViewStateObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4D828D2B0F600B5C3E2 /* VMCreateViewStateObject.swift */; };
+		D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */; };
+		D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */ = {isa = PBXBuildFile; fileRef = D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */; };
+		D19105F128EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */; };
+		D19105F328EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */; };
+		D19105F528EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19105F428EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift */; };
+		D19EC93328CEE9F6004564B7 /* CreatePhaseConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */; };
+		D19EC93728CEEA44004564B7 /* VMCreateConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93628CEEA44004564B7 /* VMCreateConfigurationView.swift */; };
+		D19EC93928CEEAEB004564B7 /* CreatePhaseCreatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */; };
+		D19EC93B28CEEB49004564B7 /* CreatePhaseCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */; };
+		D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */; };
+		D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */; };
+		D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */; };
+		D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A04289E99AD00CF27D3 /* VMModel.swift */; };
+		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
+		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
+		D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */; };
+		D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF706B28B65EEE00F2D279 /* VMModelFieldMemory.swift */; };
+		D1EF706E28B6639600F2D279 /* VMModelFieldGraphicDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF706D28B6639600F2D279 /* VMModelFieldGraphicDevice.swift */; };
+		D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF706F28B6654500F2D279 /* VMModelFieldStorageDevice.swift */; };
+		D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707128B6656500F2D279 /* VMModelFieldNetworkDevice.swift */; };
+		D1EF707428B6657400F2D279 /* VMModelFieldPointingDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */; };
+		D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */; };
+		D2575648BCCEAA1537F658C5 /* OmarchyInputDiagnosticsAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC5C93FA6B24DF778F1AE0C6 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */; };
+		D9F998EA825D05E455787F36 /* OmarchyAcceptanceObservationReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E95EF5D2423525F5018610C9 /* OmarchyAcceptanceObservationReporter.swift */; };
+		E7A100012A00000000000001 /* RiftVMVirGLRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = E7A100032A00000000000001 /* RiftVMVirGLRuntime */; };
+		F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */; };
+		F2C5DCA22866F7C800B2F41F /* MainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA12866F7C800B2F41F /* MainApp.swift */; };
+		F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
+		F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
+		F2C5DCA92866F7C900B2F41F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */; };
+		F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */; };
+		FFC414BE3413ECE90224DCB7 /* VMOmarchyFactoryManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8873751D7D7B51D779CA7D9C /* VMOmarchyFactoryManifest.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E0902A82E40BB5C0F548F1AE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F2C5DC962866F7C800B2F41F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F2C5DC9D2866F7C800B2F41F;
+			remoteInfo = RiftVM;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		00A0BD14E4F6DC57C7FAB26E /* VMOmarchyGuestAgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyGuestAgentClient.swift; sourceTree = SOURCE_ROOT; };
+		00A8DCD4267F0EBCED7BD4F1 /* OmarchyClipboardAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyClipboardAcceptanceProbe.swift; sourceTree = SOURCE_ROOT; };
+		03636D8BD89C57573ECF02D8 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		169DC65ADEE4ADCB332F6DA7 /* OmarchyFocusedCommandBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyFocusedCommandBridge.swift; sourceTree = SOURCE_ROOT; };
+		2E86A16D2DF53DF5DF57129A /* WorkspaceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Common/WorkspaceRegistry.swift; sourceTree = SOURCE_ROOT; };
+		2EF85F93E9A68E14191438C5 /* OmarchyLockAcceptanceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyLockAcceptanceState.swift; sourceTree = SOURCE_ROOT; };
+		3DC76D89318C34DF29ED55B3 /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Application/Main/WorkspaceCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		447F0FEEC2C1DDC6715BC413 /* VMOmarchyProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyProfile.swift; sourceTree = SOURCE_ROOT; };
+		4E34AC8033F803D224B4E4BA /* OmarchyOwnerSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyOwnerSetupView.swift; sourceTree = SOURCE_ROOT; };
+		5D5CC270EB27CA191A29EC76 /* RiftVMAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RiftVMAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DEEFC72FD2851671548482B /* VMOmarchyWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyWorkspace.swift; sourceTree = SOURCE_ROOT; };
+		641F5A019372A84CE48ACEEB /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyVirtualMachineView.swift; sourceTree = SOURCE_ROOT; };
+		6EC81B9EF02CA2DCD6404B58 /* OmarchyNotificationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyNotificationController.swift; sourceTree = SOURCE_ROOT; };
+		706DACD18EEEB2C45512D418 /* OmarchyAgentClipboardController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyAgentClipboardController.swift; sourceTree = SOURCE_ROOT; };
+		78D253E3FBA3F432AD0942D7 /* VMOmarchySharedFolderImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchySharedFolderImporter.swift; sourceTree = SOURCE_ROOT; };
+		7F6DF03A334C225A9076940D /* VMOmarchyStorageForecast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyStorageForecast.swift; sourceTree = SOURCE_ROOT; };
+		86FE515911FE2B6C4A6EA88B /* OmarchyApplicationTermination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyApplicationTermination.swift; sourceTree = SOURCE_ROOT; };
+		8873751D7D7B51D779CA7D9C /* VMOmarchyFactoryManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyFactoryManifest.swift; sourceTree = SOURCE_ROOT; };
+		8AF772F6DDE31823B7DBF714 /* OmarchyDynamicDisplayAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyDynamicDisplayAcceptanceProbe.swift; sourceTree = SOURCE_ROOT; };
+		9DC1C71329CAD6E8D21E904E /* OmarchyIntegrationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyIntegrationTests.swift; sourceTree = "<group>"; };
+		BA43C760BDD521106D3B0945 /* OmarchyFullScreenAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyFullScreenAcceptanceProbe.swift; sourceTree = SOURCE_ROOT; };
+		BC5C93FA6B24DF778F1AE0C6 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyInputDiagnosticsAcceptanceProbe.swift; sourceTree = SOURCE_ROOT; };
+		C30D40A4F2CD04EF8FD8457C /* VMOmarchyDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyDiagnostics.swift; sourceTree = SOURCE_ROOT; };
+		C403CBE173B74810168F5DDB /* VMOmarchyFactoryInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyFactoryInstaller.swift; sourceTree = SOURCE_ROOT; };
+		CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMSystemImageCatalog.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloaderForLinux.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMSnapshotManager.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineSnapshotsView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameLocationView.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMRunningRegistry.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMPortabilityManager.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentProtocol.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A010 /* VMGuestAgentEnrollmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentEnrollmentStore.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000A011 /* VMGuestAgentHostClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentHostClient.swift; sourceTree = "<group>"; };
+		CA5E5AFE000000000000E003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationViewStateObject.swift; sourceTree = "<group>"; };
+		D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationCPUView.swift; sourceTree = "<group>"; };
+		D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationMemoryView.swift; sourceTree = "<group>"; };
+		D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationGraphicDevicesView.swift; sourceTree = "<group>"; };
+		D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationGraphicDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationStorageDevicesView.swift; sourceTree = "<group>"; };
+		D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationStorageDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EB228E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationNetworkDevicesView.swift; sourceTree = "<group>"; };
+		D1196EB428E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationNetworkDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EB628E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationPointingDevicesView.swift; sourceTree = "<group>"; };
+		D1196EB828E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationPointingDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EBA28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationAudioDevicesView.swift; sourceTree = "<group>"; };
+		D1196EBC28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationAudioDevicesEditView.swift; sourceTree = "<group>"; };
+		D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSCreator.swift; sourceTree = "<group>"; };
+		D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSCreatorForMacOS.swift; sourceTree = "<group>"; };
+		D1196EC328E868BC00CCC04D /* VMOSHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSHelper.swift; sourceTree = "<group>"; };
+		D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateStepperGuideView.swift; sourceTree = "<group>"; };
+		D120BD5028CF25E3009297E8 /* MacKitUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacKitUtil.swift; sourceTree = "<group>"; };
+		D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloader.swift; sourceTree = "<group>"; };
+		D132336F28E27C6B002C26A2 /* VMOSType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSType.swift; sourceTree = "<group>"; };
+		D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloaderForMacOS.swift; sourceTree = "<group>"; };
+		D132337628E28453002C26A2 /* VMOSResultVoid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSResultVoid.swift; sourceTree = "<group>"; };
+		D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailCardView.swift; sourceTree = "<group>"; };
+		D166803328E93DA300F70110 /* MachinesEmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesEmptyView.swift; sourceTree = "<group>"; };
+		D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSMainVirtualMachineView.swift; sourceTree = "<group>"; };
+		D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalVirtualMachineViewController.swift; sourceTree = "<group>"; };
+		D184CB0728EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalVirtualMachineView.swift; sourceTree = "<group>"; };
+		D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMEditConfigurationView.swift; sourceTree = "<group>"; };
+		D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineDetailInvalidCardView.swift; sourceTree = "<group>"; };
+		D184CB1328EB29DE001E3664 /* MachinesHomeStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesHomeStateObject.swift; sourceTree = "<group>"; };
+		D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSCreatorForLinux.swift; sourceTree = "<group>"; };
+		D184CB1728ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSInternalVirtualMachineDelegate.swift; sourceTree = "<group>"; };
+		D184CB1928ED21F2001E3664 /* VMOSRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSRunner.swift; sourceTree = "<group>"; };
+		D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSRunnerForMacOS.swift; sourceTree = "<group>"; };
+		D184CB1D28ED2496001E3664 /* VMOSRunnerForLinux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSRunnerForLinux.swift; sourceTree = "<group>"; };
+		D18AE4D828D2B0F600B5C3E2 /* VMCreateViewStateObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateViewStateObject.swift; sourceTree = "<group>"; };
+		D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemImageDownloadView.swift; sourceTree = "<group>"; };
+		D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldCPU.swift; sourceTree = "<group>"; };
+		D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldDirectorySharingDevice.swift; sourceTree = "<group>"; };
+		D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDirectorySharingDevicesView.swift; sourceTree = "<group>"; };
+		D19105F428EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMConfigurationDirectorySharingDevicesEditView.swift; sourceTree = "<group>"; };
+		D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseConfigurationView.swift; sourceTree = "<group>"; };
+		D19EC93628CEEA44004564B7 /* VMCreateConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateConfigurationView.swift; sourceTree = "<group>"; };
+		D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseCreatingView.swift; sourceTree = "<group>"; };
+		D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseCompleteView.swift; sourceTree = "<group>"; };
+		D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palettes.swift; sourceTree = "<group>"; };
+		D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityDetailHomeView.swift; sourceTree = "<group>"; };
+		D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutDetailHomeView.swift; sourceTree = "<group>"; };
+		D1CCB222290DB92D00B1F563 /* RiftVM Intel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RiftVM Intel.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1CCB224290E257E00B1F563 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D1E19A04289E99AD00CF27D3 /* VMModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModel.swift; sourceTree = "<group>"; };
+		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
+		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
+		D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigModel.swift; sourceTree = "<group>"; };
+		D1EF706B28B65EEE00F2D279 /* VMModelFieldMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldMemory.swift; sourceTree = "<group>"; };
+		D1EF706D28B6639600F2D279 /* VMModelFieldGraphicDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldGraphicDevice.swift; sourceTree = "<group>"; };
+		D1EF706F28B6654500F2D279 /* VMModelFieldStorageDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldStorageDevice.swift; sourceTree = "<group>"; };
+		D1EF707128B6656500F2D279 /* VMModelFieldNetworkDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldNetworkDevice.swift; sourceTree = "<group>"; };
+		D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldPointingDevice.swift; sourceTree = "<group>"; };
+		D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMModelFieldAudioDevice.swift; sourceTree = "<group>"; };
+		D375F68810C1A844AA5DD76E /* OmarchyReleaseReadinessReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyReleaseReadinessReporter.swift; sourceTree = SOURCE_ROOT; };
+		E95EF5D2423525F5018610C9 /* OmarchyAcceptanceObservationReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyAcceptanceObservationReporter.swift; sourceTree = SOURCE_ROOT; };
+		EAD2D1D187373B0E23F32417 /* VMOmarchyVirtualMachineBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Core/VMKit/Profile/VMOmarchyVirtualMachineBuilder.swift; sourceTree = SOURCE_ROOT; };
+		F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesDetailHomeView.swift; sourceTree = "<group>"; };
+		F2C5DC9E2866F7C800B2F41F /* RiftVM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiftVM.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F2C5DCA12866F7C800B2F41F /* MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainApp.swift; sourceTree = "<group>"; };
+		F2C5DCA32866F7C800B2F41F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F2C5DCA52866F7C900B2F41F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		F2C5DCAA2866F7C900B2F41F /* RiftVM.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiftVM.entitlements; sourceTree = "<group>"; };
+		F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		FFA049110B684933F185ABF1 /* OmarchyOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiftVM/Omarchy/OmarchyOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		762587EE20D3779BBDC8CD8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89C7F14836CB6A807A116181 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F2C5DC9B2866F7C800B2F41F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E7A100012A00000000000001 /* RiftVMVirGLRuntime in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		418F8219E2857467CC573F88 /* App Tests */ = {
+			isa = PBXGroup;
+			children = (
+				9DC1C71329CAD6E8D21E904E /* OmarchyIntegrationTests.swift */,
+			);
+			name = "App Tests";
+			path = ../Tests/RiftVMAppTests;
+			sourceTree = "<group>";
+		};
+		84111F633325C6361038FD3A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				97D69382F153A673308CD5AD /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		97D69382F153A673308CD5AD /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				03636D8BD89C57573ECF02D8 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B001 /* Catalog */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A001 /* VMSystemImageCatalog.swift */,
+			);
+			path = Catalog;
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B002 /* Snapshot */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */,
+			);
+			path = Snapshot;
+			sourceTree = "<group>";
+		};
+		CA5E5AFE000000000000B003 /* GuestAgent */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */,
+				CA5E5AFE000000000000A010 /* VMGuestAgentEnrollmentStore.swift */,
+				CA5E5AFE000000000000A011 /* VMGuestAgentHostClient.swift */,
+			);
+			path = GuestAgent;
+			sourceTree = "<group>";
+		};
+		D1196EAA28E5E5A400CCC04D /* ChildViews */ = {
+			isa = PBXGroup;
+			children = (
+				D1196EAB28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift */,
+				D1196EB028E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift */,
+				D1196EB428E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift */,
+				D1196EB828E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift */,
+				D1196EBC28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift */,
+				D19105F428EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift */,
+			);
+			path = ChildViews;
+			sourceTree = "<group>";
+		};
+		D120BD5428CF463A009297E8 /* VMKit */ = {
+			isa = PBXGroup;
+			children = (
+				CA5E5AFE000000000000B001 /* Catalog */,
+				D132337828E28589002C26A2 /* Common */,
+				CA5E5AFE000000000000B003 /* GuestAgent */,
+				D132336E28E27C5E002C26A2 /* Model */,
+				D132337128E282A0002C26A2 /* OS */,
+				CA5E5AFE000000000000B002 /* Snapshot */,
+				D132336C28E27C2E002C26A2 /* VMOSDownloader.swift */,
+				D1196EBF28E7D65000CCC04D /* VMOSCreator.swift */,
+				D184CB1928ED21F2001E3664 /* VMOSRunner.swift */,
+			);
+			path = VMKit;
+			sourceTree = "<group>";
+		};
+		D132336E28E27C5E002C26A2 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				D18E522D28B3D15C00508D8A /* Fields */,
+				D1E19A04289E99AD00CF27D3 /* VMModel.swift */,
+				D132336F28E27C6B002C26A2 /* VMOSType.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		D132337128E282A0002C26A2 /* OS */ = {
+			isa = PBXGroup;
+			children = (
+				D184CB0228EA8A13001E3664 /* RunnerWindow */,
+				D132337228E282AF002C26A2 /* VMOSDownloaderForMacOS.swift */,
+				CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */,
+				D1196EC128E7D8D500CCC04D /* VMOSCreatorForMacOS.swift */,
+				D184CB1528EBE106001E3664 /* VMOSCreatorForLinux.swift */,
+				D184CB1B28ED23F9001E3664 /* VMOSRunnerForMacOS.swift */,
+				D184CB1D28ED2496001E3664 /* VMOSRunnerForLinux.swift */,
+			);
+			path = OS;
+			sourceTree = "<group>";
+		};
+		D132337828E28589002C26A2 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				D132337628E28453002C26A2 /* VMOSResultVoid.swift */,
+				D1196EC328E868BC00CCC04D /* VMOSHelper.swift */,
+				CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */,
+				CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		D184CB0228EA8A13001E3664 /* RunnerWindow */ = {
+			isa = PBXGroup;
+			children = (
+				D184CB0328EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift */,
+				D184CB0728EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift */,
+				D184CB1728ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift */,
+				D184CB0528EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift */,
+			);
+			path = RunnerWindow;
+			sourceTree = "<group>";
+		};
+		D184CB0B28EB23F0001E3664 /* Edit */ = {
+			isa = PBXGroup;
+			children = (
+				D184CB0F28EB2581001E3664 /* VMEditConfigurationView.swift */,
+			);
+			path = Edit;
+			sourceTree = "<group>";
+		};
+		D184CB0C28EB2479001E3664 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				D184CB0E28EB24EA001E3664 /* State */,
+				D19EC93428CEEA09004564B7 /* Shared */,
+				D1E19A0B289E9E3300CF27D3 /* Create */,
+				D184CB0B28EB23F0001E3664 /* Edit */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		D184CB0D28EB24A7001E3664 /* Application */ = {
+			isa = PBXGroup;
+			children = (
+				D1E19A03289E999A00CF27D3 /* Model */,
+				D1A6A5E028BA7A9200CBE80A /* Detail */,
+				D1CCB223290DBB4200B1F563 /* Entry */,
+				F2705280286C93870008DCD1 /* Main */,
+			);
+			path = Application;
+			sourceTree = "<group>";
+		};
+		D184CB0E28EB24EA001E3664 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				D18AE4D828D2B0F600B5C3E2 /* VMCreateViewStateObject.swift */,
+				D1196EA028E5E2A300CCC04D /* VMConfigurationViewStateObject.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */ = {
+			isa = PBXGroup;
+			children = (
+				D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */,
+				CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */,
+				CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */,
+				D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */,
+				D19EC93A28CEEB49004564B7 /* CreatePhaseCompleteView.swift */,
+			);
+			path = PhaseViews;
+			sourceTree = "<group>";
+		};
+		D18AE4DB28D2B66300B5C3E2 /* OtherViews */ = {
+			isa = PBXGroup;
+			children = (
+				D18AE4DC28D2B67F00B5C3E2 /* SystemImageDownloadView.swift */,
+			);
+			path = OtherViews;
+			sourceTree = "<group>";
+		};
+		D18E522D28B3D15C00508D8A /* Fields */ = {
+			isa = PBXGroup;
+			children = (
+				D18E522E28B3D18B00508D8A /* VMModelFieldCPU.swift */,
+				D1EF706B28B65EEE00F2D279 /* VMModelFieldMemory.swift */,
+				D1EF706D28B6639600F2D279 /* VMModelFieldGraphicDevice.swift */,
+				D1EF706F28B6654500F2D279 /* VMModelFieldStorageDevice.swift */,
+				D1EF707128B6656500F2D279 /* VMModelFieldNetworkDevice.swift */,
+				D1EF707328B6657400F2D279 /* VMModelFieldPointingDevice.swift */,
+				D1EF707728B6659A00F2D279 /* VMModelFieldAudioDevice.swift */,
+				D19105F028EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift */,
+			);
+			path = Fields;
+			sourceTree = "<group>";
+		};
+		D19EC93428CEEA09004564B7 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D1196EAA28E5E5A400CCC04D /* ChildViews */,
+				D1196EA228E5E2BE00CCC04D /* VMConfigurationCPUView.swift */,
+				D1196EA428E5E2D600CCC04D /* VMConfigurationMemoryView.swift */,
+				D1196EA828E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift */,
+				D1196EAD28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift */,
+				D1196EB228E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift */,
+				D1196EB628E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift */,
+				D1196EBA28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift */,
+				D19105F228EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		D1A6A5E028BA7A9200CBE80A /* Detail */ = {
+			isa = PBXGroup;
+			children = (
+				D1AF34F728C5804D00317D05 /* Machines */,
+				D1AF34F928C5805D00317D05 /* Community */,
+				D1AF34FA28C5806500317D05 /* Issues */,
+				D1AF34FB28C5806D00317D05 /* About */,
+			);
+			path = Detail;
+			sourceTree = "<group>";
+		};
+		D1AF34F728C5804D00317D05 /* Machines */ = {
+			isa = PBXGroup;
+			children = (
+				D184CB1328EB29DE001E3664 /* MachinesHomeStateObject.swift */,
+				F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */,
+				D163F33728C4DA11005FCAB5 /* MachineDetailCardView.swift */,
+				D184CB1128EB295A001E3664 /* MachineDetailInvalidCardView.swift */,
+				CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */,
+				D166803328E93DA300F70110 /* MachinesEmptyView.swift */,
+			);
+			path = Machines;
+			sourceTree = "<group>";
+		};
+		D1AF34F928C5805D00317D05 /* Community */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E328BA7AEC00CBE80A /* CommunityDetailHomeView.swift */,
+			);
+			path = Community;
+			sourceTree = "<group>";
+		};
+		D1AF34FA28C5806500317D05 /* Issues */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Issues;
+			sourceTree = "<group>";
+		};
+		D1AF34FB28C5806D00317D05 /* About */ = {
+			isa = PBXGroup;
+			children = (
+				D1A6A5E728BA7B2100CBE80A /* AboutDetailHomeView.swift */,
+			);
+			path = About;
+			sourceTree = "<group>";
+		};
+		D1CCB223290DBB4200B1F563 /* Entry */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
+			);
+			path = Entry;
+			sourceTree = "<group>";
+		};
+		D1E19A03289E999A00CF27D3 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		D1E19A06289E9CE400CF27D3 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				D120BD5028CF25E3009297E8 /* MacKitUtil.swift */,
+				D1E19A09289E9DAD00CF27D3 /* Array.swift */,
+				D1E19A07289E9CFB00CF27D3 /* Date.swift */,
+				D1A6A5DE28BA5F3A00CBE80A /* Palettes.swift */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		D1E19A0B289E9E3300CF27D3 /* Create */ = {
+			isa = PBXGroup;
+			children = (
+				D19EC93628CEEA44004564B7 /* VMCreateConfigurationView.swift */,
+				D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */,
+				D18AE4DA28D2B62B00B5C3E2 /* PhaseViews */,
+				D18AE4DB28D2B66300B5C3E2 /* OtherViews */,
+			);
+			path = Create;
+			sourceTree = "<group>";
+		};
+		D1E61F6928AF1D2400ED98A0 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				D120BD5428CF463A009297E8 /* VMKit */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		F2705280286C93870008DCD1 /* Main */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */,
+				F2C5DCA12866F7C800B2F41F /* MainApp.swift */,
+			);
+			path = Main;
+			sourceTree = "<group>";
+		};
+		F2C5DC952866F7C800B2F41F = {
+			isa = PBXGroup;
+			children = (
+				3DC76D89318C34DF29ED55B3 /* WorkspaceCoordinator.swift */,
+				2E86A16D2DF53DF5DF57129A /* WorkspaceRegistry.swift */,
+				C30D40A4F2CD04EF8FD8457C /* VMOmarchyDiagnostics.swift */,
+				C403CBE173B74810168F5DDB /* VMOmarchyFactoryInstaller.swift */,
+				8873751D7D7B51D779CA7D9C /* VMOmarchyFactoryManifest.swift */,
+				00A0BD14E4F6DC57C7FAB26E /* VMOmarchyGuestAgentClient.swift */,
+				447F0FEEC2C1DDC6715BC413 /* VMOmarchyProfile.swift */,
+				78D253E3FBA3F432AD0942D7 /* VMOmarchySharedFolderImporter.swift */,
+				7F6DF03A334C225A9076940D /* VMOmarchyStorageForecast.swift */,
+				EAD2D1D187373B0E23F32417 /* VMOmarchyVirtualMachineBuilder.swift */,
+				5DEEFC72FD2851671548482B /* VMOmarchyWorkspace.swift */,
+				E95EF5D2423525F5018610C9 /* OmarchyAcceptanceObservationReporter.swift */,
+				706DACD18EEEB2C45512D418 /* OmarchyAgentClipboardController.swift */,
+				86FE515911FE2B6C4A6EA88B /* OmarchyApplicationTermination.swift */,
+				00A8DCD4267F0EBCED7BD4F1 /* OmarchyClipboardAcceptanceProbe.swift */,
+				8AF772F6DDE31823B7DBF714 /* OmarchyDynamicDisplayAcceptanceProbe.swift */,
+				169DC65ADEE4ADCB332F6DA7 /* OmarchyFocusedCommandBridge.swift */,
+				BA43C760BDD521106D3B0945 /* OmarchyFullScreenAcceptanceProbe.swift */,
+				BC5C93FA6B24DF778F1AE0C6 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */,
+				2EF85F93E9A68E14191438C5 /* OmarchyLockAcceptanceState.swift */,
+				6EC81B9EF02CA2DCD6404B58 /* OmarchyNotificationController.swift */,
+				FFA049110B684933F185ABF1 /* OmarchyOnboardingView.swift */,
+				4E34AC8033F803D224B4E4BA /* OmarchyOwnerSetupView.swift */,
+				D375F68810C1A844AA5DD76E /* OmarchyReleaseReadinessReporter.swift */,
+				641F5A019372A84CE48ACEEB /* OmarchyVirtualMachineView.swift */,
+				F2C5DCA02866F7C800B2F41F /* RiftVM */,
+				F2C5DC9F2866F7C800B2F41F /* Products */,
+				84111F633325C6361038FD3A /* Frameworks */,
+				418F8219E2857467CC573F88 /* App Tests */,
+			);
+			sourceTree = "<group>";
+		};
+		F2C5DC9F2866F7C800B2F41F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DC9E2866F7C800B2F41F /* RiftVM.app */,
+				D1CCB222290DB92D00B1F563 /* RiftVM Intel.app */,
+				5D5CC270EB27CA191A29EC76 /* RiftVMAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F2C5DCA02866F7C800B2F41F /* RiftVM */ = {
+			isa = PBXGroup;
+			children = (
+				D1CCB224290E257E00B1F563 /* Info.plist */,
+				D1E19A06289E9CE400CF27D3 /* Common */,
+				D1E61F6928AF1D2400ED98A0 /* Core */,
+				D184CB0C28EB2479001E3664 /* Configuration */,
+				D184CB0D28EB24A7001E3664 /* Application */,
+				F2C5DCA52866F7C900B2F41F /* Assets.xcassets */,
+				CA5E5AFE000000000000E003 /* Localizable.xcstrings */,
+				F2C5DCAA2866F7C900B2F41F /* RiftVM.entitlements */,
+				F2C5DCA72866F7C900B2F41F /* Preview Content */,
+			);
+			path = RiftVM;
+			sourceTree = "<group>";
+		};
+		F2C5DCA72866F7C900B2F41F /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		162F0D6631F4C35675BD5E40 /* RiftVMAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 056C993F530165AC47A50004 /* Build configuration list for PBXNativeTarget "RiftVMAppTests" */;
+			buildPhases = (
+				791F77710B013EC3CB7B4501 /* Sources */,
+				762587EE20D3779BBDC8CD8A /* Frameworks */,
+				884CA5D6377B62F90874B610 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03351F265B631EE76B1ABC64 /* PBXTargetDependency */,
+			);
+			name = RiftVMAppTests;
+			productName = RiftVMAppTests;
+			productReference = 5D5CC270EB27CA191A29EC76 /* RiftVMAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F2C5DC9D2866F7C800B2F41F /* RiftVM */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F2C5DCAD2866F7C900B2F41F /* Build configuration list for PBXNativeTarget "RiftVM" */;
+			buildPhases = (
+				F2C5DC9A2866F7C800B2F41F /* Sources */,
+				F2C5DC9B2866F7C800B2F41F /* Frameworks */,
+				F2C5DC9C2866F7C800B2F41F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RiftVM;
+			packageProductDependencies = (
+				E7A100032A00000000000001 /* RiftVMVirGLRuntime */,
+			);
+			productName = RiftVM;
+			productReference = F2C5DC9E2866F7C800B2F41F /* RiftVM.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F2C5DC962866F7C800B2F41F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1400;
+				LastUpgradeCheck = 1400;
+				TargetAttributes = {
+					F2C5DC9D2866F7C800B2F41F = {
+						CreatedOnToolsVersion = 14.0;
+					};
+				};
+			};
+			buildConfigurationList = F2C5DC992866F7C800B2F41F /* Build configuration list for PBXProject "RiftVM" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F2C5DC952866F7C800B2F41F;
+			packageReferences = (
+				E7A100022A00000000000001 /* XCLocalSwiftPackageReference "VZVirtioGPUPrototype" */,
+			);
+			productRefGroup = F2C5DC9F2866F7C800B2F41F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F2C5DC9D2866F7C800B2F41F /* RiftVM */,
+				162F0D6631F4C35675BD5E40 /* RiftVMAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		884CA5D6377B62F90874B610 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F2C5DC9C2866F7C800B2F41F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F2C5DCA92866F7C900B2F41F /* Preview Assets.xcassets in Resources */,
+				F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */,
+				CA5E5AFE000000000000E002 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		791F77710B013EC3CB7B4501 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				425B3E081A649C4800E8040B /* OmarchyIntegrationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F2C5DC9A2866F7C800B2F41F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C08FEB6E7C2EC27D487D42F /* WorkspaceCoordinator.swift in Sources */,
+				ADA45D163C4A19E1FD636A36 /* WorkspaceRegistry.swift in Sources */,
+				BD5F6E472C3D4809D61FA209 /* VMOmarchyDiagnostics.swift in Sources */,
+				5AC15986E7B3BD35BF54E152 /* VMOmarchyFactoryInstaller.swift in Sources */,
+				FFC414BE3413ECE90224DCB7 /* VMOmarchyFactoryManifest.swift in Sources */,
+				8F2A9C4DE8BB719D591A408F /* VMOmarchyGuestAgentClient.swift in Sources */,
+				1122FD58D47E39863D595D77 /* VMOmarchyProfile.swift in Sources */,
+				56A3E7DD29152F1FDF4476A4 /* VMOmarchySharedFolderImporter.swift in Sources */,
+				0CF30965B4E3C85C49EA1C52 /* VMOmarchyStorageForecast.swift in Sources */,
+				89EF622E536CE6BDBAFBEF3C /* VMOmarchyVirtualMachineBuilder.swift in Sources */,
+				10C2371D415C6F54EA449BC7 /* VMOmarchyWorkspace.swift in Sources */,
+				D9F998EA825D05E455787F36 /* OmarchyAcceptanceObservationReporter.swift in Sources */,
+				4B12A339BBDD12AF44DD86A5 /* OmarchyAgentClipboardController.swift in Sources */,
+				572A4273DB17F2AA5BF35A76 /* OmarchyApplicationTermination.swift in Sources */,
+				C16D3B95AE4ECE86D122361A /* OmarchyClipboardAcceptanceProbe.swift in Sources */,
+				4007086649B937776C471CB6 /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */,
+				97C367578D200BAEA991917C /* OmarchyFocusedCommandBridge.swift in Sources */,
+				39B4319D37300BF35FA9AC75 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */,
+				D2575648BCCEAA1537F658C5 /* OmarchyInputDiagnosticsAcceptanceProbe.swift in Sources */,
+				6EC33C29F2509DC199312704 /* OmarchyLockAcceptanceState.swift in Sources */,
+				CFD646D368D1E297CEB754CF /* OmarchyNotificationController.swift in Sources */,
+				CB8F012BAA2A77422095BF40 /* OmarchyOnboardingView.swift in Sources */,
+				18E10E84FD786649CDD16765 /* OmarchyOwnerSetupView.swift in Sources */,
+				60C205E2B620E3D483E7681C /* OmarchyReleaseReadinessReporter.swift in Sources */,
+				7611A1353AAD54B2BB829D91 /* OmarchyVirtualMachineView.swift in Sources */,
+				D184CB1628EBE106001E3664 /* VMOSCreatorForLinux.swift in Sources */,
+				D19105F328EDC601003E5188 /* VMConfigurationDirectorySharingDevicesView.swift in Sources */,
+				D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */,
+				D19105F528EE4FD2003E5188 /* VMConfigurationDirectorySharingDevicesEditView.swift in Sources */,
+				D1196EA528E5E2D600CCC04D /* VMConfigurationMemoryView.swift in Sources */,
+				D120BD5128CF25E4009297E8 /* MacKitUtil.swift in Sources */,
+				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
+				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,
+				D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */,
+				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
+				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
+				D184CB1A28ED21F2001E3664 /* VMOSRunner.swift in Sources */,
+				D132337328E282AF002C26A2 /* VMOSDownloaderForMacOS.swift in Sources */,
+				CA5E5AFE000000000000D001 /* VMSystemImageCatalog.swift in Sources */,
+				CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */,
+				CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */,
+				CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */,
+				CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */,
+				CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */,
+				CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */,
+				D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */,
+				D1EF707228B6656500F2D279 /* VMModelFieldNetworkDevice.swift in Sources */,
+				D184CB1E28ED2496001E3664 /* VMOSRunnerForLinux.swift in Sources */,
+				D1EF707428B6657400F2D279 /* VMModelFieldPointingDevice.swift in Sources */,
+				F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */,
+				D1EF707828B6659A00F2D279 /* VMModelFieldAudioDevice.swift in Sources */,
+				D1196EBD28E6ECF000CCC04D /* VMConfigurationAudioDevicesEditView.swift in Sources */,
+				D19EC93B28CEEB49004564B7 /* CreatePhaseCompleteView.swift in Sources */,
+				D1A6A5DF28BA5F3A00CBE80A /* Palettes.swift in Sources */,
+				D1A6A5E428BA7AEC00CBE80A /* CommunityDetailHomeView.swift in Sources */,
+				D19EC93328CEE9F6004564B7 /* CreatePhaseConfigurationView.swift in Sources */,
+				D184CB0428EA8A4F001E3664 /* VMOSMainVirtualMachineView.swift in Sources */,
+				D163F33828C4DA11005FCAB5 /* MachineDetailCardView.swift in Sources */,
+				D18E522F28B3D18B00508D8A /* VMModelFieldCPU.swift in Sources */,
+				D1196EC028E7D65000CCC04D /* VMOSCreator.swift in Sources */,
+				D1196EAC28E5EC4200CCC04D /* VMConfigurationGraphicDevicesEditView.swift in Sources */,
+				D184CB1C28ED23F9001E3664 /* VMOSRunnerForMacOS.swift in Sources */,
+				D184CB1028EB2581001E3664 /* VMEditConfigurationView.swift in Sources */,
+				D1196EB528E68F8600CCC04D /* VMConfigurationNetworkDevicesEditView.swift in Sources */,
+				D1EF707028B6654500F2D279 /* VMModelFieldStorageDevice.swift in Sources */,
+				D1196EC228E7D8D500CCC04D /* VMOSCreatorForMacOS.swift in Sources */,
+				D1196EB128E5FA1F00CCC04D /* VMConfigurationStorageDevicesEditView.swift in Sources */,
+				D1196EB928E6DB8D00CCC04D /* VMConfigurationPointingDevicesEditView.swift in Sources */,
+				D184CB0828EA8DC9001E3664 /* VMOSInternalVirtualMachineView.swift in Sources */,
+				D1196EA928E5E52300CCC04D /* VMConfigurationGraphicDevicesView.swift in Sources */,
+				D184CB1228EB295A001E3664 /* MachineDetailInvalidCardView.swift in Sources */,
+				D1196EB328E68C9300CCC04D /* VMConfigurationNetworkDevicesView.swift in Sources */,
+				D1A6A5E828BA7B2100CBE80A /* AboutDetailHomeView.swift in Sources */,
+				D1EF706C28B65EEE00F2D279 /* VMModelFieldMemory.swift in Sources */,
+				D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */,
+				D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */,
+				D1196EA128E5E2A300CCC04D /* VMConfigurationViewStateObject.swift in Sources */,
+				D19105F128EDC188003E5188 /* VMModelFieldDirectorySharingDevice.swift in Sources */,
+				D166803428E93DA300F70110 /* MachinesEmptyView.swift in Sources */,
+				D184CB1428EB29DE001E3664 /* MachinesHomeStateObject.swift in Sources */,
+				D184CB0628EA8DAF001E3664 /* VMOSInternalVirtualMachineViewController.swift in Sources */,
+				D132337728E28453002C26A2 /* VMOSResultVoid.swift in Sources */,
+				D18AE4D928D2B0F600B5C3E2 /* VMCreateViewStateObject.swift in Sources */,
+				F2C5DCA22866F7C800B2F41F /* MainApp.swift in Sources */,
+				D1196EBB28E6EA4500CCC04D /* VMConfigurationAudioDevicesView.swift in Sources */,
+				D184CB1828ED20F7001E3664 /* VMOSInternalVirtualMachineDelegate.swift in Sources */,
+				D1EF706E28B6639600F2D279 /* VMModelFieldGraphicDevice.swift in Sources */,
+				D19EC93928CEEAEB004564B7 /* CreatePhaseCreatingView.swift in Sources */,
+				D11A80E928C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift in Sources */,
+				D1196EC428E868BC00CCC04D /* VMOSHelper.swift in Sources */,
+				CA5E5AFE000000000000D008 /* VMPortabilityManager.swift in Sources */,
+				CA5E5AFE000000000000D009 /* VMGuestAgentProtocol.swift in Sources */,
+				CA5E5AFE000000000000D010 /* VMGuestAgentEnrollmentStore.swift in Sources */,
+				CA5E5AFE000000000000D011 /* VMGuestAgentHostClient.swift in Sources */,
+				D132336D28E27C2E002C26A2 /* VMOSDownloader.swift in Sources */,
+				D19EC93728CEEA44004564B7 /* VMCreateConfigurationView.swift in Sources */,
+				D1196EB728E6D67400CCC04D /* VMConfigurationPointingDevicesView.swift in Sources */,
+				D1196EAE28E5F52100CCC04D /* VMConfigurationStorageDevicesView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		03351F265B631EE76B1ABC64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RiftVM;
+			target = F2C5DC9D2866F7C800B2F41F /* RiftVM */;
+			targetProxy = E0902A82E40BB5C0F548F1AE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B6E7E9B377F2DFD8EFFF7A81 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app.tests;
+				PRODUCT_MODULE_NAME = RiftVMAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RiftVM.app/Contents/MacOS/RiftVM";
+			};
+			name = Release;
+		};
+		C024AFDF600C694E42F99ECB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app.tests;
+				PRODUCT_MODULE_NAME = RiftVMAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RiftVM.app/Contents/MacOS/RiftVM";
+			};
+			name = Debug;
+		};
+		F2C5DCAB2866F7C900B2F41F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F2C5DCAC2866F7C900B2F41F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		F2C5DCAE2866F7C900B2F41F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"RiftVM/Preview Content\"";
+				DEVELOPMENT_TEAM = YPV49M8592;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RiftVM/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RiftVM;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F2C5DCAF2866F7C900B2F41F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"RiftVM/Preview Content\"";
+				DEVELOPMENT_TEAM = YPV49M8592;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RiftVM/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = RiftVM;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		056C993F530165AC47A50004 /* Build configuration list for PBXNativeTarget "RiftVMAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B6E7E9B377F2DFD8EFFF7A81 /* Release */,
+				C024AFDF600C694E42F99ECB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F2C5DC992866F7C800B2F41F /* Build configuration list for PBXProject "RiftVM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F2C5DCAB2866F7C900B2F41F /* Debug */,
+				F2C5DCAC2866F7C900B2F41F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F2C5DCAD2866F7C900B2F41F /* Build configuration list for PBXNativeTarget "RiftVM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F2C5DCAE2866F7C900B2F41F /* Debug */,
+				F2C5DCAF2866F7C900B2F41F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E7A100022A00000000000001 /* XCLocalSwiftPackageReference "VZVirtioGPUPrototype" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Experiments/VZVirtioGPUPrototype;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E7A100032A00000000000001 /* RiftVMVirGLRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E7A100022A00000000000001 /* XCLocalSwiftPackageReference "VZVirtioGPUPrototype" */;
+			productName = RiftVMVirGLRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F2C5DC962866F7C800B2F41F /* Project object */;
+}

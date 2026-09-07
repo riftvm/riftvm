@@ -14,7 +14,7 @@ fail() {
 }
 
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
-[[ -x "$app_path/Contents/MacOS/EZVM" ]] || fail "EZVM executable not found"
+[[ -x "$app_path/Contents/MacOS/RiftVM" ]] || fail "RiftVM executable not found"
 [[ -n "$version" ]] || fail "version is required"
 [[ "$duration_seconds" =~ ^[0-9]+$ ]] || fail "duration must be a nonnegative integer"
 [[ "$nested" == "0" || "$nested" == "1" ]] || fail "nested flag must be 0 or 1"
@@ -23,11 +23,11 @@ fail() {
 
 output_directory="$(dirname "$output")"
 [[ -d "$output_directory" ]] || fail "output directory does not exist: $output_directory"
-temporary="$(mktemp "$output_directory/.ezvm-matrix-report.XXXXXX")"
+temporary="$(mktemp "$output_directory/.riftvm-matrix-report.XXXXXX")"
 cleanup() { rm -f "$temporary"; }
 trap cleanup EXIT
 
-app_sha256="$(shasum -a 256 "$app_path/Contents/MacOS/EZVM" | awk '{ print $1 }')"
+app_sha256="$(shasum -a 256 "$app_path/Contents/MacOS/RiftVM" | awk '{ print $1 }')"
 generated="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 ruby -rjson -e '

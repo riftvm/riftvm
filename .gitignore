@@ -1,7 +1,7 @@
-EZVM/EZVM.xcodeproj/project.xcworkspace/xcuserdata/
-EZVM/EZVM.xcodeproj/xcuserdata/
-EZVM/EZVM.xcodeproj/xcshareddata/
+RiftVM/RiftVM.xcodeproj/project.xcworkspace/xcuserdata/
+RiftVM/RiftVM.xcodeproj/xcuserdata/
 .DS_Store
 .build/
 .swiftpm/
 DerivedData/
+dist/

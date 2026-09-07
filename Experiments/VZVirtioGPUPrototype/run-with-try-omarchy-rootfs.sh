@@ -4,7 +4,7 @@ set -euo pipefail
 experiment_dir=${0:A:h}
 app_resources='/Applications/Try Omarchy.app/Contents/Resources'
 source_disk='/Users/eevv/Library/Application Support/Try Omarchy/VM/v1/disks/current/rootfs.ext4'
-scratch_dir=$(mktemp -d /tmp/ezvm-vz-gpu-try.XXXXXX)
+scratch_dir=$(mktemp -d /tmp/riftvm-vz-gpu-try.XXXXXX)
 disk_copy="$scratch_dir/rootfs.ext4"
 unused_nvram="$scratch_dir/NVRAM"
 trap 'rm -rf -- "$scratch_dir"' EXIT
@@ -18,8 +18,8 @@ echo "Creating disposable Try Omarchy APFS clone in: $scratch_dir"
 cp -c "$source_disk" "$disk_copy"
 touch "$unused_nvram"
 
-SWIFTPM_MODULECACHE_OVERRIDE=/tmp/ezvm-vz-gpu-swiftpm-cache \
-CLANG_MODULE_CACHE_PATH=/tmp/ezvm-vz-gpu-clang-cache \
+SWIFTPM_MODULECACHE_OVERRIDE=/tmp/riftvm-vz-gpu-swiftpm-cache \
+CLANG_MODULE_CACHE_PATH=/tmp/riftvm-vz-gpu-clang-cache \
 swift build --disable-sandbox --package-path "$experiment_dir"
 binary="$experiment_dir/.build/debug/vz-virtio-gpu-prototype"
 codesign --force --sign - --entitlements "$experiment_dir/vz-virtio-gpu.entitlements" "$binary"

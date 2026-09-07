@@ -88,4 +88,4 @@ ruby -rjson -rtime -e '
   abort "guest display does not match Host view" unless sizes["guestDisplayAfter"] == sizes["hostViewAfter"]
 ' "$observation" "$expected_revision" "$expected_factory_version" "$expected_agent_version"
 
-echo "Verified EZVM Omarchy integration readiness observation."
+echo "Verified RiftVM Omarchy integration readiness observation."

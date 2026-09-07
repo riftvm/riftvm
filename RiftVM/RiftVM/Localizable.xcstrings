@@ -1,0 +1,1200 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "·": {},
+    "· %lld snapshots · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "· %1$lld snapshots · %2$@"
+          }
+        }
+      }
+    },
+    "· %lld-layer depth": {},
+    "%@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@ of %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@ of %3$@"
+          }
+        }
+      }
+    },
+    "%@ · %llu of %llu snapshots": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$llu of %3$llu snapshots"
+          }
+        }
+      }
+    },
+    "%@ · Host :%u → %@:%u": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · Host :%2$u → %3$@:%4$u"
+          }
+        }
+      }
+    },
+    "%@ %@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ %2$@: %3$@"
+          }
+        }
+      }
+    },
+    "%@ connected": {
+      "localizations": {}
+    },
+    "%@ disconnected": {
+      "localizations": {}
+    },
+    "%@ RiftVM will ask the guest to shut down, force stop only if it does not respond, and then close this window.": {},
+    "%@ Framework detail: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ Framework detail: %2$@"
+          }
+        }
+      }
+    },
+    "%@ GB": {},
+    "%@ is ready": {},
+    "%@ settings": {},
+    "%@ suspended while this Mac sleeps": {
+      "localizations": {}
+    },
+    "%@ was disconnected from the virtual machine.": {
+      "localizations": {}
+    },
+    "%@, %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@. Choose another folder or remove this share.": {},
+    "%@%%": {},
+    "%lld": {},
+    "%lld accessories available, none connected": {
+      "localizations": {}
+    },
+    "%lld accessories connected": {
+      "localizations": {}
+    },
+    "%lld machine%@ ready on this Mac": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld machine%2$@ ready on this Mac"
+          }
+        }
+      }
+    },
+    "%lld network adapters": {
+      "localizations": {}
+    },
+    "%lld network adapters need attention": {},
+    "%lld unavailable": {},
+    "%lld USB accessories are connected to this virtual machine": {
+      "localizations": {}
+    },
+    "%lld%% — %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld%% — %2$@"
+          }
+        }
+      }
+    },
+    "%llu gigabytes": {},
+    "×": {},
+    "$ riftvm run": {},
+    "1 accessory available, none connected": {
+      "localizations": {}
+    },
+    "1 accessory connected": {
+      "localizations": {}
+    },
+    "1 network adapter": {
+      "localizations": {}
+    },
+    "1 USB accessory is connected to this virtual machine": {
+      "localizations": {}
+    },
+    "80": {},
+    "1280 × 720": {},
+    "1500": {},
+    "1920 × 1080": {},
+    "1920 × 1200": {},
+    "2560 × 1440": {},
+    "8080": {},
+    "A simple, native virtual machine app for Apple silicon Macs, built on Apple's Virtualization framework.": {},
+    "A USB accessory is connected. RiftVM will shut down the guest instead of saving machine state so the accessory is released safely.": {
+      "localizations": {}
+    },
+    "About": {
+      "localizations": {}
+    },
+    "About - RiftVM": {},
+    "Access": {},
+    "Accessory Access could not complete the operation. Try again; if it repeats, restart RiftVM and reconnect the accessory.": {
+      "localizations": {}
+    },
+    "Accessory Access failed: %@": {
+      "localizations": {}
+    },
+    "Accessory Access is already active in another RiftVM virtual machine window. Close that virtual machine or release its USB accessories, then try again.": {
+      "localizations": {}
+    },
+    "Add %@ Adapter": {},
+    "Add an Adapter": {},
+    "Add an existing virtual machine": {},
+    "Add Audio Device": {},
+    "Add Display": {},
+    "Add Existing": {},
+    "Add NAT for ordinary internet access, or choose a VMNet mode for an intentional topology.": {},
+    "Add or remove virtual disks and installation media": {},
+    "Add Pointing Device": {},
+    "Add Rule": {},
+    "Add Shared Folder": {
+      "localizations": {}
+    },
+    "Add Shared Folder…": {
+      "localizations": {}
+    },
+    "Add Storage Device": {},
+    "Add this port-forwarding rule": {},
+    "Addresses: %@": {},
+    "Advanced hardware": {},
+    "Advanced VMNet Settings": {},
+    "After you can sign in as “%@”, confirm to remove the temporary password from this Mac’s Keychain.": {
+      "localizations": {}
+    },
+    "All %lld snapshots passed integrity checks": {
+      "localizations": {}
+    },
+    "All available releases (%lld)": {},
+    "All snapshots are structurally valid; %lld warning(s)": {
+      "localizations": {}
+    },
+    "All systems": {},
+    "APFS clone": {},
+    "App Default": {},
+    "Apple Virtio active": {
+      "localizations": {}
+    },
+    "Apple Virtio graphics is active": {
+      "localizations": {}
+    },
+    "Apple Virtio is used until the RiftVM Guest Agent confirms reliable keyboard and pointer input.": {
+      "localizations": {}
+    },
+    "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input.": {
+      "localizations": {}
+    },
+    "ASIF is optimized for macOS 27 and supports efficient snapshots.": {},
+    "ASIF layered": {},
+    "ASIF layers": {},
+    "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack.": {
+      "localizations": {}
+    },
+    "At least one display is required.": {},
+    "At least one pointing device is required.": {},
+    "At least one virtual disk is required.": {},
+    "Audio": {},
+    "Audit": {
+      "localizations": {}
+    },
+    "Auditing snapshot integrity…": {
+      "localizations": {}
+    },
+    "Automatic": {},
+    "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS %@. Choose a macOS 27 or later IPSW.": {
+      "localizations": {}
+    },
+    "Automatic account setup is off. Continue in macOS Setup Assistant, or close and run this VM again if it is not currently running.": {
+      "localizations": {}
+    },
+    "Automatic, or interface such as en0": {},
+    "Basic": {},
+    "Begin the verified restore transaction.": {},
+    "Browse this Mac or an external drive": {},
+    "Building a read-only reference map before offering any cleanup.": {},
+    "By default machines are stored in ~/RiftVM Virtual Machines. Pick another directory only if you want a different location.": {},
+    "Cancel": {
+      "localizations": {}
+    },
+    "Cancel Transfer": {},
+    "Cancellation requested. RiftVM will stop at the next safe boundary.": {
+      "localizations": {}
+    },
+    "Cancelling…": {},
+    "Capacity": {},
+    "Capture the virtual machine display": {},
+    "Change": {},
+    "Changes take effect the next time the virtual machine starts.": {},
+    "Changes take effect the next time this virtual machine starts.": {},
+    "Chat with other users, report problems, or suggest improvements. Links open in your browser.": {},
+    "Check the macOS account": {
+      "localizations": {}
+    },
+    "Checking disk space and preserving the current machine files.": {
+      "localizations": {}
+    },
+    "Checking snapshot integrity and available disk space.": {
+      "localizations": {}
+    },
+    "Choose a compatible restore image. Downloading starts only after you click Create.": {},
+    "Choose a different password for the macOS account. Virtualization.framework rejected this value.": {
+      "localizations": {}
+    },
+    "Choose a folder once. RiftVM configures the share automatically.": {
+      "localizations": {}
+    },
+    "Choose a folder to share": {
+      "localizations": {}
+    },
+    "Choose a folder to share with this virtual machine": {
+      "localizations": {}
+    },
+    "Choose a host folder to share with the running virtual machine": {
+      "localizations": {}
+    },
+    "Choose a local %@ file": {},
+    "Choose a memorable name and where its files should live.": {},
+    "Choose a system": {
+      "localizations": {}
+    },
+    "Choose Folder…": {
+      "localizations": {}
+    },
+    "Choose More USB Accessories…": {
+      "localizations": {}
+    },
+    "Choose NAT or VMNet networking": {},
+    "Choose OK in Settings to make these folders available through VirtioFS at the next start.": {},
+    "Choose OK in Settings to share these folders at the next start. macOS mounts them automatically.": {},
+    "Choose OK in Settings to update the running VM through VirtioFS.": {},
+    "Choose OK in Settings to update the running VM. macOS mounts the shared folders automatically.": {},
+    "Choose resources": {},
+    "Choose the connection outcome first. Most virtual machines only need NAT; VMNet details stay optional until you need a deliberate topology.": {},
+    "Choose Thumbnail Image…": {},
+    "Choose USB accessories to attach directly to this virtual machine": {
+      "localizations": {}
+    },
+    "Choose USB Accessories…": {
+      "localizations": {}
+    },
+    "Choose…": {},
+    "Clean up unreferenced snapshot layers?": {},
+    "Clean Up…": {
+      "localizations": {}
+    },
+    "Cleaning snapshot storage…": {
+      "localizations": {}
+    },
+    "Clone...": {},
+    "Close": {
+      "localizations": {}
+    },
+    "Close Snapshots": {},
+    "Community & Feedback": {
+      "localizations": {}
+    },
+    "Community & Feedback - RiftVM": {},
+    "Compute": {},
+    "Configure guest display type and resolution": {},
+    "Configure guest microphone and speaker access": {},
+    "Configure the guest pointing device": {},
+    "Confirm": {},
+    "Confirm macOS setup": {},
+    "Confirm that you can sign in as “%@”. RiftVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.": {
+      "localizations": {}
+    },
+    "Connect %@": {
+      "localizations": {}
+    },
+    "Connecting %@…": {
+      "localizations": {}
+    },
+    "Control Center": {},
+    "Convert Disk to ASIF...": {},
+    "Copied": {},
+    "Copies the Linux VirtioFS mount command": {
+      "localizations": {}
+    },
+    "Copy": {},
+    "Copy Error": {
+      "localizations": {}
+    },
+    "Copying machine data": {
+      "localizations": {}
+    },
+    "Could not access guest provisioning credentials in Keychain: %@": {
+      "localizations": {}
+    },
+    "Could not connect %@. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Could not connect %1$@. %2$@"
+          }
+        }
+      }
+    },
+    "Could not disconnect %@. It may still be attached, so machine-state saving remains unavailable. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Could not disconnect %1$@. It may still be attached, so machine-state saving remains unavailable. %2$@"
+          }
+        }
+      }
+    },
+    "Could not encode guest provisioning credentials: %@": {
+      "localizations": {}
+    },
+    "Couldn’t export diagnostics": {},
+    "Cover Style": {},
+    "CPU / Memory": {},
+    "Create a new virtual machine": {
+      "localizations": {}
+    },
+    "Create Snapshot": {
+      "localizations": {}
+    },
+    "Create the first macOS account automatically": {
+      "localizations": {}
+    },
+    "Create Virtual Machine": {},
+    "Create Virtual Machine Guide": {},
+    "Create virtual machine progress": {},
+    "Create your first machine, or add an existing .riftvm bundle.": {},
+    "Creates a report containing system information and virtual machine configuration": {},
+    "Current Adapters": {},
+    "Current branch": {},
+    "Current Devices": {},
+    "Custom": {},
+    "Custom VirGL acceleration is active": {
+      "localizations": {}
+    },
+    "Custom VirGL active": {
+      "localizations": {}
+    },
+    "Custom VirGL needs attention": {
+      "localizations": {}
+    },
+    "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting.": {
+      "localizations": {}
+    },
+    "Custom VirGL state cannot be saved.": {
+      "localizations": {}
+    },
+    "Delete": {},
+    "Delete child snapshots first": {},
+    "Delete snapshot \"%@\"? This cannot be undone.": {},
+    "Deleting snapshot \"%@\"…": {
+      "localizations": {}
+    },
+    "Description": {},
+    "Device": {},
+    "Direct Apple IPSW URL": {},
+    "Direct ARM64 ISO URL": {},
+    "Disconnect %@": {
+      "localizations": {}
+    },
+    "Disconnect USB accessories before choosing others": {
+      "localizations": {}
+    },
+    "Disconnect USB accessories before saving machine state.": {
+      "localizations": {}
+    },
+    "Disconnecting %@…": {
+      "localizations": {}
+    },
+    "Disk Format": {},
+    "DiskImageKit snapshots for ASIF disks": {
+      "localizations": {}
+    },
+    "Dismiss": {
+      "localizations": {}
+    },
+    "Dismiss the saved-session status message": {
+      "localizations": {}
+    },
+    "Display": {},
+    "Display / Storage / Network": {},
+    "Display and Storage": {},
+    "Done": {
+      "localizations": {}
+    },
+    "Download failed": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Download File from Guest...": {},
+    "Download Linux Install Image": {},
+    "Download macOS Restore Image": {},
+    "Downloading": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Drop folders here": {},
+    "Drop folders to share": {
+      "localizations": {}
+    },
+    "Drop folders to share now": {
+      "localizations": {}
+    },
+    "Drop one or more folders from Finder, or choose a folder": {
+      "localizations": {}
+    },
+    "Drop to share": {
+      "localizations": {}
+    },
+    "Dynamic memory balloon": {},
+    "Edit": {},
+    "Edit virtual machine settings; changes apply after the next start": {},
+    "Enable Remote Login (SSH)": {
+      "localizations": {}
+    },
+    "Enabled by you. macOS requires Screen & System Audio Recording permission. Turn this off to stop RiftVM from capturing VM windows.": {},
+    "Enter a different full name for the macOS account. Virtualization.framework rejected this value.": {
+      "localizations": {}
+    },
+    "Enter a different username for the macOS account. Virtualization.framework rejected this value.": {
+      "localizations": {}
+    },
+    "Estimating restore storage…": {
+      "localizations": {}
+    },
+    "Export Diagnostic Report": {
+      "localizations": {}
+    },
+    "Export Diagnostics": {
+      "localizations": {}
+    },
+    "Export Diagnostics…": {
+      "localizations": {}
+    },
+    "Export Guest Agent Enrollment...": {},
+    "Export...": {},
+    "External interface": {},
+    "riftvm": {},
+    "RiftVM": {},
+    "RiftVM User": {},
+    "RiftVM will download the selected image if needed, then create and install your virtual machine. You can leave this window open and wait once.": {},
+    "RiftVM will keep a recovery point before replacing the machine state.": {
+      "localizations": {}
+    },
+    "RiftVM will permanently remove the pending password from this Mac’s Keychain and will not submit automatic account setup again. Continue in Setup Assistant if the VM is running; otherwise close this window and run the VM again.": {
+      "localizations": {}
+    },
+    "RiftVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time.": {},
+    "Finishing safely": {
+      "localizations": {}
+    },
+    "Folders remain on your Mac. Nothing is copied into the virtual disk.": {
+      "localizations": {}
+    },
+    "Force Stop": {
+      "localizations": {}
+    },
+    "Forwards to": {},
+    "Found %lld unreferenced layer(s) using %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Found %1$lld unreferenced layer(s) using %2$@"
+          }
+        }
+      }
+    },
+    "Free disk space before restoring.": {},
+    "From %@": {},
+    "Full name": {},
+    "Generated cover style": {},
+    "Granted": {},
+    "Graphics": {
+      "localizations": {}
+    },
+    "Graphics needs attention": {
+      "localizations": {}
+    },
+    "Guest Agent": {},
+    "Guest IPv4": {},
+    "Guest port": {},
+    "Guest provisioning credentials are already prepared for this creation attempt.": {
+      "localizations": {}
+    },
+    "Guest target: %@ of %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Guest target: %1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "Has child snapshots": {},
+    "Height": {},
+    "High-performance VirGL graphics for Linux": {
+      "localizations": {}
+    },
+    "Host port": {},
+    "Host-port availability is checked when the virtual machine starts; another process can still claim a port after this preflight.": {},
+    "Host: %@": {},
+    "Host: %@ GB": {},
+    "Host: %lld logical processors": {},
+    "https://example.com/image.iso": {},
+    "If the guest does not respond, RiftVM will force stop it after 20 seconds.": {},
+    "Image URL": {},
+    "Immediately stop the virtual machine when the guest does not respond": {},
+    "Import an RiftVM export": {},
+    "In the guest, mount the VirtioFS tag ‘rosetta’ and configure binfmt_misc. RiftVM installs the host Rosetta component when the VM is created.": {},
+    "Input and Audio": {},
+    "Input: %@": {},
+    "Inspecting snapshot storage…": {
+      "localizations": {}
+    },
+    "Inspecting the target snapshot and current machine without changing either one.": {
+      "localizations": {}
+    },
+    "Installation details": {},
+    "Installer list updates without an RiftVM release": {},
+    "Installing the verified snapshot transaction. This window will unlock when the machine is safe to use.": {
+      "localizations": {}
+    },
+    "Installing the verified transaction": {
+      "localizations": {}
+    },
+    "Invalid , just close": {},
+    "IPv4 subnet": {},
+    "ISO image": {},
+    "Keep Automatic Setup": {
+      "localizations": {}
+    },
+    "Keep Password": {
+      "localizations": {}
+    },
+    "Keep the current state as a snapshot before restoring": {
+      "localizations": {}
+    },
+    "Keep the temporary credential and submit provisioning again on the next VM start": {
+      "localizations": {}
+    },
+    "Kind": {},
+    "Latest compatible macOS": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Leave the network name and subnet blank to let macOS reserve an isolated logical network automatically. Reuse the same name only when adapters should join the same topology.": {},
+    "Leaving processors for macOS keeps the VM and host responsive.": {},
+    "LINUX": {},
+    "Linux Integration": {},
+    "Linux virtual machine": {},
+    "LINUX VIRTUAL MACHINE": {},
+    "Location": {},
+    "Log in automatically": {},
+    "Logical network": {},
+    "Mac displays are intended for macOS guests.": {},
+    "MAC VIRTUAL MACHINE": {},
+    "Machine files will be saved to :": {},
+    "Machine Not Found": {},
+    "MACOS": {},
+    "macOS %lld+": {},
+    "macOS 27 features": {
+      "localizations": {}
+    },
+    "macOS 27 First-Boot Provisioning": {
+      "localizations": {}
+    },
+    "macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional RiftVM entitlement.": {},
+    "macOS guest provisioning did not start, and RiftVM could not prepare a safe retry. Close this VM window, reopen it, and review the provisioning status before trying again.": {
+      "localizations": {}
+    },
+    "macOS guest provisioning did not start. The temporary credential was retained and a safe retry is ready for the next VM start.": {
+      "localizations": {}
+    },
+    "macOS guest provisioning for %@": {
+      "localizations": {}
+    },
+    "macOS is applying the first-boot settings for “%@”.": {
+      "localizations": {}
+    },
+    "macOS setup confirmed — temporary password removed": {
+      "localizations": {}
+    },
+    "macOS virtual machine": {},
+    "Make files from your Mac available inside the virtual machine. You can also do this later.": {
+      "localizations": {}
+    },
+    "Manage Audio…": {},
+    "Manage Displays…": {},
+    "Manage Network…": {},
+    "Manage Pointer…": {},
+    "Manage shared folders": {
+      "localizations": {}
+    },
+    "Manage Storage…": {},
+    "Maximum ASIF overlay depth across the active machine and saved snapshots.": {},
+    "Memory": {},
+    "Microphone access still requires permission in System Settings. Speakers do not require additional permission.": {},
+    "Missing": {},
+    "More": {},
+    "Mount in Linux": {
+      "localizations": {}
+    },
+    "Move to Trash": {},
+    "Moving verified orphan layers through a recoverable cleanup transaction.": {
+      "localizations": {}
+    },
+    "MTU": {},
+    "Name": {},
+    "Name your virtual machine": {},
+    "Needs attention. %@": {
+      "localizations": {}
+    },
+    "Nested virtualization": {},
+    "Nested virtualization requires an M3 or newer Mac. The VM remains portable and can run with this option disabled on older hosts.": {},
+    "Network": {
+      "localizations": {}
+    },
+    "Network Adapter %lld": {
+      "localizations": {}
+    },
+    "Network adapter needs attention": {
+      "localizations": {}
+    },
+    "network adapters": {
+      "localizations": {}
+    },
+    "Network Adapters": {},
+    "Network configuration error: %@": {},
+    "New Audio Device": {},
+    "New Display": {},
+    "New Pointing Device": {},
+    "New Storage Device": {},
+    "No approved accessories connected": {
+      "localizations": {}
+    },
+    "No approved USB accessories are connected": {
+      "localizations": {}
+    },
+    "No connection": {},
+    "No folders selected. Choose Not Now or Continue to skip sharing.": {
+      "localizations": {}
+    },
+    "No Network Adapters": {},
+    "No Shared Folders": {},
+    "No snapshots yet": {
+      "localizations": {}
+    },
+    "No unreferenced ASIF layers were found": {
+      "localizations": {}
+    },
+    "No USB accessories requested": {
+      "localizations": {}
+    },
+    "No virtual machines found": {},
+    "No virtual network adapter": {
+      "localizations": {}
+    },
+    "Not configured": {
+      "localizations": {}
+    },
+    "Not selected": {},
+    "Off by default. RiftVM uses a generated title cover and never requests screen recording permission.": {},
+    "OK": {},
+    "Open": {},
+    "Open settings for this virtual machine": {},
+    "Open settings to select Apple Virtio graphics for the next start": {
+      "localizations": {}
+    },
+    "Open source under the MIT license": {},
+    "Open SSH": {},
+    "Open USB accessory controls": {
+      "localizations": {}
+    },
+    "Open Window": {},
+    "Opens in your browser": {},
+    "Operating system": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Operating System": {},
+    "Optional shared name": {},
+    "OS: %@": {},
+    "Password": {
+      "localizations": {}
+    },
+    "Pause": {
+      "localizations": {}
+    },
+    "Pause this virtual machine": {},
+    "Per-VM EFI Secure Boot": {
+      "localizations": {}
+    },
+    "Pixel density: %lld ppi": {},
+    "Pointer": {},
+    "Pointing / Audio": {},
+    "Port Forwarding": {},
+    "Power": {},
+    "Preparing %@": {
+      "localizations": {}
+    },
+    "Preparing %@...": {},
+    "Preparing and checking available space": {
+      "localizations": {}
+    },
+    "Preparing restore…": {
+      "localizations": {}
+    },
+    "Preparing snapshot…": {
+      "localizations": {}
+    },
+    "Preparing the macOS account": {
+      "localizations": {}
+    },
+    "Preview unreferenced ASIF layers before removing anything.": {
+      "localizations": {}
+    },
+    "Previous": {},
+    "Processors": {},
+    "Protect": {
+      "localizations": {}
+    },
+    "Protect from deletion": {},
+    "Protected": {},
+    "Protected from deletion": {},
+    "Protecting snapshot \"%@\"…": {
+      "localizations": {}
+    },
+    "Protocol": {},
+    "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again.": {
+      "localizations": {}
+    },
+    "RAW is broadly compatible but uses more host storage.": {},
+    "Reachability": {},
+    "Read Only": {},
+    "Ready": {},
+    "Ready to create %@": {},
+    "Recommended releases": {},
+    "Recommended values are already selected for this Mac.": {},
+    "Reconnect": {
+      "localizations": {}
+    },
+    "Reconnect %@": {
+      "localizations": {}
+    },
+    "Recovering %@": {
+      "localizations": {}
+    },
+    "Recovering %@…": {},
+    "Refresh": {
+      "localizations": {}
+    },
+    "Refresh Signed Capabilities": {},
+    "Remove": {
+      "localizations": {}
+    },
+    "Remove %@": {},
+    "Remove %lld Layer(s)": {},
+    "Remove Adapter": {},
+    "Remove from List": {},
+    "Remove Password": {
+      "localizations": {}
+    },
+    "Remove Rule": {},
+    "Remove shared folder": {
+      "localizations": {}
+    },
+    "Remove Temporary Password?": {
+      "localizations": {}
+    },
+    "Remove the pending credential and stop automatic account setup": {
+      "localizations": {}
+    },
+    "Remove the temporary provisioning credential after verifying the account in the guest": {
+      "localizations": {}
+    },
+    "Remove this adapter after confirmation": {},
+    "Remove this network adapter?": {},
+    "Removed %lld unreferenced layer(s) and reclaimed %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Removed %1$lld unreferenced layer(s) and reclaimed %2$@"
+          }
+        }
+      }
+    },
+    "Removing only data that is no longer referenced.": {
+      "localizations": {}
+    },
+    "Rename": {},
+    "Renaming snapshot \"%@\"…": {
+      "localizations": {}
+    },
+    "Repeat password": {
+      "localizations": {}
+    },
+    "Replace the currently selected image": {},
+    "Replace the machine card thumbnail with the current virtual machine display": {},
+    "Request a Linux guest memory balloon target": {},
+    "Required": {},
+    "Requires a macOS 27 host.": {},
+    "Requires both a macOS 27 host and a macOS 27 or later restore image. RiftVM verifies the IPSW before installation.": {},
+    "Resolution": {},
+    "Restart Guest": {},
+    "Restore": {
+      "localizations": {}
+    },
+    "Restore review ready": {
+      "localizations": {}
+    },
+    "Restoring snapshot \"%@\"…": {
+      "localizations": {}
+    },
+    "Resume": {
+      "localizations": {}
+    },
+    "Resume this virtual machine": {},
+    "Retry Download": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Retry Next Start": {
+      "localizations": {}
+    },
+    "Reveal in Finder": {},
+    "Review Restore": {
+      "localizations": {}
+    },
+    "Review your choices. Nothing downloads until you click Create.": {},
+    "Right-click to choose this virtual machine’s cover style": {},
+    "Root snapshot": {},
+    "Rosetta for x86_64 Linux binaries": {},
+    "Rosetta translation cache": {},
+    "Run": {
+      "localizations": {}
+    },
+    "Run into Recovery Mode": {},
+    "Run once after the guest starts. With one shared folder, its contents appear directly at /mnt/riftvm; with several, each appears as a named folder.": {
+      "localizations": {}
+    },
+    "Run Virtual Machine": {},
+    "Save": {},
+    "Save changes and close settings": {},
+    "Save State and Close": {},
+    "Save State and Close?": {},
+    "Save State and Stop": {
+      "localizations": {}
+    },
+    "Saved session status": {
+      "localizations": {}
+    },
+    "Saved Session Status": {
+      "localizations": {}
+    },
+    "Saving the current state first…": {},
+    "Saving Virtual Machine State…": {},
+    "Saving…": {},
+    "Search snapshots": {
+      "localizations": {}
+    },
+    "Secure Boot requires macOS 27.": {},
+    "Selected": {},
+    "Settings": {
+      "localizations": {}
+    },
+    "Settings Could Not Be Saved": {},
+    "Setup Complete": {
+      "localizations": {}
+    },
+    "Share folders": {
+      "localizations": {}
+    },
+    "Shared Folder": {},
+    "Shared folder drop area": {
+      "localizations": {}
+    },
+    "Shared Folders": {
+      "localizations": {}
+    },
+    "Shared-folder changes apply now. Other changes apply the next time the virtual machine starts.": {},
+    "Show Control Center": {},
+    "Show in Finder": {},
+    "Shut Down": {
+      "localizations": {}
+    },
+    "Shut Down and Close": {},
+    "Shut Down and Close?": {},
+    "Shut Down Guest": {},
+    "Signed capabilities": {},
+    "Snapshot \"%@\" can now be deleted": {
+      "localizations": {}
+    },
+    "Snapshot \"%@\" created": {
+      "localizations": {}
+    },
+    "Snapshot \"%@\" deleted": {
+      "localizations": {}
+    },
+    "Snapshot \"%@\" protected from deletion": {
+      "localizations": {}
+    },
+    "Snapshot \"%@\" restored": {
+      "localizations": {}
+    },
+    "Snapshot audit cancelled": {
+      "localizations": {}
+    },
+    "Snapshot name": {},
+    "Snapshot renamed to \"%@\"": {
+      "localizations": {}
+    },
+    "Snapshot storage is already clean": {
+      "localizations": {}
+    },
+    "Snapshots": {},
+    "Snapshots are stored inside the machine bundle and use APFS copy-on-write when available.": {},
+    "Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch.": {},
+    "Snapshots use macOS 27 ASIF overlay layers and are stored inside the machine bundle.": {},
+    "Snapshots...": {},
+    "Start Download": {
+      "extractionState": "stale",
+      "localizations": {}
+    },
+    "Step %lld of %lld: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Step %1$lld of %2$lld: %3$@"
+          }
+        }
+      }
+    },
+    "Stop at the next safe boundary before machine files are replaced.": {
+      "localizations": {}
+    },
+    "Stopping Virtual Machine…": {},
+    "Storage": {
+      "localizations": {}
+    },
+    "Subnet mask": {},
+    "Suggest another astronomical name": {},
+    "Suggest another name": {},
+    "Take Snapshot Now": {},
+    "The accessory disconnected before the connection finished. Reconnect it to the Mac and approve it for RiftVM again.": {
+      "localizations": {}
+    },
+    "The Custom VirGL backend is enabled but has not been linked into this build.": {
+      "localizations": {}
+    },
+    "The Custom VirGL backend requires macOS 27 or later.": {
+      "localizations": {}
+    },
+    "The guest could not initialize this USB device. Safely reconnect the device and try again; this device class may not support passthrough.": {
+      "localizations": {}
+    },
+    "The guest provisioning credential in Keychain is invalid: %@": {
+      "localizations": {}
+    },
+    "The host did not accept the network attachment. Check the selected interface and try again.": {
+      "localizations": {}
+    },
+    "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect.": {
+      "localizations": {}
+    },
+    "The image will be saved and reused for future virtual machines.": {},
+    "The password stays in this Mac’s Keychain until you confirm that macOS setup completed. It is never stored in the virtual machine bundle.": {
+      "localizations": {}
+    },
+    "The previous provisioning attempt was interrupted. Sign in as “%@” if the account exists; otherwise choose Retry Next Start. RiftVM will not submit it again automatically.": {
+      "localizations": {}
+    },
+    "The running virtual machine no longer has an available USB controller. Restart the virtual machine and try again.": {
+      "localizations": {}
+    },
+    "The saved session used a graphics configuration that Custom VirGL cannot restore. RiftVM discarded it and started the virtual machine normally.": {
+      "localizations": {}
+    },
+    "The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; RiftVM performs the final host compatibility check before installation.": {},
+    "The snapshot transaction is finishing and can no longer be cancelled": {
+      "localizations": {}
+    },
+    "The temporary provisioning credential is no longer available.": {
+      "localizations": {}
+    },
+    "The USB device is already attached. Wait for the device list to refresh before trying another action.": {
+      "localizations": {}
+    },
+    "The USB device is no longer connected to this virtual machine. Reconnect it to the Mac and approve it for RiftVM again.": {
+      "localizations": {}
+    },
+    "The virtual machine is running. Shut it down before creating or restoring snapshots.": {
+      "localizations": {}
+    },
+    "The virtual USB controller disconnected the accessory before the connection finished. Reconnect it and try again.": {
+      "localizations": {}
+    },
+    "These values come from the macOS 27 entitlements in the running RiftVM process.": {},
+    "This accessory is being used by macOS or another app. Release it from the accessory menu, then choose it for RiftVM again.": {
+      "localizations": {}
+    },
+    "This accessory is no longer in a state that can be attached. Disconnect it from the Mac, reconnect it, and approve it for RiftVM again.": {
+      "localizations": {}
+    },
+    "This build does not include the Accessory Access entitlement required for USB passthrough.": {
+      "localizations": {}
+    },
+    "This leaves little memory for macOS and may cause heavy swapping.": {},
+    "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. RiftVM does not compact layered ASIF disks in place.": {
+      "localizations": {}
+    },
+    "This virtual machine has no USB controller. Stop it and verify its configuration before trying again.": {
+      "localizations": {}
+    },
+    "This window will close automatically when it is safe.": {},
+    "Thumbnails": {},
+    "Transfer cancelled": {},
+    "Transport": {},
+    "Try Again": {
+      "localizations": {}
+    },
+    "Type": {},
+    "UEFI Secure Boot": {},
+    "Unable to Continue": {},
+    "Unavailable. %@": {
+      "localizations": {}
+    },
+    "Unprotect": {
+      "localizations": {}
+    },
+    "Unprotect before deleting": {},
+    "Unprotecting snapshot \"%@\"…": {
+      "localizations": {}
+    },
+    "Updating available versions…": {},
+    "Updating Linux installers…": {},
+    "Updating snapshot metadata safely.": {
+      "localizations": {}
+    },
+    "Updating snapshot protection metadata safely.": {
+      "localizations": {}
+    },
+    "Upload File to Guest...": {},
+    "USB": {
+      "localizations": {}
+    },
+    "USB (%lld)": {
+      "localizations": {}
+    },
+    "USB accessories": {
+      "localizations": {}
+    },
+    "Use Current Display as Thumbnail": {},
+    "Use macOS Setup Assistant Instead?": {
+      "localizations": {}
+    },
+    "Use Setup Assistant": {
+      "localizations": {}
+    },
+    "Use URL": {},
+    "Username": {},
+    "Validating metadata, files, and every ASIF layer stack.": {
+      "localizations": {}
+    },
+    "Verifying snapshot integrity": {
+      "localizations": {}
+    },
+    "Version %@ (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Version %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Virtio displays are intended for Linux guests and can use Apple graphics or VirGL.": {
+      "localizations": {}
+    },
+    "Virtio entropy source": {},
+    "Virtio socket": {},
+    "Virtual Machine Error": {
+      "localizations": {}
+    },
+    "Virtual machine network": {
+      "localizations": {}
+    },
+    "Virtualization capabilities": {},
+    "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again.": {
+      "localizations": {}
+    },
+    "Wait for the USB connection or disconnection to finish before saving machine state.": {
+      "localizations": {}
+    },
+    "Wait until the snapshot transaction finishes safely before closing this window.": {},
+    "Waiting for Accessory Access": {
+      "localizations": {}
+    },
+    "Waiting for Accessory Access…": {
+      "localizations": {}
+    },
+    "What would you like to run?": {},
+    "Width": {},
+    "Your virtual machines": {
+      "localizations": {}
+    }
+  },
+  "version": "1.0"
+}

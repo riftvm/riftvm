@@ -64,4 +64,4 @@ ruby -rjson -rtime -e '
   abort "owner provisioning is still pending" unless value["lastProvisioningPending"] == false
 ' "$observation" "$expected_agent_version" "$expected_revision"
 
-echo "Verified EZVM Omarchy lock-to-active lifecycle observation."
+echo "Verified RiftVM Omarchy lock-to-active lifecycle observation."

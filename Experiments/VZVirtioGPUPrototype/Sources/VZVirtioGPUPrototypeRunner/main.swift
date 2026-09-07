@@ -1,3 +1,3 @@
-import EZVMVirGLRuntime
+import RiftVMVirGLRuntime
 
 runVZVirtioGPUPrototype()

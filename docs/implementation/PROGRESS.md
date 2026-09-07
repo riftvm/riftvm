@@ -1,0 +1,48 @@
+# RiftVM 0.1.0 implementation and verification record
+
+Updated 2026-09-06. This is an in-progress record, not a release acceptance certificate.
+
+## Current milestone
+
+- Imported the complete tracked EZVM baseline in commit 7472ab2. Original repositories have not been modified.
+- Renamed App, package modules, CLI, source paths, Agent services and environment variables. App is com.riftvm.app, 0.1.0 (1), Apple Silicon/macOS 27, English-only.
+- Moved Omarchy source into the main App target, Guest overlay to GuestResources/Omarchy, and inherited Omarchy tests to Tests/RiftVMAppTests. Archived the obsolete desktop project and resources as historical material.
+- Added persistent UUID/profile/location registry and default launch routing. Corrupt registries do not silently reset. Duplicate identities are rejected; moved workspaces retain identity. Run leases use identity when present and canonical path otherwise.
+- Added new workspace home, primary Omarchy/macOS creation, Custom Linux ISO entry, menu bar, reopen routing, Finder workspace type, and snapshot/settings links for standard VMs.
+- Retain running windows/controllers when hidden. Unified quit transaction coordinates all participating VMs; timeout choices are wait, cancel, or explicit force stop. Added injected-participant tests for the transaction.
+- Scoped Omarchy clipboard/microphone/notification preferences by workspace. Notifications carry workspace ID. Clipboard uses active display focus and provenance to avoid guest-to-guest forwarding, with cancellation/revalidation before Host publication.
+- Added Omarchy CPU/memory choices. Added cancellable download/preparation and cross-process serialized shared factory cache. Factory cache files are read-only; writable workspace copies restore owner-write permission.
+- Adapted CLI library discovery and runtime lock lookup to the new registry and identity. Full profile-specific command acceptance remains outstanding.
+- Fixed an EDID regression caused by a longer brand string resizing the fixed 128-byte display descriptor.
+
+## Evidence collected locally
+
+Host: macOS 27.0 (26A5425a), Xcode 27.0 (27A5252f).
+
+- Core tests: 390 cases, zero failures, one inherited skip. /private/tmp/riftvm-swift-test.log.
+- CLI tests: 13 cases passed, including registered-external-directory discovery coverage.
+- App tests: 53 cases, zero failures; includes migrated Omarchy checks and new quit/clipboard ownership tests. See /private/tmp/riftvm-app-tests.log and /private/tmp/riftvm-tests-derived/Logs/Test for xcresult evidence.
+- Graphics tests: all 26 passed after EDID fix. /private/tmp/riftvm-graphics-test.log.
+- Guest Agent: go test ./... passed. /private/tmp/riftvm-agent-test.log.
+- New App launched using test virtualization entitlement, isolated RIFTVM_DATA_ROOT and GUI readiness probe. /private/tmp/riftvm-ui-ready.json records com.riftvm.app, responsive event loop and visible 1080x760 window. Inspected home screenshot and macOS creation accessibility tree through computer use. The online macOS catalog failed in that run; local IPSW and latest-compatible choices remained visible. No guest was installed or booted in this UI check.
+- Developer ID Application certificate is available. GitHub CLI authentication works, the new App repository is public and image-repository Actions are enabled. No notarization or signed candidate was performed.
+
+## Required remaining work (not waived by this milestone)
+
+1. Complete and exercise actual lifecycle transitions: two Omarchy guests, mixed Omarchy/macOS guests, window close/reopen, defaults, error/offline routing, paused shutdown, and quit during install/creation.
+2. Finish profile-specific CLI start/status/stop and import/export/duplicate semantics, including independent guest credentials and UUIDs. Do not infer full CLI support from list/inspect tests.
+3. Complete explicit Omarchy host-directory read-only/read-write sharing, permissions and deletion safety. Validate focus loss/modifier release, background clipboard and notification routing against real guests; unit ownership tests are insufficient.
+4. Adapt the image repository to RiftVM Agent/overlay and pinned source revisions. Build and validate a fresh ARM64 image. Convert/package/sign the immutable factory, configure real public-key trust and pin its published manifest. Current default factory URL still names a mechanically renamed legacy candidate and is not a valid release channel.
+5. Consolidate release scripts and CI into one App path. Inherited scripts still contain obsolete second-App assumptions, release version/tag rules and 24-hour gates. Replace them coherently while retaining signature, notarization, integrity and functional gates. Old scripts are not ready for publication.
+6. Build new icon and visual assets; old bitmap assets are still present. Create the new GitHub Pages website and organization profile. Create the approved homebrew-tap repository and one cask.
+7. Restore and verify all existing storage/network/graphics capabilities from the new UI, including standard VM export/import and Omarchy recovery operations. Regression-test low space, cancellation, offline media, corrupt downloads and interrupted transactions.
+8. Produce Developer ID-signed/notarized archive, Gatekeeper and archive round-trip evidence, CLI/cask checks, and public-download clean installations of Omarchy/macOS on this Mac. Required evidence must match the shipped App/Agent/factory revisions.
+9. Configure/verify default GitHub Pages deployment and downloads. Owner-managed riftvm.com DNS is pending; do not claim domain launch. Long soak/sleep certification remains explicitly deferred and must not be advertised as passed.
+
+## Practical continuation notes
+
+Main checkout: /Users/eevv/github/products/riftvm/riftvm. Original /Users/eevv/github/products/misc/ezvm is read-only reference for this task.
+
+Current single scheme is RiftVM, with RiftVMAppTests hosted by RiftVM.app. Test signing overrides must use scripts/virtualization-test.entitlements; ad-hoc signing with distribution USB/vmnet entitlements was rejected by macOS. Use the user's Developer ID for release checks.
+
+The new image checkout currently remains unchanged at its original main baseline. Its workflow uses ubuntu-24.04-arm/Docker, restricts execution to the old repository name, and checks out an old pinned Agent revision. Adapt before triggering.

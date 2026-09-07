@@ -44,7 +44,7 @@ func TestUnixSessionPeerUIDComesFromKernelCredentials(t *testing.T) {
 }
 
 func TestDesktopSessionSocketUsesAgentRuntimeDirectory(t *testing.T) {
-	if actual := desktopSessionSocketPath(1000); actual != "/run/ezvm-agent/sessions/session-1000.sock" {
+	if actual := desktopSessionSocketPath(1000); actual != "/run/rift-agent/sessions/session-1000.sock" {
 		t.Fatalf("desktop session socket path = %q", actual)
 	}
 }
@@ -94,7 +94,7 @@ func TestInvalidDesktopSessionRegistrationDoesNotPoisonRegistry(t *testing.T) {
 		t.Fatal("accepted an untrusted session socket path")
 	}
 	valid := invalid
-	valid.SocketPath = "/run/ezvm-agent/sessions/session-1000.sock"
+	valid.SocketPath = "/run/rift-agent/sessions/session-1000.sock"
 	if !storeSessionRegistration(1000, valid, now) {
 		t.Fatal("valid session registration was rejected after invalid input")
 	}
@@ -110,19 +110,19 @@ func TestActiveDesktopSessionRequiresCapabilityAndSocket(t *testing.T) {
 		1000: {
 			uid:          1000,
 			capabilities: []string{"clipboard-agent-text-v1"},
-			socketPath:   "/run/ezvm-agent/sessions/session-1000.sock",
+			socketPath:   "/run/rift-agent/sessions/session-1000.sock",
 			updatedAt:    now.Add(-time.Second),
 		},
 		1001: {
 			uid:          1001,
 			capabilities: []string{"clipboard-agent-text-v1", "clipboard-agent-image-v1"},
-			socketPath:   "/run/ezvm-agent/sessions/session-1001.sock",
+			socketPath:   "/run/rift-agent/sessions/session-1001.sock",
 			updatedAt:    now,
 		},
 	}
 	desktopSessions.Unlock()
 	session, ok := activeDesktopSession(now, "clipboard-agent-image-v1")
-	if !ok || session.socketPath != "/run/ezvm-agent/sessions/session-1001.sock" {
+	if !ok || session.socketPath != "/run/rift-agent/sessions/session-1001.sock" {
 		t.Fatalf("wrong active image clipboard session: %#v %v", session, ok)
 	}
 	if _, ok := activeDesktopSession(now, "arbitrary-host-command-v1"); ok {

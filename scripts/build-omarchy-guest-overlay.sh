@@ -16,24 +16,24 @@ version=${version#v}
   exit 64
 }
 
-source_root="$project_root/EZVMOmarchy/GuestOverlay/systemd"
-mount_unit="$source_root/mnt-ezvm\x2dshared.mount"
-session_unit="$source_root/ezvm-session-agent.service"
+source_root="$project_root/GuestResources/Omarchy/systemd"
+mount_unit="$source_root/mnt-riftvm\x2dshared.mount"
+session_unit="$source_root/rift-session-agent.service"
 test -f "$mount_unit"
 test -f "$session_unit"
 
 mkdir -p "$output_dir"
-staging=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-overlay.XXXXXX")
+staging=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-overlay.XXXXXX")
 trap 'rm -rf "$staging"' EXIT
 
 install -d -m 0755 \
   "$staging/etc/systemd/system" \
   "$staging/etc/systemd/user" \
-  "$staging/mnt/ezvm-shared"
+  "$staging/mnt/riftvm-shared"
 install -m 0644 "$mount_unit" \
-  "$staging/etc/systemd/system/mnt-ezvm\x2dshared.mount"
+  "$staging/etc/systemd/system/mnt-riftvm\x2dshared.mount"
 install -m 0644 "$session_unit" \
-  "$staging/etc/systemd/user/ezvm-session-agent.service"
+  "$staging/etc/systemd/user/rift-session-agent.service"
 
 manifest="$staging/overlay-manifest.json"
 jq -n \
@@ -42,23 +42,23 @@ jq -n \
   --arg session_sha "$(shasum -a 256 "$session_unit" | awk '{print $1}')" \
   '{
     schemaVersion: 1,
-    productID: "com.everettjf.ezvm.omarchy",
+    productID: "com.riftvm.app",
     version: $version,
     files: [
-      {path: "etc/systemd/system/mnt-ezvm\\x2dshared.mount", sha256: $mount_sha},
-      {path: "etc/systemd/user/ezvm-session-agent.service", sha256: $session_sha}
+      {path: "etc/systemd/system/mnt-riftvm\\x2dshared.mount", sha256: $mount_sha},
+      {path: "etc/systemd/user/rift-session-agent.service", sha256: $session_sha}
     ]
   }' >"$manifest"
 
-archive="EZVM-Omarchy-GuestOverlay-$version.tar.gz"
+archive="RiftVM-Omarchy-GuestOverlay-$version.tar.gz"
 archive_path="$output_dir/$archive"
 find "$staging" -exec touch -h -t 202001010000 {} +
 uncompressed="$staging/overlay.tar"
 COPYFILE_DISABLE=1 tar --format ustar -C "$staging" -cf "$uncompressed" \
   overlay-manifest.json \
-  mnt/ezvm-shared \
-  'etc/systemd/system/mnt-ezvm\x2dshared.mount' \
-  etc/systemd/user/ezvm-session-agent.service
+  mnt/riftvm-shared \
+  'etc/systemd/system/mnt-riftvm\x2dshared.mount' \
+  etc/systemd/user/rift-session-agent.service
 gzip -n -9 -c "$uncompressed" >"$archive_path"
 shasum -a 256 "$archive_path" >"$archive_path.sha256"
 (cd "$output_dir" && shasum -a 256 -c "$archive.sha256")

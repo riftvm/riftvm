@@ -7,16 +7,16 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
-timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
+timeout="${RIFTVM_VM_SMOKE_TIMEOUT:-90}"
 
 fail() {
   echo "verify-release-cli: $*" >&2
   exit 1
 }
 
-[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <EZVM.app> <smoke-vm>"
+[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <RiftVM.app> <smoke-vm>"
 [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "timeout must be a positive integer"
-cli="$app_path/Contents/Helpers/ezvm"
+cli="$app_path/Contents/Helpers/riftvm"
 [[ -x "$cli" ]] || fail "CLI executable not found: $cli"
 guest_type="$(ruby -rjson -e 'puts JSON.parse(File.read(File.join(ARGV.fetch(0), "config.json"))).fetch("type")' "$vm_path")" \
   || fail "could not read the guest type from $vm_path/config.json"
@@ -24,9 +24,9 @@ guest_type="$(ruby -rjson -e 'puts JSON.parse(File.read(File.join(ARGV.fetch(0),
   || fail "unsupported guest type in fixture: $guest_type"
 
 smoke_parent="$(dirname "$vm_path")"
-smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-cli-smoke.XXXXXX")"
-smoke_vm="$smoke_directory/CLI-Smoke.ezvm"
-second_vm="$smoke_directory/CLI-Smoke-Second.ezvm"
+smoke_directory="$(mktemp -d "$smoke_parent/.riftvm-cli-smoke.XXXXXX")"
+smoke_vm="$smoke_directory/CLI-Smoke.riftvm"
+second_vm="$smoke_directory/CLI-Smoke-Second.riftvm"
 cleanup() {
   "$cli" stop "$smoke_vm" --timeout 25 >/dev/null 2>&1 || true
   "$cli" stop "$second_vm" --timeout 25 >/dev/null 2>&1 || true
@@ -82,7 +82,7 @@ restart_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "restart
 [[ "$restart_json" == *'"phase":"running"'* ]] || fail "restart after SIGKILL did not report running: $restart_json"
 "$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after SIGKILL restart failed"
 
-# A corrupt saved state is disposable. EZVM must rebuild its VZVirtualMachine
+# A corrupt saved state is disposable. RiftVM must rebuild its VZVirtualMachine
 # instance and cold boot rather than present a persistent restore error.
 cp "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave"
 saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after corrupt saved state failed: $saved_state_json"

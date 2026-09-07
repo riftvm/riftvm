@@ -8,7 +8,7 @@ select_virgl_capture_pid() {
 
     if [[ -n "$explicit_pid" ]]; then
         [[ "$explicit_pid" =~ ^[1-9][0-9]*$ ]] || {
-            echo "EZVM_VIRGL_PID must be a positive process ID." >&2
+            echo "RIFTVM_VIRGL_PID must be a positive process ID." >&2
             return 2
         }
         printf '%s\n' "$explicit_pid"
@@ -24,14 +24,14 @@ select_virgl_capture_pid() {
 
     case "$count" in
         0)
-            echo "No running EZVM process was found." >&2
+            echo "No running RiftVM process was found." >&2
             return 1
             ;;
         1)
             printf '%s\n' "$explicit_pid"
             ;;
         *)
-            echo "Multiple EZVM processes are running. Set EZVM_VIRGL_PID to the VM window being measured." >&2
+            echo "Multiple RiftVM processes are running. Set RIFTVM_VIRGL_PID to the VM window being measured." >&2
             return 1
             ;;
     esac

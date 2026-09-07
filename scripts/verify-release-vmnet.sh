@@ -7,20 +7,20 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
-enrollment_file="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}"
+enrollment_file="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}"
 
 fail() {
   echo "verify-release-vmnet: $*" >&2
   exit 1
 }
 
-[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <EZVM.app> <linux-vm>"
+[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <RiftVM.app> <linux-vm>"
 [[ -f "$vm_path/config.json" ]] || fail "fixture has no config.json: $vm_path"
-[[ -f "$enrollment_file" ]] || fail "EZVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
+[[ -f "$enrollment_file" ]] || fail "RIFTVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
 
 fixture_parent="$(dirname "$vm_path")"
-fixture_root="$(mktemp -d "$fixture_parent/.ezvm-vmnet-fixture.XXXXXX")"
-fixture="$fixture_root/VMNet-Shared.ezvm"
+fixture_root="$(mktemp -d "$fixture_parent/.riftvm-vmnet-fixture.XXXXXX")"
+fixture="$fixture_root/VMNet-Shared.riftvm"
 cleanup() {
   rm -rf "$fixture_root"
 }
@@ -34,15 +34,15 @@ ruby -rjson -e '
   config["name"] = "#{config["name"]} · VMNet Shared"
   config["networkDevices"] = [{
     "type" => "VMNetShared",
-    "networkIdentifier" => "ezvm-release-shared",
+    "networkIdentifier" => "riftvm-release-shared",
     "portForwardingRules" => []
   }]
   File.write(path, JSON.pretty_generate(config) + "\n")
 ' "$fixture"
 
 run_vmnet_guest_gate() {
-  EZVM_RELEASE_REQUIRE_VMNET=1 \
-  EZVM_RELEASE_REQUIRE_GUEST_IPV4=1 \
+  RIFTVM_RELEASE_REQUIRE_VMNET=1 \
+  RIFTVM_RELEASE_REQUIRE_GUEST_IPV4=1 \
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 

@@ -3,20 +3,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "EZVMCore",
+    name: "RiftVMCore",
     platforms: [.macOS("27.0")],
     products: [
-        .library(name: "EZVMCore", targets: ["EZVMCore"]),
-        .library(name: "EZVMCLIKit", targets: ["EZVMCLIKit"]),
-        .executable(name: "ezvm", targets: ["ezvm"]),
+        .library(name: "RiftVMCore", targets: ["RiftVMCore"]),
+        .library(name: "RiftVMCLIKit", targets: ["RiftVMCLIKit"]),
+        .executable(name: "riftvm", targets: ["riftvm"]),
         .executable(name: "omarchy-factory-tool", targets: ["OmarchyFactoryTool"]),
         .executable(name: "omarchy-rollback-acceptance-tool", targets: ["OmarchyRollbackAcceptanceTool"]),
         .executable(name: "omarchy-soak-acceptance-tool", targets: ["OmarchySoakAcceptanceTool"]),
     ],
     targets: [
         .target(
-            name: "EZVMCore",
-            path: "EZVM/EZVM/Core/VMKit",
+            name: "RiftVMCore",
+            path: "RiftVM/RiftVM/Core/VMKit",
             exclude: [
                 "Catalog",
                 "Model/VMModel.swift",
@@ -39,6 +39,7 @@ let package = Package(
                 "Common/VMOSHelper.swift",
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
+                "Common/WorkspaceRegistry.swift",
                 "GuestAgent/VMGuestAgentProtocol.swift",
                 "GuestAgent/VMGuestAgentEnrollmentStore.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
@@ -61,23 +62,23 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "EZVMCoreTests",
-            dependencies: ["EZVMCore"]
+            name: "RiftVMCoreTests",
+            dependencies: ["RiftVMCore"]
         ),
-        .target(name: "EZVMCLIKit", path: "CLI/Kit"),
+        .target(name: "RiftVMCLIKit", dependencies: ["RiftVMCore"], path: "CLI/Kit"),
         .executableTarget(
-            name: "ezvm",
-            dependencies: ["EZVMCLIKit"],
+            name: "riftvm",
+            dependencies: ["RiftVMCLIKit"],
             path: "CLI/Executable"
         ),
         .executableTarget(
             name: "OmarchyFactoryTool",
-            dependencies: ["EZVMCore"],
+            dependencies: ["RiftVMCore"],
             path: "Tools/OmarchyFactoryTool"
         ),
         .executableTarget(
             name: "OmarchyRollbackAcceptanceTool",
-            dependencies: ["EZVMCore"],
+            dependencies: ["RiftVMCore"],
             path: "Tools/OmarchyRollbackAcceptanceTool"
         ),
         .executableTarget(
@@ -85,8 +86,8 @@ let package = Package(
             path: "Tools/OmarchySoakAcceptanceTool"
         ),
         .testTarget(
-            name: "EZVMCLIKitTests",
-            dependencies: ["EZVMCLIKit"]
+            name: "RiftVMCLIKitTests",
+            dependencies: ["RiftVMCLIKit"]
         ),
     ]
 )

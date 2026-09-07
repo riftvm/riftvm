@@ -21,7 +21,7 @@ if grep -q '^\[Dict\]$' "$entitlements"; then
   if grep -q '^[[:space:]]*\[Key\] com.apple.application-identifier$' "$entitlements"; then
     expected_keys=$expected_development
     grep -A2 '^[[:space:]]*\[Key\] com.apple.application-identifier$' "$entitlements" | \
-      grep -q '^[[:space:]]*\[String\] YPV49M8592.com.everettjf.ezvm.omarchy$' || \
+      grep -q '^[[:space:]]*\[String\] YPV49M8592.com.riftvm.app$' || \
       fail "application identifier does not match the Omarchy App ID"
     grep -A2 '^[[:space:]]*\[Key\] com.apple.developer.team-identifier$' "$entitlements" | \
       grep -q '^[[:space:]]*\[String\] YPV49M8592$' || \
@@ -38,7 +38,7 @@ else
   if [[ $keys == *com.apple.application-identifier* ]]; then
     expected_keys=$expected_development
     [[ $(/usr/libexec/PlistBuddy -c 'Print :com.apple.application-identifier' "$entitlements") == \
-      YPV49M8592.com.everettjf.ezvm.omarchy ]] || fail "application identifier does not match"
+      YPV49M8592.com.riftvm.app ]] || fail "application identifier does not match"
     [[ $(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.team-identifier' "$entitlements") == YPV49M8592 ]] || \
       fail "embedded team identifier does not match"
   else

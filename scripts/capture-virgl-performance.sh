@@ -7,9 +7,9 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 source "$script_dir/lib/virgl-capture-preflight.sh"
 
 duration="${1:-30}"
-output="${2:-/tmp/ezvm-virgl-performance-$(date +%Y%m%d-%H%M%S).txt}"
-backend="${EZVM_VIRGL_BACKEND:-custom-virgl}"
-workload="${EZVM_VIRGL_WORKLOAD:-unspecified}"
+output="${2:-/tmp/riftvm-virgl-performance-$(date +%Y%m%d-%H%M%S).txt}"
+backend="${RIFTVM_VIRGL_BACKEND:-custom-virgl}"
+workload="${RIFTVM_VIRGL_WORKLOAD:-unspecified}"
 
 if ! [[ "$duration" =~ ^[0-9]+$ ]] || (( duration < 5 || duration > 600 )); then
     echo "Duration must be an integer between 5 and 600 seconds." >&2
@@ -19,30 +19,30 @@ fi
 case "$backend" in
     custom-virgl|apple-virtio) ;;
     *)
-        echo "EZVM_VIRGL_BACKEND must be custom-virgl or apple-virtio." >&2
+        echo "RIFTVM_VIRGL_BACKEND must be custom-virgl or apple-virtio." >&2
         exit 2
         ;;
 esac
 
 if [[ "$workload" == *$'\n'* || "$workload" == *$'\r'* ]]; then
-    echo "EZVM_VIRGL_WORKLOAD must be a single line." >&2
+    echo "RIFTVM_VIRGL_WORKLOAD must be a single line." >&2
     exit 2
 fi
 
-discovered_pids="$(pgrep -x EZVM || true)"
-pid="$(select_virgl_capture_pid "${EZVM_VIRGL_PID:-}" "$discovered_pids")" || exit $?
+discovered_pids="$(pgrep -x RiftVM || true)"
+pid="$(select_virgl_capture_pid "${RIFTVM_VIRGL_PID:-}" "$discovered_pids")" || exit $?
 if ! kill -0 "$pid" 2>/dev/null; then
-    echo "EZVM process $pid is no longer running." >&2
+    echo "RiftVM process $pid is no longer running." >&2
     exit 1
 fi
 process_name="$(ps -p "$pid" -o comm= | awk -F/ '{ print $NF }')"
-if [[ "$process_name" != "EZVM" ]]; then
-    echo "Process $pid is $process_name, not EZVM." >&2
+if [[ "$process_name" != "RiftVM" ]]; then
+    echo "Process $pid is $process_name, not RiftVM." >&2
     exit 1
 fi
 
-samples="$(mktemp /tmp/ezvm-virgl-samples.XXXXXX)"
-graphics_logs="$(mktemp /tmp/ezvm-virgl-logs.XXXXXX)"
+samples="$(mktemp /tmp/riftvm-virgl-samples.XXXXXX)"
+graphics_logs="$(mktemp /tmp/riftvm-virgl-logs.XXXXXX)"
 log_pid=""
 cleanup() {
     if [[ -n "$log_pid" ]] && kill -0 "$log_pid" 2>/dev/null; then
@@ -55,13 +55,13 @@ trap cleanup EXIT
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 /usr/bin/log stream --style compact --level info \
-    --predicate "processID == $pid AND subsystem == 'com.everettjf.ezvm' AND (category == 'graphics' OR category == 'virtio-gpu')" \
+    --predicate "processID == $pid AND subsystem == 'com.riftvm.app' AND (category == 'graphics' OR category == 'virtio-gpu')" \
     > "$graphics_logs" &
 log_pid=$!
 
 for (( second = 0; second < duration; second++ )); do
     if ! kill -0 "$pid" 2>/dev/null; then
-        echo "EZVM stopped before the capture completed." >&2
+        echo "RiftVM stopped before the capture completed." >&2
         exit 1
     fi
     ps -p "$pid" -o %cpu=,rss= >> "$samples"
@@ -133,7 +133,7 @@ virgl_summary() {
 }
 
 {
-    echo "# EZVM VirGL performance capture"
+    echo "# RiftVM VirGL performance capture"
     echo "Format-Version: 2"
     echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "Started: $started_at"
@@ -161,7 +161,7 @@ virgl_summary() {
     echo "# Per-second samples (%CPU RSS-KiB)"
     cat "$samples"
     echo
-    echo "# EZVM graphics and virtio-gpu logs"
+    echo "# RiftVM graphics and virtio-gpu logs"
     cat "$graphics_logs"
 } > "$output"
 

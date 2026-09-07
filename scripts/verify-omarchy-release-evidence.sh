@@ -147,4 +147,4 @@ ruby -rjson -rtime -e '
   "$integration_observation" "$lifecycle_observation" "$command_super_observation" \
   "$rollback_observation" "$full_screen_observation" "$notification_observation" "$soak_observation"
 
-echo "Verified EZVM Omarchy real-guest release evidence."
+echo "Verified RiftVM Omarchy real-guest release evidence."

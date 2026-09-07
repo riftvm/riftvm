@@ -152,22 +152,22 @@ func hyprlandDeviceDiagnostics() string {
 			continue
 		}
 		text := string(output)
-		index := strings.Index(strings.ToLower(text), "ezvm keyboard")
+		index := strings.Index(strings.ToLower(text), "riftvm keyboard")
 		if index < 0 {
-			return "hyprctl devices has no EZVM Keyboard"
+			return "hyprctl devices has no RiftVM Keyboard"
 		}
 		start := max(0, index-250)
 		end := min(len(text), index+650)
-		return "hyprctl EZVM Keyboard: " + strings.TrimSpace(text[start:end])
+		return "hyprctl RiftVM Keyboard: " + strings.TrimSpace(text[start:end])
 	}
 	return "hyprctl devices failed: " + strings.Join(failures, "; ")
 }
 
 func desktopInputReady() bool {
-	if len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl EZVM Keyboard:") {
+	if len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl RiftVM Keyboard:") {
 		return true
 	}
-	return intersects(ezvmKeyboardEventDevices(), desktopCompositorInputDevices())
+	return intersects(riftvmKeyboardEventDevices(), desktopCompositorInputDevices())
 }
 
 func desktopSessionActive() bool {
@@ -343,14 +343,14 @@ func desktopCompositorInputDevices() []string {
 	return devices
 }
 
-func ezvmKeyboardEventDevices() []string {
+func riftvmKeyboardEventDevices() []string {
 	data, err := os.ReadFile("/proc/bus/input/devices")
 	if err != nil {
 		return nil
 	}
 	var devices []string
 	for _, block := range strings.Split(string(data), "\n\n") {
-		if !strings.Contains(block, `N: Name="EZVM Keyboard"`) {
+		if !strings.Contains(block, `N: Name="RiftVM Keyboard"`) {
 			continue
 		}
 		for _, line := range strings.Split(block, "\n") {

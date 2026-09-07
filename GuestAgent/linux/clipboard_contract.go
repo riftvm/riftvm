@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	clipboardSharedRoot   = "/mnt/ezvm-shared"
-	clipboardFilePrefix   = ".ezvm-clipboard-"
+	clipboardSharedRoot   = "/mnt/riftvm-shared"
+	clipboardFilePrefix   = ".riftvm-clipboard-"
 	maximumClipboardBytes = 100 * 1024 * 1024
 	clipboardTextMIME     = "text/plain;charset=utf-8"
 	clipboardImageMIME    = "image/png"
 )
 
 var clipboardItemPattern = regexp.MustCompile(
-	`^\.ezvm-clipboard-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(?:txt|png)$`,
+	`^\.riftvm-clipboard-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(?:txt|png)$`,
 )
 
 type clipboardRequest struct {

@@ -121,7 +121,7 @@ func inputDiagnostics() string {
 	inputDiagnosticLock.Lock()
 	last := lastInputReport
 	inputDiagnosticLock.Unlock()
-	return fmt.Sprintf("EZVM input reports=%d last=[%s]", inputReportCount.Load(), last)
+	return fmt.Sprintf("RiftVM input reports=%d last=[%s]", inputReportCount.Load(), last)
 }
 
 func writeInputEvents(file *os.File, events []inputEvent) error {
@@ -194,7 +194,7 @@ func createKeyboard() *os.File {
 		}
 	}
 	setup := uinputSetup{BusType: 0x03, Vendor: 0x1d6b, Product: 0x0104, Version: 4}
-	copy(setup.Name[:], "EZVM Keyboard")
+	copy(setup.Name[:], "RiftVM Keyboard")
 	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
 		ioctlFile(file, uiDevCreate, 0) != nil {
 		return fail()
@@ -242,7 +242,7 @@ func createRelativePointer() *os.File {
 		}
 	}
 	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0106, Version: 1}
-	copy(setup.Name[:], "EZVM Relative Pointer")
+	copy(setup.Name[:], "RiftVM Relative Pointer")
 	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
 		ioctlFile(file, uiDevCreate, 0) != nil {
 		return fail()
@@ -281,7 +281,7 @@ func createAbsolutePointer() *os.File {
 		return fail()
 	}
 	setup := uinputSetup{BusType: 0x06, Vendor: 0x1d6b, Product: 0x0105, Version: 1}
-	copy(setup.Name[:], "EZVM Absolute Pointer")
+	copy(setup.Name[:], "RiftVM Absolute Pointer")
 	if ioctlFile(file, uiDevSetup, uintptr(unsafe.Pointer(&setup))) != nil ||
 		ioctlFile(file, uiDevCreate, 0) != nil {
 		return fail()

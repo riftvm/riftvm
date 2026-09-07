@@ -3,14 +3,14 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-fixture="$(mktemp -d /tmp/ezvm-matrix-report-test.XXXXXX)"
+fixture="$(mktemp -d /tmp/riftvm-matrix-report-test.XXXXXX)"
 cleanup() { rm -rf "$fixture"; }
 trap cleanup EXIT
 
-app="$fixture/EZVM.app"
+app="$fixture/RiftVM.app"
 mkdir -p "$app/Contents/MacOS"
-printf '#!/bin/sh\n' > "$app/Contents/MacOS/EZVM"
-chmod +x "$app/Contents/MacOS/EZVM"
+printf '#!/bin/sh\n' > "$app/Contents/MacOS/RiftVM"
+chmod +x "$app/Contents/MacOS/RiftVM"
 report="$fixture/report.json"
 
 "$project_root/scripts/write-macos27-matrix-report.sh" "$app" 2.0.0 123 "$report" 1 >/dev/null

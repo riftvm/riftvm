@@ -6,7 +6,7 @@ project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 # The production monitor intentionally accepts only system-temporary roots.
 # GitHub's RUNNER_TEMP lives under the runner account, so keep this security
 # boundary exercised instead of weakening it for CI.
-work=$(mktemp -d "/tmp/ezvm-omarchy-soak.XXXXXX")
+work=$(mktemp -d "/tmp/riftvm-omarchy-soak.XXXXXX")
 updater_pid=
 cleanup() {
   if [[ -n $updater_pid ]]; then kill "$updater_pid" >/dev/null 2>&1 || true; fi
@@ -51,8 +51,8 @@ ruby -rjson -rtime -e '
 ' "$work" "$revision" &
 updater_pid=$!
 sleep 0.2
-EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
-EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=5 "$tool" \
+RIFTVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
+RIFTVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=5 "$tool" \
   "$work" "$revision" 3 "$work/soak-observation.json"
 wait "$updater_pid"
 updater_pid=
@@ -76,8 +76,8 @@ ruby -rjson -rtime -e '
   }
   File.write(File.join(ARGV.fetch(0), "Diagnostics", "soak-heartbeat.json"), JSON.generate(value))
 ' "$work" "$revision"
-if EZVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
-  EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=2 "$tool" \
+if RIFTVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
+  RIFTVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=2 "$tool" \
   "$work" "$revision" 1 "$work/rejected.json" >/dev/null 2>&1; then
   echo 'soak monitor accepted an inactive desktop' >&2
   exit 1
