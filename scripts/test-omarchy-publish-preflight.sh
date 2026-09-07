@@ -25,6 +25,6 @@ expect_status() {
 expect_status 64
 expect_status 64 prepare
 expect_status 64 unknown 1.0.0
-expect_status 66 publish 1.0.0 missing-evidence missing-manifest missing-image
+expect_status 64 publish 1.0.0 missing-evidence missing-manifest missing-image
 
-echo "Verified two-phase RiftVM Omarchy publish preflight."
+echo "Verified retired standalone publisher cannot create release state."

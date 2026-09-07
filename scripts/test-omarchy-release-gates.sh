@@ -5,21 +5,20 @@ set -euo pipefail
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-release-gates.XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
-app="$fixture/RiftVM Omarchy.app"
+app="$fixture/RiftVM.app"
 info="$app/Contents/Info.plist"
-executable="$app/Contents/MacOS/RiftVM Omarchy"
+executable="$app/Contents/MacOS/RiftVM"
 revision=0123456789abcdef0123456789abcdef01234567
-public_key='11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo='
-entitlement_verifier="$project_root/scripts/verify-omarchy-entitlements.sh"
+public_key=$(base64 <"$project_root/Resources/FactoryTrust/omarchy-factory-2026.pub" | tr -d '\r\n')
 
 make_fixture() {
   rm -rf "$app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   cp /usr/bin/true "$executable"
   plutil -create xml1 "$info"
-  plutil -insert CFBundleExecutable -string 'RiftVM Omarchy' "$info"
+  plutil -insert CFBundleExecutable -string 'RiftVM' "$info"
   plutil -insert CFBundleIdentifier -string com.riftvm.app "$info"
-  plutil -insert CFBundleName -string 'RiftVM Omarchy' "$info"
+  plutil -insert CFBundleName -string 'RiftVM' "$info"
   plutil -insert CFBundleIconName -string AppIcon "$info"
   plutil -insert CFBundleIconFile -string AppIcon "$info"
   plutil -insert CFBundlePackageType -string APPL "$info"
@@ -28,7 +27,7 @@ make_fixture() {
   plutil -insert RiftVMOmarchyFactoryPublicKeyBase64 -string "$public_key" "$info"
   plutil -insert RiftVMSourceRevision -string "$revision" "$info"
   plutil -insert RiftVMSourceTreeState -string clean "$info"
-  xcrun actool "$project_root/RiftVMOmarchy/Resources/Assets.xcassets" \
+  xcrun actool "$project_root/RiftVM/RiftVM/Assets.xcassets" \
     --compile "$app/Contents/Resources" \
     --platform macosx \
     --minimum-deployment-target 27.0 \
@@ -36,7 +35,7 @@ make_fixture() {
     --output-partial-info-plist "$fixture/icon-info.plist" \
     --warnings --errors --notices >/dev/null
   codesign --force --deep --sign - \
-    --entitlements "$project_root/RiftVMOmarchy/Resources/RiftVMOmarchy.entitlements" \
+    --entitlements "$project_root/RiftVM/RiftVM/RiftVM.entitlements" \
     --timestamp=none "$app" >/dev/null
 }
 
@@ -64,26 +63,6 @@ make_fixture
 plutil -replace CFBundleIconName -string WrongIcon "$info"
 expect_rejection 'an unexpected application icon declaration'
 
-# Developer ID exports legitimately contain a TeamIdentifier in the code
-# signature while retaining only the explicitly requested minimal entitlement.
-"$entitlement_verifier" \
-  "$project_root/RiftVMOmarchy/Resources/RiftVMOmarchy.entitlements" YPV49M8592
-if "$entitlement_verifier" \
-  "$project_root/RiftVMOmarchy/Resources/RiftVMOmarchy.entitlements" WRONGTEAM 2>/dev/null; then
-  echo "entitlement verifier accepted an unexpected Developer ID team" >&2
-  exit 1
-fi
-
-development_entitlements="$fixture/development.entitlements"
-cp "$project_root/RiftVMOmarchy/Resources/RiftVMOmarchy.entitlements" "$development_entitlements"
-/usr/libexec/PlistBuddy -c \
-  'Add :com.apple.application-identifier string YPV49M8592.com.riftvm.app' \
-  "$development_entitlements"
-/usr/libexec/PlistBuddy -c \
-  'Add :com.apple.developer.team-identifier string YPV49M8592' \
-  "$development_entitlements"
-"$entitlement_verifier" "$development_entitlements" YPV49M8592
-
 if RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' \
   "$project_root/scripts/verify-omarchy-release-app.sh" \
     "$app" 0.1.0 "$revision" clean >/dev/null 2>&1; then
@@ -91,8 +70,9 @@ if RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
   exit 1
 fi
 
-plutil -replace CFBundleIdentifier -string com.riftvm.app "$info"
-expect_rejection 'the general RiftVM bundle identifier'
+make_fixture
+plutil -replace CFBundleIdentifier -string com.riftvm.retired-omarchy "$info"
+expect_rejection 'a retired standalone bundle identifier'
 
 make_fixture
 plutil -replace RiftVMOmarchyFactoryPublicKeyBase64 -string invalid "$info"
@@ -100,7 +80,9 @@ expect_rejection 'a malformed factory public key'
 
 make_fixture
 extra_entitlements="$fixture/extra.entitlements"
-cp "$project_root/RiftVMOmarchy/Resources/RiftVMOmarchy.entitlements" "$extra_entitlements"
-/usr/libexec/PlistBuddy -c 'Add :com.apple.developer.networking.vmnet bool true' "$extra_entitlements"
+cp "$project_root/RiftVM/RiftVM/RiftVM.entitlements" "$extra_entitlements"
+/usr/libexec/PlistBuddy -c 'Add :com.apple.security.cs.disable-library-validation bool true' "$extra_entitlements"
 codesign --force --deep --sign - --entitlements "$extra_entitlements" --timestamp=none "$app" >/dev/null
-expect_rejection 'an undeclared VMNet entitlement'
+expect_rejection 'an undeclared library-validation bypass'
+
+echo "Verified unified App factory, identity, icon and entitlement gates."

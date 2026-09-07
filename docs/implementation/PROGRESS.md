@@ -54,3 +54,10 @@ Status: implementation and release acceptance in progress. No public App release
 5. Rebuild and validate the exact final signed candidate, publish accepted artifacts, verify public cold installation and the Homebrew cask, then update download documentation.
 
 Long soak and sleep/wake certification remain explicitly deferred. All other required completion gates remain in scope.
+
+## Catalog and unified release-script refinements
+
+- macOS empty catalog responses now have a distinct message; they are not reported as network failures. Added the Apple-verified current restore image, full digest/size, and version/build fields for deterministic built-in release ordering. Empty cache contents no longer suppress a retry. App build and 56 integration tests passed.
+- Release builds accept RIFTVM_BUILD_NUMBER and pass it into both archive and build paths. Metadata verification rejects invalid/mismatched build numbers. Signed archives now honor the requested isolated derived-data directory. Metadata and signing-preflight regression checks passed.
+- The unified build now verifies the pinned factory public key, compiled icon representations, source metadata and unified production entitlements. Tampered identity, factory trust, missing icon/assets and extra entitlement fixtures are rejected. The existing notarized internal candidate passes these checks.
+- Standalone Omarchy build/publish entry points are retired and fail before creating state. The remaining general publisher still needs full unified functional-evidence integration before it is used for a public release.

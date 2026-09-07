@@ -12,21 +12,21 @@ fail() {
   exit 1
 }
 
-[[ -d $app_path && ! -L $app_path ]] || fail "usage: $0 <RiftVM Omarchy.app> [version] [revision] [tree-state]"
+[[ -d $app_path && ! -L $app_path ]] || fail "usage: $0 <RiftVM.app> [version] [revision] [tree-state]"
 info="$app_path/Contents/Info.plist"
 [[ -f $info && ! -L $info ]] || fail "Info.plist is missing or unsafe"
 
 bundle_id=$(plutil -extract CFBundleIdentifier raw "$info")
 product_name=$(plutil -extract CFBundleName raw "$info")
 [[ $bundle_id == com.riftvm.app ]] || fail "unexpected bundle identifier: $bundle_id"
-[[ $product_name == "RiftVM Omarchy" ]] || fail "unexpected product name: $product_name"
+[[ $product_name == "RiftVM" ]] || fail "unexpected product name: $product_name"
 factory_public_key=$(plutil -extract RiftVMOmarchyFactoryPublicKeyBase64 raw "$info") || \
   fail "factory signing public key is missing"
 [[ $factory_public_key =~ ^[A-Za-z0-9+/]{43}=$ ]] || fail "factory signing public key is malformed"
-if [[ -n ${RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64:-} ]]; then
-  [[ $factory_public_key == "$RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64" ]] || \
-    fail "embedded factory signing key does not match the selected release channel"
-fi
+project_root=$(cd -- "$(dirname -- "$0")/.." && pwd)
+expected_key=${RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64:-$(base64 <"$project_root/Resources/FactoryTrust/omarchy-factory-2026.pub" | tr -d '\r\n')}
+[[ $factory_public_key == "$expected_key" ]] || \
+  fail "embedded factory signing key does not match the selected release channel"
 decoded_key=$(mktemp "${TMPDIR:-/tmp}/riftvm-omarchy-verify-key.XXXXXX")
 icon_probe=$(mktemp -d "${TMPDIR:-/tmp}/riftvm-omarchy-verify-icon.XXXXXX")
 trap 'rm -f "$decoded_key"; rm -rf "$icon_probe"' EXIT
@@ -68,12 +68,6 @@ ruby -rjson -e '
 "$(dirname -- "$0")/verify-release-metadata.sh" \
   "$app_path" "$expected_version" "$expected_revision" "$expected_tree_state" >/dev/null
 
-entitlements=$(mktemp "${TMPDIR:-/tmp}/riftvm-omarchy-entitlements.XXXXXX")
-trap 'rm -f "$decoded_key" "$entitlements"; rm -rf "$icon_probe"' EXIT
-codesign --display --entitlements - "$app_path" >"$entitlements" 2>/dev/null
-[[ -s $entitlements ]] || fail "codesign returned no entitlements"
-team_identifier=$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-"$(dirname -- "$0")/verify-omarchy-entitlements.sh" "$entitlements" "${team_identifier:-not set}"
-
+"$(dirname -- "$0")/verify-production-entitlements.sh" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
-echo "Verified RiftVM Omarchy release app."
+echo "Verified Omarchy factory trust and icon assets in the unified RiftVM app."

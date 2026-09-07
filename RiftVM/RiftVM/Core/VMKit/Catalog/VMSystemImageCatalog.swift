@@ -109,7 +109,7 @@ final class VMMacOSImageCatalogService {
         do {
             var request = URLRequest(url: Self.endpoint)
             request.timeoutInterval = 20
-            request.setValue("RiftVM/3", forHTTPHeaderField: "User-Agent")
+            request.setValue("RiftVM/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0")", forHTTPHeaderField: "User-Agent")
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   (200..<300).contains(httpResponse.statusCode) else {
@@ -129,6 +129,8 @@ final class VMMacOSImageCatalogService {
             if let cacheData = try? JSONEncoder().encode(cache) {
                 try? cacheData.write(to: cacheURL, options: .atomic)
             }
+        } catch CatalogError.emptyCatalog {
+            errorMessage = "The online catalog returned no signed restore images. Choose Latest compatible macOS, a built-in version, or a local IPSW."
         } catch {
             errorMessage = items == VMSystemImageCatalog.macOSItems
                 ? "Couldn’t reach the online catalog. Built-in versions are available, or choose Latest compatible macOS."
@@ -151,7 +153,8 @@ final class VMMacOSImageCatalogService {
             return
         }
         let cachedItems = cache.payload.availableFirmwares.map(Self.makeItem)
-        if !cachedItems.isEmpty { items = cachedItems }
+        guard !cachedItems.isEmpty else { return }
+        items = cachedItems
         lastUpdated = cache.fetchedAt
     }
 
@@ -282,32 +285,51 @@ struct VMSystemImageCatalog {
 
     static let macOSItems: [VMSystemImageCatalogItem] = [
         VMSystemImageCatalogItem(
+            id: "macos-26.6.2",
+            osType: .macOS,
+            name: "macOS Tahoe 26.6.2",
+            detail: "Build 25G83",
+            urlString: "https://updates.cdn-apple.com/2026SummerFCS/fullrestores/140-75212/A2A24B94-1FC1-45A3-93F7-C51B02AF1F4D/UniversalMac_26.6.2_25G83_Restore.ipsw",
+            version: "26.6.2",
+            build: "25G83",
+            fileSize: 19_772_231_540,
+            sha256: "885503b7f4b06609e9a512f2befd40f59730640a3f1233e3892d60affdd51c95"
+        ),
+        VMSystemImageCatalogItem(
             id: "macos-15.0",
             osType: .macOS,
             name: "macOS Sequoia 15.0",
             detail: "Build 24A335",
-            urlString: "https://updates.cdn-apple.com/2024FallFCS/fullrestores/062-78489/BDA44327-C79E-4608-A7E0-455A7E91911F/UniversalMac_15.0_24A335_Restore.ipsw"
+            urlString: "https://updates.cdn-apple.com/2024FallFCS/fullrestores/062-78489/BDA44327-C79E-4608-A7E0-455A7E91911F/UniversalMac_15.0_24A335_Restore.ipsw",
+            version: "15.0",
+            build: "24A335"
         ),
         VMSystemImageCatalogItem(
             id: "macos-14.0",
             osType: .macOS,
             name: "macOS Sonoma 14.0",
             detail: "Build 23A344",
-            urlString: "https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-54934/0E101AD6-3117-4B63-9BF1-143B6DB9270A/UniversalMac_14.0_23A344_Restore.ipsw"
+            urlString: "https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-54934/0E101AD6-3117-4B63-9BF1-143B6DB9270A/UniversalMac_14.0_23A344_Restore.ipsw",
+            version: "14.0",
+            build: "23A344"
         ),
         VMSystemImageCatalogItem(
             id: "macos-13.0",
             osType: .macOS,
             name: "macOS Ventura 13.0",
             detail: "Build 22A380",
-            urlString: "https://updates.cdn-apple.com/2022FallFCS/fullrestores/012-92188/2C38BCD1-2BFF-4A10-B358-94E8E28BE805/UniversalMac_13.0_22A380_Restore.ipsw"
+            urlString: "https://updates.cdn-apple.com/2022FallFCS/fullrestores/012-92188/2C38BCD1-2BFF-4A10-B358-94E8E28BE805/UniversalMac_13.0_22A380_Restore.ipsw",
+            version: "13.0",
+            build: "22A380"
         ),
         VMSystemImageCatalogItem(
             id: "macos-12.0.1",
             osType: .macOS,
             name: "macOS Monterey 12.0.1",
             detail: "Build 21A559",
-            urlString: "https://updates.cdn-apple.com/2021FallFCS/fullrestores/002-23589/A54AC135-A25C-4C21-B47A-3C4930D18C13/UniversalMac_12.0.1_21A559_Restore.ipsw"
+            urlString: "https://updates.cdn-apple.com/2021FallFCS/fullrestores/002-23589/A54AC135-A25C-4C21-B47A-3C4930D18C13/UniversalMac_12.0.1_21A559_Restore.ipsw",
+            version: "12.0.1",
+            build: "21A559"
         ),
     ]
 

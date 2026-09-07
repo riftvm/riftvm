@@ -6,6 +6,7 @@ app_path="${1:-}"
 expected_version="${2:-}"
 expected_revision="${3:-}"
 expected_tree_state="${4:-clean}"
+expected_build="${5:-}"
 
 fail() {
   echo "verify-release-metadata: $*" >&2
@@ -15,6 +16,12 @@ fail() {
 [[ -d "$app_path" ]] || fail "usage: $0 <RiftVM.app> [version] [revision] [tree-state]"
 info_plist="$app_path/Contents/Info.plist"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] || fail "application Info.plist is missing or untrusted"
+
+actual_build="$(plutil -extract CFBundleVersion raw "$info_plist")" \
+  || fail "application build number is missing"
+[[ "$actual_build" =~ ^[1-9][0-9]*$ ]] || fail "application build number is not a positive integer"
+[[ -z "$expected_build" || "$actual_build" == "$expected_build" ]] \
+  || fail "build is $actual_build, expected $expected_build"
 
 actual_version="$(plutil -extract CFBundleShortVersionString raw "$info_plist")" \
   || fail "application version is missing"
@@ -33,4 +40,4 @@ actual_tree_state="$(plutil -extract RiftVMSourceTreeState raw "$info_plist")" \
 [[ "$actual_tree_state" == "$expected_tree_state" ]] \
   || fail "source tree state is $actual_tree_state, expected $expected_tree_state"
 
-echo "Verified RiftVM $actual_version source revision $actual_revision ($actual_tree_state)."
+echo "Verified RiftVM $actual_version build $actual_build source revision $actual_revision ($actual_tree_state)."

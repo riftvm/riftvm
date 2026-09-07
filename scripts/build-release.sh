@@ -6,6 +6,7 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 output_dir="${2:-$project_root/dist}"
 derived_data="${RIFTVM_DERIVED_DATA:-}"
+build_number="${RIFTVM_BUILD_NUMBER:-1}"
 archive_name="RiftVM-${version}.zip"
 source_revision="$(git -C "$project_root" rev-parse HEAD)"
 source_tree_state="clean"
@@ -27,6 +28,11 @@ if [[ "$version" == v* ]]; then
   version="${version#v}"
   archive_name="RiftVM-${version}.zip"
 fi
+
+[[ "$build_number" =~ ^[1-9][0-9]*$ ]] || {
+  echo "RIFTVM_BUILD_NUMBER must be a positive integer" >&2
+  exit 64
+}
 
 mkdir -p "$output_dir"
 
@@ -68,9 +74,11 @@ if [[ -n "${RIFTVM_SIGNING_IDENTITY:-}" ]]; then
     -configuration Release \
     -destination 'generic/platform=macOS' \
     -archivePath "$archive_path" \
+    -derivedDataPath "$derived_data" \
     -allowProvisioningUpdates \
     RIFTVM_SOURCE_REVISION="$source_revision" \
     RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
+    CURRENT_PROJECT_VERSION="$build_number" \
     MARKETING_VERSION="$version"
   xcodebuild -exportArchive \
     -archivePath "$archive_path" \
@@ -88,6 +96,7 @@ else
     CODE_SIGNING_ALLOWED=NO \
     RIFTVM_SOURCE_REVISION="$source_revision" \
     RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
+    CURRENT_PROJECT_VERSION="$build_number" \
     MARKETING_VERSION="$version" \
     build
   app_path="$derived_data/Build/Products/Release/RiftVM.app"
@@ -143,7 +152,7 @@ codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
 "$project_root/scripts/verify-release-metadata.sh" \
-  "$app_path" "$version" "$source_revision" "$source_tree_state"
+  "$app_path" "$version" "$source_revision" "$source_tree_state" "$build_number"
 
 if [[ "$signing_identity" != "-" ]]; then
   app_team_id="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
@@ -164,6 +173,7 @@ fi
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
 "$project_root/scripts/verify-production-entitlements.sh" "$app_path"
+"$project_root/scripts/verify-omarchy-release-app.sh" "$app_path" "$version" "$source_revision" "$source_tree_state"
 "$project_root/scripts/verify-virgl-runtime.sh" "$app_path"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
