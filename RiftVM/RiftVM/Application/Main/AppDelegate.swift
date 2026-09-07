@@ -15,6 +15,7 @@ import UserNotifications
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var releaseSmokeWindow: NSWindow?
+    private var releasePeerWindow: NSWindow?
     private var guiReadyAttempts = 0
     private var guiReadyEventMonitor: Any?
 #if arch(arm64)
@@ -67,6 +68,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         window.title = "RiftVM Release Smoke Test"
         window.makeKeyAndOrderFront(nil)
         releaseSmokeWindow = window
+        if let path = ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PEER_VM"], !path.isEmpty {
+            let peer = URL(fileURLWithPath: path).standardizedFileURL
+            guard VMOmarchyTemporaryPathPolicy.contains(peer),
+                  VMOmarchyTemporaryPathPolicy.contains(smokeTest.vmRootPath),
+                  WorkspaceRegistry.canonical(peer) != WorkspaceRegistry.canonical(smokeTest.vmRootPath) else {
+                VMReleaseSmokeTest.report("failed: peer acceptance requires distinct temporary fixtures", configuration: smokeTest)
+                exit(64)
+            }
+            let peerController = NSHostingController(rootView: VMOSMainVirtualMachineView(rootPath: peer, recoveryMode: false))
+            let peerWindow = NSWindow(contentViewController: peerController)
+            peerWindow.setContentSize(NSSize(width: 1024, height: 768))
+            peerWindow.title = "RiftVM Peer Acceptance"
+            peerWindow.makeKeyAndOrderFront(nil)
+            releasePeerWindow = peerWindow
+        }
 #endif
     }
 

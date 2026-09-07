@@ -1060,6 +1060,23 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 failReleaseSmokeTest("quit acceptance requires a temporary fixture", configuration)
                 return
             }
+            if let peerPath = ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PEER_VM"], !peerPath.isEmpty {
+                let peer = URL(fileURLWithPath: peerPath)
+                if !WorkspaceCoordinator.shared.isStandardRuntimeRunning(at: peer) {
+                    let deadline = Date().addingTimeInterval(60)
+                    releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
+                        guard let self else { timer.invalidate(); return }
+                        if WorkspaceCoordinator.shared.isStandardRuntimeRunning(at: peer) {
+                            timer.invalidate()
+                            self.startReleaseMachineStateSave(configuration)
+                        } else if Date() >= deadline {
+                            timer.invalidate()
+                            self.failReleaseSmokeTest("peer did not reach running state", configuration)
+                        }
+                    }
+                    return
+                }
+            }
             VMReleaseSmokeTest.report("quit-requested", configuration: configuration)
             // AppKit termination must enter from its event loop, outside a
             // main-queue task, so asynchronous quit participants can finish.
@@ -1434,20 +1451,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                             fallback: .paused
                         )
                     } else {
-                        do {
-                            try VMSavedStateStore.commit(
-                                pendingURL: pendingURL,
-                                stateURL: stateURL,
-                                vmRootPath: rootPath
-                            )
-                            self.stopAfterSavedStateCommit(stateURL: stateURL)
-                        } catch {
-                            VMSavedStateStore.discardPending(stateURL: stateURL)
-                            self.recoverFromLifecycleOperationFailure(
-                                "Could not commit the saved machine state: \(error.localizedDescription)",
-                                fallback: .paused
-                            )
-                        }
+                        self.stopThenCommitSavedState(pendingURL: pendingURL, stateURL: stateURL, rootPath: rootPath)
                     }
                 }
             }
@@ -1478,7 +1482,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    private func stopAfterSavedStateCommit(stateURL: URL) {
+    private func stopThenCommitSavedState(pendingURL: URL, stateURL: URL, rootPath: URL) {
         runtimeState?.update(.stopping)
         virtualMachine.stop { [weak self] error in
             Task { @MainActor in
@@ -1489,7 +1493,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     // guest resumes or a runtime device changes, so roll it
                     // back instead of leaving a future cold launch to consume
                     // an ambiguous checkpoint.
-                    VMSavedStateStore.discardCommitted(stateURL: stateURL)
+                    VMSavedStateStore.discardPending(stateURL: stateURL)
                     self.recoverFromLifecycleOperationFailure(
                         "The virtual machine state was saved, but the machine could not stop: \(error.localizedDescription)",
                         fallback: .paused
@@ -1500,7 +1504,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     return
                 }
                 self.releaseVirtualMachineAfterStop()
-                self.runtimeState?.update(.stopped)
+                do {
+                    // Stopping releases disk attachments and flushes writes.
+                    // Record compatibility only after those mutations finish.
+                    try VMSavedStateStore.commit(pendingURL: pendingURL, stateURL: stateURL, vmRootPath: rootPath)
+                    self.runtimeState?.update(.stopped)
+                } catch {
+                    self.runtimeState?.update(.failed("The virtual machine stopped, but its saved session could not be committed: \(error.localizedDescription)"))
+                }
                 self.releaseRunLease()
                 self.shutdownRetainer = nil
             }

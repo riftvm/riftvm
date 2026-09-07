@@ -135,3 +135,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - A second native macOS roundtrip invoked the actual pause action, waited for paused state, then saved and exited. The next process restored successfully and consumed the committed state. The formal machine-state script now requires both running and paused save/restore roundtrips on a temporary clone. App build and 59 tests pass; unified Quit and final signed-candidate acceptance remain separate.
 
 - Native macOS unified App termination now has real acceptance evidence from both running and paused states. Each test invoked AppKit termination through the actual quit coordinator, exited successfully with a committed saved state, then restored in a new process and consumed that state. The opt-in hook is restricted to temporary fixtures and does not call Save directly. App build and 59 integration tests pass. Multi-workspace quit, GUI interaction and final signed artifact verification remain pending.
+
+## Multiple macOS workspaces on unified quit
+
+- Added an opt-in acceptance peer using a distinct temporary standard workspace in the same App process. Quit is requested only after the primary and peer are both running.
+- The first attempt hit the host active-VM limit. Earlier disposable processes were explicitly ended for test cleanup with disks retained; that cleanup is not a graceful-shutdown success.
+- The next attempt committed both memory files, but restoration detected disk changes after saving. Standard saved-state metadata was being committed before native stop flushed and released disk attachments. The transaction now commits after successful stop and device release; stop failure discards only the pending transaction, while commit failure reports that the VM has stopped.
+- With corrected ordering, both same-process macOS VMs saved on unified App quit, the App exited successfully, and both states restored in separate new processes and were consumed. Prior failed-attempt state was retained as private diagnostic evidence. App build and 59 tests pass. Mixed Omarchy/macOS quit, GUI interaction and final signed-candidate verification remain required.
