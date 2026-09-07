@@ -69,3 +69,10 @@ Image migration is now in progress. The old local integration branch (1771f5c) w
 - Active read-only Linux inspection run: 34090810766 (Inspect pinned migration base), confirmed downloading/verifying as of 2026-09-06 23:28 local. Download its migration-inventory artifact once complete to determine all old integration paths before implementing migration. No rebake has run.
 - Local original base download is running under exec session 71212 into /private/tmp/riftvm-base-provenance. It contains the original release manifest and provenance already; poll this same session rather than starting a duplicate download. Required download is ~3.1 GB sparse archive, complete disk logical size 64 GiB.
 - Source CI for ad79deb failed only in a newly added sparse fixture (missing extent separator); corrected fixture in 7255538, locally decoder-checked, new CI pending. Existing reconstruction/integration/folder tests passed before the fixture.
+
+## Verified migration and new signing trust
+
+- Read-only inspection run 34090810766 succeeded, including complete disk digest verification. Inventory downloaded to /private/tmp/riftvm-migration-inventory. Image repo b907d0a implements migration against that exact inventory, preserves original provenance, overlays current integration files and reconstructs the read-only factory snapshot. CI 34091337579 passed.
+- New draft image build run 34091423206 uses migrate_ezvm32=true, publish_release=false, v0.1.0-rc.1. Last verified active step: Build pinned Wayland clipboard frontend. Follow this existing run.
+- Local base archive download session 71212 finished successfully. Full reconstruction is running as session 95036, output /private/tmp/riftvm-base.raw and log /private/tmp/riftvm-base-reconstruction.log. Do not retry while live.
+- Generated fresh RiftVM factory Ed25519 trust. Public key is Resources/FactoryTrust/omarchy-factory-2026.pub and embedded in Info.plist. Private key file is /Users/eevv/.config/riftvm/signing/omarchy-factory-2026.private (0600); never output its contents or commit it. No factory has been signed yet; production manifest URL remains pending validation of the built image.
