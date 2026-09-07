@@ -651,7 +651,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private func requestHeadlessStop(_ launch: HeadlessLaunchConfiguration) {
-        guard !headlessStopRequested else { return }
+        // Standard guests may ignore an early platform shutdown request while
+        // firmware or the kernel is still starting. A later explicit CLI stop
+        // must be allowed to send another request after the first one times out.
+        // Omarchy owns its asynchronous stop transaction and rejects overlap.
+        guard !headlessStopRequested || headlessOmarchyPhase == nil else { return }
         headlessStopRequested = true
         writeHeadlessState(launch, phase: "stopping", message: nil)
         if headlessOmarchyPhase != nil {

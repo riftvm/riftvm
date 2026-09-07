@@ -85,3 +85,18 @@ assert_fixture_unchanged() {
     return 1
   fi
 }
+
+# Concurrent smoke-test copies must not share the registry identity carried by
+# modern workspaces. Legacy fixtures have no workspace identity to renew.
+renew_fixture_workspace_identity() {
+  local clone_path="$1"
+  [[ -f "$clone_path/Workspace.json" ]] || return 0
+  ruby -rjson -rsecurerandom -e '
+    path = File.join(ARGV.fetch(0), "Workspace.json")
+    abort "Workspace identity must not be a symbolic link" if File.symlink?(path)
+    value = JSON.parse(File.read(path))
+    abort "Unsupported workspace identity" unless value["schemaVersion"] == 1 && value["id"].is_a?(String)
+    value["id"] = SecureRandom.uuid.upcase
+    File.write(path, JSON.generate(value))
+  ' "$clone_path"
+}

@@ -295,3 +295,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Follow-up: a complete clone of the user-verified Build4-GUI-Debian workspace, with installer USB removed and speakers only, booted visibly to the installed Debian 13 console login under signed build 9. The native Shut Down action then returned the workspace to Stopped. This closes the installed-system/no-ISO GUI boot and shutdown check, but does not resolve the earlier headless timeout.
 - The same installed-disk-only clone also completed a separate CLI start/stop roundtrip (runtime PID 75872), returning stopped successfully after allowing guest boot to progress. The original full concurrent CLI verifier remains a failed run; its log is preserved. Once both failed-run processes were confirmed absent, the guarded cleanup removed their disposable directories.
+
+### 2026-09-07 — Concurrent fixture identity and headless stop retries
+
+- Modern CLI smoke clones now receive distinct Workspace.json IDs. Previously both inherited the source ID and the registry correctly rejected the second concurrent VM. The source fixture is unchanged; the existing fixture guard regression now checks identity renewal.
+- Standard headless guests now accept another explicit stop request after an earlier one timed out. The previous headlessStopRequested guard discarded all later signals, stranding guests that ignored a platform shutdown during early boot. Omarchy retains its in-flight transaction guard. No automatic force stop is added.
+- CLI smoke checks retry once only for stop_timeout, exercising this recovery path without hiding other errors. Signed runtime verification is pending the next candidate build.
