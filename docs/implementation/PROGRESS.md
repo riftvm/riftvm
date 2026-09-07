@@ -215,3 +215,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The standard Guest view no longer ignores the toolbar safe area. Only its black background extends beyond the content area; the window no longer forces transparent full-size titlebar content.
 - App build and 60 integration tests passed. A separate real Linux installer fixture in the updated development build showed the toolbar in its own top strip and Guest output below it. This verifies windowed presentation; full-screen transitions and the final signed candidate still need validation.
 - The user reiterated authorization for the pending notarization operation. A further App rebuild is required to include this newly requested layout fix before final distribution acceptance.
+
+## Full-screen follow-up
+
+- Used the native green window control to enter full screen in the toolbar-fix development build. The captured image showed white top/right edges. The Guest display itself remained visible; full-screen visual acceptance is not yet passed.
+- Reintroducing full-size content while retaining Guest safe areas did not remove the observed edges. That experimental line was reverted rather than retaining an unverified fix. Both builds passed the existing 60 tests, illustrating that these tests do not establish full-screen visual correctness.
+- The next diagnostic must distinguish actual window/content geometry from screenshot capture boundaries before changing layout further. The original windowed toolbar-overlap correction remains committed.
