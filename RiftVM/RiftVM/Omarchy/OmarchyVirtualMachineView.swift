@@ -169,11 +169,15 @@ struct OmarchyVirtualMachineView: View {
                         ProgressView()
                             .controlSize(.small)
                             .accessibilityLabel("Waiting for Accessibility permission")
-                        Text("Turn on RiftVM in System Settings, then return here.")
+                        Text("Turn on RiftVM under Privacy & Security → Device Control and Data Access, then return here.")
                     } else {
-                        Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                        Text("Allow Device Control and Data Access so Command shortcuts stay inside Omarchy.")
                     }
                     Spacer()
+                    Button("Show RiftVM in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+                    }
+                    .help("If RiftVM is missing from the permission list, use the + button in System Settings to add this application.")
                     Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : "Enable") {
                         NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
                     }
