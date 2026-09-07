@@ -71,3 +71,6 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Official Debian ARM64 ISO download and digest verification passed. The signed App created its ISO-backed test configuration and reached VM running state; Linux installation and desktop interaction are not yet complete.
 
 - Ordinary macOS/Linux stop requests now resume a paused VM through the shared resume lifecycle before requesting guest shutdown. App build and 56 tests pass. This code correction is separate from the observed running macOS shutdown timeout; paused standard-Guest behavior still requires real runtime verification.
+
+- Omarchy protected-backup and restore actions now hold the shared maintenance lease until background disk work completes. A competing GUI or CLI start is rejected during these actions, and both success/failure paths release ownership. App build and 56 integration tests pass; real concurrent recovery acceptance remains pending.
+- Standard workspace close delegates hide and retain their windows. The older save/stop callback belongs to view-controller dismantling, which normal close does not invoke; this audit does not replace direct standard-Guest close/reopen acceptance.

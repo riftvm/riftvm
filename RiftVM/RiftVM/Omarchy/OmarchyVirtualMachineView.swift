@@ -769,6 +769,10 @@ struct OmarchyVirtualMachineView: View {
 
     private func createProtectedBackup() {
         guard phase == .stopped, !recoveryOperation.isWorking else { return }
+        guard let lease = VMRunningRegistry.shared.acquire(rootPath: layout.applicationSupportRoot, phase: .maintaining) else {
+            recoveryOperation = .failed("This workspace is busy. Shut it down and wait for other maintenance operations to finish.")
+            return
+        }
         recoveryOperation = .working("Creating protected backup…")
         let manager = VMOmarchyRecoveryManager(
             workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
@@ -776,6 +780,7 @@ struct OmarchyVirtualMachineView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { try manager.createProtectedBackup() }
             DispatchQueue.main.async {
+                VMRunningRegistry.shared.release(lease)
                 switch result {
                 case .success:
                     recoveryOperation = .idle
@@ -789,6 +794,10 @@ struct OmarchyVirtualMachineView: View {
 
     private func restore(_ point: VMOmarchyRecoveryPoint) {
         guard phase == .stopped, !recoveryOperation.isWorking else { return }
+        guard let lease = VMRunningRegistry.shared.acquire(rootPath: layout.applicationSupportRoot, phase: .maintaining) else {
+            recoveryOperation = .failed("This workspace is busy. Shut it down and wait for other maintenance operations to finish.")
+            return
+        }
         recoveryOperation = .working("Restoring \(point.name)…")
         let manager = VMOmarchyRecoveryManager(
             workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
@@ -796,6 +805,7 @@ struct OmarchyVirtualMachineView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { try manager.restore(id: point.id) }
             DispatchQueue.main.async {
+                VMRunningRegistry.shared.release(lease)
                 switch result {
                 case .success:
                     recoveryOperation = .idle
