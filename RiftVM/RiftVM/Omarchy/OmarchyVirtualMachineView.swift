@@ -169,7 +169,7 @@ struct OmarchyVirtualMachineView: View {
                         ProgressView()
                             .controlSize(.small)
                             .accessibilityLabel("Waiting for Accessibility permission")
-                        Text("Turn on RiftVM Omarchy in System Settings, then return here.")
+                        Text("Turn on RiftVM in System Settings, then return here.")
                     } else {
                         Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
                     }
@@ -368,7 +368,7 @@ struct OmarchyVirtualMachineView: View {
         notificationsEnabled = false
         notice = UserNotice(
             title: "Notification Access Is Off",
-            message: "Allow RiftVM Omarchy in System Settings → Notifications, then enable mirroring again."
+            message: "Allow RiftVM in System Settings → Notifications, then enable mirroring again."
         )
         NSWorkspace.shared.open(OmarchyNotificationPermissionPolicy.settingsURL)
     }
