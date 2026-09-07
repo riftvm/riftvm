@@ -111,12 +111,12 @@ may start before the compositor and devices are truly ready.
 First distinguish a running guest with a missing frame from a stopped or
 failed VM. Check VM state and logs before force-stopping it.
 
-- A corrupt or incompatible saved state must fall back to a cold EFI boot.
+- A native restore failure preserves the saved session because host locking or another temporary condition can prevent restoration. Unlock the Mac and retry before deciding to discard guest memory. A session proven incompatible with the current configuration is discarded with a visible notice before cold boot.
 - Custom VirGL does not support Virtualization.framework machine-state
   save/restore: restored RAM cannot reconstruct renderer contexts/resources.
   Use stopped-VM file snapshots instead.
-- Test cold boot, clean shutdown, SIGKILL recovery, corrupt saved-state
-  fallback, and a second boot. A one-time successful login is not enough.
+- Test cold boot, clean shutdown, SIGKILL recovery, rejected saved-state
+  preservation and explicit recovery, and a second boot. A one-time successful login is not enough.
 
 ## Repeated Keychain prompts
 

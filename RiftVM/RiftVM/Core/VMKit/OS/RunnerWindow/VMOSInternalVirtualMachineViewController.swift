@@ -478,7 +478,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     return
                 case .legacyUnverified:
                     runtimeState?.updateMachineStateNotice(
-                        "This saved session predates compatibility records. RiftVM will try to resume it once; if that fails, it will safely fall back to a normal start."
+                        "This saved session predates compatibility records. RiftVM will try to resume it; if that fails, the session will be preserved so you can retry."
                     )
                     restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
                     return

@@ -99,13 +99,21 @@ restart_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "restart
 [[ "$restart_json" == *'"phase":"running"'* ]] || fail "restart after SIGKILL did not report running: $restart_json"
 stop_guest "$smoke_vm" >/dev/null || fail "stop after SIGKILL restart failed"
 
-# A corrupt saved state is disposable. RiftVM must rebuild its VZVirtualMachine
-# instance and cold boot rather than present a persistent restore error.
+# A native restore error can be transient. Preserve the rejected state rather
+# than silently losing the user's memory, then explicitly remove this synthetic
+# corrupt fixture to exercise the subsequent cold-start recovery path.
 cp "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave"
-saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after corrupt saved state failed: $saved_state_json"
-[[ "$saved_state_json" == *'"phase":"running"'* ]] || fail "saved-state fallback did not report running: $saved_state_json"
-[[ ! -e "$smoke_vm/MachineState.vzvmsave" ]] || fail "corrupt saved state was not discarded"
-stop_guest "$smoke_vm" >/dev/null || fail "stop after saved-state fallback failed"
+if saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")"; then
+  fail "corrupt saved state unexpectedly restored: $saved_state_json"
+fi
+ruby -rjson -e 'exit(JSON.parse(STDIN.read).dig("error", "code") == "start_failed" ? 0 : 1)' <<<"$saved_state_json" \
+  || fail "unexpected corrupt-state failure: $saved_state_json"
+cmp -s "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave" \
+  || fail "rejected saved state was changed or discarded"
+rm "$smoke_vm/MachineState.vzvmsave"
+saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after explicit state removal failed: $saved_state_json"
+[[ "$saved_state_json" == *'"phase":"running"'* ]] || fail "explicit saved-state recovery did not report running: $saved_state_json"
+stop_guest "$smoke_vm" >/dev/null || fail "stop after explicit saved-state recovery failed"
 
 # Reproduce the exact Virtualization.framework EFI failure seen in Linux
 # guests. macOS guests use VZMacAuxiliaryStorage rather than an EFI variable
@@ -120,7 +128,7 @@ if [[ "$guest_type" == "linux" ]]; then
 fi
 
 if [[ "$guest_type" == "linux" ]]; then
-  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state fallback, and EFI boot recovery."
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state preservation and explicit recovery, and EFI boot recovery."
 else
-  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, and saved-state fallback."
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, and saved-state preservation and explicit recovery."
 fi
