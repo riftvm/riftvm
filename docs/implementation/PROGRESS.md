@@ -187,3 +187,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The isolated retry's Virtualization service log records Secure Enclave decryption failure with OSStatus -25308 and AKSError -536870174 at the restore failure.
 - A subsequent read-only IORegistry check explicitly reported `CGSSessionScreenIsLocked = true` while the console session was logged in. GUI automation availability therefore was not evidence of an unlocked host.
 - This supports a host-lock explanation, but does not prove restoration succeeds after unlocking. Keep the failed saved-state fixture intact and require an unlocked-host retry before deciding whether further runtime or signing changes are needed. No security settings were changed.
+
+## Unlocked-host build 4 state acceptance
+
+- After the user confirmed unlocking the host, the isolated verifier passed all four actions with the unchanged notarized build 4: save while running, restore in a new process and stop, save after pause, restore in a new process and stop. Both restored checkpoints were consumed, and the verifier exited successfully.
+- This confirms the signed candidate's running/paused macOS state roundtrips on the unlocked host. The preceding locked-host failure remains useful negative evidence; it is not a reason to weaken signing or security controls.
+- The user completed Debian account password setup. GUI installation proceeded through timezone and guided partitioning of only the new 68.7 GB VirtIO test disk; the installer ISO was not selected for formatting. Installation and reboot acceptance remain in progress.
+- The Debian installer text is visibly small on Retina displays. The Apple graphics backend enables automatic display reconfiguration; installer scaling needs a focused usability fix and verification.
