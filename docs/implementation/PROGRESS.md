@@ -227,3 +227,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Built signed 0.1.0 build 6 from `d20c217`, including the installer display and windowed toolbar fixes. Archive payload inspection excluded Guest disks and installers.
 - Following the user's explicit response authorizing the pending Apple upload, automatic review allowed submission. Apple Accepted submission `4100a3f0-3c2d-41c1-a9b1-d50c5058d953`; the exact-archive receipt verifier and extracted-App Gatekeeper assessment passed.
 - Build 6 is a candidate, not a completed release. Full-screen visual behavior and the remaining functional/distribution gates still require verification on the final artifact.
+
+## Build 6 macOS runtime and restore portability
+
+- The exact notarized build 6 passed running/paused macOS save and cross-process restoration on an isolated clone.
+- Exported a stopped macOS fixture clone through the signed App's real portability implementation, validated the export in another process, and restore-imported it in a third process. All reported success, and the imported MachineIdentifier matched byte-for-byte.
+- A fresh clone of that imported workspace booted and passed both running/paused save and cross-process restore checks. This proves restore-import runtime usability for this macOS fixture; it does not cover fresh-identity duplication or Linux Guest integration portability.
