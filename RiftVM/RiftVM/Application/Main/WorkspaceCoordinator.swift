@@ -55,7 +55,20 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
             default: return "Starting or stopping"
             }
         }
-        if let state = runtimeStates[url] { return String(describing: state.phase).capitalized }
+        if let state = runtimeStates[url] {
+            switch state.phase {
+            case .preparing: return "Preparing"
+            case .starting: return "Starting"
+            case .restoring: return "Restoring"
+            case .running: return "Running"
+            case .pausing: return "Pausing"
+            case .paused: return "Paused"
+            case .saving: return "Saving"
+            case .stopping: return "Stopping"
+            case .stopped: return "Stopped"
+            case .failed: return "Needs attention"
+            }
+        }
         if VMRunningRegistry.shared.isRunning(rootPath: url) { return "Running" }
         if !FileManager.default.fileExists(atPath: url.path) { return "Offline" }
         if workspace.profile == .omarchy,
