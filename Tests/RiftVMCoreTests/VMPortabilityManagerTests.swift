@@ -409,20 +409,35 @@ final class VMPortabilityManagerTests: XCTestCase {
     }
 
     func testHistoricalISOExportsAndRestoresAfterOriginalMediaIsRemoved() throws {
+        try checkHistoricalISOExport(layered: false)
+    }
+
+    func testLayeredHistoryISOExportsAndRestoresAfterOriginalMediaIsRemoved() throws {
+        try checkHistoricalISOExport(layered: true)
+    }
+
+    private func checkHistoricalISOExport(layered: Bool) throws {
         let source = try makeMachine(name: "History")
+        let diskName = layered ? "Disk.asif" : "Disk.img"
+        if layered {
+            try unwrap(VMDiskImageManager.create(format: .asif,
+                at: source.appendingPathComponent(diskName), size: 64 * 1024 * 1024))
+        }
+        let disk: [String: Any] = ["type": "Block", "imagePath": diskName,
+            "format": layered ? "asif" : "raw", "size": 64 * 1024 * 1024]
         let iso = root.appendingPathComponent("historical.iso")
         let bytes = Data("historical installer".utf8)
         try bytes.write(to: iso)
         let configURL = source.appendingPathComponent("config.json")
         var config = try json(configURL)
-        config["storageDevices"] = [["type": "Block", "imagePath": "Disk.img"],
-                                     ["type": "USB", "imagePath": iso.path]]
+        config["storageDevices"] = [disk, ["type": "USB", "imagePath": iso.path]]
         try JSONSerialization.data(withJSONObject: config).write(to: configURL)
         let point = try unwrap(VMSnapshotManager.createSnapshot(vmRootPath: source, name: "With ISO", isProtected: true))
+        XCTAssertEqual(point.backend, layered ? .diskImageKitLayered : .apfsClone)
         let history = source.appendingPathComponent("Snapshots/\(point.id)")
         let originalConfig = try Data(contentsOf: history.appendingPathComponent("files/config.json"))
         let originalMetadata = try Data(contentsOf: history.appendingPathComponent("snapshot.json"))
-        config["storageDevices"] = [["type": "Block", "imagePath": "Disk.img"]]
+        config["storageDevices"] = [disk]
         try JSONSerialization.data(withJSONObject: config).write(to: configURL)
         let withHistory = try VMPortabilityManager.estimate(sourceURL: source, destinationParent: root)
         let withoutHistory = try VMPortabilityManager.estimate(sourceURL: source, destinationParent: root, includeSnapshotHistory: false)
