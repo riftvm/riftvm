@@ -221,3 +221,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Used the native green window control to enter full screen in the toolbar-fix development build. The captured image showed white top/right edges. The Guest display itself remained visible; full-screen visual acceptance is not yet passed.
 - Reintroducing full-size content while retaining Guest safe areas did not remove the observed edges. That experimental line was reverted rather than retaining an unverified fix. Both builds passed the existing 60 tests, illustrating that these tests do not establish full-screen visual correctness.
 - The next diagnostic must distinguish actual window/content geometry from screenshot capture boundaries before changing layout further. The original windowed toolbar-overlap correction remains committed.
+
+## Build 6 notarization
+
+- Built signed 0.1.0 build 6 from `d20c217`, including the installer display and windowed toolbar fixes. Archive payload inspection excluded Guest disks and installers.
+- Following the user's explicit response authorizing the pending Apple upload, automatic review allowed submission. Apple Accepted submission `4100a3f0-3c2d-41c1-a9b1-d50c5058d953`; the exact-archive receipt verifier and extracted-App Gatekeeper assessment passed.
+- Build 6 is a candidate, not a completed release. Full-screen visual behavior and the remaining functional/distribution gates still require verification on the final artifact.
