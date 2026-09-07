@@ -512,11 +512,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     switch result {
                     case .success:
                         VMSavedStateStore.discardCommitted(stateURL: stateURL)
-                        self.runtimeState?.update(.running)
-                        self.markNetworkRuntimeStarted()
-                        self.markMachineRunning()
-                        self.startScreenshotTimer()
-                        self.startGuestAgent(model: model)
+                        self.didRestoreMachineState = true
+                        self.didStart(rootPath: rootPath, model: model)
                     case .failure(let error):
                         RiftVMLog.error("Saved state resume failed; falling back to normal boot: \(error.localizedDescription)")
                         self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state resume failed")
@@ -527,6 +524,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func startNormally(rootPath: URL, model: VMModel) {
+        didRestoreMachineState = false
         runtimeState?.update(.starting)
         if #available(macOS 27.0, *),
            model.config.type == .macOS {
@@ -717,6 +715,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             RiftVMLog.error(error, logger: RiftVMLog.lifecycle)
         }
     }
+
+    private var didRestoreMachineState = false
 
     private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
@@ -1021,7 +1021,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
                 self.runtimeState?.update(.stopped)
                 self.releaseRunLease()
-                VMReleaseSmokeTest.report("started-and-stopped", configuration: configuration)
+                VMReleaseSmokeTest.report(self.didRestoreMachineState ? "restored-and-stopped" : "started-and-stopped", configuration: configuration)
                 NSApplication.shared.terminate(nil)
             }
         }

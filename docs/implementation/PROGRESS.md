@@ -124,3 +124,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The installed Homebrew parser rejects a macOS 27 dependency enum, so the template uses a macOS-only dependency plus an explicit minimum-major-version preflight check. Homebrew parses the generated candidate successfully, with a deprecation warning for the preflight DSL. Generation and malformed-input rejection checks pass. Actual tap installation and final candidate verification remain pending; no Cask was published.
 
 - Executed the actual generated Cask's preflight through Homebrew with simulated host versions: macOS 26 is rejected; 27 and 28 pass. This check is reproducible with `brew ruby scripts/test-cask-preflight.rb` and does not install any artifact. The preflight deprecation remains a compatibility follow-up, not an ignored lower-OS admission failure.
+
+## Native macOS saved-state correction
+
+- A fresh native macOS installation completed successfully. The first strict save/restore test saved successfully but Apple restore returned invalid argument and the App cold-booted. This failed roundtrip is not counted as restoration.
+- Standard macOS network configurations inherited Apple's random default MAC address on every launch. Network addresses now derive from the persisted machine identifier and adapter index, retaining locally administered unicast semantics.
+- Successful restore now enters the same startup-completion handling as cold startup, including acceptance dispatch and headless service policy. Acceptance reports restored-and-stopped distinctly; the machine-state verifier rejects a cold-boot fallback.
+- With these changes, real macOS save and cross-process restore passed, both processes exited successfully, and the committed saved state was consumed after restore. App build and 59 integration tests pass. This verifies native development-runtime state restoration, not Guest desktop setup, paused/unified-quit behavior or the final signed candidate.

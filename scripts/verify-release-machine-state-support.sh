@@ -74,7 +74,7 @@ run_action() {
 
 run_action machine-state-saved 1
 [[ -f "$fixture/MachineState.vzvmsave" ]] || fail "save action did not create MachineState.vzvmsave"
-run_action started-and-stopped 0
+run_action restored-and-stopped 0
 [[ ! -e "$fixture/MachineState.vzvmsave" ]] || fail "restored machine state was not consumed"
 
 echo "Verified signed macOS VM machine-state save and cross-process restore."

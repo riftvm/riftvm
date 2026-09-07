@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 import Virtualization
 
 #if arch(arm64)
@@ -56,7 +57,22 @@ class VMOSRunnerForMacOS : VMOSRunner {
         
         // networkDevices
         switch VMModelFieldNetworkDevice.createConfigurations(model.config.networkDevices) {
-        case .success(let devices): virtualMachineConfiguration.networkDevices = devices
+        case .success(let devices):
+            guard let identity = try? Data(contentsOf: model.machineIdentifierURL) else {
+                return .failure("Could not read the machine identity for network configuration.")
+            }
+            for (index, device) in devices.enumerated() {
+                var input = identity
+                input.append(Data("riftvm-network-\(index)".utf8))
+                var bytes = Array(SHA256.hash(data: input).prefix(6))
+                bytes[0] = (bytes[0] & 0xfc) | 0x02
+                let value = bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
+                guard let address = VZMACAddress(string: value) else {
+                    return .failure("Could not create the persistent network address.")
+                }
+                device.macAddress = address
+            }
+            virtualMachineConfiguration.networkDevices = devices
         case .failure(let error): return .failure(error)
         }
         
