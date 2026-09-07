@@ -408,6 +408,63 @@ final class VMPortabilityManagerTests: XCTestCase {
         }
     }
 
+    func testHistoricalISOExportsAndRestoresAfterOriginalMediaIsRemoved() throws {
+        let source = try makeMachine(name: "History")
+        let iso = root.appendingPathComponent("historical.iso")
+        let bytes = Data("historical installer".utf8)
+        try bytes.write(to: iso)
+        let configURL = source.appendingPathComponent("config.json")
+        var config = try json(configURL)
+        config["storageDevices"] = [["type": "Block", "imagePath": "Disk.img"],
+                                     ["type": "USB", "imagePath": iso.path]]
+        try JSONSerialization.data(withJSONObject: config).write(to: configURL)
+        let point = try unwrap(VMSnapshotManager.createSnapshot(vmRootPath: source, name: "With ISO", isProtected: true))
+        let history = source.appendingPathComponent("Snapshots/\(point.id)")
+        let originalConfig = try Data(contentsOf: history.appendingPathComponent("files/config.json"))
+        let originalMetadata = try Data(contentsOf: history.appendingPathComponent("snapshot.json"))
+        config["storageDevices"] = [["type": "Block", "imagePath": "Disk.img"]]
+        try JSONSerialization.data(withJSONObject: config).write(to: configURL)
+        let withHistory = try VMPortabilityManager.estimate(sourceURL: source, destinationParent: root)
+        let withoutHistory = try VMPortabilityManager.estimate(sourceURL: source, destinationParent: root, includeSnapshotHistory: false)
+        XCTAssertEqual(withHistory.logicalBytes - withoutHistory.logicalBytes, UInt64(bytes.count))
+        let export = root.appendingPathComponent("History.riftvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        XCTAssertEqual(try Data(contentsOf: history.appendingPathComponent("files/config.json")), originalConfig)
+        XCTAssertEqual(try Data(contentsOf: history.appendingPathComponent("snapshot.json")), originalMetadata)
+        try FileManager.default.removeItem(at: iso)
+        let clone = root.appendingPathComponent("CurrentOnly.riftvm")
+        try unwrap(VMPortabilityManager.clone(sourceURL: source, destinationURL: clone,
+            newName: "CurrentOnly", machineIdentifierData: Data("independent".utf8)))
+        XCTAssertTrue(VMSnapshotManager.listSnapshots(vmRootPath: clone).isEmpty)
+        _ = try unwrap(VMPortabilityManager.validateExport(at: export))
+        let imported = root.appendingPathComponent("Restored.riftvm")
+        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: imported, identityMode: .restore))
+        let importedPoint = try XCTUnwrap(VMSnapshotManager.listSnapshots(vmRootPath: imported).first { $0.id == point.id })
+        XCTAssertTrue(importedPoint.isProtected)
+        XCTAssertTrue(VMSnapshotManager.auditSnapshot(vmRootPath: imported, snapshot: importedPoint).errors.isEmpty)
+        try unwrap(VMSnapshotManager.restoreSnapshot(vmRootPath: imported, snapshot: importedPoint))
+        let devices = try XCTUnwrap(try json(imported.appendingPathComponent("config.json"))["storageDevices"] as? [[String: Any]])
+        let media = try XCTUnwrap(devices[1]["imagePath"] as? String)
+        XCTAssertFalse((media as NSString).isAbsolutePath)
+        XCTAssertEqual(try Data(contentsOf: imported.appendingPathComponent(media)), bytes)
+    }
+
+    func testExportDoesNotBlessCorruptHistoricalManifest() throws {
+        let source = try makeMachine(name: "Corrupt history")
+        let point = try unwrap(VMSnapshotManager.createSnapshot(vmRootPath: source, name: "Original"))
+        let configURL = source.appendingPathComponent("Snapshots/\(point.id)/files/config.json")
+        var config = try json(configURL)
+        config["name"] = "tampered"
+        let changed = try JSONSerialization.data(withJSONObject: config)
+        try changed.write(to: configURL)
+        let export = root.appendingPathComponent("Corrupt.riftvmexport")
+        if case .success = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export) {
+            XCTFail("Existing snapshot corruption must not be rehashed as valid history")
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: export.path))
+        XCTAssertEqual(try Data(contentsOf: configURL), changed)
+    }
+
     private func makeMachine(name: String) throws -> URL {
         let url = root.appendingPathComponent("\(name).riftvm")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)

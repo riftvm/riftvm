@@ -541,6 +541,36 @@ class VMSnapshotManager {
         return snapshots.sorted { $0.createdAt > $1.createdAt }
     }
 
+    /// Strict enumeration for portability: an unreadable history entry must
+    /// not silently disappear as it may in a best-effort UI listing.
+    static func snapshotFilesForExport(vmRootPath: URL) throws -> [(model: VMSnapshotModel, files: URL)] {
+        let root = snapshotsRootURL(vmRootPath: vmRootPath)
+        guard FileManager.default.fileExists(atPath: root.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(atPath: root.path).sorted().compactMap { id in
+            guard UUID(uuidString: id) != nil else { return nil }
+            let model = try jsonDecoder().decode(VMSnapshotModel.self,
+                from: Data(contentsOf: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)))
+            guard model.id == id else { throw VMSnapshotError.message("Snapshot metadata identity does not match its directory.") }
+            return (model, snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: id))
+        }
+    }
+
+    /// Only call on the private export staging copy. Validate the original
+    /// manifest before rewriting; never bless pre-existing corruption.
+    static func rewriteSnapshotFilesForExport(vmRootPath: URL, rewrite: (URL) throws -> Bool) throws {
+        for (model, files) in try snapshotFilesForExport(vmRootPath: vmRootPath) {
+            let audit = auditSnapshot(vmRootPath: vmRootPath, snapshot: model)
+            guard audit.errors.isEmpty else { throw VMSnapshotError.message(audit.errors.joined(separator: "\n")) }
+            guard try rewrite(files) else { continue }
+            let updated = VMSnapshotModel(id: model.id, name: model.name, createdAt: model.createdAt,
+                parentSnapshotID: model.parentSnapshotID, totalSize: directoryAllocatedSize(files),
+                backend: model.backend, diskLayers: model.diskLayers,
+                fileManifest: try createFileManifest(rootURL: files), isProtected: model.isProtected)
+            try jsonEncoder().encode(updated).write(
+                to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
+        }
+    }
+
     /// Rolls an interrupted restore back to the complete pre-restore bundle.
     /// It is safe and idempotent to call before every VM start.
     @discardableResult
