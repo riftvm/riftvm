@@ -98,6 +98,8 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
             let controller = NSHostingController(rootView: content)
             let window = NSWindow(contentViewController: controller)
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            // Each workspace owns its window and close/reopen lifecycle, including in full screen.
+            window.tabbingMode = .disallowed
             window.title = record.name
             window.representedURL = record.location
             window.setContentSize(NSSize(width: 1100, height: 760))
