@@ -93,9 +93,10 @@ final class AppConfigManager {
     func removeVMPathWithReload(url: URL) { removeVMPath(url: url) }
 
     private func perform(_ action: () throws -> Void) {
-        do { try action(); errorMessage = nil; changed() }
+        do { try action(); changed() }
         catch {
-            errorMessage = error.localizedDescription
+            // An operation failure does not invalidate the loaded library.
+            // Only loadConfig owns the persistent library error shown by ContentView.
             let alert = NSAlert()
             alert.messageText = "Workspace Library"
             alert.informativeText = error.localizedDescription
