@@ -245,6 +245,7 @@ public final class VMOmarchyGuestAgentClient {
         let timeout: Task<Void, Never>
     }
 
+    private let workspaceRoot: URL
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
@@ -276,6 +277,7 @@ public final class VMOmarchyGuestAgentClient {
         hostPowerChanged: @escaping (VMOmarchyHostPowerEvent) -> Void = { _ in },
         stateChanged: @escaping (VMOmarchyIntegrationState) -> Void
     ) throws {
+        self.workspaceRoot = layout.applicationSupportRoot
         self.device = device
         self.stateChanged = stateChanged
         self.hostPowerChanged = hostPowerChanged
@@ -938,6 +940,32 @@ public final class VMOmarchyGuestAgentClient {
                                       writeDenialReason: observedDenial))
         }
         return observations
+    }
+
+    /// A bounded disk-resident probe for rollback acceptance on disposable workspaces.
+    /// The fixed /var/lib location is outside all host VirtioFS shares.
+    public func verifyTemporaryGuestDiskMarker(
+        nonce: UUID, expected: Data?, replacement: Data?
+    ) async throws -> Data {
+        guard VMOmarchyTemporaryPathPolicy.contains(workspaceRoot),
+              expected != nil || replacement != nil,
+              (expected?.count ?? 0) <= 4096, (replacement?.count ?? 0) <= 4096 else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        let path = "/var/lib/riftvm-rollback-\(nonce.uuidString.lowercased()).marker"
+        var observed = Data()
+        if let expected {
+            observed = try await downloadData(guestPath: path)
+            guard observed == expected else { throw CocoaError(.fileReadCorruptFile) }
+        }
+        if let replacement {
+            try await uploadData(replacement, guestPath: path)
+            observed = try await downloadData(guestPath: path)
+            guard observed == replacement else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+        }
+        return observed
     }
 
     private func downloadData(
