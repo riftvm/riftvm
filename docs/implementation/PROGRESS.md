@@ -61,3 +61,11 @@ Image migration is now in progress. The old local integration branch (1771f5c) w
 - User grants use a separate riftvm_folders device, preserving the authenticated Agent transport share. Image commit 935a1b0 adds an on-demand mount and non-destructive ~/Mac link. This image change is not present in the previous build attempt.
 - Two focused Core tests passed for actual VZ share configuration, persistence, revocation without deletion, absent directories and corrupt permissions. All 56 App tests passed. Real Guest read/write enforcement and filesystem behavior remain required.
 - Image run 34089946830 is terminal FAILED: upstream Hyprland/Hyprtoolkit require libaquamarine.so=13-64 unavailable from the current signed/official package combination. Do not rerun unchanged inputs. Investigate matching package snapshots or digest-pinned integration rebake from the known-good previous image, with provenance retained.
+
+## Pinned base migration investigation
+
+- Confirmed public EZVM .32 base raw SHA-256 1ad443730ea340eaa7003b01c26ea142434b0f88a4280bd34fb8909e32d9b0a9. Its Omarchy and wl-copy pins match current sources. This is a factory build input only; there is no user-workspace migration promise.
+- Image repo commits ad79deb and 7255538 add explicit fixed-base reconstruction, preserving part/archive/raw verification and normal new-format rejection of legacy headers. Also corrected remaining run-rift escaped systemd unit references in build-image.
+- Active read-only Linux inspection run: 34090810766 (Inspect pinned migration base), confirmed downloading/verifying as of 2026-09-06 23:28 local. Download its migration-inventory artifact once complete to determine all old integration paths before implementing migration. No rebake has run.
+- Local original base download is running under exec session 71212 into /private/tmp/riftvm-base-provenance. It contains the original release manifest and provenance already; poll this same session rather than starting a duplicate download. Required download is ~3.1 GB sparse archive, complete disk logical size 64 GiB.
+- Source CI for ad79deb failed only in a newly added sparse fixture (missing extent separator); corrected fixture in 7255538, locally decoder-checked, new CI pending. Existing reconstruction/integration/folder tests passed before the fixture.
