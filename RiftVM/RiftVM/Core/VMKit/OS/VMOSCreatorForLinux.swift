@@ -156,7 +156,12 @@ final class VMOSCreatorForLinux: VMOSCreator {
             progress(.info("- Pointing Devices OK"))
             
             // audioDevices
-            virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
+            switch VMModelFieldAudioDevice.createConfigurations(model.config.audioDevices) {
+            case .success(let devices): virtualMachineConfiguration.audioDevices = devices
+            case .failure(let error):
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
             progress(.info("- Audio Devices OK"))
 
             // keyboards

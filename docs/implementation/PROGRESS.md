@@ -252,3 +252,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - In windowed mode, the microphone-and-speakers configuration paused successfully, saved/stopped, and restored in a new signed-App process to the visible macOS Hello animation. Its subsequent full-screen save failed without producing a committed state.
 - Separate no-audio and speakers-only clones both booted visibly and completed full-screen save/stop, each producing a 1,543,507,968-byte state plus a compatibility manifest. Microphone input is therefore the next isolation target; do not remove audio support or claim the microphone path fixed from these comparisons.
 - Native automatic window tabbing combined the later test workspaces into the existing full-screen window. Its interaction with workspace window ownership needs review.
+
+### 2026-09-07 — Explicit microphone permission and release capability
+
+- Standard workspaces now default to speakers only. Adding microphone input requests host authorization explicitly; existing input configurations without authorization fail before VM creation with actionable Settings guidance. Linux and macOS creators and runners share this check.
+- Added the Hardened Runtime audio-input entitlement and required it in the production signature allowlist. Apple documents this capability at https://developer.apple.com/documentation/BundleResources/Entitlements/com.apple.security.device.audio-input ; system consent is still required.
+- Validation: application test run in `/private/tmp/riftvm-microphone-access.log` passed all 61 tests, including authorized, denied, restricted, and undetermined audio configuration cases. Entitlement plist lint, release verifier shell syntax, and diff whitespace checks pass.
+- This repairs verified permission/configuration gaps; it does not establish that microphone-enabled guest pause/save is fixed. Signed build 7 is being prepared for actual runtime comparison. Fullscreen microphone lifecycle and final release acceptance remain open.

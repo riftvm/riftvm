@@ -25,6 +25,7 @@ codesign --display --entitlements - "$app_path" >"$entitlements_file" 2>/dev/nul
 
 required_boolean_keys="com.apple.developer.accessory-access.usb
 com.apple.developer.networking.vmnet
+com.apple.security.device.audio-input
 com.apple.security.virtualization"
 team_identifier="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
 if [[ -n "$team_identifier" && "$team_identifier" != "not set" ]]; then
@@ -32,6 +33,7 @@ if [[ -n "$team_identifier" && "$team_identifier" != "not set" ]]; then
 com.apple.developer.accessory-access.usb
 com.apple.developer.networking.vmnet
 com.apple.developer.team-identifier
+com.apple.security.device.audio-input
 com.apple.security.virtualization"
 else
   # Ad-hoc candidates exercise the same capability set but have no profile

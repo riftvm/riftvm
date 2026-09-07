@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AVFoundation
 import Virtualization
 
 #if arch(arm64)
@@ -14,6 +15,7 @@ struct VMModelFieldAudioDevice: Decodable, Encodable, CustomStringConvertible {
     enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
         case InputOutputStream, InputStream, OutputStream
         var id: Self { self }
+        var usesMicrophone: Bool { self != .OutputStream }
 
         var displayName: String {
             switch self {
@@ -38,9 +40,19 @@ struct VMModelFieldAudioDevice: Decodable, Encodable, CustomStringConvertible {
     }
     
     static func `default`() -> VMModelFieldAudioDevice {
-        return VMModelFieldAudioDevice(type:.InputOutputStream)
+        return VMModelFieldAudioDevice(type: .OutputStream)
     }
     
+    static func createConfigurations(
+        _ devices: [Self],
+        microphoneAuthorization: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+    ) -> VMOSResult<[VZAudioDeviceConfiguration], String> {
+        guard !devices.contains(where: { $0.type.usesMicrophone }) || microphoneAuthorization == .authorized else {
+            return .failure("This workspace uses the Mac microphone, but RiftVM does not have microphone permission. Open workspace Settings → Manage Audio to allow access or remove the microphone device, then start the workspace again.")
+        }
+        return .success(devices.map { $0.createConfiguration() })
+    }
+
     func createConfiguration() -> VZAudioDeviceConfiguration {
         if type == .InputStream {
             let audioConfiguration = VZVirtioSoundDeviceConfiguration()

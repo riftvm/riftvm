@@ -5,6 +5,28 @@ import XCTest
 @testable import RiftVM
 
 final class OmarchyIntegrationTests: XCTestCase {
+    func testStandardAudioDefaultsToSpeakersAndRequiresPermissionForInput() throws {
+        XCTAssertEqual(VMModelFieldAudioDevice.default().type, .OutputStream)
+        for status: AVAuthorizationStatus in [.notDetermined, .denied, .restricted] {
+            guard case .success(let speakers) = VMModelFieldAudioDevice.createConfigurations([.default()], microphoneAuthorization: status) else {
+                return XCTFail("Speakers must not depend on microphone permission")
+            }
+            XCTAssertEqual(speakers.count, 1)
+            for type: VMModelFieldAudioDevice.DeviceType in [.InputStream, .InputOutputStream] {
+                guard case .failure(let message) = VMModelFieldAudioDevice.createConfigurations([.init(type: type)], microphoneAuthorization: status) else {
+                    return XCTFail("Unapproved microphone input must not reach Virtualization")
+                }
+                XCTAssertTrue(message.contains("Manage Audio"))
+            }
+        }
+        for type in VMModelFieldAudioDevice.DeviceType.allCases {
+            guard case .success(let devices) = VMModelFieldAudioDevice.createConfigurations([.init(type: type)], microphoneAuthorization: .authorized) else {
+                return XCTFail("Authorized microphone support must remain available")
+            }
+            XCTAssertEqual(devices.count, 1)
+        }
+    }
+
     @MainActor
     func testInstallerDisplayRemainsFixedAfterRefresh() throws {
         let creation = VMGraphicsBackendFactory.make(
