@@ -116,3 +116,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - The unified publisher no longer accepts an empty notarization marker. It requires a structured Apple Accepted response with a submission identifier and a digest matching the exact archive before reusing notarization state. Missing, malformed, rejected and stale receipts fail validation.
 - Regression checks cover accepted and rejected results, missing identifiers, legacy empty markers and changed archive bytes; these checks also run in source CI. The existing internal candidate's actual accepted response and archive pass the same validator. This does not qualify that older candidate for final release or resolve offline Gatekeeper and unified functional acceptance.
+
+## Homebrew template correction
+
+- Removed the stale installable Cask from the main source tree. The publisher now generates a Cask from an explicit template using the requested semantic version and actual archive SHA-256, and creates the destination Casks directory for the new tap. Invalid versions or malformed templates fail before changing output.
+- Installer and verification defaults now use `riftvm/tap/riftvm`. The template uses the organization release URL and current Pages website.
+- The installed Homebrew parser rejects a macOS 27 dependency enum, so the template uses a macOS-only dependency plus an explicit minimum-major-version preflight check. Homebrew parses the generated candidate successfully, with a deprecation warning for the preflight DSL. Generation and malformed-input rejection checks pass. Actual tap installation and final candidate verification remain pending; no Cask was published.

@@ -174,7 +174,7 @@ git clone "$tap_repo" "$tap_dir/repository"
 ruby "$project_root/scripts/update-cask.rb" \
   "$version" \
   "$archive" \
-  "$project_root/Casks/riftvm.rb" \
+  "$project_root/scripts/templates/riftvm.rb.in" \
   "$tap_dir/repository/Casks/riftvm.rb"
 
 ruby -c "$tap_dir/repository/Casks/riftvm.rb"
