@@ -341,20 +341,20 @@ final class OmarchyIntegrationTests: XCTestCase {
     func testStopRequestsGracefulStopAndWaitsForGuest() {
         var lifecycle = runningLifecycle()
 
-        XCTAssertEqual(lifecycle.handle(.stopRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(lifecycle.handle(.stopRequested), [.requestStop, .scheduleStopTimeout])
         XCTAssertEqual(lifecycle.phase, .stopping)
         XCTAssertFalse(lifecycle.restartAfterStop)
-        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelStopTimeout])
         XCTAssertEqual(lifecycle.phase, .stopped)
     }
 
     func testRestartStartsNewSessionOnlyAfterGuestStops() {
         var lifecycle = runningLifecycle()
 
-        XCTAssertEqual(lifecycle.handle(.restartRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(lifecycle.handle(.restartRequested), [.requestStop, .scheduleStopTimeout])
         XCTAssertEqual(lifecycle.phase, .stopping)
         XCTAssertTrue(lifecycle.restartAfterStop)
-        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop, .startNewSession])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelStopTimeout, .startNewSession])
         XCTAssertEqual(lifecycle.phase, .starting)
         XCTAssertFalse(lifecycle.restartAfterStop)
     }
@@ -390,13 +390,13 @@ final class OmarchyIntegrationTests: XCTestCase {
         var stopping = runningLifecycle()
         _ = stopping.handle(.pauseRequested)
         _ = stopping.handle(.machinePaused)
-        XCTAssertEqual(stopping.handle(.stopRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(stopping.handle(.stopRequested), [.requestStop, .scheduleStopTimeout])
         XCTAssertEqual(stopping.phase, .stopping)
 
         var restarting = runningLifecycle()
         _ = restarting.handle(.pauseRequested)
         _ = restarting.handle(.machinePaused)
-        XCTAssertEqual(restarting.handle(.restartRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(restarting.handle(.restartRequested), [.requestStop, .scheduleStopTimeout])
         XCTAssertTrue(restarting.restartAfterStop)
     }
 
@@ -404,20 +404,22 @@ final class OmarchyIntegrationTests: XCTestCase {
         var lifecycle = runningLifecycle()
         _ = lifecycle.handle(.restartRequested)
 
-        XCTAssertEqual(lifecycle.handle(.machineFailed("disk unavailable")), [.cancelForceStop])
+        XCTAssertEqual(lifecycle.handle(.machineFailed("disk unavailable")), [.cancelStopTimeout])
         XCTAssertEqual(lifecycle.phase, .failed("disk unavailable"))
         XCTAssertFalse(lifecycle.restartAfterStop)
         XCTAssertEqual(lifecycle.handle(.startRequested), [.startNewSession])
         XCTAssertEqual(lifecycle.phase, .starting)
     }
 
-    func testGracefulStopTimeoutForcesStopOnlyWhileStopping() {
+    func testGracefulStopTimeoutRequiresExplicitForceAuthorization() {
         var lifecycle = runningLifecycle()
         XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
         _ = lifecycle.handle(.stopRequested)
-        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [.forceStop])
+        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [.askStopTimeout])
+        XCTAssertEqual(lifecycle.handle(.keepWaiting), [.scheduleStopTimeout])
+        XCTAssertEqual(lifecycle.handle(.forceStopConfirmed), [.forceStop])
         XCTAssertEqual(lifecycle.phase, .stopping)
-        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelStopTimeout])
         XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
     }
 

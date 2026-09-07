@@ -46,3 +46,11 @@ Main checkout: /Users/eevv/github/products/riftvm/riftvm. Original /Users/eevv/g
 Current single scheme is RiftVM, with RiftVMAppTests hosted by RiftVM.app. Test signing overrides must use scripts/virtualization-test.entitlements; ad-hoc signing with distribution USB/vmnet entitlements was rejected by macOS. Use the user's Developer ID for release checks.
 
 Image migration is now in progress. The old local integration branch (1771f5c) was stale; the remote integration branch is 6aa7490b3cafa417dbb269e524d886fc4bfca29d, containing later owner-provisioning/clipboard implementation. Fetch that exact reference into the new image repository, use its complete source, then apply the new identity and pin the new Agent revision before enabling a build. Do not modify the old checkout.
+
+## Image pipeline and explicit shutdown follow-up
+
+- Migrated the complete image integration from 6aa7490b3cafa417dbb269e524d886fc4bfca29d. New image commit 548fcc5 pins App/Agent 1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5.
+- Linux ARM64 image contracts passed in GitHub Actions run 34089893327, including display watcher and owner provisioning. Removed duplicate CI and fixed the renamed enrollment mount contract.
+- Full native image build started as run 34089946830 with tag v0.1.0-rc.1 and publish_release=false. Inspect this existing run; do not dispatch a duplicate. The candidate must remain draft until factory conversion/trust and actual guest acceptance.
+- App and CLI raw-image manifest kind is com.riftvm.preinstalled-image, matching the new image packager.
+- Omarchy Stop/Restart timeout now asks Wait or Force Stop; elapsed time alone never authorizes force stop. Paused guests resume before graceful shutdown so they can process the request. App tests pass; real guest verification remains required.

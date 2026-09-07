@@ -808,16 +808,23 @@ struct OmarchyVirtualMachineView: View {
                 NotificationCenter.default.post(name: .omarchyRequestResume, object: sessionID)
             case .startNewSession:
                 sessionID = UUID()
-            case .scheduleForceStop:
+            case .scheduleStopTimeout:
                 stopTimeoutTask?.cancel()
                 stopTimeoutTask = Task {
                     try? await Task.sleep(for: .seconds(15))
                     guard !Task.isCancelled else { return }
                     await MainActor.run { handle(.stopTimedOut) }
                 }
-            case .cancelForceStop:
+            case .cancelStopTimeout:
                 stopTimeoutTask?.cancel()
                 stopTimeoutTask = nil
+            case .askStopTimeout:
+                let alert = NSAlert()
+                alert.messageText = "Omarchy is still shutting down"
+                alert.informativeText = "Wait for shutdown to finish, or force stop this workspace. Force stopping may lose unsaved guest work."
+                alert.addButton(withTitle: "Wait")
+                alert.addButton(withTitle: "Force Stop")
+                handle(alert.runModal() == .alertSecondButtonReturn ? .forceStopConfirmed : .keepWaiting)
             case .forceStop:
                 NotificationCenter.default.post(name: .omarchyForceStop, object: sessionID)
             }
@@ -927,6 +934,8 @@ struct OmarchyMachineLifecycle: Equatable {
         case machineStopped
         case machineFailed(String)
         case stopTimedOut
+        case keepWaiting
+        case forceStopConfirmed
     }
 
     enum Effect: Equatable {
@@ -934,8 +943,9 @@ struct OmarchyMachineLifecycle: Equatable {
         case requestPause
         case requestResume
         case startNewSession
-        case scheduleForceStop
-        case cancelForceStop
+        case scheduleStopTimeout
+        case cancelStopTimeout
+        case askStopTimeout
         case forceStop
     }
 
@@ -963,25 +973,31 @@ struct OmarchyMachineLifecycle: Equatable {
             guard phase == .running || phase == .paused else { return [] }
             restartAfterStop = false
             phase = .stopping
-            return [.requestStop, .scheduleForceStop]
+            return [.requestStop, .scheduleStopTimeout]
         case .restartRequested:
             guard phase == .running || phase == .paused else { return [] }
             restartAfterStop = true
             phase = .stopping
-            return [.requestStop, .scheduleForceStop]
+            return [.requestStop, .scheduleStopTimeout]
         case .machineStopped:
             if restartAfterStop {
                 restartAfterStop = false
                 phase = .starting
-                return [.cancelForceStop, .startNewSession]
+                return [.cancelStopTimeout, .startNewSession]
             }
             phase = .stopped
-            return [.cancelForceStop]
+            return [.cancelStopTimeout]
         case .machineFailed(let message):
             restartAfterStop = false
             phase = .failed(message)
-            return [.cancelForceStop]
+            return [.cancelStopTimeout]
         case .stopTimedOut:
+            guard phase == .stopping else { return [] }
+            return [.askStopTimeout]
+        case .keepWaiting:
+            guard phase == .stopping else { return [] }
+            return [.scheduleStopTimeout]
+        case .forceStopConfirmed:
             guard phase == .stopping else { return [] }
             return [.forceStop]
         }
@@ -1993,6 +2009,19 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         private func requestStop() {
             guard let machine else { return }
+            // A paused guest cannot process the ACPI shutdown request.
+            if machine.state == .paused {
+                machine.resume { [weak self] result in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        switch result {
+                        case .success: self.requestStop()
+                        case .failure(let error): self.phaseChanged(.failed(error.localizedDescription))
+                        }
+                    }
+                }
+                return
+            }
             guard machine.canRequestStop else {
                 phaseChanged(.failed("Omarchy cannot accept a graceful stop request right now."))
                 return
