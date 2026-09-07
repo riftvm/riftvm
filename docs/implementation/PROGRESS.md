@@ -167,3 +167,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Through the actual five-step creation wizard, selected the existing ARM64 Debian ISO, named a disposable workspace, accepted the resource configuration, skipped folder sharing and created the workspace. Its persisted configuration contains no shared host directories, a 64 GiB ASIF disk, 4 GiB RAM and NAT networking.
 - Run Virtual Machine displayed the real GRUB installer menu. Keyboard selection booted the graphical Debian installer to its English language page.
 - Closing the VM window left the workspace marked Running in the control center. Reopening returned to the same graphical installer page. This verifies window close/reopen behavior for this signed candidate; it does not yet prove a completed Debian installation, menu-bar reopening, or other Guest profiles.
+
+## Build 4 macOS state verification retry
+
+- The full signed-bundle verifier passed factory trust, compiled icon representations, metadata, production entitlements and strict nested signatures.
+- Retried the standard machine-state verifier on its disposable clone. The running-state save completed, but cross-process restoration did not report `restored-and-stopped` within 120 seconds. This is a failed acceptance check, not proof of successful restore or evidence of the earlier permission-denied cause.
+- The verifier terminated its Launch Services waiter but left the disposable App process running; explicit process cleanup was required. The verifier needs stronger child-process cleanup and retained timeout diagnostics before another retry.
+- Debian GUI installation reached account password setup and remains waiting for user handoff. The signed CLI validated its configuration with no problems and reported it running.
