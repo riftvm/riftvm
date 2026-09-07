@@ -606,12 +606,15 @@ enum VMOmarchySavedSession {
         let memoryBytes: UInt64
         let microphoneEnabled: Bool
         let hostVersion: String
+        let directorySharingLayoutVersion: Int
 
         init(cpuCount: Int, memoryBytes: UInt64, microphoneEnabled: Bool) {
             self.cpuCount = cpuCount
             self.memoryBytes = memoryBytes
             self.microphoneEnabled = microphoneEnabled
             self.hostVersion = ProcessInfo.processInfo.operatingSystemVersionString
+            // Earlier builds omitted the folders device when no grants existed.
+            self.directorySharingLayoutVersion = 1
         }
     }
 

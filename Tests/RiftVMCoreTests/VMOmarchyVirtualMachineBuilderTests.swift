@@ -49,18 +49,21 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.storageDevices.count, 1)
         XCTAssertEqual(configuration.graphicsDevices.count, 1)
         XCTAssertEqual(configuration.socketDevices.count, 1)
-        XCTAssertEqual(configuration.directorySharingDevices.count, 2)
+        XCTAssertEqual(configuration.directorySharingDevices.count, 3)
         XCTAssertEqual(
             (configuration.directorySharingDevices.first as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "rift-agent"
         )
         XCTAssertEqual(
-            (configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)?.tag,
+            (configuration.directorySharingDevices[1] as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "riftvm_shared"
         )
         let sharedDevice = try XCTUnwrap(
-            configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration
+            configuration.directorySharingDevices[1] as? VZVirtioFileSystemDeviceConfiguration
         )
+        let emptyFolders = try XCTUnwrap(configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)
+        XCTAssertEqual(emptyFolders.tag, "riftvm_folders")
+        XCTAssertTrue(try XCTUnwrap(emptyFolders.share as? VZMultipleDirectoryShare).directories.isEmpty)
         let sharedShare = try XCTUnwrap(sharedDevice.share as? VZSingleDirectoryShare)
         XCTAssertFalse(sharedShare.directory.isReadOnly)
         XCTAssertTrue(
@@ -151,7 +154,7 @@ final class VMOmarchyFolderGrantTests: XCTestCase {
         XCTAssertEqual(share.directories[writable.guestName]?.isReadOnly, false)
         XCTAssertEqual(try VMOmarchyFolderGrant.load(at: root), [readOnly, writable])
         try VMOmarchyFolderGrant.save([], at: root)
-        XCTAssertNil(try VMOmarchyFolderGrant.makeDevice(at: root))
+        XCTAssertTrue(try XCTUnwrap(VMOmarchyFolderGrant.makeDevice(at: root).share as? VZMultipleDirectoryShare).directories.isEmpty)
         XCTAssertEqual(try Data(contentsOf: source), Data("Keep me".utf8))
     }
 
@@ -159,7 +162,7 @@ final class VMOmarchyFolderGrantTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        XCTAssertNil(try VMOmarchyFolderGrant.makeDevice(at: root))
+        XCTAssertTrue(try XCTUnwrap(VMOmarchyFolderGrant.makeDevice(at: root).share as? VZMultipleDirectoryShare).directories.isEmpty)
         try VMOmarchyFolderGrant.save([VMOmarchyFolderGrant(directory: root.appending(path: "offline"))], at: root)
         XCTAssertThrowsError(try VMOmarchyFolderGrant.makeDevice(at: root))
         try Data("corrupt".utf8).write(to: root.appending(path: "FolderGrants.json"))

@@ -117,9 +117,9 @@ public enum VMOmarchyVirtualMachineBuilder {
         let sharedDevice = VZVirtioFileSystemDeviceConfiguration(tag: "riftvm_shared")
         sharedDevice.share = VZSingleDirectoryShare(directory: sharedDirectory)
         configuration.directorySharingDevices = [enrollmentDevice, sharedDevice]
-        if let folders = try VMOmarchyFolderGrant.makeDevice(at: layout.applicationSupportRoot) {
-            configuration.directorySharingDevices.append(folders)
-        }
+        configuration.directorySharingDevices.append(
+            try VMOmarchyFolderGrant.makeDevice(at: layout.applicationSupportRoot)
+        )
 
         // Omarchy uses the authenticated Guest Agent for text and image
         // clipboard integration. Attaching the SPICE clipboard at the same
@@ -212,9 +212,11 @@ public struct VMOmarchyFolderGrant: Codable, Equatable, Identifiable, Sendable {
         try JSONEncoder().encode(grants).write(to: workspace.appending(path: "FolderGrants.json"), options: .atomic)
     }
 
-    public static func makeDevice(at workspace: URL) throws -> VZVirtioFileSystemDeviceConfiguration? {
+    public static func makeDevice(at workspace: URL) throws -> VZVirtioFileSystemDeviceConfiguration {
         let grants = try load(at: workspace)
-        guard !grants.isEmpty else { return nil }
+        // The guest always exposes ~/Mac. An empty share keeps that mount
+        // usable without granting access to any host directory.
+
         var directories: [String: VZSharedDirectory] = [:]
         for grant in grants {
             var isDirectory: ObjCBool = false

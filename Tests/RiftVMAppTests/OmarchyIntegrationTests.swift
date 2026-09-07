@@ -73,7 +73,7 @@ final class OmarchyIntegrationTests: XCTestCase {
     }
 
     func testOmarchySavedSessionRejectsChangedDiskIdentityPermissionsAndResources() throws {
-        for mutation in ["disk", "identity", "permissions", "resources", "truncated-state"] {
+        for mutation in ["disk", "identity", "permissions", "resources", "sharing-layout", "truncated-state"] {
             let root = FileManager.default.temporaryDirectory.appending(path: "RiftVMSavedSession-\(UUID())")
             defer { try? FileManager.default.removeItem(at: root) }
             let layout = try makeSavedSessionFixture(root: root)
@@ -88,6 +88,13 @@ final class OmarchyIntegrationTests: XCTestCase {
             case "identity": try Data("another-machine".utf8).write(to: layout.machineIdentifier)
             case "permissions": try Data("changed-folder-grants".utf8).write(to: root.appending(path: "FolderGrants.json"))
             case "resources": current = .init(cpuCount: 4, memoryBytes: 4 << 30, microphoneEnabled: false)
+            case "sharing-layout":
+                let manifest = saved.deletingLastPathComponent().appending(path: "Compatibility.json")
+                var value = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: manifest)) as? [String: Any])
+                var configuration = try XCTUnwrap(value["configuration"] as? [String: Any])
+                configuration.removeValue(forKey: "directorySharingLayoutVersion")
+                value["configuration"] = configuration
+                try JSONSerialization.data(withJSONObject: value).write(to: manifest)
             default: try Data("cut".utf8).write(to: saved)
             }
             XCTAssertThrowsError(try VMOmarchySavedSession.stateToRestore(layout: layout, configuration: current), mutation)
