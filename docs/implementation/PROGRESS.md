@@ -201,3 +201,11 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Added a regression test that exercises backend selection and refresh for a Linux installer and a macOS desktop. The App build and all 60 integration tests passed.
 - This change still needs a visual installer check in a newly built candidate; the already-running build 4 cannot reflect changed code. The final signed candidate must be rebuilt and notarized after this change.
 - The Debian installer completed and the Guest subsequently displayed its installed Debian GNU/Linux 13 console login prompt. Login/session checks and installer-media removal are not yet verified.
+
+## Build 5 local acceptance
+
+- Build 5 from `aefa609` passed signed archive extraction, factory trust, compiled icons, metadata and strict signature verification. Its App-only ZIP excludes Guest disks and installers.
+- On the unlocked host, the exact extracted signed candidate passed running and paused macOS save/cross-process-restore roundtrips.
+- A new 1280×720 Linux installer fixture booted the Debian graphical installer in build 5. Visual inspection confirmed readable larger text and visible navigation controls, replacing the tiny Retina-sized installer presentation seen in build 4. The display-test VM was paused after inspection.
+- The user's screenshot separately confirms successful login to the installed build 4 Debian guest and execution of `uname -a` as the test user.
+- Build 5 Apple notarization upload was rejected by automatic approval review, including a retry supplying previous authorization context. A specific build 5 upload confirmation is pending; no upload was bypassed or performed.
