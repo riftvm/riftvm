@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Virtualization
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
@@ -151,8 +152,10 @@ struct ContentView: View {
         guard portabilityOperation == nil else { return }
         let openPanel = NSOpenPanel()
         openPanel.title = "Select a RiftVM Export"
+        openPanel.allowedContentTypes = [UTType(exportedAs: "com.riftvm.export", conformingTo: .package)]
+        openPanel.treatsFilePackagesAsDirectories = false
         openPanel.canChooseFiles = true
-        openPanel.canChooseDirectories = true
+        openPanel.canChooseDirectories = false
         openPanel.allowsMultipleSelection = false
         guard openPanel.runModal() == .OK, let source = openPanel.url else { return }
         guard source.pathExtension == VMPortabilityManager.exportExtension else {

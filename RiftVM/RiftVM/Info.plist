@@ -33,6 +33,23 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
+			<string>com.riftvm.export</string>
+			<key>UTTypeDescription</key>
+			<string>RiftVM Export</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>riftvmexport</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
 			<string>com.riftvm.workspace</string>
 			<key>UTTypeDescription</key>
 			<string>RiftVM Workspace</string>
