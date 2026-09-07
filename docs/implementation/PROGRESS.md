@@ -1,138 +1,56 @@
-# RiftVM 0.1.0 implementation and verification record
+# RiftVM 0.1.0 implementation progress
 
-Updated 2026-09-06. This is an in-progress record, not a release acceptance certificate.
+Status: implementation and release acceptance in progress. No public App release is available. Passing individual checks below does not establish completion of the [implementation plan](../RIFTVM_IMPLEMENTATION_PLAN.md).
 
-## Current milestone
+## Implemented
 
-- Imported the complete tracked EZVM baseline in commit 7472ab2. Original repositories have not been modified.
-- Renamed App, package modules, CLI, source paths, Agent services and environment variables. App is com.riftvm.app, 0.1.0 (1), Apple Silicon/macOS 27, English-only.
-- Moved Omarchy source into the main App target, Guest overlay to GuestResources/Omarchy, and inherited Omarchy tests to Tests/RiftVMAppTests. Archived the obsolete desktop project and resources as historical material.
-- Added persistent UUID/profile/location registry and default launch routing. Corrupt registries do not silently reset. Duplicate identities are rejected; moved workspaces retain identity. Run leases use identity when present and canonical path otherwise.
-- Added new workspace home, primary Omarchy/macOS creation, Custom Linux ISO entry, menu bar, reopen routing, Finder workspace type, and snapshot/settings links for standard VMs.
-- Retain running windows/controllers when hidden. Unified quit transaction coordinates all participating VMs; timeout choices are wait, cancel, or explicit force stop. Added injected-participant tests for the transaction.
-- Scoped Omarchy clipboard/microphone/notification preferences by workspace. Notifications carry workspace ID. Clipboard uses active display focus and provenance to avoid guest-to-guest forwarding, with cancellation/revalidation before Host publication.
-- Added Omarchy CPU/memory choices. Added cancellable download/preparation and cross-process serialized shared factory cache. Factory cache files are read-only; writable workspace copies restore owner-write permission.
-- Adapted CLI library discovery and runtime lock lookup to the new registry and identity. Full profile-specific command acceptance remains outstanding.
-- Fixed an EDID regression caused by a longer brand string resizing the fixed 128-byte display descriptor.
+- Copied and adapted reusable EZVM source into the new repositories. Original repositories and user workspaces are untouched.
+- Unified native App, new English workspace library and creation flow, RiftVM identity, version 0.1.0, bundle identifier com.riftvm.app, new icon and website.
+- UUID workspace registry, ownership leases, independent disks and credentials, resource admission, default routing and persistent window ownership.
+- Per-workspace clipboard, notification and microphone preferences; explicit read-only/read-write folder grants with stopped-only editing and fail-closed validation.
+- Coordinated quit with save where supported, otherwise graceful shutdown and explicit timeout choices. Live runtime errors do not automatically terminate a Guest.
+- Omarchy CLI routing, authenticated shutdown, image trust, shared factory cache and independent writable workspaces.
 
-## Evidence collected locally
+## Verified development behavior
 
-Host: macOS 27.0 (26A5425a), Xcode 27.0 (27A5252f).
+- App integration suite: 56 tests pass after the latest lifecycle fixes. Earlier Core, CLI, graphics and Agent test milestones remain development evidence; final candidate checks must be rerun as required.
+- Real Omarchy first-user provisioning, authenticated Agent readiness, internal folder roundtrip, text/PNG clipboard roundtrip, file import, dynamic display, complex-password lock/unlock and fullscreen entry/exit.
+- Closing an Omarchy window retains the running VM. Status-bar reopening still needs direct acceptance.
+- Two independent Omarchy workspaces run in the same GUI process. Pausing one leaves the other running, and library status now updates from VZ state observations.
+- Unified quit succeeds with both Guests running and with one running/one paused. The paused path now resumes Agent integration and waits for fresh authenticated status before shutdown. Timeout Wait/Cancel/Force Stop remains explicit; no automatic force stop was introduced.
+- These checks do not establish multi-Guest focus/clipboard/notification isolation, user-folder access enforcement or snapshot recovery.
 
-- Core tests: 390 cases, zero failures, one inherited skip. /private/tmp/riftvm-swift-test.log.
-- CLI tests: 13 cases passed, including registered-external-directory discovery coverage.
-- App tests: 56 cases, zero failures; includes migrated Omarchy checks and new quit/clipboard ownership tests. See /private/tmp/riftvm-app-tests.log and /private/tmp/riftvm-tests-derived/Logs/Test for xcresult evidence.
-- Graphics tests: all 26 passed after EDID fix. /private/tmp/riftvm-graphics-test.log.
-- Guest Agent: go test ./... passed. /private/tmp/riftvm-agent-test.log.
-- New App launched using test virtualization entitlement, isolated RIFTVM_DATA_ROOT and GUI readiness probe. /private/tmp/riftvm-ui-ready.json records com.riftvm.app, responsive event loop and visible 1080x760 window. Inspected home screenshot and macOS creation accessibility tree through computer use. The online macOS catalog failed in that run; local IPSW and latest-compatible choices remained visible. No guest was installed or booted in this UI check.
-- Developer ID Application certificate is available. GitHub CLI authentication works, the new App repository is public and image-repository Actions are enabled. No notarization or signed candidate was performed.
+## Image and website
 
-## Required remaining work (not waived by this milestone)
+- Image source CI passed in [run 34091337579](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34091337579).
+- Draft factory build [34091423206](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34091423206) succeeded from a verified pinned base and current overlay. Upstream package drift prevented a fresh package-graph build; provenance preserves the original package base.
+- Candidate raw SHA-256: `99714624832d5fabaae59f58ad8f657384ebbfcf17ae5a72172b66c79965a000`. Agent revision: `1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5`.
+- New Ed25519 factory trust, ASIF byte comparison, multipart signing and signature verification succeeded. Assets remain draft; public cold download and final App manifest pinning are pending.
+- [Default Pages site](https://riftvm.github.io/) is deployed, English-only, and accurately says the App is in development. Desktop/mobile layout and navigation checked. The verified Linux installer catalog is served there. Custom domain DNS remains unconfigured.
+- Organization profile and Homebrew tap repositories exist. No unverified cask has been published.
 
-1. Complete and exercise actual lifecycle transitions: two Omarchy guests, mixed Omarchy/macOS guests, window close/reopen, defaults, error/offline routing, paused shutdown, and quit during install/creation.
-2. Finish profile-specific CLI start/status/stop and import/export/duplicate semantics, including independent guest credentials and UUIDs. Do not infer full CLI support from list/inspect tests.
-3. Complete explicit Omarchy host-directory read-only/read-write sharing, permissions and deletion safety. Validate focus loss/modifier release, background clipboard and notification routing against real guests; unit ownership tests are insufficient.
-4. Adapt the image repository to RiftVM Agent/overlay and pinned source revisions. Build and validate a fresh ARM64 image. Convert/package/sign the immutable factory, configure real public-key trust and pin its published manifest. Current default factory URL still names a mechanically renamed legacy candidate and is not a valid release channel.
-5. Consolidate release scripts and CI into one App path. Inherited scripts still contain obsolete second-App assumptions, release version/tag rules and 24-hour gates. Replace them coherently while retaining signature, notarization, integrity and functional gates. Old scripts are not ready for publication.
-6. Build new icon and visual assets; old bitmap assets are still present. Create the new GitHub Pages website and organization profile. Create the approved homebrew-tap repository and one cask.
-7. Restore and verify all existing storage/network/graphics capabilities from the new UI, including standard VM export/import and Omarchy recovery operations. Regression-test low space, cancellation, offline media, corrupt downloads and interrupted transactions.
-8. Produce Developer ID-signed/notarized archive, Gatekeeper and archive round-trip evidence, CLI/cask checks, and public-download clean installations of Omarchy/macOS on this Mac. Required evidence must match the shipped App/Agent/factory revisions.
-9. Configure/verify default GitHub Pages deployment and downloads. Owner-managed riftvm.com DNS is pending; do not claim domain launch. Long soak/sleep certification remains explicitly deferred and must not be advertised as passed.
+## Internal signed candidate
 
-## Practical continuation notes
+- [Main source CI 34097355417](https://github.com/riftvm/riftvm/actions/runs/34097355417) passed Agent race tests, shell syntax and Xcode 27 compile checks. Hosted compilation does not replace macOS 27 runtime acceptance; see [CI scope](CI.md).
+- Source-built VirGL runtime, Developer ID archive/export, nested signatures and production entitlement checks succeeded.
+- Internal candidate: version 0.1.0, build 1, clean source `62a0eefd57727b278970e743d9febd4212f5f1b0`.
+- ZIP SHA-256: `f9800998e7a5c8fe27586d2731ae9cd351071019e5ce92b0f7811d360b834265`.
+- Apple notarization returned Accepted. Exact ZIP extraction passed strict signature, entitlement, source/version and Gatekeeper checks. Normal GUI launch and embedded CLI doctor succeeded.
+- This candidate is not published or functionally accepted. Signed Guest boot, public factory acquisition, offline/stapled assessment, cask installation and final release evidence are still pending.
 
-Main checkout: /Users/eevv/github/products/riftvm/riftvm. Original /Users/eevv/github/products/misc/ezvm is read-only reference for this task.
+## macOS installation acceptance
 
-Current single scheme is RiftVM, with RiftVMAppTests hosted by RiftVM.app. Test signing overrides must use scripts/virtualization-test.entitlements; ad-hoc signing with distribution USB/vmnet entitlements was rejected by macOS. Use the user's Developer ID for release checks.
+- Official Apple restore image 26.6.2 / 25G83 downloaded and verified. SHA-256: `885503b7f4b06609e9a512f2befd40f59730640a3f1233e3892d60affdd51c95`.
+- Apple native inspection confirms hardware compatibility, and latest-compatible lookup returns this same image. Earlier standalone-tool connection failures were missing test entitlements, not an Apple service outage.
+- Signed App local-IPSW selection and workspace naming/location steps were exercised. Resource-page UI automation hit a crash in the automation service; RiftVM remained live. Installation has not started and is not claimed as passed.
+- Online catalog empty-result wording and current built-in version metadata still need refinement.
 
-Image migration is now in progress. The old local integration branch (1771f5c) was stale; the remote integration branch is 6aa7490b3cafa417dbb269e524d886fc4bfca29d, containing later owner-provisioning/clipboard implementation. Fetch that exact reference into the new image repository, use its complete source, then apply the new identity and pin the new Agent revision before enabling a build. Do not modify the old checkout.
+## Required next gates
 
-## Image pipeline and explicit shutdown follow-up
+1. Complete real macOS and Custom ARM64 Linux installation and recovery checks.
+2. Verify two-Guest and mixed-profile input, clipboard, notification and folder isolation.
+3. Complete snapshot/rollback, duplicate identity, portability and signed CLI lifecycle checks.
+4. Consolidate remaining legacy release scripts around the one App; pin the validated immutable factory.
+5. Rebuild and validate the exact final signed candidate, publish accepted artifacts, verify public cold installation and the Homebrew cask, then update download documentation.
 
-- Migrated the complete image integration from 6aa7490b3cafa417dbb269e524d886fc4bfca29d. New image commit 548fcc5 pins App/Agent 1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5.
-- Linux ARM64 image contracts passed in GitHub Actions run 34089893327, including display watcher and owner provisioning. Removed duplicate CI and fixed the renamed enrollment mount contract.
-- Full native image build started as run 34089946830 with tag v0.1.0-rc.1 and publish_release=false. Inspect this existing run; do not dispatch a duplicate. The candidate must remain draft until factory conversion/trust and actual guest acceptance.
-- App and CLI raw-image manifest kind is com.riftvm.preinstalled-image, matching the new image packager.
-- Omarchy Stop/Restart timeout now asks Wait or Force Stop; elapsed time alone never authorizes force stop. Paused guests resume before graceful shutdown so they can process the request. App tests pass; real guest verification remains required.
-
-## Workspace folder permissions
-
-- Added per-workspace FolderGrants.json with explicit read-only (default) / read-write VirtioFS grants. Native Folder Permissions UI only permits changes while stopped and prevents overwriting unreadable permissions. Removing a grant preserves the host directory. Missing directories block startup with an actionable error.
-- User grants use a separate riftvm_folders device, preserving the authenticated Agent transport share. Image commit 935a1b0 adds an on-demand mount and non-destructive ~/Mac link. This image change is not present in the previous build attempt.
-- Two focused Core tests passed for actual VZ share configuration, persistence, revocation without deletion, absent directories and corrupt permissions. All 56 App tests passed. Real Guest read/write enforcement and filesystem behavior remain required.
-- Image run 34089946830 is terminal FAILED: upstream Hyprland/Hyprtoolkit require libaquamarine.so=13-64 unavailable from the current signed/official package combination. Do not rerun unchanged inputs. Investigate matching package snapshots or digest-pinned integration rebake from the known-good previous image, with provenance retained.
-
-## Pinned base migration investigation
-
-- Confirmed public EZVM .32 base raw SHA-256 1ad443730ea340eaa7003b01c26ea142434b0f88a4280bd34fb8909e32d9b0a9. Its Omarchy and wl-copy pins match current sources. This is a factory build input only; there is no user-workspace migration promise.
-- Image repo commits ad79deb and 7255538 add explicit fixed-base reconstruction, preserving part/archive/raw verification and normal new-format rejection of legacy headers. Also corrected remaining run-rift escaped systemd unit references in build-image.
-- Active read-only Linux inspection run: 34090810766 (Inspect pinned migration base), confirmed downloading/verifying as of 2026-09-06 23:28 local. Download its migration-inventory artifact once complete to determine all old integration paths before implementing migration. No rebake has run.
-- Local original base download is running under exec session 71212 into /private/tmp/riftvm-base-provenance. It contains the original release manifest and provenance already; poll this same session rather than starting a duplicate download. Required download is ~3.1 GB sparse archive, complete disk logical size 64 GiB.
-- Source CI for ad79deb failed only in a newly added sparse fixture (missing extent separator); corrected fixture in 7255538, locally decoder-checked, new CI pending. Existing reconstruction/integration/folder tests passed before the fixture.
-
-## Verified migration and new signing trust
-
-- Read-only inspection run 34090810766 succeeded, including complete disk digest verification. Inventory downloaded to /private/tmp/riftvm-migration-inventory. Image repo b907d0a implements migration against that exact inventory, preserves original provenance, overlays current integration files and reconstructs the read-only factory snapshot. CI 34091337579 passed.
-- New draft image build run 34091423206 uses migrate_ezvm32=true, publish_release=false, v0.1.0-rc.1. Last verified active step: Build pinned Wayland clipboard frontend. Follow this existing run.
-- Local base archive download session 71212 finished successfully. Full reconstruction is running as session 95036, output /private/tmp/riftvm-base.raw and log /private/tmp/riftvm-base-reconstruction.log. Do not retry while live.
-- Generated fresh RiftVM factory Ed25519 trust. Public key is Resources/FactoryTrust/omarchy-factory-2026.pub and embedded in Info.plist. Private key file is /Users/eevv/.config/riftvm/signing/omarchy-factory-2026.private (0600); never output its contents or commit it. No factory has been signed yet; production manifest URL remains pending validation of the built image.
-
-## CLI Omarchy routing and migration build progress
-
-- App headless entry now selects Omarchy from Workspace.json, rejects uninstalled/recovery-needed instances before launch, and reuses the native Omarchy view/runtime instead of the standard config.json runner. Running phase is reported through the existing CLI runtime record. SIGTERM/INT request graceful shutdown, resuming a paused Guest first; no implicit force timeout is introduced.
-- Command-line windows are retained by the shared workspace coordinator for close/reopen routing. Actual running Guest and CLI window behavior still require acceptance against the new factory.
-- Native App-process check passed: an uninstalled Omarchy workspace returned exit 70 and an actionable failed state (/private/tmp/riftvm-headless-routing-result.json). All 56 App tests passed after wiring; the trust test now compares both source plist and built App key with Resources/FactoryTrust/omarchy-factory-2026.pub.
-- Local base reconstruction session 95036 completed and verified /private/tmp/riftvm-base.raw. Log /private/tmp/riftvm-base-reconstruction.log. This remains the OLD factory and must not be presented as RiftVM.
-- New image run 34091423206 advanced beyond actual migration/raw verification to Package split RiftVM release assets. Continue observing this run; no restart or duplicate dispatch is needed. New candidate downloads must use its resulting manifest/digests, not the base hash.
-
-## Candidate download, release trust and visual identity
-
-- Image run 34091423206 succeeded. The draft v0.1.0-rc.1 raw digest is 99714624832d5fabaae59f58ad8f657384ebbfcf17ae5a72172b66c79965a000. Agent remains pinned to 1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5. New manifest and provenance are in /private/tmp/riftvm-rc1-assets.
-- Active local candidate download-and-reconstruction process is session 24814: downloads the new raw parts and inventories, then reconstructs /private/tmp/riftvm-rc1.raw with the above digest. Log /private/tmp/riftvm-rc1-reconstruction.log. Poll the same process; do not launch a duplicate. No ASIF conversion or factory signing has happened yet.
-- Factory build script now requires the repository public key (or explicit valid override) and always verifies the finished signed factory. No optional skip of signature verification.
-- CLI Omarchy error reporting retains a live Guest after a pause/resume operation fails instead of terminating its host process. All 56 App tests passed after this change.
-- Fresh App icon replaces all old AppIcon PNGs, generated reproducibly from Resources/Brand/AppIcon.svg by scripts/render-brand-icons.py. Visually inspected the resulting full-size icon. The new website uses the same vector.
-- Website repo c4fa801 is deployed at https://riftvm.github.io/ (Pages run 34092635835 passed; HTTPS and live image loading checked in browser). Desktop 1280 and mobile 393 viewport checks passed without horizontal overflow. FAQ navigation checked. This page explicitly says the App is not yet downloadable and uses labeled CSS illustrations. No CNAME configured. Local preview server session 41954 uses port 8765; no longer needed after deployment.
-- Organization profile repo commit 1198a5e introduces RiftVM and links App/image/website with truthful development status.
-
-- Candidate session 24814 completed successfully: /private/tmp/riftvm-rc1.raw is reconstructed and verified against 99714624832d5fabaae59f58ad8f657384ebbfcf17ae5a72172b66c79965a000. ASIF conversion, byte comparison, multipart signing and public-key verification started as session 38068. Output /private/tmp/riftvm-factory-rc1; log /private/tmp/riftvm-factory-rc1-build.log. Do not retry while live. It uses version 0.1.0-rc.1 and immutable v0.1.0-rc.1 image release URLs; the release remains draft.
-- Approved riftvm/homebrew-tap repository was created public and cloned under /Users/eevv/github/products/riftvm/homebrew-tap. README commit 0fffde5 explains pending release acceptance; no placeholder or unverified cask was published.
-
-## First real Omarchy Guest acceptance
-
-- ASIF conversion, raw-device byte comparison, signing and public-key verification finished successfully (session 38068). Signed factory is /private/tmp/riftvm-factory-rc1. Upload to the existing draft started as session 60743, log /private/tmp/riftvm-factory-upload.log; inspect its handle before retrying.
-- Created independent Omarchy-A.riftvm and Omarchy-B.riftvm under /private/tmp/riftvm-live-acceptance with separate UUIDs, disk copies and machine/enrollment identity. Host has 18 GiB RAM / 11 CPUs. Each Guest uses 6 GiB / 3 vCPU. Neither guest is user data.
-- A booted and completed first-user provisioning through the new authenticated Agent. Guest reports exactly pinned Agent 1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5, provisioningPending=false and desktopSessionActive=true. Real text/PNG clipboard roundtrip, internal shared-folder roundtrip, file import and dynamic display checks passed. Evidence is in A/Diagnostics-attempt-1 and A/Diagnostics; these are development checks (sourceRevision empty), not final release acceptance.
-- Lock/unlock probe failed twice: locked marker observed, unlock not confirmed. Added explicit Shift transitions to acceptance-only text injection, but that did not resolve failure. Do not claim lock cycle/pause/resume/multi-instance acceptance. Artifacts retained in A/Shared/.riftvm-lock-cycle-* and logs Omarchy-A.log / Omarchy-A-attempt-2.log. Test password is local-only at test-password (never output it).
-- First ACPI-only shutdown did not finish while locked. Verified actual Quit timeout UI offers Wait/Cancel Quit/Force Stop and waits for explicit choice. Explicitly force-stopped only disposable A attempt 1. Fixed all Omarchy stop/quit paths to prefer authenticated Guest Agent shutdown (after resume if paused). Attempt 2 then gracefully stopped on SIGTERM: A.state.json says stopped, process 29879 no longer exists. No force used on attempt 2.
-- All 56 App tests passed after stop/Shift changes. Current independent B contrast run has PID 30173, state /private/tmp/riftvm-live-acceptance/Omarchy-B.state.json and log Omarchy-B.log; generated lowercase-only 32-character password at test-password-b (0600) to distinguish modifier encoding from the lock input path. Automatic acceptance runs; follow this live process before changing/restarting it.
-
-- B contrast run successfully observed a real Guest lock/unlock cycle at 2026-09-07 07:10:59–07:11:15 UTC (Omarchy-B.log). Its lowercase-only test credential succeeds, whereas A's mixed shifted-character credential still fails. This isolates the remaining acceptance input defect; it is not permission to weaken password support. Native SDK IOLLEvent.h defines NX_DEVICELSHIFTKEYMASK=0x2 in addition to NX_SHIFTMASK=0x20000; synthesized acceptance events currently omit the device-specific bit. Investigate and verify against A rather than assuming this fixes it. B is continuing automated lifecycle/recovery probes; do not overwrite its running App bundle during builds. Use another derivedDataPath for further refinements until it stops.
-
-## Shift regression resolved and installer catalog repair
-
-- A attempt 3, PID 30808, uses /private/tmp/riftvm-refinement-derived/Build/Products/Debug/RiftVM.app. Adding NX_DEVICELSHIFTKEYMASK to acceptance Shift events resolved the original mixed-character credential failure without changing the credential. Actual lock/unlock observed 2026-09-07 07:18:13–07:18:30 UTC, then fullscreen entry/exit succeeded. Evidence: Omarchy-A-attempt-3.log. All 56 App tests passed before this real Guest run.
-- Native toolbar pause and resume both succeeded; integration returned ready. Closing the window left the same runtime PID and running heartbeat active, without the old blank control-center window. CUA cannot retrieve the no-window process AX tree (timeout); status-bar reopening remains unverified.
-- B gracefully stopped after its successful contrast acceptance. Factory upload session 60743 completed and verified all multipart assets on the draft release. Neither candidate publication nor final signed-App acceptance is complete.
-- Linux catalog still referenced a nonexistent old-account site; moved the App endpoint to https://riftvm.github.io/catalog/linux.json and added the catalog to the new website deployment. Official Debian metadata and HEAD verified 13.6.0 / 735358976 bytes / ffa590beb3ae9158c354e00ebc4bf45421f4720bb3a8ddf2db3cbfc0374cf480. Fedora 42 URL now returns 404; official Fedora 44 checksum and download HEAD verified 44-1.7 / 3662544896 bytes / ba8372682294d0d76f79427cae1273d36891b192ac9bf0f0f9de4e97a7cbe218. Updated builtin and website catalog together.
-- Native Apple latest-restore lookup failed with installation-service error. Active download session 53149 is fetching Apple CDN UniversalMac 26.6.2 build 25G83 to /private/tmp/riftvm-macos-26.6.2.ipsw.download, then checking exact size 19772231540 and SHA-256 885503b7f4b06609e9a512f2befd40f59730640a3f1233e3892d60affdd51c95 before renaming. No macOS Guest install has run; follow this session rather than duplicating it.
-
-- After the window-close check, A gracefully stopped through SIGTERM; state is stopped. Catalog-refinement App build and all 56 tests passed (/private/tmp/riftvm-catalog-tests.log). Website catalog commit 831457a deployed successfully in Pages run 34095663844.
-
-## Same-process Omarchy lifecycle acceptance
-
-- Normal GUI process 31917 imported A and B via Open Existing Workspace and booted both. Quit confirmation gracefully shut both down and the process exited. No force was used in this first normal GUI run.
-- Found stale library/menu status: VZVirtualMachine.state is KVO, so the observable coordinator dictionary did not invalidate on inner state transitions. Added scoped KVO observations and an observable per-workspace state map, with identity checks and teardown. All 56 App tests passed in /private/tmp/riftvm-multi-tests.log.
-- Second GUI process 32389 using /private/tmp/riftvm-multi-derived/Build/Products/Debug/RiftVM.app showed A Running and B Running concurrently. Pausing only B then showed A Running and B Paused in the actual native library, confirming status refresh and independent pause behavior. These runs do not prove clipboard/focus isolation; guests were at their lock screens.
-- Mixed running/paused Quit revealed a further defect: the coordinator resumed VZ directly without calling the Agent resume hook. A shut down but B remained running with its Agent suspension gate closed. Timeout offered Wait/Cancel/Force Stop; Cancel was exercised. Fixed paused shutdown to use the full resume lifecycle and wait for fresh authenticated status before sending shutdown. Build and all 56 App tests passed in /private/tmp/riftvm-paused-quit-tests.log. Real post-fix mixed-state quit verification is next.
-- Source runtime build session 34172 copied (APFS clones) the old read-only source caches into the new repo and builds there. Current log /private/tmp/riftvm-virgl-source-build.log; no original source caches modified. Follow the existing handle.
-
-- The old process 32389 required explicit Force Stop for disposable B after the paused-resume defect; no automatic force was introduced. Post-fix process 33008 used /private/tmp/riftvm-refinement-derived/Build/Products/Debug/RiftVM.app with the same two workspaces. Both booted with Agent ready; B was paused, then Shut Down and Quit was confirmed. Process 33008 exited without timeout or force, proving the full resume-and-authenticate shutdown path against a real paused Guest. All 56 tests passed for this exact development build. Final signed-candidate verification still remains.
-
-## Signed internal candidate and CI
-
-- Source CI run 34097355417 at main commit 62a0eefd57727b278970e743d9febd4212f5f1b0 passed: Linux Agent race tests and shell syntax, Xcode 27 App/App-test compile, Core/CLI test compile. Hosted runner is macOS 26, so these are compile checks, not macOS 27 runtime tests (docs/implementation/CI.md).
-- Source VirGL build session 34172 succeeded in the new repo. Complete runtime is .build/virgl-runtime-source. Local Developer ID archive/export preflight sessions 96166 and 16230 succeeded with the new bundle ID and production entitlements.
-- Internal candidate build session 76341 succeeded. ZIP /private/tmp/riftvm-candidate1/RiftVM-0.1.0.zip has SHA-256 f9800998e7a5c8fe27586d2731ae9cd351071019e5ce92b0f7811d360b834265, version 0.1.0 build 1, source 62a0eefd57727b278970e743d9febd4212f5f1b0, clean tree. It bundles signed CLI and four source-built graphics dylibs. Not a public release and not yet functionally accepted.
-- Automatic approval initially rejected notarization as a potentially private-code upload. Read-only audit established 59 App distribution entries (5.85 MB), no test passwords/private keys/disks/workspace configuration, and exact clean source commit available in the public GitHub repo. Resubmission with that evidence was approved; no workaround was used. Apple notarization session 50584 returned Accepted, submission efa428ea-cda4-456f-aa11-0865d2af954f. Result: /private/tmp/riftvm-candidate1/notarization.json.
-- Exact ZIP extracted to /private/tmp/riftvm-candidate1/install-check/RiftVM.app. Strict/deep signature, production entitlement allowlist, exact source/version verification and Gatekeeper assessment all passed. The CLI doctor executed successfully. Normal Launch Services launch with isolated data root reached visible/responsive GUI (PID 36166, /private/tmp/riftvm-candidate1/gui-ready.json) and native macOS creation window. This does not yet prove Guest boot under the signed build, stapling/offline Gatekeeper, public factory download, cask install, or final release readiness.
+Long soak and sleep/wake certification remain explicitly deferred. All other required completion gates remain in scope.
