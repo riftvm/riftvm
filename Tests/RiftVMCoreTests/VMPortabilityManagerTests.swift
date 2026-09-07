@@ -163,6 +163,85 @@ final class VMPortabilityManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: first.appendingPathComponent("Snapshots").path))
     }
 
+    func testCopiesReceiveIndependentWorkspaceUUIDsAndCanCoexistInRegistry() throws {
+        let source = try makeMachine(name: "Source")
+        let identity = WorkspaceIdentity(profile: .macOS)
+        try identity.write(to: source)
+        let export = root.appendingPathComponent("Source.riftvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        let clone = root.appendingPathComponent("Clone.riftvm")
+        let imported = root.appendingPathComponent("Imported.riftvm")
+        try unwrap(VMPortabilityManager.clone(
+            sourceURL: source, destinationURL: clone, newName: "Clone",
+            machineIdentifierData: Data("clone hardware".utf8)
+        ))
+        try unwrap(VMPortabilityManager.importMachine(
+            exportURL: export, destinationURL: imported,
+            identityMode: .copy(machineIdentifierData: Data("import hardware".utf8), name: "Imported")
+        ))
+        let cloneIdentity = try WorkspaceIdentity.load(at: clone)
+        let importedIdentity = try WorkspaceIdentity.load(at: imported)
+        XCTAssertEqual(Set([identity.id, cloneIdentity.id, importedIdentity.id]).count, 3)
+        XCTAssertEqual(cloneIdentity.profile, identity.profile)
+        XCTAssertEqual(importedIdentity.profile, identity.profile)
+        XCTAssertEqual(try WorkspaceIdentity.load(at: source), identity)
+        var registry = try WorkspaceRegistry(fileURL: root.appendingPathComponent("Registry.json"))
+        for location in [source, clone, imported] { try registry.register(location, profile: .macOS) }
+        XCTAssertEqual(registry.workspaces.count, 3)
+        let restored = root.appendingPathComponent("Restored.riftvm")
+        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: restored, identityMode: .restore))
+        XCTAssertEqual(try WorkspaceIdentity.load(at: restored), identity)
+    }
+
+    func testIndependentCopiesKeepActiveDiskLayersWhileDroppingSnapshotHistory() throws {
+        let source = try makeMachine(name: "Layered")
+        let snapshots = source.appendingPathComponent("Snapshots")
+        let layers = snapshots.appendingPathComponent("Layers")
+        try FileManager.default.createDirectory(at: layers, withIntermediateDirectories: true)
+        let activePath = "Snapshots/Layers/active.asif"
+        try Data("installed operating system".utf8).write(to: source.appendingPathComponent(activePath))
+        try Data("unused history".utf8).write(to: layers.appendingPathComponent("unused.asif"))
+        try Data("old machine identity".utf8).write(to: snapshots.appendingPathComponent("old-snapshot"))
+        let state: [String: Any] = ["currentSnapshotID": "old-snapshot", "activeDiskLayers": ["Disk.img": [activePath]]]
+        try JSONSerialization.data(withJSONObject: state).write(to: snapshots.appendingPathComponent("state.json"))
+        let export = root.appendingPathComponent("Layered.riftvmexport")
+        try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+        let clone = root.appendingPathComponent("Clone.riftvm")
+        let imported = root.appendingPathComponent("Imported.riftvm")
+        try unwrap(VMPortabilityManager.clone(sourceURL: source, destinationURL: clone,
+            newName: "Clone", machineIdentifierData: Data("clone".utf8)))
+        try unwrap(VMPortabilityManager.importMachine(exportURL: export, destinationURL: imported,
+            identityMode: .copy(machineIdentifierData: Data("import".utf8), name: "Imported")))
+        for copy in [clone, imported] {
+            XCTAssertEqual(try Data(contentsOf: copy.appendingPathComponent(activePath)), Data("installed operating system".utf8))
+            let copiedState = try json(copy.appendingPathComponent("Snapshots/state.json"))
+            XCTAssertEqual(copiedState["activeDiskLayers"] as? [String: [String]], ["Disk.img": [activePath]])
+            XCTAssertNil(copiedState["currentSnapshotID"])
+            XCTAssertFalse(FileManager.default.fileExists(atPath: copy.appendingPathComponent("Snapshots/old-snapshot").path))
+            XCTAssertFalse(FileManager.default.fileExists(atPath: copy.appendingPathComponent("Snapshots/Layers/unused.asif").path))
+        }
+        XCTAssertEqual(try json(snapshots.appendingPathComponent("state.json"))["currentSnapshotID"] as? String, "old-snapshot")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layers.appendingPathComponent("unused.asif").path))
+    }
+
+    func testCopyRejectsUnreadableOrMissingActiveLayersWithoutPublishingPartialWorkspace() throws {
+        for invalidState in ["not JSON", "{\"activeDiskLayers\":{\"Disk.img\":[\"Snapshots/Layers/missing.asif\"]}}"] {
+            let source = try makeMachine(name: UUID().uuidString)
+            let snapshots = source.appendingPathComponent("Snapshots")
+            try FileManager.default.createDirectory(at: snapshots, withIntermediateDirectories: true)
+            try Data(invalidState.utf8).write(to: snapshots.appendingPathComponent("state.json"))
+            let export = root.appendingPathComponent("\(UUID().uuidString).riftvmexport")
+            try unwrap(VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: export))
+            let destination = root.appendingPathComponent("\(UUID().uuidString).riftvm")
+            if case .success = VMPortabilityManager.importMachine(exportURL: export, destinationURL: destination,
+                identityMode: .copy(machineIdentifierData: Data("copy".utf8), name: "Copy")) {
+                XCTFail("An incomplete active disk chain must not be published")
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+            XCTAssertEqual(try String(contentsOf: snapshots.appendingPathComponent("state.json"), encoding: .utf8), invalidState)
+        }
+    }
+
     func testSparseEstimateUsesAllocatedBytesInsteadOfLogicalDiskSize() throws {
         let sparse = root.appendingPathComponent("Sparse.riftvm")
         try FileManager.default.createDirectory(at: sparse, withIntermediateDirectories: false)

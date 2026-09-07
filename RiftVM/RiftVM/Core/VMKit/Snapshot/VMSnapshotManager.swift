@@ -444,6 +444,51 @@ class VMSnapshotManager {
         vmRootPath.appending(path: snapshotsDirectoryName)
     }
 
+    /// Called only inside portability's disposable staging directory. Saved
+    /// history carries the old machine identity, but active ASIF layers are
+    /// current disk data and must survive an independent copy.
+    static func resetHistoryForIndependentCopy(vmRootPath: URL) throws {
+        let fm = FileManager.default
+        let root = snapshotsRootURL(vmRootPath: vmRootPath)
+        guard fm.fileExists(atPath: root.path) else { return }
+        guard var state = strictlyDecodedState(vmRootPath: vmRootPath) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
+        let layersRoot = root.appending(path: "Layers")
+        for (base, layers) in state.activeDiskLayers where !layers.isEmpty {
+            guard base == URL(filePath: base).lastPathComponent,
+                  fm.fileExists(atPath: vmRootPath.appending(path: base).path) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+        }
+        for relative in referenced {
+            let url = vmRootPath.appending(path: relative).standardizedFileURL
+            guard relative == "Snapshots/Layers/" + url.lastPathComponent,
+                  sameFileSystemLocation(url.deletingLastPathComponent(), layersRoot) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            let attributes = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard attributes.isRegularFile == true, attributes.isSymbolicLink != true else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+        }
+        guard !referenced.isEmpty else {
+            try fm.removeItem(at: root)
+            return
+        }
+        for child in try fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            where child.lastPathComponent != "Layers" {
+            try fm.removeItem(at: child)
+        }
+        for layer in try fm.contentsOfDirectory(at: layersRoot, includingPropertiesForKeys: nil)
+            where !referenced.contains("Snapshots/Layers/" + layer.lastPathComponent) {
+            try fm.removeItem(at: layer)
+        }
+        state.currentSnapshotID = nil
+        try writeState(state, vmRootPath: vmRootPath)
+    }
+
     private static func snapshotDirURL(vmRootPath: URL, snapshotId: String) -> URL {
         snapshotsRootURL(vmRootPath: vmRootPath).appending(path: snapshotId)
     }

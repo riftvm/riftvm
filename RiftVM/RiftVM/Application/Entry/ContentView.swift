@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var didRoute = false
     @State private var snapshotWorkspace: WorkspaceRecord?
     @State private var settingsWorkspace: WorkspaceRecord?
+    @State private var portabilityOperation: String?
 
     private var workspaces: [WorkspaceRecord] {
         manager.workspaces.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
@@ -51,10 +52,17 @@ struct ContentView: View {
                         }
                         Button("Open Existing Workspace…", systemImage: "folder") { manager.addVMPathWithSelect() }
                         Button("Import as New Workspace…", systemImage: "square.and.arrow.down") { importMachine() }
-                        Spacer()
-                        Text("Apple Silicon · macOS 27").font(.caption).foregroundStyle(.tertiary)
+                            .disabled(portabilityOperation != nil)
                     }
                     .buttonStyle(.borderless)
+                    if let portabilityOperation {
+                        HStack(spacing: 10) {
+                            ProgressView().controlSize(.small)
+                            Text(portabilityOperation).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                    Text("Apple Silicon · macOS 27").font(.caption).foregroundStyle(.tertiary)
                 }
                 .padding(36)
             }
@@ -107,7 +115,8 @@ struct ContentView: View {
         .accessibilityLabel("Create \(title) workspace")
     }
 
-    func exportMachine(_ model: VMModel) {
+    private func exportMachine(_ model: VMModel) {
+        guard portabilityOperation == nil else { return }
         guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
             MacKitUtil.alertWarn(title: "Machine is busy", message: "Shut down the virtual machine and wait for other maintenance operations before exporting it.")
             return
@@ -124,10 +133,12 @@ struct ContentView: View {
             destination.appendPathExtension(VMPortabilityManager.exportExtension)
         }
         let source = model.rootPath
+        portabilityOperation = "Exporting workspace… Keep RiftVM open until this finishes."
         Task.detached {
             let result = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: destination)
             await MainActor.run {
                 VMRunningRegistry.shared.release(maintenanceLease)
+                portabilityOperation = nil
                 switch result {
                 case .success: MacKitUtil.alertInfo(title: "Export complete", message: destination.path)
                 case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
@@ -136,7 +147,8 @@ struct ContentView: View {
         }
     }
 
-    func importMachine() {
+    private func importMachine() {
+        guard portabilityOperation == nil else { return }
         let openPanel = NSOpenPanel()
         openPanel.title = "Select a RiftVM Export"
         openPanel.canChooseFiles = true
@@ -164,6 +176,7 @@ struct ContentView: View {
         let identifier = exportedType == "macOS"
             ? VZMacMachineIdentifier().dataRepresentation
             : VZGenericMachineIdentifier().dataRepresentation
+        portabilityOperation = "Importing workspace… Keep RiftVM open until this finishes."
         Task.detached {
             let result = VMPortabilityManager.importMachine(
                 exportURL: source,
@@ -171,6 +184,7 @@ struct ContentView: View {
                 identityMode: .copy(machineIdentifierData: identifier, name: importedName)
             )
             await MainActor.run {
+                portabilityOperation = nil
                 switch result {
                 case .success:
                     sharedAppConfigManager.addVMPathWithRefresh(url: destination)
@@ -201,7 +215,7 @@ struct ContentView: View {
                             case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
                             }
                         }
-                        .disabled(VMRunningRegistry.shared.isRunning(rootPath: workspace.location))
+                        .disabled(portabilityOperation != nil || VMRunningRegistry.shared.isRunning(rootPath: workspace.location))
                         if workspace.profile == .macOS {
                             Button("Start in Recovery") { coordinator.open(workspace, recoveryMode: true) }
                         }

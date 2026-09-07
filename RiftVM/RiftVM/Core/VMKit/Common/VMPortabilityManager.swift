@@ -90,13 +90,12 @@ enum VMPortabilityManager {
             for name in excludedCloneNames {
                 try? FileManager.default.removeItem(at: staging.appendingPathComponent(name))
             }
-            // Snapshot histories contain historical hardware identities. A clone
-            // starts a new history so restoring it can never resurrect the source ID.
-            try? FileManager.default.removeItem(at: staging.appendingPathComponent("Snapshots"))
+            try VMSnapshotManager.resetHistoryForIndependentCopy(vmRootPath: staging)
             try machineIdentifierData.write(
                 to: staging.appendingPathComponent("MachineIdentifier"),
                 options: .atomic
             )
+            try renewWorkspaceIdentity(at: staging)
             try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: newName)
         }
     }
@@ -211,8 +210,9 @@ enum VMPortabilityManager {
                 for excludedName in excludedCloneNames {
                     try? FileManager.default.removeItem(at: staging.appendingPathComponent(excludedName))
                 }
-                try? FileManager.default.removeItem(at: staging.appendingPathComponent("Snapshots"))
+                try VMSnapshotManager.resetHistoryForIndependentCopy(vmRootPath: staging)
                 try identifier.write(to: staging.appendingPathComponent("MachineIdentifier"), options: .atomic)
+                try renewWorkspaceIdentity(at: staging)
                 try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: name)
             }
         )
@@ -284,6 +284,16 @@ enum VMPortabilityManager {
         for item in try FileManager.default.contentsOfDirectory(at: source, includingPropertiesForKeys: nil) {
             try FileManager.default.copyItem(at: item, to: destination.appendingPathComponent(item.lastPathComponent))
         }
+    }
+
+    private static func renewWorkspaceIdentity(at root: URL) throws {
+        // Runtime hardware identity and library identity are independent. A
+        // copy needs both renewed or the registry rejects it as the original.
+        guard FileManager.default.fileExists(atPath: root.appendingPathComponent(WorkspaceIdentity.fileName).path) else {
+            return // A pre-registry fixture receives its identity on registration.
+        }
+        let original = try WorkspaceIdentity.load(at: root)
+        try WorkspaceIdentity(profile: original.profile).write(to: root)
     }
 
     private static func rewriteMachineName(at configURL: URL, name: String) throws {
