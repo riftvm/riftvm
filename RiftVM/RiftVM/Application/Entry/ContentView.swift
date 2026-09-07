@@ -116,6 +116,48 @@ struct ContentView: View {
         .accessibilityLabel("Create \(title) workspace")
     }
 
+    private func duplicateMachine(_ model: VMModel) {
+        guard portabilityOperation == nil else { return }
+        guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
+            MacKitUtil.alertWarn(title: "Machine is busy", message: "Shut down the virtual machine and wait for other maintenance operations before duplicating it.")
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Duplicate Workspace"
+        panel.nameFieldStringValue = "\(model.config.name) Copy.riftvm"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, var destination = panel.url else {
+            VMRunningRegistry.shared.release(maintenanceLease)
+            return
+        }
+        if destination.pathExtension != "riftvm" { destination.appendPathExtension("riftvm") }
+        let cloneName = destination.deletingPathExtension().lastPathComponent
+        let identifier = model.config.type == .macOS
+            ? VZMacMachineIdentifier().dataRepresentation
+            : VZGenericMachineIdentifier().dataRepresentation
+        let source = model.rootPath
+        portabilityOperation = "Duplicating workspace… Keep RiftVM open until this finishes."
+        Task.detached {
+            let result = VMPortabilityManager.clone(
+                sourceURL: source,
+                destinationURL: destination,
+                newName: cloneName,
+                machineIdentifierData: identifier
+            )
+            await MainActor.run {
+                portabilityOperation = nil
+                VMRunningRegistry.shared.release(maintenanceLease)
+                switch result {
+                case .success:
+                    sharedAppConfigManager.addVMPathWithRefresh(url: destination)
+                    MacKitUtil.alertInfo(title: "Duplicate complete", message: "Created \(cloneName). The duplicate has a new machine identity and starts with a new snapshot history.")
+                case .failure(let error):
+                    MacKitUtil.alertWarn(title: "Duplicate failed", message: error)
+                }
+            }
+        }
+    }
+
     private func exportMachine(_ model: VMModel) {
         guard portabilityOperation == nil else { return }
         guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
@@ -212,6 +254,13 @@ struct ContentView: View {
                     if workspace.profile != .omarchy {
                         Button("Settings…") { settingsWorkspace = workspace }
                         Button("Snapshots…") { snapshotWorkspace = workspace }
+                        Button("Duplicate Workspace…") {
+                            switch VMModel.loadConfigFromFile(rootPath: workspace.location) {
+                            case .success(let model): duplicateMachine(model)
+                            case .failure(let error): MacKitUtil.alertWarn(title: "Duplicate failed", message: error)
+                            }
+                        }
+                        .disabled(portabilityOperation != nil || VMRunningRegistry.shared.isRunning(rootPath: workspace.location))
                         Button("Export Workspace…") {
                             switch VMModel.loadConfigFromFile(rootPath: workspace.location) {
                             case .success(let model): exportMachine(model)
