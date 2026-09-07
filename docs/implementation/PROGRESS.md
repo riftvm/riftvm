@@ -482,3 +482,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Consume a previously captured non-synthetic key release before applying the new-key focus/modifier policy, including direct responder events associated with the previous window. Clear ownership exactly once; unrelated ordinary releases still pass through. This is an input isolation correction, not evidence that ordinary text latency is fixed.
 - Added a native event regression covering Command-first release, focus loss, a release tied to the previous NSWindow, subsequent unrelated release and a new chord. The first window-backed test exited unexpectedly due to the fixture window's release-on-close behavior; explicitly retaining Swift ownership corrected the fixture. The final full Omarchy integration test run passed.
 - Installed build 21 remains unchanged; this correction still requires signed runtime validation with the remaining input acceptance matrix.
+
+### 2026-09-07 — Build 22 signed input follow-up
+
+- Built and installed signed build 22 from add15a9f52b78edd628fac174a2db27cf65bcb74. ZIP SHA-256: 913c71ae286ac71fa41f7929100197e07983c3823196976c48ef1f2565212150. Build resource/entitlement/round-trip and strict installed signature checks passed.
+- Omarchy New cold login and Command+Return terminal launch succeeded. The initial permission banner disappeared without changing system permissions. A single ordinary e key reached the focused responder in 0.6–4.5 ms but was absent on the subsequent capture. A later pointer click revealed the character. This reproduces the display/input symptom without a bulk typing backlog and shows the release-order correction has not resolved it. Logs: /private/tmp/riftvm-candidate22/direct-input.log.
+- Normal Guest shutdown completed. Ordinary input, physical modifier-release isolation and the full build 22 acceptance matrix remain unverified. Build 21 CLI results are not relabeled as build 22 results.
