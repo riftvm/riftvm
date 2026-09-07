@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Virtualization
 
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
@@ -49,6 +50,7 @@ struct ContentView: View {
                             openWindow(id: "create-workspace", value: WorkspaceProfile.linux)
                         }
                         Button("Open Existing Workspace…", systemImage: "folder") { manager.addVMPathWithSelect() }
+                        Button("Import as New Workspace…", systemImage: "square.and.arrow.down") { importMachine() }
                         Spacer()
                         Text("Apple Silicon · macOS 27").font(.caption).foregroundStyle(.tertiary)
                     }
@@ -105,6 +107,80 @@ struct ContentView: View {
         .accessibilityLabel("Create \(title) workspace")
     }
 
+    func exportMachine(_ model: VMModel) {
+        guard let maintenanceLease = VMRunningRegistry.shared.acquire(rootPath: model.rootPath, phase: .maintaining) else {
+            MacKitUtil.alertWarn(title: "Machine is busy", message: "Shut down the virtual machine and wait for other maintenance operations before exporting it.")
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Export Virtual Machine"
+        panel.nameFieldStringValue = "\(model.config.name).riftvmexport"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, var destination = panel.url else {
+            VMRunningRegistry.shared.release(maintenanceLease)
+            return
+        }
+        if destination.pathExtension != VMPortabilityManager.exportExtension {
+            destination.appendPathExtension(VMPortabilityManager.exportExtension)
+        }
+        let source = model.rootPath
+        Task.detached {
+            let result = VMPortabilityManager.exportMachine(sourceURL: source, destinationURL: destination)
+            await MainActor.run {
+                VMRunningRegistry.shared.release(maintenanceLease)
+                switch result {
+                case .success: MacKitUtil.alertInfo(title: "Export complete", message: destination.path)
+                case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
+                }
+            }
+        }
+    }
+
+    func importMachine() {
+        let openPanel = NSOpenPanel()
+        openPanel.title = "Select a RiftVM Export"
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = true
+        openPanel.allowsMultipleSelection = false
+        guard openPanel.runModal() == .OK, let source = openPanel.url else { return }
+        guard source.pathExtension == VMPortabilityManager.exportExtension else {
+            MacKitUtil.alertWarn(title: "Import failed", message: "Select a .riftvmexport package.")
+            return
+        }
+
+        let savePanel = NSSavePanel()
+        savePanel.title = "Import as New Workspace"
+        let suggested = source.deletingPathExtension().lastPathComponent
+        savePanel.nameFieldStringValue = "\(suggested).riftvm"
+        savePanel.canCreateDirectories = true
+        guard savePanel.runModal() == .OK, var destination = savePanel.url else { return }
+        if destination.pathExtension != "riftvm" { destination.appendPathExtension("riftvm") }
+        let importedName = destination.deletingPathExtension().lastPathComponent
+        let exportedConfig = source
+            .appendingPathComponent(VMPortabilityManager.payloadDirectoryName, isDirectory: true)
+            .appendingPathComponent("config.json")
+        let exportedType = (try? JSONSerialization.jsonObject(with: Data(contentsOf: exportedConfig)))
+            .flatMap { $0 as? [String: Any] }?["type"] as? String
+        let identifier = exportedType == "macOS"
+            ? VZMacMachineIdentifier().dataRepresentation
+            : VZGenericMachineIdentifier().dataRepresentation
+        Task.detached {
+            let result = VMPortabilityManager.importMachine(
+                exportURL: source,
+                destinationURL: destination,
+                identityMode: .copy(machineIdentifierData: identifier, name: importedName)
+            )
+            await MainActor.run {
+                switch result {
+                case .success:
+                    sharedAppConfigManager.addVMPathWithRefresh(url: destination)
+                    MacKitUtil.alertInfo(title: "Import complete", message: destination.lastPathComponent)
+                case .failure(let error): MacKitUtil.alertWarn(title: "Import failed", message: error)
+                }
+            }
+        }
+    }
+
     private func workspaceCard(_ workspace: WorkspaceRecord) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -119,6 +195,13 @@ struct ContentView: View {
                     if workspace.profile != .omarchy {
                         Button("Settings…") { settingsWorkspace = workspace }
                         Button("Snapshots…") { snapshotWorkspace = workspace }
+                        Button("Export Workspace…") {
+                            switch VMModel.loadConfigFromFile(rootPath: workspace.location) {
+                            case .success(let model): exportMachine(model)
+                            case .failure(let error): MacKitUtil.alertWarn(title: "Export failed", message: error)
+                            }
+                        }
+                        .disabled(VMRunningRegistry.shared.isRunning(rootPath: workspace.location))
                         if workspace.profile == .macOS {
                             Button("Start in Recovery") { coordinator.open(workspace, recoveryMode: true) }
                         }
