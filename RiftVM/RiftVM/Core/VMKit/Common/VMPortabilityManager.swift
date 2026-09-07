@@ -94,6 +94,8 @@ enum VMPortabilityManager {
                 try? FileManager.default.removeItem(at: staging.appendingPathComponent(name))
             }
             try VMSnapshotManager.resetHistoryForIndependentCopy(vmRootPath: staging)
+            try embedInstallationMedia(from: sourceURL, in: staging)
+            try validateStorageReferences(in: staging)
             try machineIdentifierData.write(
                 to: staging.appendingPathComponent("MachineIdentifier"),
                 options: .atomic
