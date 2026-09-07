@@ -1,10 +1,12 @@
-# RiftVM 1.0.0 统一产品实施计划
+# RiftVM 0.1.0 统一产品实施计划
 
-状态：拟执行。本文取代 RIFTVM_REBRAND_AND_PRODUCT_PLAN.md 中的双应用结构；本轮仅制定计划。
+状态：实施与发布验收中，尚未发布。本文取代 RIFTVM_REBRAND_AND_PRODUCT_PLAN.md 中的双应用结构，并按用户后续决定更新。实际完成情况和测试限制见 `docs/implementation/PROGRESS.md`，本计划不代表验收已通过。
+
+已确认边界：仅 Apple Silicon + macOS 27；产品界面仅英文；Bundle ID 为 `com.riftvm.app`，首发版本为 0.1.0。关闭工作区窗口继续运行，可从菜单栏和工作区列表重新打开；Dock 常驻。使用全新 RiftVM 仓库和工作区，可以复制复用原代码，但不修改原 EZVM 仓库。Omarchy、macOS 为主，已安装 Debian 作为通用 ARM64 ISO 验证系统。签名和原生验收使用当前 Mac；Homebrew 使用 `riftvm/homebrew-tap`。`riftvm.com` 已购入，DNS 配置单独待完成。
 
 ## 1. 产品决策
 
-- 只发布一个 **RiftVM 1.0.0**，合并现有 EZVM 与 EZVM Omarchy。
+- 只发布一个 **RiftVM 0.1.0**，合并现有 EZVM 与 EZVM Omarchy。
 - Omarchy 和 macOS 是两种主打工作空间；其他 ARM64 Linux 放在“更多系统 / 自定义 ISO”。
 - 一个 App、Bundle ID、CLI、Homebrew Cask、权限身份和应用发行包。
 - Omarchy 专用安装器和集成模块保留，独立 App target 和发行入口取消。
@@ -41,12 +43,12 @@ macOS：选择支持的恢复镜像或本地 IPSW → 选择名称/目录/资源
 | 对象 | 唯一目标 |
 |---|---|
 | App / 主 target / scheme | RiftVM |
-| Bundle ID | com.everettjf.riftvm |
+| Bundle ID | com.riftvm.app |
 | 主工程 | RiftVM/RiftVM.xcodeproj |
 | 核心 / CLI 模块 | RiftVMCore / RiftVMCLIKit |
 | Host CLI / Cask | riftvm |
-| 正式版本 | 1.0.0 |
-| 首发 tag / ZIP | riftvm-v1.0.0 / RiftVM-1.0.0.zip |
+| 正式版本 | 0.1.0 |
+| 首发 tag / ZIP | riftvm-v0.1.0 / RiftVM-0.1.0.zip |
 | 新 VM 格式 | .riftvm |
 | 默认目录 | ~/RiftVM Virtual Machines |
 | 应用数据 | ~/Library/Application Support/RiftVM |
@@ -95,7 +97,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 - 多 VM 同时运行时检查总内存/磁盘需求并允许调整。
 - 独立 Omarchy 的有效测试迁入主 App 测试集，删除旧工程不能丢失覆盖。
 
-## 5. 1.0.0 范围
+## 5. 0.1.0 范围
 
 必须交付：
 
@@ -117,7 +119,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 - 可选登录启动、合盖恢复、长期 soak。
 - 摄像头、外设、触控板缩放、高刷新率增强。
 
-首发范围完成即可发布，后续增强不成为无限延长 1.0.0 的门槛。
+首发范围完成即可发布，后续增强不成为无限延长 0.1.0 的门槛。
 
 ### 输入与文件原则
 
@@ -130,14 +132,14 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 | 阶段 | 工作 | 验收 |
 |---|---|---|
 | A 基线 | 封存源码，盘点入口、runner、全局状态和脚本；准备新 fixtures | 基线可追溯、合并清单完整 |
-| B 改名 | 新身份、1.0.0、模块/CLI/目录改名、全新格式 | 可构建，无旧兼容分支 |
+| B 改名 | 新身份、0.1.0、模块/CLI/目录改名、全新格式 | 可构建，无旧兼容分支 |
 | C 合并 | Omarchy 模块迁入，统一 registry/coordinator，移除独立入口 | 一个 App 同时运行 Omarchy 和 macOS |
 | D 工作流 | 首装、默认项、直接进入、全屏、切换和退出 | 单/多 workspace 路径完整 |
 | E 集成 | Agent/Overlay/factory 重建，输入/剪贴板/通知/共享隔离 | 多实例不串数据，镜像验证通过 |
-| F 发行 | 合并 CI、构建、公证、Cask 和证据 | 唯一 RiftVM-1.0.0.zip 通过验证 |
+| F 发行 | 合并 CI、构建、公证、Cask 和证据 | 唯一 RiftVM-0.1.0.zip 通过验证 |
 | G 上线 | GitHub、riftvm.com、README、下载、公告 | HTTPS、下载、首装全链路通过 |
 
-实现分支建议：codex/riftvm-unified-1.0。机械改名与行为变化分开提交，每阶段保持可构建。
+实现分支建议：codex/riftvm-unified-0.1。机械改名与行为变化分开提交，每阶段保持可构建。
 
 ## 7. CI 与验收
 
@@ -145,7 +147,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 | 场景 | 预期 |
 |---|---|
-| 干净首装 | 两个主创建入口，版本 1.0.0 |
+| 干净首装 | 两个主创建入口，版本 0.1.0 |
 | Omarchy/macOS 安装 | 各自完整安装和进入桌面 |
 | 单项/多项/默认项 | 路由正确，不重复启动 |
 | Omarchy 与 macOS 同时运行 | 生命周期、焦点和通知互不干扰 |
@@ -177,7 +179,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 建议提交顺序：
 
-1. Define unified RiftVM identity and 1.0.0 baseline
+1. Define unified RiftVM identity and 0.1.0 baseline
 2. Rename projects, modules and CLI to RiftVM
 3. Integrate Omarchy into the shared workspace lifecycle
 4. Add default workspace launch and unified navigation
@@ -190,4 +192,4 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 历史双应用方案保留为设计记录，由本文取代。既有 TODO 按首发必需与后续重新归类。
 
-完成标准：用户只下载一个 RiftVM 1.0.0，即可创建、进入和切换 Omarchy/macOS 工作空间，工程、CLI、Agent、镜像、CI 与官网身份一致。
+完成标准：用户只下载一个 RiftVM 0.1.0，即可创建、进入和切换 Omarchy/macOS 工作空间，工程、CLI、Agent、镜像、CI 与官网身份一致。
