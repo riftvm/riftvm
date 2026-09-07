@@ -5,6 +5,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/readonly-fixture-guard.sh
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
+source "$project_root/scripts/lib/cli-fixture-cleanup.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
 timeout="${RIFTVM_VM_SMOKE_TIMEOUT:-90}"
@@ -28,9 +29,7 @@ smoke_directory="$(mktemp -d "$smoke_parent/.riftvm-cli-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/CLI-Smoke.riftvm"
 second_vm="$smoke_directory/CLI-Smoke-Second.riftvm"
 cleanup() {
-  "$cli" stop "$smoke_vm" --timeout 25 >/dev/null 2>&1 || true
-  "$cli" stop "$second_vm" --timeout 25 >/dev/null 2>&1 || true
-  rm -rf "$smoke_directory"
+  cleanup_cli_fixtures "$cli" "$smoke_directory" "$smoke_vm" "$second_vm"
 }
 trap cleanup EXIT
 

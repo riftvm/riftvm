@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check notarization receipt validation
         run: ruby scripts/test-notary-receipt.rb
+      - name: Check CLI fixture cleanup safety
+        run: bash scripts/test-cli-fixture-cleanup.sh
       - name: Record toolchain
         run: |
           sw_vers
