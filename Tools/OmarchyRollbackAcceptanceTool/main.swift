@@ -98,12 +98,17 @@ enum OmarchyRollbackAcceptanceTool {
         let deadline = Date().addingTimeInterval(180)
         while !ready && Date() < deadline { try await Task.sleep(for: .seconds(1)) }
         guard ready else { throw NSError(domain: "GuestRollback", code: 1, userInfo: [NSLocalizedDescriptionKey: "Authenticated Agent readiness timed out"]) }
-        let observed = try await client.verifyTemporaryGuestDiskMarker(nonce: nonce, expected: expected, replacement: replacement)
+        let observation: Result<Data, Error>
+        do {
+            observation = .success(try await client.verifyTemporaryGuestDiskMarker(nonce: nonce, expected: expected, replacement: replacement))
+        } catch {
+            observation = .failure(error)
+        }
         client.requestShutdown()
         let stopDeadline = Date().addingTimeInterval(90)
         while vm.state != .stopped && Date() < stopDeadline { try await Task.sleep(for: .seconds(1)) }
         guard vm.state == .stopped else { throw NSError(domain: "GuestRollback", code: 2, userInfo: [NSLocalizedDescriptionKey: "Guest shutdown timed out; recovery was not attempted"]) }
-        return observed
+        return try observation.get()
     }
 
     private static func digest(_ data: Data) -> String {

@@ -959,7 +959,7 @@ public final class VMOmarchyGuestAgentClient {
             guard observed == expected else { throw CocoaError(.fileReadCorruptFile) }
         }
         if let replacement {
-            try await uploadData(replacement, guestPath: path)
+            try await uploadData(replacement, guestPath: path, overwrite: expected != nil)
             observed = try await downloadData(guestPath: path)
             guard observed == replacement else {
                 throw CocoaError(.fileReadCorruptFile)
@@ -1014,7 +1014,7 @@ public final class VMOmarchyGuestAgentClient {
         }
     }
 
-    private func uploadData(_ data: Data, guestPath: String) async throws {
+    private func uploadData(_ data: Data, guestPath: String, overwrite: Bool = false) async throws {
         let transferID = UUID().uuidString
         do {
             var result: VMGuestAgentTransferResult = try await request(
@@ -1024,7 +1024,7 @@ public final class VMOmarchyGuestAgentClient {
                     destinationPath: guestPath,
                     totalBytes: UInt64(data.count),
                     sha256: Self.sha256(data),
-                    overwrite: false
+                    overwrite: overwrite
                 )
             )
             try Self.requireSuccess(result)
