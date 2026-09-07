@@ -54,3 +54,10 @@ Image migration is now in progress. The old local integration branch (1771f5c) w
 - Full native image build started as run 34089946830 with tag v0.1.0-rc.1 and publish_release=false. Inspect this existing run; do not dispatch a duplicate. The candidate must remain draft until factory conversion/trust and actual guest acceptance.
 - App and CLI raw-image manifest kind is com.riftvm.preinstalled-image, matching the new image packager.
 - Omarchy Stop/Restart timeout now asks Wait or Force Stop; elapsed time alone never authorizes force stop. Paused guests resume before graceful shutdown so they can process the request. App tests pass; real guest verification remains required.
+
+## Workspace folder permissions
+
+- Added per-workspace FolderGrants.json with explicit read-only (default) / read-write VirtioFS grants. Native Folder Permissions UI only permits changes while stopped and prevents overwriting unreadable permissions. Removing a grant preserves the host directory. Missing directories block startup with an actionable error.
+- User grants use a separate riftvm_folders device, preserving the authenticated Agent transport share. Image commit 935a1b0 adds an on-demand mount and non-destructive ~/Mac link. This image change is not present in the previous build attempt.
+- Two focused Core tests passed for actual VZ share configuration, persistence, revocation without deletion, absent directories and corrupt permissions. All 56 App tests passed. Real Guest read/write enforcement and filesystem behavior remain required.
+- Image run 34089946830 is terminal FAILED: upstream Hyprland/Hyprtoolkit require libaquamarine.so=13-64 unavailable from the current signed/official package combination. Do not rerun unchanged inputs. Investigate matching package snapshots or digest-pinned integration rebake from the known-good previous image, with provenance retained.

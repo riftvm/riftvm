@@ -57,6 +57,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
+    @State private var managingFolders = false
     @State private var notice: UserNotice?
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
@@ -116,6 +117,9 @@ struct OmarchyVirtualMachineView: View {
                 )
             }
         }
+        .sheet(isPresented: $managingFolders) {
+            OmarchyFolderPermissionsView(workspace: layout.applicationSupportRoot, canEdit: phase == .stopped)
+        }
         .background(.black)
         .dropDestination(for: URL.self) { urls, _ in
             importFiles(urls)
@@ -126,6 +130,9 @@ struct OmarchyVirtualMachineView: View {
                 integrationMenu
                 updatesMenu
                 recoveryMenu
+                Button("Folder Permissions", systemImage: "folder.badge.gearshape") {
+                    managingFolders = true
+                }
                 Button("Open Shared Folder", systemImage: "folder") {
                     NSWorkspace.shared.open(layout.shared)
                 }
@@ -2184,4 +2191,82 @@ private extension Notification.Name {
     static let omarchyRequestResume = Notification.Name("RiftVMOmarchy.requestResume")
     static let omarchyRequestKeyboardPermission = Notification.Name("RiftVMOmarchy.requestKeyboardPermission")
     static let omarchyForceStop = Notification.Name("RiftVMOmarchy.forceStop")
+}
+
+
+private struct OmarchyFolderPermissionsView: View {
+    let workspace: URL
+    let canEdit: Bool
+    @Environment(\.dismiss) private var dismiss
+    @State private var grants: [VMOmarchyFolderGrant] = []
+    @State private var errorMessage: String?
+    @State private var loaded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Folder Permissions").font(.title2.bold())
+            Text("Only folders you add here are shared with this workspace. Removing permission leaves the original files on your Mac.")
+            if !canEdit {
+                Text("Shut down this workspace to change permissions.").foregroundStyle(.secondary)
+            }
+            List {
+                if grants.isEmpty { Text("No host folders shared").foregroundStyle(.secondary) }
+                ForEach(grants) { grant in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(grant.directory.path).textSelection(.enabled)
+                        Text("~/Mac/\(grant.guestName)").font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Picker("Access", selection: Binding(get: { grant.readOnly }, set: { value in
+                                var changed = grants
+                                if let index = changed.firstIndex(where: { $0.id == grant.id }) {
+                                    changed[index].readOnly = value
+                                    save(changed)
+                                }
+                            })) {
+                                Text("Read Only").tag(true)
+                                Text("Read & Write").tag(false)
+                            }
+                            Button("Remove", role: .destructive) { save(grants.filter { $0.id != grant.id }) }
+                        }.disabled(!canEdit || !loaded)
+                    }.padding(.vertical, 6)
+                }
+            }.frame(minHeight: 220)
+            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+            HStack {
+                Button("Add Folder…", action: addFolder).disabled(!canEdit || !loaded)
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 600)
+        .task {
+            do { grants = try VMOmarchyFolderGrant.load(at: workspace); loaded = true }
+            catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    private func save(_ changed: [VMOmarchyFolderGrant]) {
+        do {
+            try VMOmarchyFolderGrant.save(changed, at: workspace)
+            grants = changed
+            errorMessage = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.prompt = "Share Read Only"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let grant = VMOmarchyFolderGrant(directory: url)
+        let alert = NSAlert()
+        alert.messageText = "Share this folder with Omarchy?"
+        alert.informativeText = "The guest will be able to read every file in \(grant.directory.path) and its subfolders. Check that it contains no passwords, private keys, or other files you do not want to share. You can enable write access separately."
+        alert.addButton(withTitle: "Share Read Only")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        save(grants + [grant])
+    }
 }
