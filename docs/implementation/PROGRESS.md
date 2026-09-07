@@ -74,3 +74,6 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Omarchy protected-backup and restore actions now hold the shared maintenance lease until background disk work completes. A competing GUI or CLI start is rejected during these actions, and both success/failure paths release ownership. App build and 56 integration tests pass; real concurrent recovery acceptance remains pending.
 - Standard workspace close delegates hide and retain their windows. The older save/stop callback belongs to view-controller dismantling, which normal close does not invoke; this audit does not replace direct standard-Guest close/reopen acceptance.
+
+- Initial Omarchy installation, migration, interrupted-recovery repair and preserve/reinstall now acquire the same maintenance ownership as runtime startup. The lease spans asynchronous work and is released on completion or failure. App build and 56 integration tests pass.
+- Native Apple validation accepts save/restore for the current complete Omarchy configuration. The existing fixed unsupported flag is therefore incorrect; actual Omarchy session save/restore integration is now a required remaining correction. No successful saved Omarchy session is claimed yet.

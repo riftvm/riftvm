@@ -117,6 +117,8 @@ struct OmarchyRootView: View {
     }
 
     private func preserveAndReinstall() {
+        guard let lease = acquireMaintenanceLease() else { return }
+        defer { VMRunningRegistry.shared.release(lease) }
         do {
             _ = try workspaceManager.quarantineBrokenWorkspace()
             recoveryError = nil
@@ -127,6 +129,8 @@ struct OmarchyRootView: View {
     }
 
     private func repairInterruptedRecovery() {
+        guard let lease = acquireMaintenanceLease() else { return }
+        defer { VMRunningRegistry.shared.release(lease) }
         do {
             try VMOmarchyRecoveryManager(workspaceManager: workspaceManager).recoverInterruptedOperations()
             recoveryError = nil
@@ -136,13 +140,24 @@ struct OmarchyRootView: View {
         }
     }
 
+    private func acquireMaintenanceLease() -> VMRunLease? {
+        guard let lease = VMRunningRegistry.shared.acquire(
+            rootPath: workspaceManager.layout.applicationSupportRoot, phase: .maintaining
+        ) else {
+            recoveryError = "This workspace is busy. Shut it down and wait for other maintenance operations to finish."
+            return nil
+        }
+        return lease
+    }
+
     private func migrateWorkspace() {
-        guard !isMigrating else { return }
+        guard !isMigrating, let lease = acquireMaintenanceLease() else { return }
         isMigrating = true
         let manager = workspaceManager
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { try manager.migrateWorkspace() }
             DispatchQueue.main.async {
+                VMRunningRegistry.shared.release(lease)
                 isMigrating = false
                 switch result {
                 case .success:
@@ -219,9 +234,18 @@ private struct OmarchyWelcomeView: View {
 
     private func prepare() {
         guard installTask == nil else { return }
+        guard let lease = VMRunningRegistry.shared.acquire(
+            rootPath: workspaceManager.layout.applicationSupportRoot, phase: .maintaining
+        ) else {
+            installState = .failed("This workspace is busy. Wait for its other operation to finish before installing.")
+            return
+        }
         installState = .checkingSpace
         installTask = Task {
-            defer { installTask = nil }
+            defer {
+                VMRunningRegistry.shared.release(lease)
+                installTask = nil
+            }
             do {
                 let forecast = try VMOmarchyStorageForecast.inspect(
                     volumeContaining: workspaceManager.layout.applicationSupportRoot.deletingLastPathComponent(),

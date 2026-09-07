@@ -13,12 +13,9 @@ import Darwin
 #if arch(arm64)
 
 /*
- Tracks which virtual machines currently have a running window, so
- destructive file operations (snapshot create/restore) can refuse to touch
- a machine that is in use.
-
- Registration is best effort: a machine counts as running from a
- successful start until its guest stops or its window disappears.
+ Owns a workspace from startup until its guest stops, independently of window
+ visibility. Maintenance uses the same cross-process lock so disk operations
+ cannot overlap a running guest or another maintenance operation.
  */
 enum VMRunPhase: String, Codable, Sendable {
     case starting
