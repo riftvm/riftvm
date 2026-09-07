@@ -181,3 +181,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Exercised a real startup timeout: the fallback captured a stack sample and removed the test process while the independently running Debian GUI process remained alive. Symbolication identified `WorkspaceCoordinator.open` from the normal ContentView launch route blocked in `NSAlert.runModal`, rather than an established native restore hang.
 - Added an isolated data root to prevent normal default-workspace routing from interfering with acceptance. With the unchanged notarized build 4, save succeeded and restore now promptly reported the native permission-denied failure. The committed state and detailed error were retained. This restores useful failure reporting; the macOS restoration gate is still failing.
 - Shell syntax and diff checks passed. No signed App bytes changed in this verifier-only fix.
+
+## Host lock-state evidence for build 4 restore
+
+- The isolated retry's Virtualization service log records Secure Enclave decryption failure with OSStatus -25308 and AKSError -536870174 at the restore failure.
+- A subsequent read-only IORegistry check explicitly reported `CGSSessionScreenIsLocked = true` while the console session was logged in. GUI automation availability therefore was not evidence of an unlocked host.
+- This supports a host-lock explanation, but does not prove restoration succeeds after unlocking. Keep the failed saved-state fixture intact and require an unlocked-host retry before deciding whether further runtime or signing changes are needed. No security settings were changed.
