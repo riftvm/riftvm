@@ -865,12 +865,31 @@ public final class VMOmarchyGuestAgentClient {
     /// Uses the authenticated transfer service to test the actual VirtioFS
     /// boundary, including read-only enforcement against the root Guest Agent.
     /// Only explicitly configured temporary acceptance directories are touched.
-    public func verifyTemporaryFolderGrants(layout: VMOmarchyWorkspaceLayout) async throws -> [FolderGrantObservation] {
+    public func verifyTemporaryFolderGrants(layout: VMOmarchyWorkspaceLayout, removedGuestNames: [String] = []) async throws -> [FolderGrantObservation] {
         let grants = try VMOmarchyFolderGrant.load(at: layout.applicationSupportRoot)
         guard VMOmarchyTemporaryPathPolicy.contains(layout.applicationSupportRoot),
-              grants.contains(where: \.readOnly), grants.contains(where: { !$0.readOnly }),
+              !grants.isEmpty,
+              removedGuestNames.allSatisfy({ name in
+                  !name.isEmpty && name != "." && name != ".." && !name.contains("/")
+                      && !grants.contains(where: { $0.guestName == name })
+              }),
               grants.allSatisfy({ VMOmarchyTemporaryPathPolicy.contains($0.directory) }) else {
             throw CocoaError(.fileWriteNoPermission)
+        }
+        // A removed directory must be absent, not merely unreadable. A later
+        // active-grant roundtrip proves the Agent and VirtioFS remain healthy.
+        for name in removedGuestNames {
+            var absent = false
+            do { _ = try await downloadData(guestPath: "/mnt/riftvm-folders/\(name)/preserve.txt") }
+            catch {
+                let failure = error as NSError
+                absent = failure.domain == "RiftVMOmarchySharedFolderProbe"
+                    && failure.localizedDescription.lowercased().contains("no such file or directory")
+            }
+            guard absent else {
+                throw NSError(domain: "RiftVM.FolderGrantAcceptance", code: 2,
+                              userInfo: [NSLocalizedDescriptionKey: "A removed folder is still reachable or its absence could not be verified."])
+            }
         }
         var observations: [FolderGrantObservation] = []
         for grant in grants {

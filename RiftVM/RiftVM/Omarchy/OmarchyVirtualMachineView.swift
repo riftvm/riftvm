@@ -1400,10 +1400,16 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             folderAcceptanceStarted = true
             Task { @MainActor in
                 do {
-                    let observations = try await client.verifyTemporaryFolderGrants(layout: layout)
+                    let removedNames = (ProcessInfo.processInfo.environment["RIFTVM_OMARCHY_REMOVED_FOLDER_NAMES"] ?? "")
+                        .split(separator: ",").map(String.init)
+                    let observations = try await client.verifyTemporaryFolderGrants(layout: layout, removedGuestNames: removedNames)
                     try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
                     try JSONEncoder().encode(observations).write(
                         to: layout.diagnostics.appending(path: "FolderGrantsAcceptance.json"), options: .atomic)
+                    if !removedNames.isEmpty {
+                        try JSONSerialization.data(withJSONObject: ["removedGuestNames": removedNames, "absenceVerified": true], options: .sortedKeys)
+                            .write(to: layout.diagnostics.appending(path: "FolderGrantsRemovalAcceptance.json"), options: .atomic)
+                    }
                 } catch {
                     try? Data(error.localizedDescription.utf8).write(
                         to: layout.diagnostics.appending(path: "FolderGrantsAcceptance-error.txt"), options: .atomic)
@@ -2527,6 +2533,11 @@ private struct OmarchyFolderPermissionsView: View {
     }
 
     private func save(_ changed: [VMOmarchyFolderGrant]) {
+        guard canEdit, let lease = VMRunningRegistry.shared.acquire(rootPath: workspace, phase: .maintaining) else {
+            errorMessage = "This workspace is busy. Shut it down before changing folder permissions."
+            return
+        }
+        defer { VMRunningRegistry.shared.release(lease) }
         do {
             try VMOmarchyFolderGrant.save(changed, at: workspace)
             grants = changed

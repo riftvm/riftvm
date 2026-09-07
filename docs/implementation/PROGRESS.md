@@ -104,3 +104,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The initial probe expected only a read-only-filesystem error and failed. Diagnostic remeasurement identified the actual per-directory EPERM result; the corrected probe retains that reason and still requires the writable companion and post-denial read to pass.
 - Temporarily disconnecting a granted test directory caused native startup to fail with a specific unavailable-folder error. The directory was restored and original host marker contents remained intact.
 - App build and 59 integration tests pass. These checks do not establish GUI grant removal, cross-workspace folder visibility or the broader input/clipboard/notification isolation gates.
+
+## Directory-grant removal and rollback verification limits
+
+- Folder-permission edits now acquire the workspace maintenance lease through persistence, preventing competing startup during the change.
+- Removing a grant through the real persistence API, then restarting the Guest, made its former mount path absent while the remaining writable grant still passed authenticated read/write checks. Original host files were preserved. The GUI removal interaction itself remains pending.
+- A Guest disk rollback probe could not establish persistent mutation: the Agent has a private temporary namespace and the image service exposes system directories read-only. The unsuccessful probe was removed without weakening these restrictions. Protected snapshot creation/deletion rejection was exercised, but Guest-filesystem rollback remains unverified and required.
+- After removing that probe, the App build and 59 integration tests pass.
