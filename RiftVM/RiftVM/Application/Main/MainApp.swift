@@ -20,6 +20,7 @@ struct MainApp: App {
                 ContentView().frame(minWidth: 800, minHeight: 600)
             } else { EmptyView() }
         }
+        .defaultLaunchBehavior(HeadlessLaunchConfiguration.current == nil ? .automatic : .suppressed)
         .defaultPosition(.center)
         .defaultSize(width: 1080, height: 760)
         .windowResizability(.contentMinSize)
@@ -30,12 +31,14 @@ struct MainApp: App {
         }
         .defaultPosition(.center)
         .defaultSize(width: 760, height: 540)
+        .defaultLaunchBehavior(.suppressed)
 
         WindowGroup("Create Workspace", id: "create-workspace", for: WorkspaceProfile.self) { $profile in
             WorkspaceCreationView(profile: profile)
         }
         .defaultPosition(.center)
         .defaultSize(width: 960, height: 660)
+        .defaultLaunchBehavior(.suppressed)
         .windowResizability(.contentMinSize)
 
         MenuBarExtra("RiftVM", systemImage: "square.stack.3d.up") {

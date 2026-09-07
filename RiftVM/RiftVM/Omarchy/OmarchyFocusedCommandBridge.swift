@@ -275,6 +275,9 @@ final class OmarchyFocusedCommandBridge {
               let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
             return false
         }
+        // IOLLEvent.h NX_DEVICELSHIFTKEYMASK identifies which physical Shift
+        // key is down; VZ needs it in addition to the aggregate Shift flag.
+        let leftShiftFlags = CGEventFlags.maskShift.union(CGEventFlags(rawValue: 0x00000002))
         var events: [CGEvent] = []
         for stroke in strokes {
             // VZ consumes modifier transitions as well as key events. Flags on
@@ -282,12 +285,12 @@ final class OmarchyFocusedCommandBridge {
             if stroke.shifted {
                 guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) else { return false }
                 shift.type = .flagsChanged
-                shift.flags = .maskShift
+                shift.flags = leftShiftFlags
                 events.append(shift)
             }
             for keyDown in [true, false] {
                 guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: keyDown) else { return false }
-                event.flags = stroke.shifted ? .maskShift : []
+                event.flags = stroke.shifted ? leftShiftFlags : []
                 events.append(event)
             }
             if stroke.shifted {

@@ -184,6 +184,12 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         return machine.state != .stopped && machine.state != .error
     }
 
+    func reopenCommandLineWindow(at url: URL) {
+        guard let window = windows.values.first(where: { $0.representedURL == url }) else { return }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
     func retainCommandLineWindow(_ window: NSWindow, at url: URL) {
         guard let identity = try? WorkspaceIdentity.load(at: url) else { return }
         window.isReleasedWhenClosed = false

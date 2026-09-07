@@ -228,18 +228,25 @@ struct WorkspaceMenu: View {
     @Environment(\.openWindow) private var openWindow
     @State private var manager = sharedAppConfigManager
     var body: some View {
-        Button("Workspaces", systemImage: "square.grid.2x2") { openWindow(id: "control-center") }
-        Button("New Workspace…", systemImage: "plus") { openWindow(id: "create-machine-guide") }
-        Divider()
-        ForEach(manager.workspaces) { workspace in
-            Button {
-                WorkspaceCoordinator.shared.open(workspace)
-            } label: {
-                Label("\(workspace.name) — \(WorkspaceCoordinator.shared.phase(of: workspace))", systemImage: workspace.profile.symbol)
+        if let launch = HeadlessLaunchConfiguration.current {
+            Button("Open \(launch.machineURL.deletingPathExtension().lastPathComponent)", systemImage: "macwindow") {
+                WorkspaceCoordinator.shared.reopenCommandLineWindow(at: launch.machineURL)
             }
+            Divider()
+        } else {
+            Button("Workspaces", systemImage: "square.grid.2x2") { openWindow(id: "control-center") }
+            Button("New Workspace…", systemImage: "plus") { openWindow(id: "create-machine-guide") }
+            Divider()
+            ForEach(manager.workspaces) { workspace in
+                Button {
+                    WorkspaceCoordinator.shared.open(workspace)
+                } label: {
+                    Label("\(workspace.name) — \(WorkspaceCoordinator.shared.phase(of: workspace))", systemImage: workspace.profile.symbol)
+                }
+            }
+            if manager.workspaces.isEmpty { Text("No workspaces yet") }
+            Divider()
         }
-        if manager.workspaces.isEmpty { Text("No workspaces yet") }
-        Divider()
         SettingsLink()
         Button("Quit RiftVM") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }

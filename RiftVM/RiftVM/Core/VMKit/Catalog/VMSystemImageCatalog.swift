@@ -206,7 +206,7 @@ final class VMLinuxImageCatalogService {
     private(set) var lastUpdated: Date?
     private(set) var errorMessage: String?
 
-    private static let endpoint = URL(string: "https://everettjf.github.io/riftvm/catalog/linux.json")!
+    private static let endpoint = URL(string: "https://riftvm.github.io/catalog/linux.json")!
     private static let allowedDownloadHosts: Set<String> = [
         "cdimage.ubuntu.com", "cdimage.debian.org", "download.fedoraproject.org"
     ]
@@ -335,14 +335,20 @@ struct VMSystemImageCatalog {
             osType: .linux,
             name: "Debian 13 (trixie)",
             detail: "arm64, network installer",
-            urlString: "https://cdimage.debian.org/debian-cd/current/arm64/iso-cd/debian-13.1.0-arm64-netinst.iso"
+            urlString: "https://cdimage.debian.org/debian-cd/13.6.0/arm64/iso-cd/debian-13.6.0-arm64-netinst.iso",
+            version: "13.6.0",
+            fileSize: 735_358_976,
+            sha256: "ffa590beb3ae9158c354e00ebc4bf45421f4720bb3a8ddf2db3cbfc0374cf480"
         ),
         VMSystemImageCatalogItem(
-            id: "fedora-42-server",
+            id: "fedora-44-server",
             osType: .linux,
-            name: "Fedora Server 42",
+            name: "Fedora Server 44",
             detail: "aarch64, DVD installer",
-            urlString: "https://download.fedoraproject.org/pub/fedora/linux/releases/42/Server/aarch64/iso/Fedora-Server-dvd-aarch64-42-1.1.iso"
+            urlString: "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Server/aarch64/iso/Fedora-Server-dvd-aarch64-44-1.7.iso",
+            version: "44",
+            fileSize: 3_662_544_896,
+            sha256: "ba8372682294d0d76f79427cae1273d36891b192ac9bf0f0f9de4e97a7cbe218"
         ),
     ]
 

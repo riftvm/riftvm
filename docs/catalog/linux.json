@@ -22,17 +22,19 @@
       "id": "debian-13-netinst",
       "name": "Debian 13",
       "detail": "arm64, network installer",
-      "url": "https://cdimage.debian.org/debian-cd/current/arm64/iso-cd/debian-13.1.0-arm64-netinst.iso",
-      "version": "13.1.0",
-      "fileSize": null
+      "url": "https://cdimage.debian.org/debian-cd/13.6.0/arm64/iso-cd/debian-13.6.0-arm64-netinst.iso",
+      "version": "13.6.0",
+      "fileSize": 735358976,
+      "sha256": "ffa590beb3ae9158c354e00ebc4bf45421f4720bb3a8ddf2db3cbfc0374cf480"
     },
     {
-      "id": "fedora-42-server",
-      "name": "Fedora Server 42",
+      "id": "fedora-44-server",
+      "name": "Fedora Server 44",
       "detail": "aarch64, server DVD installer",
-      "url": "https://download.fedoraproject.org/pub/fedora/linux/releases/42/Server/aarch64/iso/Fedora-Server-dvd-aarch64-42-1.1.iso",
-      "version": "42",
-      "fileSize": null
+      "url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Server/aarch64/iso/Fedora-Server-dvd-aarch64-44-1.7.iso",
+      "version": "44",
+      "fileSize": 3662544896,
+      "sha256": "ba8372682294d0d76f79427cae1273d36891b192ac9bf0f0f9de4e97a7cbe218"
     }
   ]
 }
