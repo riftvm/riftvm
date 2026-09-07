@@ -508,9 +508,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     try? Data(String(reflecting: error as NSError).utf8).write(to: diagnostic, options: .atomic)
                 }
                 Task { @MainActor in
-                    self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state restore failed")
+                    // A native restore error may be temporary (for example,
+                    // the host cannot use its Secure Enclave key while locked).
+                    // Preserve guest memory so another launch can retry.
+                    self.fail("Could not restore the saved session: \(error.localizedDescription) The saved session has been preserved. Unlock this Mac if needed, then try again.")
                 }
-                RiftVMLog.error("Saved state restore failed; falling back to normal boot: \(error.localizedDescription)")
+                RiftVMLog.error("Saved state restore failed; preserving the saved session: \(error.localizedDescription)")
                 return
             }
             self.virtualMachine.resume { result in

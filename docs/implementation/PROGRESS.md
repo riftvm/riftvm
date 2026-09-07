@@ -148,3 +148,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The temporary peer acceptance now supports the real Omarchy runtime view as well as standard Guests. Runtime readiness is checked through the same coordinator registration used by unified Quit.
 - A macOS and Omarchy VM ran in one process; unified App termination completed with both saved sessions present. macOS restored in a new process and consumed its state. Omarchy restored through its saved-session path, reached authenticated integration readiness, saved again and exited normally. Omarchy does not silently cold-boot on a failed saved-session restore, so a failed native restore cannot satisfy this check.
 - App build and 59 integration tests pass. These are native development-runtime checks; UI operation, broader cross-workspace isolation and final signed artifact verification remain pending.
+
+## Signed-candidate restore investigation
+
+- Developer ID build 2 passed archive signature, identity and entitlement checks, but two independent macOS fixtures failed native restore with permission denied. Diagnostic build 3 reproduced this. Virtualization service logs identify a Secure Enclave decryption failure with interaction-not-allowed status; an unlocked interactive host session still needs confirmation before attributing this to signing. These candidates are not release-approved.
+- Native restore errors now preserve committed guest memory instead of deleting it and silently cold-booting. A temporary corrupted-header test caused actual Apple restore rejection and headless failure; memory and compatibility manifest remained byte-identical. The valid test checkpoint was restored afterward for retry. App build and 59 tests pass.
+- Apple notarization upload is awaiting explicit user confirmation after automatic approval review rejected that export. GUI automation remains unavailable. Neither condition is treated as a successful acceptance gate.
