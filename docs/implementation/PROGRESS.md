@@ -76,3 +76,11 @@ Image migration is now in progress. The old local integration branch (1771f5c) w
 - New draft image build run 34091423206 uses migrate_ezvm32=true, publish_release=false, v0.1.0-rc.1. Last verified active step: Build pinned Wayland clipboard frontend. Follow this existing run.
 - Local base archive download session 71212 finished successfully. Full reconstruction is running as session 95036, output /private/tmp/riftvm-base.raw and log /private/tmp/riftvm-base-reconstruction.log. Do not retry while live.
 - Generated fresh RiftVM factory Ed25519 trust. Public key is Resources/FactoryTrust/omarchy-factory-2026.pub and embedded in Info.plist. Private key file is /Users/eevv/.config/riftvm/signing/omarchy-factory-2026.private (0600); never output its contents or commit it. No factory has been signed yet; production manifest URL remains pending validation of the built image.
+
+## CLI Omarchy routing and migration build progress
+
+- App headless entry now selects Omarchy from Workspace.json, rejects uninstalled/recovery-needed instances before launch, and reuses the native Omarchy view/runtime instead of the standard config.json runner. Running phase is reported through the existing CLI runtime record. SIGTERM/INT request graceful shutdown, resuming a paused Guest first; no implicit force timeout is introduced.
+- Command-line windows are retained by the shared workspace coordinator for close/reopen routing. Actual running Guest and CLI window behavior still require acceptance against the new factory.
+- Native App-process check passed: an uninstalled Omarchy workspace returned exit 70 and an actionable failed state (/private/tmp/riftvm-headless-routing-result.json). All 56 App tests passed after wiring; the trust test now compares both source plist and built App key with Resources/FactoryTrust/omarchy-factory-2026.pub.
+- Local base reconstruction session 95036 completed and verified /private/tmp/riftvm-base.raw. Log /private/tmp/riftvm-base-reconstruction.log. This remains the OLD factory and must not be presented as RiftVM.
+- New image run 34091423206 advanced beyond actual migration/raw verification to Package split RiftVM release assets. Continue observing this run; no restart or duplicate dispatch is needed. New candidate downloads must use its resulting manifest/digests, not the base hash.

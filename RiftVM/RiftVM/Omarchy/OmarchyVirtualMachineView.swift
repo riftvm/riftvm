@@ -44,6 +44,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
 struct OmarchyVirtualMachineView: View {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    let runtimePhaseChanged: ((Phase) -> Void)?
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
     @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
     @AppStorage("omarchyNotificationsEnabled") private var notificationsEnabled = false
@@ -69,9 +70,10 @@ struct OmarchyVirtualMachineView: View {
     @State private var automaticOwnerProvisioningStarted = false
     @State private var ownerProvisioningDetail: String?
 
-    init(layout: VMOmarchyWorkspaceLayout, profile: VMOmarchyProfile) {
+    init(layout: VMOmarchyWorkspaceLayout, profile: VMOmarchyProfile, runtimePhaseChanged: ((Phase) -> Void)? = nil) {
         self.layout = layout
         self.profile = profile
+        self.runtimePhaseChanged = runtimePhaseChanged
         let identity = (try? WorkspaceIdentity.load(at: layout.applicationSupportRoot).id.uuidString) ?? layout.applicationSupportRoot.path
         _clipboardEnabled = AppStorage(wrappedValue: true, "workspace.\(identity).clipboard")
         _microphoneEnabled = AppStorage(wrappedValue: false, "workspace.\(identity).microphone")
@@ -120,6 +122,7 @@ struct OmarchyVirtualMachineView: View {
         .sheet(isPresented: $managingFolders) {
             OmarchyFolderPermissionsView(workspace: layout.applicationSupportRoot, canEdit: phase == .stopped)
         }
+        .onChange(of: phase) { _, updated in runtimePhaseChanged?(updated) }
         .background(.black)
         .dropDestination(for: URL.self) { urls, _ in
             importFiles(urls)

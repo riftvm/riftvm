@@ -328,7 +328,12 @@ final class OmarchyIntegrationTests: XCTestCase {
                 from: Data(contentsOf: template), format: nil
             ) as? [String: Any]
         )
-        XCTAssertEqual(values["RiftVMOmarchyFactoryPublicKeyBase64"] as? String, "$(RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)")
+        let publicKeyURL = testFile.deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appending(path: "Resources/FactoryTrust/omarchy-factory-2026.pub")
+        let publicKey = try Data(contentsOf: publicKeyURL)
+        XCTAssertEqual(publicKey.count, 32)
+        XCTAssertEqual(values["RiftVMOmarchyFactoryPublicKeyBase64"] as? String, publicKey.base64EncodedString())
+        XCTAssertEqual(FactoryTrustConfiguration.publicKey(), publicKey)
         XCTAssertEqual(values["RiftVMSourceRevision"] as? String, "$(RIFTVM_SOURCE_REVISION)")
         XCTAssertEqual(values["RiftVMSourceTreeState"] as? String, "$(RIFTVM_SOURCE_TREE_STATE)")
         XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)

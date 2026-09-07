@@ -175,6 +175,35 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
+    func retainCommandLineWindow(_ window: NSWindow, at url: URL) {
+        guard let identity = try? WorkspaceIdentity.load(at: url) else { return }
+        window.isReleasedWhenClosed = false
+        window.representedURL = url
+        window.delegate = self
+        windows[identity.id] = window
+    }
+
+    func requestOmarchyStop(at url: URL, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let machine = omarchyMachines[WorkspaceRegistry.canonical(url)] else {
+            completion(.failure(VMOSError.regularFailure("The workspace is not running.")))
+            return
+        }
+        let request = {
+            do { try machine.requestStop(); completion(.success(())) }
+            catch { completion(.failure(error)) }
+        }
+        if machine.state == .paused {
+            machine.resume { result in
+                Task { @MainActor in
+                    switch result {
+                    case .success: request()
+                    case .failure(let error): completion(.failure(error))
+                    }
+                }
+            }
+        } else { request() }
+    }
+
     func requestTermination() -> NSApplication.TerminateReply { quitController.requestTermination() }
 
     private func quitParticipants() -> [WorkspaceQuitController.Participant] {

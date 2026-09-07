@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 #if arch(arm64)
     private var headlessController: VMOSInternalVirtualMachineViewController?
     private var headlessState: VMRuntimeState?
+    private var headlessOmarchyPhase: OmarchyVirtualMachineView.Phase?
     private var headlessTimer: Timer?
     private var headlessWindow: NSWindow?
     private var terminationSources: [DispatchSourceSignal] = []
@@ -501,6 +502,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } else {
             NSApp.setActivationPolicy(.prohibited)
         }
+        do {
+            if FileManager.default.fileExists(atPath: launch.machineURL.appending(path: "Workspace.json").path),
+               try WorkspaceIdentity.load(at: launch.machineURL).profile == .omarchy {
+                try startHeadlessOmarchy(launch)
+                return
+            }
+        } catch {
+            writeHeadlessState(launch, phase: "failed", message: error.localizedDescription)
+            finishHeadless(exitCode: 70)
+            return
+        }
         let state = VMRuntimeState()
         let controller = VMOSInternalVirtualMachineViewController()
         controller.rootPath = launch.machineURL
@@ -524,6 +536,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             headlessWindow = window
+            WorkspaceCoordinator.shared.retainCommandLineWindow(window, at: launch.machineURL)
             // Loading the controller can enqueue its initial focus request
             // before the view is attached to this window. Retry after the
             // window is key so VZVirtualMachineView can route HID events.
@@ -543,7 +556,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         installTerminationHandlers(launch)
     }
 
+    private func startHeadlessOmarchy(_ launch: HeadlessLaunchConfiguration) throws {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: launch.machineURL)
+        guard VMOmarchyWorkspaceManager(layout: layout).inspect() == .ready else {
+            throw VMOSError.regularFailure("Install or recover this Omarchy workspace in RiftVM before starting it from the CLI.")
+        }
+        headlessOmarchyPhase = .starting
+        let view = OmarchyVirtualMachineView(layout: layout, profile: .production) { [weak self] phase in
+            self?.headlessOmarchyPhase = phase
+        }
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        window.setContentSize(NSSize(width: 1280, height: 800))
+        window.title = launch.machineURL.deletingPathExtension().lastPathComponent
+        headlessWindow = window
+        WorkspaceCoordinator.shared.retainCommandLineWindow(window, at: launch.machineURL)
+        if launch.showsWindow {
+            window.center()
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+        } else { window.orderOut(nil) }
+        writeHeadlessState(launch, phase: "preparing", message: nil)
+        headlessTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.observeHeadless(launch) }
+        }
+        installTerminationHandlers(launch)
+    }
+
     private func observeHeadless(_ launch: HeadlessLaunchConfiguration) {
+        if let phase = headlessOmarchyPhase {
+            switch phase {
+            case .failed(let message):
+                writeHeadlessState(launch, phase: "failed", message: message)
+                finishHeadless(exitCode: 70)
+            case .stopped:
+                writeHeadlessState(launch, phase: "stopped", message: nil)
+                finishHeadless(exitCode: 0)
+            default:
+                writeHeadlessState(launch, phase: headlessStopRequested ? "stopping" : String(describing: phase), message: nil)
+            }
+            return
+        }
         guard let phase = headlessState?.phase else { return }
         switch phase {
         case .failed(let message):
@@ -572,11 +624,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         guard !headlessStopRequested else { return }
         headlessStopRequested = true
         writeHeadlessState(launch, phase: "stopping", message: nil)
-        // The VM controller owns the bounded graceful-shutdown fallback.
-        // Scheduling a second force-stop here at the same 20-second deadline
-        // races VZVirtualMachine.stop() against itself and turns a successful
-        // stopping transition into an invalid stopping -> stopping failure.
-        headlessState?.requestStop()
+        if headlessOmarchyPhase != nil {
+            WorkspaceCoordinator.shared.requestOmarchyStop(at: launch.machineURL) { [weak self] result in
+                if case .failure(let error) = result {
+                    self?.headlessStopRequested = false
+                    self?.writeHeadlessState(launch, phase: "running", message: error.localizedDescription)
+                }
+            }
+        } else {
+            headlessState?.requestStop()
+        }
     }
 
     private func writeHeadlessState(_ launch: HeadlessLaunchConfiguration, phase: String, message: String?) {
