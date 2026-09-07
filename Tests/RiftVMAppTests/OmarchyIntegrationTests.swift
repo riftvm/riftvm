@@ -558,6 +558,27 @@ final class OmarchyIntegrationTests: XCTestCase {
         bridge.stop()
     }
 
+    @MainActor
+    func testDirectViewCommandDeliveryRoutesBalancedChordWithoutLocalMonitor() throws {
+        var forwarded: [CGKeyCode] = []
+        let bridge = OmarchyFocusedCommandBridge(focusProbe: { true }, stateChanged: { _ in },
+            redirectedCommandChord: { code, _ in forwarded.append(code); return true })
+        let view = OmarchyVirtualMachineInputView()
+        view.commandEventHandler = { bridge.handleLocalEvent($0) == nil }
+        func event(_ down: Bool) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = .maskCommand
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        view.keyDown(with: try event(true))
+        view.keyUp(with: try event(false))
+        XCTAssertEqual(forwarded, [36])
+        XCTAssertTrue(view.performKeyEquivalent(with: try event(true)))
+        view.keyUp(with: try event(false))
+        XCTAssertEqual(forwarded, [36, 36])
+        bridge.stop()
+    }
+
     func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {
         XCTAssertTrue(OmarchyCommandCapturePolicy.shouldRedirect(
             type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: false

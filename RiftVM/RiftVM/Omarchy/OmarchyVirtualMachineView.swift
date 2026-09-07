@@ -7,6 +7,8 @@ import Virtualization
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    // Direct responder delivery can bypass both AppKit local monitors and the session tap.
+    var commandEventHandler: ((NSEvent) -> Bool)?
     private var diagnosticMonitor: Any?
     private var diagnosticViewEvents = 0
     private var diagnosticWindowEvents = 0
@@ -124,12 +126,14 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     override func keyDown(with event: NSEvent) {
         recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyDown", event: event)
+        if commandEventHandler?(event) == true { return }
         super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
         recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyUp", event: event)
+        if commandEventHandler?(event) == true { return }
         super.keyUp(with: event)
     }
 
@@ -141,6 +145,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         recordAcceptanceRoute("performKeyEquivalent", event: event)
+        if commandEventHandler?(event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
 }
@@ -1707,6 +1712,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 }
             )
             keyboardBridge = bridge
+            (view as? OmarchyVirtualMachineInputView)?.commandEventHandler = { [weak bridge] event in
+                guard let bridge else { return false }
+                return bridge.handleLocalEvent(event) == nil
+            }
             bridge.start()
         }
 
