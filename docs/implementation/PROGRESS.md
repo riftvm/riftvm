@@ -493,3 +493,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - On a further build 22 launch, individual x and y keys appeared without pointer interaction; standalone screenshots and combined AX/screenshot observations agreed. This contradicts a universal claim that every ordinary key needs a pointer event and does not establish a screenshot-interface-specific defect. Bulk text and Ctrl combinations still produced incomplete/unexpected terminal text. The overall input gate remains failing.
 - Extended opt-in content-free timing with event type and App active state to distinguish responder transitions and background delivery. Character contents, key codes and modifier values remain excluded. Native App compilation passed. These diagnostics are not a behavior fix; installed build 22 does not yet contain them. Guest and App exited normally after the observations.
+
+### 2026-09-07 — Build 23 active responder diagnostics
+
+- Built and installed signed build 23 from dcc567cf9456f5b6a8885457b8f4323d621758dc (ZIP SHA-256 2be6e4d51d7dbc9cfb90306f88a44fd82fba3f160ee3b9152836667644a9e963). Resource/entitlement/round-trip and strict installed signature checks passed.
+- Cold login and Command+Return terminal launch succeeded. A single ordinary b key remained absent in both combined and standalone screenshots. Content-free diagnostics showed flagsChanged/keyDown/flagsChanged/keyUp reaching the view in 6.4–16.9 ms, with App active, key window and first responder all true. This rules out inactive App/focus as the explanation for this reproduction, without proving a Guest or framework root cause. Log: /private/tmp/riftvm-candidate23/direct-input.log.
+- Guest stopped normally after collection. Installed build 23 contains diagnostic additions only beyond build 22, not a claimed ordinary-input fix. The full release objective remains open.
