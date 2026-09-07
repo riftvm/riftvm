@@ -174,3 +174,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Retried the standard machine-state verifier on its disposable clone. The running-state save completed, but cross-process restoration did not report `restored-and-stopped` within 120 seconds. This is a failed acceptance check, not proof of successful restore or evidence of the earlier permission-denied cause.
 - The verifier terminated its Launch Services waiter but left the disposable App process running; explicit process cleanup was required. The verifier needs stronger child-process cleanup and retained timeout diagnostics before another retry.
 - Debian GUI installation reached account password setup and remains waiting for user handoff. The signed CLI validated its configuration with no problems and reported it running.
+
+## Machine-state verifier isolation and cleanup
+
+- Added per-launch PID reporting with a fallback restricted to the exact executable and unique acceptance result-path environment token. Cleanup checks PID identity, samples failed processes, terminates only the disposable test process, and retains failed fixtures and logs. Successful-result exit waits are bounded.
+- Exercised a real startup timeout: the fallback captured a stack sample and removed the test process while the independently running Debian GUI process remained alive. Symbolication identified `WorkspaceCoordinator.open` from the normal ContentView launch route blocked in `NSAlert.runModal`, rather than an established native restore hang.
+- Added an isolated data root to prevent normal default-workspace routing from interfering with acceptance. With the unchanged notarized build 4, save succeeded and restore now promptly reported the native permission-denied failure. The committed state and detailed error were retained. This restores useful failure reporting; the macOS restoration gate is still failing.
+- Shell syntax and diff checks passed. No signed App bytes changed in this verifier-only fix.
