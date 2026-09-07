@@ -1035,6 +1035,26 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             )
             return
         }
+        if ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PAUSE_BEFORE_SAVE"] == "1",
+           runtimeState?.phase == .running {
+            guard VMOmarchyTemporaryPathPolicy.contains(rootPath) else {
+                failReleaseSmokeTest("paused-save acceptance requires a temporary fixture", configuration)
+                return
+            }
+            pauseMachine()
+            let deadline = Date().addingTimeInterval(15)
+            releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+                guard let self else { timer.invalidate(); return }
+                if self.runtimeState?.phase == .paused {
+                    timer.invalidate()
+                    self.startReleaseMachineStateSave(configuration)
+                } else if Date() >= deadline {
+                    timer.invalidate()
+                    self.failReleaseSmokeTest("timed out pausing before saved-state acceptance", configuration)
+                }
+            }
+            return
+        }
         releaseSmokeDeadline = Date().addingTimeInterval(30)
         releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
             self?.advanceReleaseMachineStateSave(configuration, rootPath: rootPath, timer: timer)
