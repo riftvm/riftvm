@@ -40,8 +40,9 @@ struct VMOSMainVirtualMachineView: View {
             // when the same VM URL is opened again. A fresh identity guarantees
             // that a stopped VZVirtualMachine is never presented a second time.
             .id(runtimeState.launchIdentity)
+            // Guest pixels must stay below the window toolbar. Only the black
+            // background extends into the titlebar and full-screen margins.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea()
 
             if let errorMessage = runtimeState.errorMessage {
                 VStack(spacing: 14) {

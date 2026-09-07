@@ -209,3 +209,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - A new 1280×720 Linux installer fixture booted the Debian graphical installer in build 5. Visual inspection confirmed readable larger text and visible navigation controls, replacing the tiny Retina-sized installer presentation seen in build 4. The display-test VM was paused after inspection.
 - The user's screenshot separately confirms successful login to the installed build 4 Debian guest and execution of `uname -a` as the test user.
 - Build 5 Apple notarization upload was rejected by automatic approval review, including a retry supplying previous authorization context. A specific build 5 upload confirmation is pending; no upload was bypassed or performed.
+
+## Window toolbar overlap fix
+
+- The standard Guest view no longer ignores the toolbar safe area. Only its black background extends beyond the content area; the window no longer forces transparent full-size titlebar content.
+- App build and 60 integration tests passed. A separate real Linux installer fixture in the updated development build showed the toolbar in its own top strip and Guest output below it. This verifies windowed presentation; full-screen transitions and the final signed candidate still need validation.
+- The user reiterated authorization for the pending notarization operation. A further App rebuild is required to include this newly requested layout fix before final distribution acceptance.
