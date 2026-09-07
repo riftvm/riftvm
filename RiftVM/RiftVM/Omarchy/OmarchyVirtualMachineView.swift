@@ -1389,6 +1389,29 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             }
         }
 
+        private var folderAcceptanceStarted = false
+
+        @MainActor
+        private func runFolderAcceptanceIfRequested(_ status: VMOmarchyGuestStatus) {
+            guard ProcessInfo.processInfo.environment["RIFTVM_OMARCHY_FOLDER_GRANTS_ACCEPTANCE"] == "1",
+                  !folderAcceptanceStarted, VMOmarchyTemporaryPathPolicy.contains(layout.applicationSupportRoot),
+                  VMOmarchyIntegrationAssessment.evaluate(status: status, requiredCapabilities: requiredGuestCapabilities).isReady,
+                  let client = integrationClient else { return }
+            folderAcceptanceStarted = true
+            Task { @MainActor in
+                do {
+                    let observations = try await client.verifyTemporaryFolderGrants(layout: layout)
+                    try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+                    try JSONEncoder().encode(observations).write(
+                        to: layout.diagnostics.appending(path: "FolderGrantsAcceptance.json"), options: .atomic)
+                } catch {
+                    try? Data(error.localizedDescription.utf8).write(
+                        to: layout.diagnostics.appending(path: "FolderGrantsAcceptance-error.txt"), options: .atomic)
+                }
+                requestStop()
+            }
+        }
+
         private var sessionAcceptanceStarted = false
         private var restoredSavedSession = false
 
@@ -1611,6 +1634,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                     self.handleAutomaticRecoveryReady(status)
                                     self.refreshOwnerProvisioningProgressIfNeeded(status)
                                     self.runSessionAcceptanceIfRequested(status)
+                                    self.runFolderAcceptanceIfRequested(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in

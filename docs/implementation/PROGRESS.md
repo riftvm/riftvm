@@ -96,3 +96,11 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - A fresh workspace created from that downloaded image completed native first-owner configuration, authenticated Agent/desktop readiness, session save and restore, and normal shutdown. Restoring preserved the Guest boot ID. Automatic clipboard/display/shared-folder probes were interrupted by the deliberate save and are not claimed as passed by this check.
 - Production profile now pins the exact public candidate URL. App integration tests (59), profile tests (4), factory installer tests (10), and existing factory-tool signing/tamper regression checks pass. The new download command exercises the same installer as the App; it does not replace creation-GUI or final signed-candidate acceptance.
 - The two-stage procedure is documented in [FACTORY_RELEASE.md](FACTORY_RELEASE.md).
+
+## Native directory-grant enforcement
+
+- Added an opt-in acceptance probe restricted to temporary workspaces and temporary explicitly granted directories. It uses authenticated Agent file transfer against the actual VirtioFS mount.
+- Real Guest reads passed for both a read-only and read-write grant. Guest-to-host writing passed for the writable grant. The read-only grant rejected a new file with `operation not permitted`, and a subsequent read succeeded with no write published on the host.
+- The initial probe expected only a read-only-filesystem error and failed. Diagnostic remeasurement identified the actual per-directory EPERM result; the corrected probe retains that reason and still requires the writable companion and post-denial read to pass.
+- Temporarily disconnecting a granted test directory caused native startup to fail with a specific unavailable-folder error. The directory was restored and original host marker contents remained intact.
+- App build and 59 integration tests pass. These checks do not establish GUI grant removal, cross-workspace folder visibility or the broader input/clipboard/notification isolation gates.

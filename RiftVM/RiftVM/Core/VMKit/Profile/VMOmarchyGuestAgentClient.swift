@@ -854,6 +854,73 @@ public final class VMOmarchyGuestAgentClient {
         )
     }
 
+    public struct FolderGrantObservation: Codable, Sendable {
+        public let grantID: UUID
+        public let readOnly: Bool
+        public let hostToGuestReadVerified: Bool
+        public let writeResult: String
+        public let writeDenialReason: String?
+    }
+
+    /// Uses the authenticated transfer service to test the actual VirtioFS
+    /// boundary, including read-only enforcement against the root Guest Agent.
+    /// Only explicitly configured temporary acceptance directories are touched.
+    public func verifyTemporaryFolderGrants(layout: VMOmarchyWorkspaceLayout) async throws -> [FolderGrantObservation] {
+        let grants = try VMOmarchyFolderGrant.load(at: layout.applicationSupportRoot)
+        guard VMOmarchyTemporaryPathPolicy.contains(layout.applicationSupportRoot),
+              grants.contains(where: \.readOnly), grants.contains(where: { !$0.readOnly }),
+              grants.allSatisfy({ VMOmarchyTemporaryPathPolicy.contains($0.directory) }) else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        var observations: [FolderGrantObservation] = []
+        for grant in grants {
+            let nonce = UUID().uuidString.lowercased()
+            let sourceName = ".riftvm-read-\(nonce)"
+            let destinationName = ".riftvm-write-\(nonce)"
+            let source = grant.directory.appending(path: sourceName)
+            let destination = grant.directory.appending(path: destinationName)
+            defer {
+                try? FileManager.default.removeItem(at: source)
+                try? FileManager.default.removeItem(at: destination)
+            }
+            let contents = Data("riftvm-folder-grant:\(nonce)".utf8)
+            try contents.write(to: source, options: .atomic)
+            let guestDirectory = "/mnt/riftvm-folders/\(grant.guestName)"
+            guard try await downloadData(guestPath: "\(guestDirectory)/\(sourceName)") == contents else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            var observedDenial: String?
+            if grant.readOnly {
+                var deniedByFilesystem = false
+                var denialDetail = "The Guest unexpectedly accepted the write."
+                do { try await uploadData(contents, guestPath: "\(guestDirectory)/\(destinationName)") }
+                catch {
+                    let failure = error as NSError
+                    denialDetail = "\(failure.domain): \(failure.localizedDescription)"
+                    observedDenial = failure.localizedDescription
+                    let reason = failure.localizedDescription.lowercased()
+                    // Per-directory VirtioFS read-only grants return EPERM
+                    // on macOS 27 even though the enclosing mount is writable.
+                    deniedByFilesystem = failure.domain == "RiftVMOmarchySharedFolderProbe"
+                        && (reason.contains("read-only file system") || reason.contains("operation not permitted"))
+                }
+                guard deniedByFilesystem, !FileManager.default.fileExists(atPath: destination.path),
+                      try await downloadData(guestPath: "\(guestDirectory)/\(sourceName)") == contents else {
+                    throw NSError(domain: "RiftVM.FolderGrantAcceptance", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: "Read-only grant verification failed: \(denialDetail)"])
+                }
+            } else {
+                try await uploadData(contents, guestPath: "\(guestDirectory)/\(destinationName)")
+                guard try Data(contentsOf: destination) == contents else { throw CocoaError(.fileReadCorruptFile) }
+            }
+            observations.append(.init(grantID: grant.id, readOnly: grant.readOnly,
+                                      hostToGuestReadVerified: true,
+                                      writeResult: grant.readOnly ? "denied-read-only" : "guest-to-host-verified",
+                                      writeDenialReason: observedDenial))
+        }
+        return observations
+    }
+
     private func downloadData(
         guestPath: String,
         maximumBytes: Int = VMGuestAgentProtocol.fileChunkBytes
