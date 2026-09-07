@@ -194,3 +194,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - This confirms the signed candidate's running/paused macOS state roundtrips on the unlocked host. The preceding locked-host failure remains useful negative evidence; it is not a reason to weaken signing or security controls.
 - The user completed Debian account password setup. GUI installation proceeded through timezone and guided partitioning of only the new 68.7 GB VirtIO test disk; the installer ISO was not selected for formatting. Installation and reboot acceptance remain in progress.
 - The Debian installer text is visibly small on Retina displays. The Apple graphics backend enables automatic display reconfiguration; installer scaling needs a focused usability fix and verification.
+
+## Linux installer display sizing
+
+- Linux workspaces with installation media now keep their configured Apple Virtio display resolution instead of automatically matching Retina backing pixels. Display refresh preserves this policy. macOS and normal Apple-backed desktop display behavior remain dynamic.
+- Added a regression test that exercises backend selection and refresh for a Linux installer and a macOS desktop. The App build and all 60 integration tests passed.
+- This change still needs a visual installer check in a newly built candidate; the already-running build 4 cannot reflect changed code. The final signed candidate must be rebuilt and notarized after this change.
+- The Debian installer completed and the Guest subsequently displayed its installed Debian GNU/Linux 13 console login prompt. Login/session checks and installer-media removal are not yet verified.

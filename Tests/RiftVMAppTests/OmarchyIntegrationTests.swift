@@ -5,6 +5,23 @@ import XCTest
 @testable import RiftVM
 
 final class OmarchyIntegrationTests: XCTestCase {
+    @MainActor
+    func testInstallerDisplayRemainsFixedAfterRefresh() throws {
+        let creation = VMGraphicsBackendFactory.make(
+            forLinux: true, devices: [], hasInstallationMedia: true
+        )
+        let installer = try XCTUnwrap(creation.backend as? VMAppleGraphicsBackend)
+        XCTAssertFalse(installer.virtualMachineView.automaticallyReconfiguresDisplay)
+        installer.refreshDisplayConfiguration()
+        XCTAssertFalse(installer.virtualMachineView.automaticallyReconfiguresDisplay)
+
+        let desktop = VMGraphicsBackendFactory.make(forLinux: false, devices: [])
+        let mac = try XCTUnwrap(desktop.backend as? VMAppleGraphicsBackend)
+        XCTAssertTrue(mac.virtualMachineView.automaticallyReconfiguresDisplay)
+        mac.refreshDisplayConfiguration()
+        XCTAssertTrue(mac.virtualMachineView.automaticallyReconfiguresDisplay)
+    }
+
     func testOmarchySavedSessionIsCommittedAndConsumedTransactionally() throws {
         let root = FileManager.default.temporaryDirectory.appending(path: "RiftVMSavedSession-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
