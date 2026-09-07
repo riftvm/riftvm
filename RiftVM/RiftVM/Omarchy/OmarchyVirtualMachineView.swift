@@ -193,7 +193,7 @@ struct OmarchyVirtualMachineView: View {
         }
         .onAppear { refreshRecoveryPoints() }
         .confirmationDialog(
-            "Restore \(pendingRestore?.name ?? "this recovery point")?",
+            "Restore \(pendingRestore.map(recoveryPointTitle) ?? "this recovery point")?",
             isPresented: Binding(
                 get: { pendingRestore != nil },
                 set: { if !$0 { pendingRestore = nil } }
@@ -286,6 +286,10 @@ struct OmarchyVirtualMachineView: View {
     }
 
     @ViewBuilder
+    private func recoveryPointTitle(_ point: VMOmarchyRecoveryPoint) -> String {
+        "\(point.name) · \(point.createdAt.formatted(date: .abbreviated, time: .standard))"
+    }
+
     private var recoveryMenu: some View {
         Menu {
             switch recoveryOperation {
@@ -309,7 +313,7 @@ struct OmarchyVirtualMachineView: View {
                     Button {
                         pendingRestore = point
                     } label: {
-                        Label(point.name, systemImage: point.isProtected ? "lock.shield" : "clock.arrow.circlepath")
+                        Label(recoveryPointTitle(point), systemImage: point.isProtected ? "lock.shield" : "clock.arrow.circlepath")
                     }
                     .disabled(phase != .stopped || recoveryOperation.isWorking)
                 }

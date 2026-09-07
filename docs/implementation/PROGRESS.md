@@ -316,3 +316,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Added a saved-session directory-sharing layout version so checkpoints from the previous hardware layout are rejected and retained instead of sent to native restore as if compatible.
 - Validation: seven Core builder/folder-grant tests passed. App build and targeted saved-session compatibility regression passed, including rejection and preservation of a manifest lacking the new layout version. Actual signed guest verification of the fixed Mac entry remains pending.
 - A marker was created in the managed shared directory and read through guest Files. Guest-home copy and file rollback are not yet verified; a text preview of the shared original is not evidence of a guest-disk write.
+
+### 2026-09-07 — Build 11 runtime and distinct recovery labels
+
+- Signed build 11 from 45facafabe90c517cedd5e7b0d6af165728d7247 passed signature/resource/metadata checks and was installed at the fixed test path. That revision's CI passed. The stopped Omarchy fixture cold-booted and logged into its desktop with Integration ready using the new empty folders device.
+- The signed guest Mac-directory result is still unverified: automated guest input remained delayed/inconsistent. Requested a manual guest Files observation of ~/Mac and ~/rollback-proof.txt; no reply is recorded yet. Host CPU/memory inspection did not show memory pressure (65 percent reported free).
+- Recovery menu and confirmation titles now include the point creation date and time so repeated Protected backup names can be distinguished. This source change compiled successfully in /private/tmp/riftvm-recovery-label-build.log; it is newer than installed build 11 and awaits native UI verification in a later candidate.
