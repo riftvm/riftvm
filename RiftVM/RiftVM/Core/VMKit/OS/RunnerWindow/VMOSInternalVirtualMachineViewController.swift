@@ -501,6 +501,12 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine.restoreMachineStateFrom(url: stateURL) { [weak self] error in
             guard let self else { return }
             if let error {
+                if VMOmarchyTemporaryPathPolicy.contains(rootPath),
+                   let acceptance = VMReleaseSmokeTest.configuration(for: rootPath),
+                   VMOmarchyTemporaryPathPolicy.contains(acceptance.resultPath) {
+                    let diagnostic = acceptance.resultPath.appendingPathExtension("restore-error.txt")
+                    try? Data(String(reflecting: error as NSError).utf8).write(to: diagnostic, options: .atomic)
+                }
                 Task { @MainActor in
                     self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state restore failed")
                 }
