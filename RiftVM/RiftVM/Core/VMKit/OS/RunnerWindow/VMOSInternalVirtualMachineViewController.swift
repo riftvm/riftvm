@@ -1090,7 +1090,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    func resumeMachine() {
+    func resumeMachine(afterResume: (() -> Void)? = nil) {
         guard virtualMachine?.canResume == true else { return }
         virtualMachine.resume { [weak self] result in
             Task { @MainActor in
@@ -1099,6 +1099,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.runtimeState?.update(.running)
                     self.guestAgentClient?.virtualMachineDidResume()
+                    afterResume?()
                 case .failure(let error):
                     self.recoverFromLifecycleOperationFailure(
                         "Could not resume the virtual machine: \(error.localizedDescription)",
@@ -1274,6 +1275,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     func requestStopMachine() {
         guard virtualMachine != nil else { return }
+        // A paused guest cannot process its platform shutdown request.
+        if virtualMachine.state == .paused {
+            resumeMachine { [weak self] in self?.requestStopMachine() }
+            return
+        }
         let fallbackPhase = runtimeState?.phase ?? .running
         usbAccessoryCoordinator?.prepareForMachineStop()
         runtimeState?.update(.stopping)
@@ -1282,7 +1288,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             // Linux desktops do not consistently implement the platform
             // shutdown request exposed by Virtualization.framework. Prefer
             // the authenticated agent when available, while retaining the
-            // same bounded force-stop fallback.
+            // same timeout notice and explicit force-stop choice.
             guestAgentClient?.send(.shutdown)
             scheduleShutdownFallback()
             return

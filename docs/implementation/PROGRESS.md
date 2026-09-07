@@ -69,3 +69,5 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - A deliberate crash-recovery test initially hit a transient auxiliary-storage lock when immediately restarting macOS. Restart succeeded after the lock released. Immediate post-crash recovery still needs refinement/verification.
 - Protected Omarchy snapshot/marker restoration passed, followed by signed runtime startup. Guest-filesystem mutation/rollback proof still remains.
 - Official Debian ARM64 ISO download and digest verification passed. The signed App created its ISO-backed test configuration and reached VM running state; Linux installation and desktop interaction are not yet complete.
+
+- Ordinary macOS/Linux stop requests now resume a paused VM through the shared resume lifecycle before requesting guest shutdown. App build and 56 tests pass. This code correction is separate from the observed running macOS shutdown timeout; paused standard-Guest behavior still requires real runtime verification.
