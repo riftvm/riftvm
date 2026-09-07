@@ -1,0 +1,312 @@
+//
+//  VMOSCreatorForMacOS.swift
+//  EZVM
+//
+//  Created by everettjf on 2022/10/1.
+//
+
+import Foundation
+import Virtualization
+
+#if arch(arm64)
+
+@MainActor
+final class VMOSCreatorForMacOS: VMOSCreator {
+    
+    
+    private var installationObserver: NSKeyValueObservation?
+    private var installationProgress: Progress?
+    private var installationCancellationRequested = false
+    private var virtualMachine: VZVirtualMachine!
+    
+    deinit {
+    }
+    
+    func create(
+        model: VMModel,
+        provisioningCredential: VMGuestProvisioningCredential?,
+        progress: @escaping (VMOSCreatorProgressInfo) -> Void
+    ) async -> VMOSResultVoid {
+        installationCancellationRequested = false
+        progress(.cancellationAvailability(nil))
+        let transaction = VMCreationDirectoryTransaction(rootURL: model.getRootPath())
+        var credentialTransaction = VMGuestProvisioningCreationCredentialTransaction(
+            vmRootPath: model.getRootPath()
+        )
+        do {
+            // create bundle
+            let rootPath = model.getRootPath()
+            progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
+            try await VMOSCreatorUtil.createVMBundle(transaction: transaction)
+            progress(.info("Succeed create bundle path"))
+            
+            // write json
+            progress(.info("Begin write config : \(model.configURL.path(percentEncoded: false))"))
+            try await model.config.writeConfigToFile(path: model.configURL)
+            try await model.state.writeStateToFile(path: model.stateURL)
+            progress(.info("Succeed write config"))
+
+            // load image
+            progress(.info("Begin load system image : \(model.state.imagePath.path(percentEncoded: false))"))
+            let restoreImage = try await Self.loadSystemImage(ipswURL: model.state.imagePath)
+            progress(.info("Succeed load system image"))
+            
+            progress(.info("Begin check image"))
+            let macOSConfigurationRequirements = try await checkSystemImage(restoreImage: restoreImage)
+            progress(.info("Succeed check image"))
+            
+            // setup
+            progress(.info("Begin setup virtual machine"))
+            try await setupVirtualMachine(model: model, macOSConfigurationRequirements: macOSConfigurationRequirements, progress: progress)
+            progress(.info("Succeed setup virtual machine"))
+
+            if let provisioningCredential {
+                progress(.info("Securing guest provisioning credentials before installation"))
+                if case let .failure(error) = credentialTransaction.prepare(provisioningCredential) {
+                    throw VMOSError.regularFailure(error)
+                }
+                progress(.info("Guest provisioning credentials are secured in Keychain"))
+            }
+            
+            // install
+            progress(.info("Begin install"))
+            try await startInstallation(restoreImageURL: model.state.imagePath, progress: progress)
+            progress(.info("Succeed install"))
+            credentialTransaction.commit()
+            
+        } catch {
+            installationObserver?.invalidate()
+            installationObserver = nil
+            virtualMachine = nil
+            let wasCancelled = installationCancellationRequested
+            var reportedError = wasCancelled
+                ? "macOS installation was cancelled."
+                : error.localizedDescription
+            progress(.cancellationAvailability(nil))
+            installationProgress = nil
+            if case let .failure(cleanupError) = credentialTransaction.rollback() {
+                // Keep the identifier-bearing bundle so the failed Keychain
+                // item remains addressable for retry or explicit cleanup.
+                reportedError += " EZVM could not remove the temporary provisioning credential, so the incomplete virtual machine bundle was retained: \(cleanupError)"
+                progress(.error(reportedError))
+                return .failure(reportedError)
+            }
+            do {
+                try transaction.rollback()
+                progress(.info("Removed the incomplete virtual machine bundle"))
+            } catch {
+                progress(.error("Could not remove the incomplete virtual machine bundle: \(error.localizedDescription)"))
+            }
+            progress(.error(reportedError))
+            return .failure(reportedError)
+        }
+        
+        progress(.info("Succeed created virtual machine"))
+        
+        return .success
+    }
+
+    func cancelCreation() {
+        guard let installationProgress,
+              !installationCancellationRequested else { return }
+        installationCancellationRequested = true
+        installationProgress.cancel()
+    }
+    
+    
+    private func startInstallation(restoreImageURL: URL, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
+        return try await withCheckedThrowingContinuation { continuation in
+            let installer = VZMacOSInstaller(virtualMachine: virtualMachine, restoringFromImageAt: restoreImageURL)
+
+            progress(.info("Begin real install, please wait..."))
+            installationProgress = installer.progress
+            installer.install { [weak self] result in
+                Task { @MainActor [weak self] in
+                    self?.installationObserver?.invalidate()
+                    self?.installationObserver = nil
+                    self?.installationProgress = nil
+                    progress(.cancellationAvailability(nil))
+                    if case let .failure(error) = result {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+
+                    progress(.info("Succeed install"))
+                    continuation.resume(returning: ())
+                }
+            }
+            progress(.cancellationAvailability(.installation))
+
+            installationObserver = installer.progress.observe(\.fractionCompleted, options: [.initial, .new]) { _, change in
+                guard let newValue = change.newValue else { return }
+                progress(.progress(newValue))
+            }
+        }
+    }
+    
+    
+    private func setupVirtualMachine(model: VMModel, macOSConfigurationRequirements: VZMacOSConfigurationRequirements, progress: @escaping (VMOSCreatorProgressInfo) -> Void) async throws {
+        return try await withCheckedThrowingContinuation({ continuation in
+            let virtualMachineConfiguration = VZVirtualMachineConfiguration()
+            VMConfigurationIdentity.apply(machineName: model.config.name, to: virtualMachineConfiguration)
+
+            // platform
+            do {
+                let macPlatformConfiguration = VZMacPlatformConfiguration()
+                let auxiliaryStorage = try VZMacAuxiliaryStorage(creatingStorageAt: model.auxiliaryStorageURL, hardwareModel: macOSConfigurationRequirements.hardwareModel, options: [])
+                
+                macPlatformConfiguration.auxiliaryStorage = auxiliaryStorage
+                macPlatformConfiguration.hardwareModel = macOSConfigurationRequirements.hardwareModel
+                macPlatformConfiguration.machineIdentifier = VZMacMachineIdentifier()
+    
+                // Store the hardware model and machine identifier to disk so that we
+                // can retrieve them for subsequent boots.
+                try macPlatformConfiguration.hardwareModel.dataRepresentation.write(to: model.hardwareModelURL)
+                try macPlatformConfiguration.machineIdentifier.dataRepresentation.write(to: model.machineIdentifierURL)
+                
+                virtualMachineConfiguration.platform = macPlatformConfiguration
+            } catch {
+                continuation.resume(throwing: error)
+                return
+            }
+            progress(.info("- Platform OK"))
+            
+            // cpu
+            virtualMachineConfiguration.cpuCount = model.config.cpu.count
+            if virtualMachineConfiguration.cpuCount < macOSConfigurationRequirements.minimumSupportedCPUCount {
+                continuation.resume(throwing: VMOSError.regularFailure("CPUCount isn't supported by the macOS configuration."))
+                return
+            }
+            progress(.info("- CPU OK"))
+            
+            // memory
+            virtualMachineConfiguration.memorySize = model.config.memory.size
+            if virtualMachineConfiguration.memorySize < macOSConfigurationRequirements.minimumSupportedMemorySize {
+                continuation.resume(throwing: VMOSError.regularFailure("memorySize isn't supported by the macOS configuration. required \(virtualMachineConfiguration.memorySize) , minimum \(macOSConfigurationRequirements.minimumSupportedMemorySize)"))
+                return
+            }
+            progress(.info("- Memory OK"))
+            
+            // bootLoader
+            virtualMachineConfiguration.bootLoader = VZMacOSBootLoader()
+            progress(.info("- BootLoader OK"))
+            
+            // graphicsDevices
+            virtualMachineConfiguration.graphicsDevices = model.config.graphicsDevices.map({$0.createConfiguration()})
+            progress(.info("- Graphics Devices OK"))
+            
+            // storageDevices
+            virtualMachineConfiguration.storageDevices = []
+            for item in model.config.storageDevices {
+                let result = item.createConfiguration(rootPath: model.rootPath)
+                switch result {
+                case .failure(let error):
+                    continuation.resume(throwing: VMOSError.regularFailure(error))
+                    return
+                case .success(let configItem):
+                    virtualMachineConfiguration.storageDevices.append(configItem)
+                }
+            }
+            progress(.info("- Storage Devices OK"))
+            
+            // networkDevices
+            switch VMModelFieldNetworkDevice.createConfigurations(model.config.networkDevices) {
+            case .success(let devices): virtualMachineConfiguration.networkDevices = devices
+            case .failure(let error):
+                continuation.resume(throwing: VMOSError.regularFailure(error))
+                return
+            }
+            progress(.info("- Network Devices OK"))
+            
+            // pointingDevices
+            virtualMachineConfiguration.pointingDevices = model.config.pointingDevices.map({$0.createConfiguration()})
+            progress(.info("- Pointing Devices OK"))
+            
+            // audioDevices
+            virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
+            progress(.info("- Audio Devices OK"))
+            
+            // keyboards
+            virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]
+
+            VMUSBControllerSupport.addEmptyXHCIController(to: virtualMachineConfiguration)
+            
+            // directorySharingDevices
+            virtualMachineConfiguration.directorySharingDevices = [
+                VMModelFieldDirectorySharingDevice.createRuntimeConfiguration(
+                    model.config.directorySharingDevices,
+                    osType: .macOS
+                )
+            ]
+            
+            // Validate
+            progress(.info("Begin validate"))
+            do {
+                try virtualMachineConfiguration.validate()
+            } catch {
+                continuation.resume(throwing: error)
+                return
+            }
+            progress(.info("Succeed validate"))
+            
+            // Create
+            progress(.info("Begin create virtual machine instance"))
+            virtualMachine = VZVirtualMachine(configuration: virtualMachineConfiguration)
+            progress(.info("Succeed create virtual machine instance"))
+
+            continuation.resume(returning: ())
+        })
+    }
+    
+    
+    private func checkSystemImage(restoreImage: VZMacOSRestoreImage) async throws -> VZMacOSConfigurationRequirements {
+        return try await withCheckedThrowingContinuation({ continuation in
+            guard let macOSConfiguration = restoreImage.mostFeaturefulSupportedConfiguration else {
+                continuation.resume(throwing: VMOSError.regularFailure("No supported configuration available."))
+                return
+            }
+
+            if !macOSConfiguration.hardwareModel.isSupported {
+                continuation.resume(throwing: VMOSError.regularFailure("macOSConfiguration configuration isn't supported on the current host."))
+                return
+            }
+
+            continuation.resume(returning: macOSConfiguration)
+        })
+    }
+    
+    static func validateGuestProvisioningImage(at ipswURL: URL) async -> VMOSResultVoid {
+        do {
+            let restoreImage = try await loadSystemImage(ipswURL: ipswURL)
+            let version = restoreImage.operatingSystemVersion
+            guard version.majorVersion >= VMGuestProvisioningCompatibility.minimumGuestMajorVersion else {
+                return .failure(
+                    VMGuestProvisioningCompatibility.unsupportedGuestMessage(
+                        version: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+                    )
+                )
+            }
+            return .success
+        } catch {
+            return .failure("Could not inspect the macOS restore image before provisioning: \(error.localizedDescription)")
+        }
+    }
+
+    private static func loadSystemImage(ipswURL: URL) async throws -> VZMacOSRestoreImage {
+        return try await withCheckedThrowingContinuation({ continuation in
+            VZMacOSRestoreImage.load(from: ipswURL) { result in
+                switch result {
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                case let .success(systemImage):
+                    continuation.resume(returning: systemImage)
+                }
+            }
+        })
+    }
+    
+    
+}
+
+
+#endif

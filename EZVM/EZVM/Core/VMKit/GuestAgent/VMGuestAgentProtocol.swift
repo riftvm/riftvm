@@ -1,0 +1,1140 @@
+import AppKit
+import CryptoKit
+import Darwin
+import Foundation
+
+struct VMGuestAgentRetryPolicy: Equatable {
+    let maximumDelay: TimeInterval
+
+    init(maximumDelay: TimeInterval = 30) {
+        self.maximumDelay = maximumDelay
+    }
+
+    func delay(afterFailureCount failureCount: Int) -> TimeInterval {
+        guard failureCount > 0 else { return 0 }
+        return min(pow(2, Double(min(failureCount - 1, 5))), maximumDelay)
+    }
+}
+
+enum VMDisplayGeometry {
+    static func stabilizedResolution(
+        candidate: (width: UInt32, height: UInt32),
+        current: (width: UInt32, height: UInt32),
+        tolerance: Double = 0.05
+    ) -> (width: UInt32, height: UInt32) {
+        guard current.width > 0, current.height > 0 else { return candidate }
+        let widthDelta = abs(Double(candidate.width) - Double(current.width)) / Double(current.width)
+        let heightDelta = abs(Double(candidate.height) - Double(current.height)) / Double(current.height)
+        // macOS window chrome and the full-screen safe area can change the
+        // sampled aspect ratio by a few percent. Treat those as presentation
+        // changes, not new DRM modes, so Hyprland does not tear down and race
+        // two VirGL triple-buffer sets during the transition.
+        return widthDelta <= tolerance && heightDelta <= tolerance ? current : candidate
+    }
+
+    static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
+        guard size.width.isFinite, size.height.isFinite,
+              size.width > 0, size.height > 0 else { return (1280, 720) }
+
+		func dimension(_ value: CGFloat) -> UInt32 {
+			let bounded = max(8, min(8192, value.rounded()))
+            // VirGL scanout allocations are rounded to an eight-pixel
+            // boundary. Advertising a merely-even mode such as 1974 while
+            // Linux creates a 1968-wide buffer makes KMS oscillate between the
+            // advertised mode and the real scanout during full-screen changes.
+            return UInt32(Int(bounded) & ~7)
+		}
+		// Advertise the settled logical viewport, not Retina backing pixels and
+		// not a fixed 16:9 canvas.  This lets Hyprland lay out its desktop to the
+		// actual EZVM content area in ordinary windows and full screen.  The
+		// backend coalesces live-resize/full-screen transitions and applies
+		// hysteresis before this mode reaches DRM, preventing the rapid mode
+		// churn that the former fixed canvas was introduced to avoid.
+		let minimum = CGSize(width: 640, height: 360)
+		return (
+			dimension(max(minimum.width, size.width)),
+			dimension(max(minimum.height, size.height))
+		)
+    }
+
+    static func aspectFit(content: CGSize, in bounds: CGRect) -> CGRect {
+        guard content.width > 0, content.height > 0,
+              bounds.width > 0, bounds.height > 0 else { return bounds }
+        let scale = min(bounds.width / content.width, bounds.height / content.height)
+        let size = CGSize(width: content.width * scale, height: content.height * scale)
+        return CGRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+    }
+}
+
+enum VMAbsolutePointerMapper {
+    static let maximumCoordinate: Int32 = 32_767
+
+    static func coordinates(for point: CGPoint, in presentationFrame: CGRect) -> (x: Int32, y: Int32)? {
+        guard presentationFrame.width > 0, presentationFrame.height > 0,
+              point.x >= presentationFrame.minX, point.x <= presentationFrame.maxX,
+              point.y >= presentationFrame.minY, point.y <= presentationFrame.maxY else { return nil }
+        let normalizedX = (point.x - presentationFrame.minX) / presentationFrame.width
+        // AppKit view coordinates grow upward; Linux absolute pointer
+        // coordinates grow downward from the scanout's top-left corner.
+        let normalizedY = (presentationFrame.maxY - point.y) / presentationFrame.height
+        return (
+            Int32((normalizedX * CGFloat(maximumCoordinate)).rounded()),
+            Int32((normalizedY * CGFloat(maximumCoordinate)).rounded())
+        )
+    }
+
+    static func events(x: Int32, y: Int32) -> [VMGuestAgentInputEvent] {
+        [
+            VMGuestAgentInputEvent(type: 3, code: 0, value: x),
+            VMGuestAgentInputEvent(type: 3, code: 1, value: y),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ]
+    }
+}
+
+struct VMScrollWheelAccumulator {
+    private var preciseRemainder: CGFloat = 0
+    private static let precisePointsPerDetent: CGFloat = 3
+    private static let maximumDetentsPerEvent = 16
+
+    mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
+        guard delta.isFinite else { return 0 }
+        if !hasPreciseDeltas {
+            return Int32(max(
+                -Self.maximumDetentsPerEvent,
+                min(Self.maximumDetentsPerEvent, Int(delta.rounded()))
+            ))
+        }
+
+        // AppKit reports trackpad scrolling in fractional pixels while Linux
+        // REL_WHEEL expects integral detents. Preserve sub-detent motion across
+        // events so a slow two-finger gesture is not rounded away completely.
+        preciseRemainder += delta
+        let detents = Int(preciseRemainder / Self.precisePointsPerDetent)
+        preciseRemainder -= CGFloat(detents) * Self.precisePointsPerDetent
+        // Accessibility scrolling, high-resolution wheels, and gesture
+        // momentum can occasionally arrive as a very large single delta.
+        // REL_WHEEL treats the value as literal clicks, so bound each report
+        // while discarding the excess rather than replaying hundreds of lines
+        // over subsequent frames.
+        return Int32(max(
+            -Self.maximumDetentsPerEvent,
+            min(Self.maximumDetentsPerEvent, detents)
+        ))
+    }
+}
+
+enum VMGuestAgentProtocol {
+    static let version = 1
+    static let port: UInt32 = 10240
+    static let maximumFrameBytes = 1024 * 1024
+    static let fileChunkBytes = 512 * 1024
+    static let maximumTransferBytes: UInt64 = 64 * 1024 * 1024 * 1024
+}
+
+struct VMGuestAgentHello: Codable, Equatable {
+    let version: Int
+    let machineID: String
+    let guestNonce: String
+    let proof: String
+}
+
+struct VMGuestAgentWelcome: Codable, Equatable {
+    let version: Int
+    let hostNonce: String
+    let proof: String
+}
+
+enum VMGuestAgentOperation: String, Codable, CaseIterable {
+    case heartbeat
+    case status
+    case shutdown
+    case restart
+    case restartAgent
+    case uploadStart
+    case uploadChunk
+    case uploadCommit
+    case transferCancel
+    case downloadInfo
+    case downloadChunk
+    case input
+    case ownerProvisioning
+    case clipboardSet
+    case clipboardGet
+    case desktopNotifications
+}
+
+struct VMGuestAgentInputEvent: Codable, Equatable {
+    let type: UInt16
+    let code: UInt16
+    let value: Int32
+}
+
+struct VMGuestAgentInputBatch: Codable, Equatable {
+    static let maximumEventCount = 64
+    let events: [VMGuestAgentInputEvent]
+
+    static func key(code: UInt16, pressed: Bool) -> Self {
+        VMGuestAgentInputBatch(events: [
+            VMGuestAgentInputEvent(type: 1, code: code, value: pressed ? 1 : 0),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
+    }
+}
+
+struct VMGuestAgentInputResult: Codable, Equatable {
+    let success: Bool
+    let message: String
+}
+
+/// Encodes the deliberately small US-ASCII subset used by automated guest
+/// acceptance commands into Linux evdev events. Keeping this encoder in the
+/// authenticated input path exercises the same uinput device as Command/Super
+/// integration without adding a shell-execution operation to the Guest Agent.
+enum VMLinuxKeyboardTextEncoder {
+    enum EncodingError: LocalizedError, Equatable {
+        case unsupportedCharacter(Character)
+
+        var errorDescription: String? {
+            switch self {
+            case .unsupportedCharacter(let character):
+                let scalars = character.unicodeScalars
+                    .map { String(format: "U+%04X", $0.value) }
+                    .joined(separator: " ")
+                return "Cannot type unsupported character '\(character)' (\(scalars)) through the Linux acceptance keyboard."
+            }
+        }
+    }
+
+    private static let eventKey: UInt16 = 1
+    private static let eventSyn: UInt16 = 0
+    private static let keyLeftShift: UInt16 = 42
+
+    static func events(for text: String) throws -> [VMGuestAgentInputEvent] {
+        var result: [VMGuestAgentInputEvent] = []
+        for character in text {
+            let stroke = try stroke(for: character)
+            if stroke.shifted { result.append(key(keyLeftShift, 1)); result.append(syn()) }
+            result.append(key(stroke.code, 1))
+            result.append(syn())
+            result.append(key(stroke.code, 0))
+            result.append(syn())
+            if stroke.shifted { result.append(key(keyLeftShift, 0)); result.append(syn()) }
+        }
+        return result
+    }
+
+    /// Splits only between complete keystrokes, so a failed request can never
+    /// leave Shift held merely because a protocol batch boundary was crossed.
+    static func batches(for text: String) throws -> [VMGuestAgentInputBatch] {
+        var batches: [VMGuestAgentInputBatch] = []
+        var current: [VMGuestAgentInputEvent] = []
+        for character in text {
+            let strokeEvents = try events(for: String(character))
+            if current.count + strokeEvents.count > VMGuestAgentInputBatch.maximumEventCount {
+                batches.append(VMGuestAgentInputBatch(events: current))
+                current = []
+            }
+            current.append(contentsOf: strokeEvents)
+        }
+        if !current.isEmpty { batches.append(VMGuestAgentInputBatch(events: current)) }
+        return batches
+    }
+
+    private static func stroke(for character: Character) throws -> (code: UInt16, shifted: Bool) {
+        if let code = lowerCodes[character] { return (code, false) }
+        if let lower = character.lowercased().first,
+           character.isUppercase,
+           let code = lowerCodes[lower] { return (code, true) }
+        if let stroke = symbolCodes[character] { return stroke }
+        throw EncodingError.unsupportedCharacter(character)
+    }
+
+    private static func key(_ code: UInt16, _ value: Int32) -> VMGuestAgentInputEvent {
+        VMGuestAgentInputEvent(type: eventKey, code: code, value: value)
+    }
+
+    private static func syn() -> VMGuestAgentInputEvent {
+        VMGuestAgentInputEvent(type: eventSyn, code: 0, value: 0)
+    }
+
+    private static let lowerCodes: [Character: UInt16] = [
+        "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34,
+        "h": 35, "i": 23, "j": 36, "k": 37, "l": 38, "m": 50, "n": 49,
+        "o": 24, "p": 25, "q": 16, "r": 19, "s": 31, "t": 20, "u": 22,
+        "v": 47, "w": 17, "x": 45, "y": 21, "z": 44,
+        "1": 2, "2": 3, "3": 4, "4": 5, "5": 6,
+        "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+    ]
+
+    private static let symbolCodes: [Character: (code: UInt16, shifted: Bool)] = [
+        " ": (57, false), "\n": (28, false), "/": (53, false), ".": (52, false),
+        "-": (12, false), "_": (12, true), "=": (13, false), "+": (13, true),
+        "[": (26, false), "{": (26, true), "]": (27, false), "}": (27, true),
+        ";": (39, false), ":": (39, true), "'": (40, false), "\"": (40, true),
+        "`": (41, false), "~": (41, true), "\\": (43, false), "|": (43, true),
+        ",": (51, false), "<": (51, true), ">": (52, true), "?": (53, true),
+        "!": (2, true), "@": (3, true), "#": (4, true), "$": (5, true),
+        "%": (6, true), "^": (7, true), "&": (8, true), "*": (9, true),
+        "(": (10, true), ")": (11, true),
+    ]
+}
+
+enum VMFocusedCommandEventKind: Equatable {
+    case keyDown
+    case keyUp
+    case flagsChanged
+}
+
+struct VMFocusedCommandEvent: Equatable {
+    let kind: VMFocusedCommandEventKind
+    let keyCode: UInt16
+    let modifierFlags: NSEvent.ModifierFlags
+    let isRepeat: Bool
+
+    init(
+        kind: VMFocusedCommandEventKind,
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags,
+        isRepeat: Bool = false
+    ) {
+        self.kind = kind
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
+        self.isRepeat = isRepeat
+    }
+}
+
+struct VMFocusedCommandOutcome: Equatable {
+    var suppressHostEvent = false
+    var guestEvents: [VMGuestAgentInputEvent] = []
+}
+
+enum VMKeyboardIntegrationState: Equatable {
+    case unavailable
+    case waitingForGuest
+    case accessibilityRequired
+    case enabled
+
+    var needsAccessibilityPermission: Bool {
+        self == .accessibilityRequired
+    }
+}
+
+/// Pure state machine for an Accessibility event tap that gives macOS Command
+/// chords to a focused Linux desktop as Super chords. Keeping this independent
+/// of `CGEventTap` makes focus loss, repeats, left/right Command, and forced
+/// release behavior deterministic and exhaustively testable.
+struct VMFocusedCommandCaptureState {
+    static let leftCommandKeyCode: UInt16 = 55
+    static let rightCommandKeyCode: UInt16 = 54
+    static let leftSuperCode: UInt16 = 125
+    static let rightSuperCode: UInt16 = 126
+
+    private var commandKeys: [UInt16: UInt16] = [:]
+    private var forwardedKeys = Set<UInt16>()
+
+    var isCapturing: Bool {
+        !commandKeys.isEmpty || !forwardedKeys.isEmpty
+    }
+
+    mutating func process(
+        _ event: VMFocusedCommandEvent,
+        focused: Bool
+    ) -> VMFocusedCommandOutcome {
+        guard focused else {
+            return VMFocusedCommandOutcome(guestEvents: releaseAll())
+        }
+
+        if let superCode = Self.superCode(forCommandKey: event.keyCode) {
+            return processCommand(event, superCode: superCode)
+        }
+
+        let commandReported = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .contains(.command)
+        let belongsToCapturedChord = VMGuestAgentKeyboard
+            .linuxKeyCode(forMacVirtualKey: event.keyCode)
+            .map(forwardedKeys.contains) ?? false
+        guard !commandKeys.isEmpty || commandReported || belongsToCapturedChord else {
+            return VMFocusedCommandOutcome()
+        }
+
+        // Other physical modifier transitions must continue through AppKit so
+        // the normal uinput path can preserve Shift, Option, and Control state.
+        guard event.kind != .flagsChanged else {
+            return VMFocusedCommandOutcome()
+        }
+
+        var outcome = VMFocusedCommandOutcome(suppressHostEvent: true)
+        if commandKeys.isEmpty, commandReported {
+            // Capture may start while Command is already held. Recover one
+            // balanced left-Super transition before forwarding the chord.
+            commandKeys[Self.leftCommandKeyCode] = Self.leftSuperCode
+            Self.appendKey(Self.leftSuperCode, pressed: true, to: &outcome.guestEvents)
+        }
+
+        guard let linuxCode = VMGuestAgentKeyboard.linuxKeyCode(
+            forMacVirtualKey: event.keyCode
+        ) else {
+            // Command belongs to the guest while focused. Unknown host keys are
+            // intentionally swallowed instead of leaking a system shortcut.
+            return outcome
+        }
+
+        switch event.kind {
+        case .keyDown:
+            if !event.isRepeat, forwardedKeys.insert(linuxCode).inserted {
+                Self.appendKey(linuxCode, pressed: true, to: &outcome.guestEvents)
+            }
+        case .keyUp:
+            if forwardedKeys.remove(linuxCode) != nil {
+                Self.appendKey(linuxCode, pressed: false, to: &outcome.guestEvents)
+            }
+        case .flagsChanged:
+            break
+        }
+        return outcome
+    }
+
+    mutating func releaseAll() -> [VMGuestAgentInputEvent] {
+        var events: [VMGuestAgentInputEvent] = []
+        for code in forwardedKeys.sorted() {
+            Self.appendKey(code, pressed: false, to: &events)
+        }
+        forwardedKeys.removeAll()
+        for (_, code) in commandKeys.sorted(by: { $0.key < $1.key }) {
+            Self.appendKey(code, pressed: false, to: &events)
+        }
+        commandKeys.removeAll()
+        return events
+    }
+
+    private mutating func processCommand(
+        _ event: VMFocusedCommandEvent,
+        superCode: UInt16
+    ) -> VMFocusedCommandOutcome {
+        var outcome = VMFocusedCommandOutcome(suppressHostEvent: true)
+        let pressed: Bool
+        switch event.kind {
+        case .keyDown:
+            pressed = true
+        case .keyUp:
+            pressed = false
+        case .flagsChanged:
+            if commandKeys[event.keyCode] != nil {
+                pressed = false
+            } else {
+                pressed = event.modifierFlags
+                    .intersection(.deviceIndependentFlagsMask)
+                    .contains(.command)
+            }
+        }
+
+        if pressed {
+            if commandKeys.updateValue(superCode, forKey: event.keyCode) == nil {
+                Self.appendKey(superCode, pressed: true, to: &outcome.guestEvents)
+            }
+        } else if let existing = commandKeys.removeValue(forKey: event.keyCode) {
+            Self.appendKey(existing, pressed: false, to: &outcome.guestEvents)
+        }
+        return outcome
+    }
+
+    private static func superCode(forCommandKey keyCode: UInt16) -> UInt16? {
+        switch keyCode {
+        case leftCommandKeyCode: leftSuperCode
+        case rightCommandKeyCode: rightSuperCode
+        default: nil
+        }
+    }
+
+    private static func appendKey(
+        _ code: UInt16,
+        pressed: Bool,
+        to events: inout [VMGuestAgentInputEvent]
+    ) {
+        events.append(.init(type: 1, code: code, value: pressed ? 1 : 0))
+        events.append(.init(type: 0, code: 0, value: 0))
+    }
+}
+
+enum VMGuestAgentKeyboard {
+    private static let chordModifiers: [(NSEvent.ModifierFlags, UInt16)] = [
+        (.control, 29),
+        (.option, 56),
+        (.shift, 42),
+        (.command, 125),
+    ]
+
+    private static let macToLinux: [UInt16: UInt16] = [
+        0: 30, 1: 31, 2: 32, 3: 33, 4: 35, 5: 34, 6: 44, 7: 45,
+        8: 46, 9: 47, 11: 48, 12: 16, 13: 17, 14: 18, 15: 19,
+        16: 21, 17: 20, 18: 2, 19: 3, 20: 4, 21: 5, 22: 7, 23: 6,
+        24: 13, 25: 10, 26: 8, 27: 12, 28: 9, 29: 11, 30: 27,
+        31: 24, 32: 22, 33: 26, 34: 23, 35: 25, 36: 28, 37: 38,
+        38: 36, 39: 40, 40: 37, 41: 39, 42: 43, 43: 51, 44: 53,
+        45: 49, 46: 50, 47: 52, 48: 15, 49: 57, 50: 41, 51: 14,
+        53: 1, 54: 126, 55: 125, 56: 42, 57: 58, 58: 56, 59: 29,
+        60: 54, 61: 100, 62: 97, 122: 59, 120: 60, 99: 61,
+        118: 62, 96: 63, 97: 64, 98: 65, 100: 66, 101: 67,
+        109: 68, 103: 87, 111: 88, 105: 183, 107: 184, 113: 185,
+        106: 186, 64: 187, 79: 188, 80: 189, 90: 190,
+        65: 83, 67: 55, 69: 78, 71: 69, 75: 98,
+        76: 96, 78: 74, 81: 117, 82: 82, 83: 79, 84: 80,
+        85: 81, 86: 75, 87: 76, 88: 77, 89: 71, 91: 72,
+        92: 73, 117: 111, 115: 102, 116: 104, 119: 107,
+        121: 109, 123: 105, 124: 106, 125: 108, 126: 103,
+    ]
+
+    private static let modifierFlags: [UInt16: NSEvent.ModifierFlags] = [
+        54: .command, 55: .command,
+        56: .shift, 60: .shift,
+        57: .capsLock,
+        58: .option, 61: .option,
+        59: .control, 62: .control,
+    ]
+
+    static func linuxKeyCode(forMacVirtualKey keyCode: UInt16) -> UInt16? {
+        macToLinux[keyCode]
+    }
+
+    static func modifierPressed(forMacVirtualKey keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool? {
+        guard let modifier = modifierFlags[keyCode] else { return nil }
+        return flags.intersection(.deviceIndependentFlagsMask).contains(modifier)
+    }
+
+    static func chordEvents(
+        forMacVirtualKey keyCode: UInt16,
+        modifierFlags flags: NSEvent.ModifierFlags,
+        alreadyPressed: Set<UInt16>
+    ) -> [VMGuestAgentInputEvent]? {
+        guard let key = linuxKeyCode(forMacVirtualKey: keyCode) else { return nil }
+        let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
+        let synthesizedModifiers = chordModifiers.compactMap { flag, code in
+            activeFlags.contains(flag) && !alreadyPressed.contains(code) ? code : nil
+        }
+
+        var events: [VMGuestAgentInputEvent] = []
+        for modifier in synthesizedModifiers {
+            events.append(VMGuestAgentInputEvent(type: 1, code: modifier, value: 1))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        }
+        events.append(VMGuestAgentInputEvent(type: 1, code: key, value: 1))
+        events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        events.append(VMGuestAgentInputEvent(type: 1, code: key, value: 0))
+        events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        for modifier in synthesizedModifiers.reversed() {
+            events.append(VMGuestAgentInputEvent(type: 1, code: modifier, value: 0))
+            events.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+        }
+        return events
+    }
+
+    /// Accessibility key injection and a few remote-input sources can attach
+    /// Shift/Control/Option to the key-down event without first delivering the
+    /// corresponding AppKit `flagsChanged` transition. The normal physical
+    /// keyboard path has already placed those Linux modifier codes in
+    /// `alreadyPressed`; only synthesize a complete chord when a transition is
+    /// actually missing so ordinary key-down/key-up ordering stays unchanged.
+    static func chordEventsForMissingModifierTransition(
+        forMacVirtualKey keyCode: UInt16,
+        modifierFlags flags: NSEvent.ModifierFlags,
+        alreadyPressed: Set<UInt16>
+    ) -> [VMGuestAgentInputEvent]? {
+        let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
+        let hasMissingModifier = chordModifiers.contains { flag, code in
+            activeFlags.contains(flag) && !alreadyPressed.contains(code)
+        }
+        guard hasMissingModifier else { return nil }
+        return chordEvents(
+            forMacVirtualKey: keyCode,
+            modifierFlags: activeFlags,
+            alreadyPressed: alreadyPressed
+        )
+    }
+
+    static func effectiveModifierFlags(
+        reported flags: NSEvent.ModifierFlags,
+        characters: String?,
+        charactersIgnoringModifiers: String?
+    ) -> NSEvent.ModifierFlags {
+        var effective = flags.intersection(.deviceIndependentFlagsMask)
+        guard !effective.contains(.shift), let characters, !characters.isEmpty else {
+            return effective
+        }
+        let ignoring = charactersIgnoringModifiers ?? characters
+        let shiftedUSSymbols = CharacterSet(charactersIn: "~!@#$%^&*()_+{}|:\"<>?")
+        let explicitlyShifted = characters != ignoring || characters.unicodeScalars.contains {
+            CharacterSet.uppercaseLetters.contains($0) || shiftedUSSymbols.contains($0)
+        }
+        if explicitlyShifted {
+            effective.insert(.shift)
+        }
+        return effective
+    }
+}
+
+struct VMGuestAgentUploadStart: Codable, Equatable {
+    let transferID: String
+    let destinationPath: String
+    let totalBytes: UInt64
+    let sha256: String
+    let overwrite: Bool
+}
+
+struct VMGuestAgentUploadChunk: Codable, Equatable {
+    let transferID: String
+    let offset: UInt64
+    let data: Data
+}
+
+struct VMGuestAgentTransferID: Codable, Equatable {
+    let transferID: String
+}
+
+struct VMGuestAgentDownloadInfoRequest: Codable, Equatable {
+    let transferID: String
+    let sourcePath: String
+}
+
+struct VMGuestAgentDownloadChunkRequest: Codable, Equatable {
+    let transferID: String
+    let offset: UInt64
+    let length: Int
+}
+
+struct VMGuestAgentDownloadInfo: Codable, Equatable {
+    let transferID: String
+    let totalBytes: UInt64
+    let sha256: String
+}
+
+struct VMGuestAgentDownloadChunk: Codable, Equatable {
+    let transferID: String
+    let offset: UInt64
+    let data: Data
+    let eof: Bool
+}
+
+struct VMGuestAgentTransferResult: Codable, Equatable {
+    let transferID: String
+    let success: Bool
+    let transferredBytes: UInt64
+    let message: String
+    let totalBytes: UInt64?
+    let sha256: String?
+    let offset: UInt64?
+    let data: Data?
+    let eof: Bool?
+}
+
+enum VMGuestAgentTransferValidationError: LocalizedError, Equatable {
+    case invalidTransferID
+    case invalidPath
+    case invalidSize
+    case invalidChecksum
+    case invalidChunk
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidTransferID: "The transfer identifier is invalid."
+        case .invalidPath: "The guest path must be absolute and must not contain a NUL byte."
+        case .invalidSize: "The file exceeds EZVM's transfer size limit."
+        case .invalidChecksum: "The SHA-256 checksum is invalid."
+        case .invalidChunk: "The file-transfer chunk is invalid."
+        }
+    }
+}
+
+enum VMGuestAgentTransferValidator {
+    static func validate(transferID: String) throws {
+        guard UUID(uuidString: transferID) != nil else { throw VMGuestAgentTransferValidationError.invalidTransferID }
+    }
+
+    static func validate(path: String) throws {
+        guard path.hasPrefix("/"), !path.contains("\0") else { throw VMGuestAgentTransferValidationError.invalidPath }
+    }
+
+    static func validate(totalBytes: UInt64, sha256: String) throws {
+        guard totalBytes <= VMGuestAgentProtocol.maximumTransferBytes else { throw VMGuestAgentTransferValidationError.invalidSize }
+        guard sha256.count == 64, sha256.allSatisfy({ $0.isHexDigit }) else { throw VMGuestAgentTransferValidationError.invalidChecksum }
+    }
+
+    static func validate(offset: UInt64, data: Data) throws {
+        guard data.count <= VMGuestAgentProtocol.fileChunkBytes,
+              offset <= VMGuestAgentProtocol.maximumTransferBytes else {
+            throw VMGuestAgentTransferValidationError.invalidChunk
+        }
+    }
+}
+
+enum VMGuestAgentSSH {
+    static func url(username: String, address: String) -> URL? {
+        guard isValidUsername(username), isValidAddress(address) else { return nil }
+        let host = address.contains(":") ? "[\(address)]" : address
+        return URL(string: "ssh://\(username)@\(host)")
+    }
+
+    static func isValidUsername(_ value: String) -> Bool {
+        guard !value.isEmpty, value.count <= 32, value.first?.isLetter == true else { return false }
+        return value.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }
+    }
+
+    private static func isValidAddress(_ value: String) -> Bool {
+        guard !value.isEmpty, !value.contains("%"), !value.contains("/") else { return false }
+        var ipv4 = in_addr()
+        var ipv6 = in6_addr()
+        return value.withCString {
+            inet_pton(AF_INET, $0, &ipv4) == 1 || inet_pton(AF_INET6, $0, &ipv6) == 1
+        }
+    }
+}
+
+struct VMGuestAgentEnvelope: Codable, Equatable {
+    let version: Int
+    let sessionID: String
+    let sequence: UInt64
+    let requestID: String
+    let operation: VMGuestAgentOperation
+    let payload: Data
+    let proof: String
+}
+
+struct VMGuestAgentStatus: Codable, Equatable {
+    let agentVersion: String
+    let agentInstanceID: String?
+    let omarchyRevision: String?
+    let operatingSystem: String
+    let kernelVersion: String
+    let hostName: String
+    let addresses: [String]
+    let bootID: String
+    let uptimeSeconds: UInt64
+    let capabilities: [String]?
+    let inputDevices: [String]?
+    let desktopSessionActive: Bool?
+    let provisioningPending: Bool?
+    let kvmAvailable: Bool?
+    let kvmAPIVersion: Int?
+    let kvmError: String?
+
+    init(agentVersion: String, agentInstanceID: String? = nil, omarchyRevision: String? = nil,
+         operatingSystem: String, kernelVersion: String, hostName: String,
+         addresses: [String], bootID: String, uptimeSeconds: UInt64, capabilities: [String]?,
+         inputDevices: [String]? = nil,
+         desktopSessionActive: Bool? = nil,
+         provisioningPending: Bool? = nil,
+         kvmAvailable: Bool? = nil, kvmAPIVersion: Int? = nil, kvmError: String? = nil) {
+        self.agentVersion = agentVersion
+        self.agentInstanceID = agentInstanceID
+        self.omarchyRevision = omarchyRevision
+        self.operatingSystem = operatingSystem
+        self.kernelVersion = kernelVersion
+        self.hostName = hostName
+        self.addresses = addresses
+        self.bootID = bootID
+        self.uptimeSeconds = uptimeSeconds
+        self.capabilities = capabilities
+        self.inputDevices = inputDevices
+        self.desktopSessionActive = desktopSessionActive
+        self.provisioningPending = provisioningPending
+        self.kvmAvailable = kvmAvailable
+        self.kvmAPIVersion = kvmAPIVersion
+        self.kvmError = kvmError
+    }
+
+    var supportsSSH: Bool { capabilities?.contains("ssh-addresses-v1") == true }
+    var supportsFileTransfer: Bool { capabilities?.contains("file-transfer-v1") == true }
+    var hasIPv4Address: Bool {
+        addresses.contains { value in
+            var address = in_addr()
+            return value.withCString { inet_pton(AF_INET, $0, &address) == 1 }
+        }
+    }
+    var supportsGuestInput: Bool { capabilities?.contains("input-uinput-v1") == true }
+    var supportsDesktopGuestInput: Bool {
+        guard supportsGuestInput else { return false }
+        if capabilities?.contains("input-uinput-desktop-v1") == true { return true }
+        // Images built before the explicit desktop capability already report
+        // the authoritative Hyprland device probe in `inputDevices`.
+        guard let inputDevices else { return false }
+        if inputDevices.contains(where: { $0.hasPrefix("hyprctl EZVM Keyboard:") }) {
+            return true
+        }
+
+        // `hyprctl` can briefly target a stale compositor socket during login
+        // or a compositor restart. The Agent also reports the kernel input
+        // nodes held open by the live Hyprland process; matching that list
+        // against the EZVM keyboard is equally authoritative and avoids
+        // leaving Command/Super and scrolling on the unusable native fallback.
+        let keyboardEvents = Self.eventDeviceNames(
+            in: inputDevices.first(where: { $0.hasPrefix("EZVM Keyboard [") })
+        )
+        let hyprlandEvents = Self.eventDeviceNames(
+            in: inputDevices.first(where: { $0.hasPrefix("Hyprland open input devices [") })
+        )
+        return !keyboardEvents.isDisjoint(with: hyprlandEvents)
+    }
+
+    private static func eventDeviceNames(in diagnostic: String?) -> Set<String> {
+        guard let diagnostic else { return [] }
+        return Set(diagnostic.split { $0.isWhitespace || $0 == "[" || $0 == "]" }
+            .map(String.init)
+            .filter { token in
+                guard token.hasPrefix("event"), token.count > 5 else { return false }
+                return token.dropFirst(5).allSatisfy(\.isNumber)
+            })
+    }
+    var shouldUseGuestKeyboard: Bool {
+        guard supportsGuestInput else { return false }
+        // Agent input is reliable during firmware and first-run setup. Once a
+        // compositor exists, prefer VZ's native USB keyboard until the guest
+        // explicitly proves its uinput device belongs to the desktop seat.
+        return desktopSessionActive != true || supportsDesktopGuestInput
+    }
+    var supportsAbsoluteGuestPointer: Bool {
+        capabilities?.contains("input-uinput-absolute-v1") == true
+    }
+    /// Dynamic DRM mode negotiation is safe only after the real desktop owns
+    /// the display and Omarchy's tty-based first-boot provisioning is over.
+    /// Older agents omit `provisioningPending`; a confirmed desktop remains
+    /// the compatible signal for those images.
+    var allowsDynamicDisplay: Bool {
+        desktopSessionActive == true && provisioningPending != true
+    }
+    var supportsKVMDiagnostics: Bool { capabilities?.contains("kvm-diagnostics-v1") == true }
+}
+
+enum VMGuestAgentAuthenticationError: LocalizedError, Equatable {
+    case invalidToken
+    case incompatibleVersion(Int)
+    case invalidMachine
+    case invalidNonce
+    case invalidProof
+    case replayedSequence
+    case oversizedFrame
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidToken: "The guest-agent token is invalid."
+        case .incompatibleVersion(let value): "Guest-agent protocol version \(value) is unsupported."
+        case .invalidMachine: "The guest agent belongs to a different virtual machine."
+        case .invalidNonce: "The guest-agent nonce is invalid."
+        case .invalidProof: "Guest-agent authentication failed."
+        case .replayedSequence: "The guest-agent message was replayed or arrived out of order."
+        case .oversizedFrame: "The guest-agent frame exceeds the size limit."
+        }
+    }
+}
+
+struct VMGuestAgentAuthenticator {
+    private let token: SymmetricKey
+    let machineID: String
+    private(set) var lastReceivedSequence: UInt64 = 0
+
+    init(tokenData: Data, machineID: String) throws {
+        guard tokenData.count == 32 else { throw VMGuestAgentAuthenticationError.invalidToken }
+        guard !machineID.isEmpty else { throw VMGuestAgentAuthenticationError.invalidMachine }
+        token = SymmetricKey(data: tokenData)
+        self.machineID = machineID
+    }
+
+    static func generateToken() -> Data {
+        Data((0..<32).map { _ in UInt8.random(in: .min ... .max) })
+    }
+
+    func makeHello(guestNonce: String) throws -> VMGuestAgentHello {
+        guard Self.validNonce(guestNonce) else { throw VMGuestAgentAuthenticationError.invalidNonce }
+        return VMGuestAgentHello(
+            version: VMGuestAgentProtocol.version,
+            machineID: machineID,
+            guestNonce: guestNonce,
+            proof: sign("guest|\(VMGuestAgentProtocol.version)|\(machineID)|\(guestNonce)")
+        )
+    }
+
+    func verifyHello(_ hello: VMGuestAgentHello) throws {
+        guard hello.version == VMGuestAgentProtocol.version else {
+            throw VMGuestAgentAuthenticationError.incompatibleVersion(hello.version)
+        }
+        guard hello.machineID == machineID else { throw VMGuestAgentAuthenticationError.invalidMachine }
+        guard Self.validNonce(hello.guestNonce) else { throw VMGuestAgentAuthenticationError.invalidNonce }
+        let expected = sign("guest|\(hello.version)|\(hello.machineID)|\(hello.guestNonce)")
+        guard Self.constantTimeEqual(expected, hello.proof) else { throw VMGuestAgentAuthenticationError.invalidProof }
+    }
+
+    func makeWelcome(guestNonce: String, hostNonce: String) throws -> VMGuestAgentWelcome {
+        guard Self.validNonce(guestNonce), Self.validNonce(hostNonce) else {
+            throw VMGuestAgentAuthenticationError.invalidNonce
+        }
+        return VMGuestAgentWelcome(
+            version: VMGuestAgentProtocol.version,
+            hostNonce: hostNonce,
+            proof: sign("host|\(VMGuestAgentProtocol.version)|\(machineID)|\(guestNonce)|\(hostNonce)")
+        )
+    }
+
+    func verifyWelcome(_ welcome: VMGuestAgentWelcome, guestNonce: String) throws {
+        guard welcome.version == VMGuestAgentProtocol.version else {
+            throw VMGuestAgentAuthenticationError.incompatibleVersion(welcome.version)
+        }
+        guard Self.validNonce(guestNonce), Self.validNonce(welcome.hostNonce) else {
+            throw VMGuestAgentAuthenticationError.invalidNonce
+        }
+        let expected = sign("host|\(welcome.version)|\(machineID)|\(guestNonce)|\(welcome.hostNonce)")
+        guard Self.constantTimeEqual(expected, welcome.proof) else { throw VMGuestAgentAuthenticationError.invalidProof }
+    }
+
+    func sessionID(guestNonce: String, hostNonce: String) throws -> String {
+        guard Self.validNonce(guestNonce), Self.validNonce(hostNonce) else {
+            throw VMGuestAgentAuthenticationError.invalidNonce
+        }
+        return Data(SHA256.hash(data: Data("session|\(machineID)|\(guestNonce)|\(hostNonce)".utf8))).base64EncodedString()
+    }
+
+    func makeEnvelope(sessionID: String, sequence: UInt64, requestID: String, operation: VMGuestAgentOperation, payload: Data) throws -> VMGuestAgentEnvelope {
+        guard !sessionID.isEmpty else { throw VMGuestAgentAuthenticationError.invalidNonce }
+        guard payload.count <= VMGuestAgentProtocol.maximumFrameBytes else { throw VMGuestAgentAuthenticationError.oversizedFrame }
+        let unsigned = Self.envelopeSigningText(
+            version: VMGuestAgentProtocol.version, sessionID: sessionID, sequence: sequence,
+            requestID: requestID, operation: operation, payload: payload
+        )
+        return VMGuestAgentEnvelope(
+            version: VMGuestAgentProtocol.version, sessionID: sessionID, sequence: sequence, requestID: requestID,
+            operation: operation, payload: payload, proof: sign(unsigned)
+        )
+    }
+
+    mutating func verifyEnvelope(_ envelope: VMGuestAgentEnvelope, sessionID: String) throws {
+        guard envelope.version == VMGuestAgentProtocol.version else {
+            throw VMGuestAgentAuthenticationError.incompatibleVersion(envelope.version)
+        }
+        guard envelope.payload.count <= VMGuestAgentProtocol.maximumFrameBytes else {
+            throw VMGuestAgentAuthenticationError.oversizedFrame
+        }
+        guard envelope.sessionID == sessionID else { throw VMGuestAgentAuthenticationError.invalidProof }
+        guard envelope.sequence > lastReceivedSequence else { throw VMGuestAgentAuthenticationError.replayedSequence }
+        let unsigned = Self.envelopeSigningText(
+            version: envelope.version, sessionID: envelope.sessionID, sequence: envelope.sequence,
+            requestID: envelope.requestID, operation: envelope.operation, payload: envelope.payload
+        )
+        guard Self.constantTimeEqual(sign(unsigned), envelope.proof) else {
+            throw VMGuestAgentAuthenticationError.invalidProof
+        }
+        lastReceivedSequence = envelope.sequence
+    }
+
+    private func sign(_ value: String) -> String {
+        Data(HMAC<SHA256>.authenticationCode(for: Data(value.utf8), using: token)).base64EncodedString()
+    }
+
+    private static func envelopeSigningText(
+        version: Int, sessionID: String, sequence: UInt64, requestID: String,
+        operation: VMGuestAgentOperation, payload: Data
+    ) -> String {
+        "message|\(version)|\(sessionID)|\(sequence)|\(requestID)|\(operation.rawValue)|\(payload.base64EncodedString())"
+    }
+
+    private static func validNonce(_ value: String) -> Bool {
+        guard let data = Data(base64Encoded: value) else { return false }
+        return data.count >= 24 && data.count <= 64
+    }
+
+    private static func constantTimeEqual(_ lhs: String, _ rhs: String) -> Bool {
+        guard let left = Data(base64Encoded: lhs), let right = Data(base64Encoded: rhs), left.count == right.count else { return false }
+        return zip(left, right).reduce(UInt8(0)) { $0 | ($1.0 ^ $1.1) } == 0
+    }
+}
+
+enum VMGuestAgentFrameCodec {
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let payload = try encoder.encode(value)
+        guard payload.count <= VMGuestAgentProtocol.maximumFrameBytes else {
+            throw VMGuestAgentAuthenticationError.oversizedFrame
+        }
+        var length = UInt32(payload.count).bigEndian
+        var frame = Data(bytes: &length, count: MemoryLayout<UInt32>.size)
+        frame.append(payload)
+        return frame
+    }
+
+    static func decode<T: Decodable>(_ type: T.Type, from frame: Data) throws -> T {
+        guard frame.count >= 4 else { throw CocoaError(.fileReadCorruptFile) }
+        let length = frame.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        guard length <= VMGuestAgentProtocol.maximumFrameBytes else { throw VMGuestAgentAuthenticationError.oversizedFrame }
+        guard frame.count == Int(length) + 4 else { throw CocoaError(.fileReadCorruptFile) }
+        return try JSONDecoder().decode(type, from: frame.dropFirst(4))
+    }
+}
+
+struct VMGuestAgentFrameBuffer {
+    private(set) var data = Data()
+
+    mutating func append(_ chunk: Data) throws -> [Data] {
+        data.append(chunk)
+        var frames: [Data] = []
+        while data.count >= 4 {
+            let length = data.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+            guard length <= VMGuestAgentProtocol.maximumFrameBytes else {
+                throw VMGuestAgentAuthenticationError.oversizedFrame
+            }
+            let frameSize = Int(length) + 4
+            guard data.count >= frameSize else { break }
+            frames.append(data.prefix(frameSize))
+            data.removeFirst(frameSize)
+        }
+        guard data.count <= VMGuestAgentProtocol.maximumFrameBytes + 4 else {
+            throw VMGuestAgentAuthenticationError.oversizedFrame
+        }
+        return frames
+    }
+}
+
+struct VMGuestAgentLiveness {
+    static let timeout: TimeInterval = 30
+    private(set) var lastResponseAt: Date?
+
+    mutating func markResponse(at date: Date = Date()) {
+        lastResponseAt = date
+    }
+
+    mutating func reset() {
+        lastResponseAt = nil
+    }
+
+    func hasExpired(at date: Date = Date()) -> Bool {
+        guard let lastResponseAt else { return false }
+        return date.timeIntervalSince(lastResponseAt) > Self.timeout
+    }
+}
+
+struct VMGuestAgentLocalFileMetadata: Equatable, Sendable {
+    let size: UInt64
+    let sha256: String
+}
+
+enum VMGuestAgentLocalFileError: LocalizedError {
+    case notRegularFile
+    case fileTooLarge
+    case insufficientSpace
+    case invalidChunk
+    case checksumMismatch
+
+    var errorDescription: String? {
+        switch self {
+        case .notRegularFile: "The selected item is not a regular file."
+        case .fileTooLarge: "The selected file exceeds EZVM's transfer size limit."
+        case .insufficientSpace: "There is not enough free disk space for this transfer."
+        case .invalidChunk: "The received file chunk is out of order or too large."
+        case .checksumMismatch: "The transferred file failed SHA-256 verification."
+        }
+    }
+}
+
+enum VMGuestAgentLocalFile {
+    static func metadata(at url: URL) throws -> VMGuestAgentLocalFileMetadata {
+        let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true else {
+            throw VMGuestAgentLocalFileError.notRegularFile
+        }
+        let size = UInt64(values.fileSize ?? 0)
+        guard size <= VMGuestAgentProtocol.maximumTransferBytes else {
+            throw VMGuestAgentLocalFileError.fileTooLarge
+        }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let data = try handle.read(upToCount: VMGuestAgentProtocol.fileChunkBytes), !data.isEmpty {
+            hasher.update(data: data)
+        }
+        return VMGuestAgentLocalFileMetadata(
+            size: size,
+            sha256: hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        )
+    }
+
+    static func readChunk(at url: URL, offset: UInt64) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        try handle.seek(toOffset: offset)
+        return try handle.read(upToCount: VMGuestAgentProtocol.fileChunkBytes) ?? Data()
+    }
+}
+
+final class VMGuestAgentDownloadTransaction {
+    let destination: URL
+    let totalBytes: UInt64
+    let expectedSHA256: String
+    private(set) var writtenBytes: UInt64 = 0
+    private let staging: URL
+    private var handle: FileHandle?
+    private var hasher = SHA256()
+    private var finished = false
+
+    init(destination: URL, totalBytes: UInt64, expectedSHA256: String) throws {
+        try VMGuestAgentTransferValidator.validate(totalBytes: totalBytes, sha256: expectedSHA256)
+        let parent = destination.deletingLastPathComponent()
+        let capacity = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage
+        if let capacity, capacity >= 0, UInt64(capacity) < totalBytes {
+            throw VMGuestAgentLocalFileError.insufficientSpace
+        }
+        self.destination = destination
+        self.totalBytes = totalBytes
+        self.expectedSHA256 = expectedSHA256.lowercased()
+        staging = parent.appendingPathComponent(".ezvm-download-\(UUID().uuidString)")
+        guard FileManager.default.createFile(atPath: staging.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        handle = try FileHandle(forWritingTo: staging)
+    }
+
+    deinit {
+        if !finished {
+            try? handle?.close()
+            try? FileManager.default.removeItem(at: staging)
+        }
+    }
+
+    func append(offset: UInt64, data: Data) throws {
+        guard !finished, offset == writtenBytes,
+              data.count <= VMGuestAgentProtocol.fileChunkBytes,
+              writtenBytes + UInt64(data.count) <= totalBytes else {
+            throw VMGuestAgentLocalFileError.invalidChunk
+        }
+        try handle?.write(contentsOf: data)
+        hasher.update(data: data)
+        writtenBytes += UInt64(data.count)
+    }
+
+    func commit() throws {
+        guard !finished, writtenBytes == totalBytes else { throw VMGuestAgentLocalFileError.invalidChunk }
+        let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        guard actual == expectedSHA256 else { throw VMGuestAgentLocalFileError.checksumMismatch }
+        try handle?.synchronize()
+        try handle?.close()
+        handle = nil
+        if FileManager.default.fileExists(atPath: destination.path) {
+            _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging)
+        } else {
+            try FileManager.default.moveItem(at: staging, to: destination)
+        }
+        finished = true
+    }
+
+    func cancel() {
+        guard !finished else { return }
+        try? handle?.close()
+        handle = nil
+        try? FileManager.default.removeItem(at: staging)
+        finished = true
+    }
+}
