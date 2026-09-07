@@ -92,14 +92,20 @@ else
   printf '%s\n' "$source_commit" >"$source_commit_file"
 fi
 
-if [[ ! -f "$release_dir/notarized" ]]; then
+notary_response="$release_dir/notary-response.json"
+notary_digest="$release_dir/notary-archive.sha256"
+notary_verifier="$project_root/scripts/verify-notary-receipt.rb"
+if ! ruby "$notary_verifier" "$archive" "$notary_response" "$notary_digest" >/dev/null 2>&1; then
+  # A previous marker or a receipt for different bytes cannot authorize reuse.
+  rm -f "$notary_response" "$notary_digest"
   xcrun notarytool submit "$archive" \
     --apple-id "$APPLE_ID" \
     --team-id "$APPLE_TEAM_ID" \
     --password "$APPLE_SPECIFIC_PASSWORD" \
-    --wait
-  touch "$release_dir/notarized"
+    --output-format json --wait > "$notary_response"
+  shasum -a 256 "$archive" | awk '{print $1}' > "$notary_digest"
 fi
+ruby "$notary_verifier" "$archive" "$notary_response" "$notary_digest"
 
 # Do not staple the ticket into the app. On macOS 27 beta, a stapled app can
 # remain suspended in _dyld_start even though codesign, stapler, and spctl all

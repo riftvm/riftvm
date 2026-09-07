@@ -111,3 +111,8 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Removing a grant through the real persistence API, then restarting the Guest, made its former mount path absent while the remaining writable grant still passed authenticated read/write checks. Original host files were preserved. The GUI removal interaction itself remains pending.
 - A Guest disk rollback probe could not establish persistent mutation: the Agent has a private temporary namespace and the image service exposes system directories read-only. The unsuccessful probe was removed without weakening these restrictions. Protected snapshot creation/deletion rejection was exercised, but Guest-filesystem rollback remains unverified and required.
 - After removing that probe, the App build and 59 integration tests pass.
+
+## Notarization receipt validation
+
+- The unified publisher no longer accepts an empty notarization marker. It requires a structured Apple Accepted response with a submission identifier and a digest matching the exact archive before reusing notarization state. Missing, malformed, rejected and stale receipts fail validation.
+- Regression checks cover accepted and rejected results, missing identifiers, legacy empty markers and changed archive bytes; these checks also run in source CI. The existing internal candidate's actual accepted response and archive pass the same validator. This does not qualify that older candidate for final release or resolve offline Gatekeeper and unified functional acceptance.
