@@ -160,3 +160,10 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - After explicit authorization, the signed 0.1.0 build 4 from source `a909718` was submitted to Apple. The archive contains the App bundle and macOS archive metadata, with no Guest disks or installers.
 - Apple returned Accepted, submission `ba047a1b-d087-40c2-abd8-c3f13d0d805f`. The structured receipt passed exact-archive SHA-256 verification. The extracted App passed Gatekeeper assessment as Notarized Developer ID.
 - This resolves the notarization authorization blocker. The candidate includes the new rift icon; its preceding App build and 59 integration tests passed. Real signed-candidate Guest restoration, GUI and remaining release acceptance still need completion; notarization alone does not authorize a release-ready claim.
+
+## Build 4 native GUI creation smoke
+
+- Native UI automation became available again. The notarized build 4 was running from its extracted candidate bundle, and its version, build, clean source revision and production entitlements passed verification.
+- Through the actual five-step creation wizard, selected the existing ARM64 Debian ISO, named a disposable workspace, accepted the resource configuration, skipped folder sharing and created the workspace. Its persisted configuration contains no shared host directories, a 64 GiB ASIF disk, 4 GiB RAM and NAT networking.
+- Run Virtual Machine displayed the real GRUB installer menu. Keyboard selection booted the graphical Debian installer to its English language page.
+- Closing the VM window left the workspace marked Running in the control center. Reopening returned to the same graphical installer page. This verifies window close/reopen behavior for this signed candidate; it does not yet prove a completed Debian installation, menu-bar reopening, or other Guest profiles.
