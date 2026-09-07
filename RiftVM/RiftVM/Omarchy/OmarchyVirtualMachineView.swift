@@ -7,6 +7,83 @@ import Virtualization
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    private var displayObservers: [NSObjectProtocol] = []
+    private var pendingDisplayRefresh: DispatchWorkItem?
+    private var displayRefreshGeneration: UInt64 = 0
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        removeDisplayObservers()
+        guard let window else { return }
+        for name in [NSWindow.didEnterFullScreenNotification,
+                     NSWindow.didExitFullScreenNotification,
+                     NSWindow.didEndLiveResizeNotification,
+                     NSWindow.didChangeBackingPropertiesNotification] {
+            displayObservers.append(NotificationCenter.default.addObserver(
+                forName: name, object: window, queue: .main
+            ) { [weak self] _ in self?.refreshDisplayAfterTransition() })
+        }
+        displayObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: window, queue: .main
+        ) { [weak self] _ in self?.scheduleDisplayRefresh() })
+        refreshDisplayAfterTransition()
+        // Match the standard VM window's initial focus, without stealing focus
+        // from another workspace, a toolbar control, or a settings sheet.
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, self.window === window,
+                  window.isKeyWindow, window.attachedSheet == nil,
+                  window.firstResponder === window else { return }
+            window.makeFirstResponder(self)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
+
+    private func scheduleDisplayRefresh() {
+        pendingDisplayRefresh?.cancel()
+        displayRefreshGeneration &+= 1
+        let work = DispatchWorkItem { [weak self] in self?.refreshDisplayAfterTransition() }
+        pendingDisplayRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: work)
+    }
+
+    private func refreshDisplayAfterTransition() {
+        pendingDisplayRefresh?.cancel()
+        pendingDisplayRefresh = nil
+        displayRefreshGeneration &+= 1
+        let generation = displayRefreshGeneration
+        guard let targetWindow = window else { return }
+        // Reuse the standard window's bounded native display refresh. The host
+        // geometry and Linux modesetting settle at different times. Superseded
+        // transitions and detached views must not reconfigure a newer session.
+        for delay in [0.0, 0.35, 1.25] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak targetWindow] in
+                guard let self, let targetWindow, self.window === targetWindow,
+                      self.displayRefreshGeneration == generation,
+                      self.virtualMachine != nil else { return }
+                targetWindow.contentView?.layoutSubtreeIfNeeded()
+                self.automaticallyReconfiguresDisplay = false
+                self.automaticallyReconfiguresDisplay = true
+            }
+        }
+    }
+
+    private func removeDisplayObservers() {
+        displayRefreshGeneration &+= 1
+        pendingDisplayRefresh?.cancel()
+        pendingDisplayRefresh = nil
+        displayObservers.forEach(NotificationCenter.default.removeObserver)
+        displayObservers.removeAll()
+    }
+
+    deinit {
+        pendingDisplayRefresh?.cancel()
+        displayObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
     private func recordAcceptanceRoute(_ route: String, event: NSEvent) {
         guard ProcessInfo.processInfo.environment[
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey
