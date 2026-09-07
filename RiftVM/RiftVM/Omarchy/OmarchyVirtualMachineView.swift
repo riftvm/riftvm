@@ -7,6 +7,21 @@ import Virtualization
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    private var diagnosticMonitor: Any?
+    private var diagnosticViewEvents = 0
+    private var diagnosticWindowEvents = 0
+    private let inputDiagnosticsEnabled = UserDefaults.standard.bool(forKey: "RiftVMInputDiagnosticsEnabled")
+
+    private func recordInputDelivery(_ event: NSEvent, route: String) {
+        guard inputDiagnosticsEnabled else { return }
+        if route == "window" { diagnosticWindowEvents += 1 } else { diagnosticViewEvents += 1 }
+        // Deliberately exclude characters, key codes, and modifier values.
+        let ageMS = max(0, (ProcessInfo.processInfo.systemUptime - event.timestamp) * 1000)
+        NSLog("RiftVM input timing route=%@ windowEvents=%d viewEvents=%d ageMS=%.1f keyWindow=%d firstResponder=%d",
+              route, diagnosticWindowEvents, diagnosticViewEvents, ageMS,
+              window?.isKeyWindow == true ? 1 : 0, window?.firstResponder === self ? 1 : 0)
+    }
+
     private var displayObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
     private var displayRefreshGeneration: UInt64 = 0
@@ -15,6 +30,12 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         super.viewDidMoveToWindow()
         removeDisplayObservers()
         guard let window else { return }
+        if inputDiagnosticsEnabled {
+            diagnosticMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] event in
+                if let self, event.window === self.window { self.recordInputDelivery(event, route: "window") }
+                return event
+            }
+        }
         for name in [NSWindow.didEnterFullScreenNotification,
                      NSWindow.didExitFullScreenNotification,
                      NSWindow.didEndLiveResizeNotification,
@@ -72,6 +93,8 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     }
 
     private func removeDisplayObservers() {
+        if let diagnosticMonitor { NSEvent.removeMonitor(diagnosticMonitor) }
+        diagnosticMonitor = nil
         displayRefreshGeneration &+= 1
         pendingDisplayRefresh?.cancel()
         pendingDisplayRefresh = nil
@@ -80,6 +103,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     }
 
     deinit {
+        if let diagnosticMonitor { NSEvent.removeMonitor(diagnosticMonitor) }
         pendingDisplayRefresh?.cancel()
         displayObservers.forEach(NotificationCenter.default.removeObserver)
     }
@@ -98,16 +122,19 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     }
 
     override func keyDown(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyDown", event: event)
         super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyUp", event: event)
         super.keyUp(with: event)
     }
 
     override func flagsChanged(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("flagsChanged", event: event)
         super.flagsChanged(with: event)
     }
