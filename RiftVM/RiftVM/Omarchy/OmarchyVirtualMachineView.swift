@@ -19,9 +19,10 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         if route == "window" { diagnosticWindowEvents += 1 } else { diagnosticViewEvents += 1 }
         // Deliberately exclude characters, key codes, and modifier values.
         let ageMS = max(0, (ProcessInfo.processInfo.systemUptime - event.timestamp) * 1000)
-        NSLog("RiftVM input timing route=%@ windowEvents=%d viewEvents=%d ageMS=%.1f keyWindow=%d firstResponder=%d",
-              route, diagnosticWindowEvents, diagnosticViewEvents, ageMS,
-              window?.isKeyWindow == true ? 1 : 0, window?.firstResponder === self ? 1 : 0)
+        NSLog("RiftVM input timing route=%@ windowEvents=%d viewEvents=%d ageMS=%.1f eventType=%lu appActive=%d keyWindow=%d firstResponder=%d",
+              route, diagnosticWindowEvents, diagnosticViewEvents, ageMS, event.type.rawValue,
+              NSApp.isActive ? 1 : 0, window?.isKeyWindow == true ? 1 : 0,
+              window?.firstResponder === self ? 1 : 0)
     }
 
     private var displayObservers: [NSObjectProtocol] = []
