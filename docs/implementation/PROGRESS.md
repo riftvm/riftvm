@@ -142,3 +142,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - The first attempt hit the host active-VM limit. Earlier disposable processes were explicitly ended for test cleanup with disks retained; that cleanup is not a graceful-shutdown success.
 - The next attempt committed both memory files, but restoration detected disk changes after saving. Standard saved-state metadata was being committed before native stop flushed and released disk attachments. The transaction now commits after successful stop and device release; stop failure discards only the pending transaction, while commit failure reports that the VM has stopped.
 - With corrected ordering, both same-process macOS VMs saved on unified App quit, the App exited successfully, and both states restored in separate new processes and were consumed. Prior failed-attempt state was retained as private diagnostic evidence. App build and 59 tests pass. Mixed Omarchy/macOS quit, GUI interaction and final signed-candidate verification remain required.
+
+## Mixed-profile unified quit
+
+- The temporary peer acceptance now supports the real Omarchy runtime view as well as standard Guests. Runtime readiness is checked through the same coordinator registration used by unified Quit.
+- A macOS and Omarchy VM ran in one process; unified App termination completed with both saved sessions present. macOS restored in a new process and consumed its state. Omarchy restored through its saved-session path, reached authenticated integration readiness, saved again and exited normally. Omarchy does not silently cold-boot on a failed saved-session restore, so a failed native restore cannot satisfy this check.
+- App build and 59 integration tests pass. These are native development-runtime checks; UI operation, broader cross-workspace isolation and final signed artifact verification remain pending.

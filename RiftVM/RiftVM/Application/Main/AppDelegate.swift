@@ -76,7 +76,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 VMReleaseSmokeTest.report("failed: peer acceptance requires distinct temporary fixtures", configuration: smokeTest)
                 exit(64)
             }
-            let peerController = NSHostingController(rootView: VMOSMainVirtualMachineView(rootPath: peer, recoveryMode: false))
+            let peerView: AnyView
+            if (try? WorkspaceIdentity.load(at: peer).profile) == .omarchy {
+                peerView = AnyView(OmarchyVirtualMachineView(layout: .init(applicationSupportRoot: peer), profile: .production))
+            } else {
+                peerView = AnyView(VMOSMainVirtualMachineView(rootPath: peer, recoveryMode: false))
+            }
+            let peerController = NSHostingController(rootView: peerView)
             let peerWindow = NSWindow(contentViewController: peerController)
             peerWindow.setContentSize(NSSize(width: 1024, height: 768))
             peerWindow.title = "RiftVM Peer Acceptance"

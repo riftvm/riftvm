@@ -1062,11 +1062,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             if let peerPath = ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PEER_VM"], !peerPath.isEmpty {
                 let peer = URL(fileURLWithPath: peerPath)
-                if !WorkspaceCoordinator.shared.isStandardRuntimeRunning(at: peer) {
+                if !WorkspaceCoordinator.shared.isRuntimeRunning(at: peer) {
                     let deadline = Date().addingTimeInterval(60)
                     releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
                         guard let self else { timer.invalidate(); return }
-                        if WorkspaceCoordinator.shared.isStandardRuntimeRunning(at: peer) {
+                        if WorkspaceCoordinator.shared.isRuntimeRunning(at: peer) {
                             timer.invalidate()
                             self.startReleaseMachineStateSave(configuration)
                         } else if Date() >= deadline {

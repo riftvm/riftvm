@@ -143,8 +143,9 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         }
     }
 
-    func isStandardRuntimeRunning(at url: URL) -> Bool {
-        runtimeStates[WorkspaceRegistry.canonical(url)]?.phase == .running
+    func isRuntimeRunning(at url: URL) -> Bool {
+        let key = WorkspaceRegistry.canonical(url)
+        return runtimeStates[key]?.phase == .running || omarchyStates[key] == .running
     }
 
     func registerRuntime(_ state: VMRuntimeState, at url: URL) {
