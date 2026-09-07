@@ -104,7 +104,8 @@ struct OmarchyVirtualMachineView: View {
                         ownerSetupPhase = .finishing
                     }
                 },
-                phaseChanged: handlePhaseChange
+                phaseChanged: handlePhaseChange,
+                sessionFailed: { notice = UserNotice(title: "Saved Session Needs Attention", message: $0) }
             )
             .id(sessionID)
             if phase != .running {
@@ -739,13 +740,36 @@ struct OmarchyVirtualMachineView: View {
             .padding(26)
             .background(.regularMaterial, in: .rect(cornerRadius: 14))
         case .failed(let message):
-            ContentUnavailableView(
-                "Omarchy could not start",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            VStack(spacing: 14) {
+                ContentUnavailableView(
+                    "Omarchy needs attention",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(message)
+                )
+                if VMOmarchySavedSession.hasSession(layout: layout),
+                   !WorkspaceCoordinator.shared.hasLiveOmarchy(at: layout.applicationSupportRoot) {
+                    Button("Start Without Saved Session…") { discardSavedSessionAndStart() }
+                }
+            }
             .padding(30)
             .background(.regularMaterial)
+        }
+    }
+
+    private func discardSavedSessionAndStart() {
+        let alert = NSAlert()
+        alert.messageText = "Discard the saved session?"
+        alert.informativeText = "Unsaved work held in guest memory will be lost. The virtual disk will be kept and Omarchy will start normally."
+        alert.addButton(withTitle: "Discard and Start")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard let lease = VMRunningRegistry.shared.acquire(rootPath: layout.applicationSupportRoot, phase: .maintaining) else { return }
+        defer { VMRunningRegistry.shared.release(lease) }
+        do {
+            try VMOmarchySavedSession.discard(layout: layout)
+            handle(.startRequested)
+        } catch {
+            notice = UserNotice(title: "Could Not Discard Session", message: error.localizedDescription)
         }
     }
 
@@ -757,7 +781,8 @@ struct OmarchyVirtualMachineView: View {
             handle(.machineStopped)
             refreshRecoveryPoints()
         case .failed(let message): handle(.machineFailed(message))
-        case .starting, .pausing, .resuming, .stopping: break
+        case .stopping: lifecycle.phase = .stopping
+        case .starting, .pausing, .resuming: break
         }
     }
 
@@ -1046,6 +1071,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let ownerProvisioningCompleted: (UUID, String?) -> Void
     let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+    let sessionFailed: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -1061,7 +1087,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeChanged: dynamicDisplayProbeChanged,
             ownerProvisioningCompleted: ownerProvisioningCompleted,
             ownerProvisioningProgressChanged: ownerProvisioningProgressChanged,
-            phaseChanged: phaseChanged
+            phaseChanged: phaseChanged,
+            sessionFailed: sessionFailed
         )
     }
 
@@ -1081,22 +1108,19 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
             context.coordinator.machineView = view
-            try WorkspaceCoordinator.shared.registerOmarchy(machine, configuration: configuration, at: layout.applicationSupportRoot, requestShutdown: { [weak coordinator = context.coordinator] in coordinator?.requestStop() })
+            context.coordinator.configureSavedSession(configuration, microphoneEnabled: microphoneEnabled)
+            try WorkspaceCoordinator.shared.registerOmarchy(
+                machine, configuration: configuration, at: layout.applicationSupportRoot,
+                requestShutdown: { [weak coordinator = context.coordinator] in coordinator?.requestStop() },
+                canSave: { [weak coordinator = context.coordinator] in coordinator?.canSaveSession == true },
+                requestSave: { [weak coordinator = context.coordinator] in coordinator?.saveAndStop() },
+                savePending: { [weak coordinator = context.coordinator] in coordinator?.savingSession == true },
+                requestForceStop: { [weak coordinator = context.coordinator] in coordinator?.forceStop() }
+            )
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
             context.coordinator.installKeyboardBridge(for: view)
-            machine.start { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        context.coordinator.startIntegration(layout: layout)
-                        context.coordinator.phaseChanged(.running)
-                    case .failure(let error):
-                        WorkspaceCoordinator.shared.omarchyDidStop(machine)
-                        context.coordinator.phaseChanged(.failed(error.localizedDescription))
-                    }
-                }
-            }
+            try context.coordinator.startMachine()
         } catch {
             if let reservation {
                 WorkspaceCoordinator.shared.releaseOmarchyReservation(at: layout.applicationSupportRoot, expectedLease: reservation)
@@ -1136,6 +1160,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let ownerProvisioningCompleted: (UUID, String?) -> Void
         let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+        let sessionFailed: (String) -> Void
         private var stopObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
         private var resumeObserver: NSObjectProtocol?
@@ -1196,7 +1221,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeChanged: @escaping (OmarchyDynamicDisplayProbeState) -> Void,
             ownerProvisioningCompleted: @escaping (UUID, String?) -> Void,
             ownerProvisioningProgressChanged: @escaping (VMOmarchyOwnerProvisioningProgress) -> Void,
-            phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
+            phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void,
+            sessionFailed: @escaping (String) -> Void
         ) {
             self.sessionID = sessionID
             self.layout = layout
@@ -1211,6 +1237,206 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.ownerProvisioningCompleted = ownerProvisioningCompleted
             self.ownerProvisioningProgressChanged = ownerProvisioningProgressChanged
             self.phaseChanged = phaseChanged
+            self.sessionFailed = sessionFailed
+        }
+
+        private(set) var sessionConfiguration: VMOmarchySavedSession.Configuration?
+        private var supportsSavedSession = false
+        private(set) var savingSession = false
+        private var sessionGeneration = 0
+
+        @MainActor
+        func configureSavedSession(_ configuration: VZVirtualMachineConfiguration, microphoneEnabled: Bool) {
+            sessionConfiguration = .init(cpuCount: configuration.cpuCount, memoryBytes: configuration.memorySize,
+                                         microphoneEnabled: microphoneEnabled)
+            do {
+                try configuration.validateSaveRestoreSupport()
+                supportsSavedSession = true
+            } catch {
+                supportsSavedSession = false
+                RiftVMLog.info("Omarchy saved sessions are unavailable: \(error.localizedDescription)")
+            }
+        }
+
+        @MainActor
+        var canSaveSession: Bool {
+            supportsSavedSession && !savingSession && (machine?.state == .running || machine?.state == .paused)
+        }
+
+        @MainActor
+        func startMachine() throws {
+            guard let machine, let sessionConfiguration else { return }
+            if let state = try VMOmarchySavedSession.stateToRestore(layout: layout, configuration: sessionConfiguration) {
+                machine.restoreMachineStateFrom(url: state) { [weak self, weak machine] error in
+                    DispatchQueue.main.async {
+                        guard let self, let machine, self.machine === machine else { return }
+                        if let error {
+                            if machine.state == .stopped || machine.state == .error {
+                                WorkspaceCoordinator.shared.omarchyDidStop(machine)
+                            }
+                            self.phaseChanged(.failed("Could not restore the saved session: \(error.localizedDescription)"))
+                            return
+                        }
+                        self.restoredSavedSession = true
+                        machine.resume { result in
+                            DispatchQueue.main.async {
+                                switch result {
+                                case .success:
+                                    do { try VMOmarchySavedSession.discard(layout: self.layout) }
+                                    catch { RiftVMLog.error("Could not remove consumed Omarchy session: \(error.localizedDescription)") }
+                                    self.restoredSavedSession = true
+                                    self.startIntegration(layout: self.layout)
+                                    self.phaseChanged(.running)
+                                    RiftVMLog.info("Omarchy saved session restored")
+                                case .failure(let error):
+                                    self.phaseChanged(.paused)
+                                    self.sessionFailed("The restored session remains paused: \(error.localizedDescription)")
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                machine.start { [weak self, weak machine] result in
+                    DispatchQueue.main.async {
+                        guard let self, let machine, self.machine === machine else { return }
+                        switch result {
+                        case .success:
+                            self.startIntegration(layout: self.layout)
+                            self.phaseChanged(.running)
+                        case .failure(let error):
+                            WorkspaceCoordinator.shared.omarchyDidStop(machine)
+                            self.phaseChanged(.failed(error.localizedDescription))
+                        }
+                    }
+                }
+            }
+        }
+
+        @MainActor
+        func saveAndStop() {
+            guard canSaveSession, let machine, let configuration = sessionConfiguration else { return }
+            savingSession = true
+            sessionGeneration += 1
+            let generation = sessionGeneration
+            phaseChanged(.stopping)
+            let save: @MainActor () -> Void = { [weak self] in
+                guard let self, self.sessionGeneration == generation else { return }
+                self.keyboardBridge?.stop()
+                self.stopAgentClipboard()
+                self.stopNotifications()
+                self.integrationClient?.virtualMachineDidPause()
+                do {
+                    let pending = try VMOmarchySavedSession.prepare(layout: self.layout)
+                    machine.saveMachineStateTo(url: pending) { [weak self] error in
+                        DispatchQueue.main.async {
+                            guard let self, self.sessionGeneration == generation else { return }
+                            if let error { self.savedSessionFailed(error); return }
+                            machine.stop { error in
+                                DispatchQueue.main.async {
+                                    guard self.sessionGeneration == generation else { return }
+                                    if let error { self.savedSessionFailed(error); return }
+                                    // Disk/EFI fingerprints must be captured after VZ has
+                                    // flushed and closed the stopped guest's devices.
+                                    do {
+                                        try VMOmarchySavedSession.commit(layout: self.layout, configuration: configuration)
+                                        RiftVMLog.info("Omarchy saved session committed")
+                                    } catch {
+                                        self.savedSessionFailed(error, preservePending: true)
+                                        return
+                                    }
+                                    self.savingSession = false
+                                    WorkspaceCoordinator.shared.omarchyDidStop(machine)
+                                    self.stopIntegration()
+                                    self.machineView?.virtualMachine = nil
+                                    self.machine = nil
+                                    self.phaseChanged(.stopped)
+                                }
+                            }
+                        }
+                    }
+                } catch { self.savedSessionFailed(error) }
+            }
+            if machine.state == .paused { save() }
+            else {
+                machine.pause { [weak self] result in
+                    DispatchQueue.main.async {
+                        guard let self, self.sessionGeneration == generation else { return }
+                        switch result {
+                        case .success: save()
+                        case .failure(let error): self.savedSessionFailed(error)
+                        }
+                    }
+                }
+            }
+        }
+
+        @MainActor
+        private func savedSessionFailed(_ error: Error, preservePending: Bool = false) {
+            savingSession = false
+            if !preservePending { VMOmarchySavedSession.discardPending(layout: layout) }
+            let message = "Could not save the Omarchy session: \(error.localizedDescription)"
+            RiftVMLog.error(message)
+            sessionFailed(message)
+            if let machine, machine.state == .stopped || machine.state == .error {
+                WorkspaceCoordinator.shared.omarchyDidStop(machine)
+                stopIntegration()
+                phaseChanged(.failed(message))
+            } else {
+                // Keep ownership of a live VM; a failed save is never permission
+                // to force stop it. The quit transaction offers Wait/Cancel.
+                phaseChanged(machine?.state == .paused ? .paused : .running)
+            }
+        }
+
+        private var sessionAcceptanceStarted = false
+        private var restoredSavedSession = false
+
+        @MainActor
+        private func runSessionAcceptanceIfRequested(_ status: VMOmarchyGuestStatus) {
+            let mode = ProcessInfo.processInfo.environment["RIFTVM_OMARCHY_SESSION_ACCEPTANCE"] ?? ""
+            guard ["save", "save-paused", "quit-save", "quit-save-paused", "restore"].contains(mode), !sessionAcceptanceStarted,
+                  VMOmarchyTemporaryPathPolicy.contains(layout.applicationSupportRoot),
+                  VMOmarchyIntegrationAssessment.evaluate(status: status, requiredCapabilities: requiredGuestCapabilities).isReady else { return }
+            sessionAcceptanceStarted = true
+            do {
+                try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+                let before = layout.diagnostics.appending(path: "SessionAcceptance-before.json")
+                if mode == "restore" {
+                    let previous = try JSONSerialization.jsonObject(with: Data(contentsOf: before)) as? [String: String]
+                    let matches = restoredSavedSession && previous?["bootID"] == status.bootID
+                    let observation: [String: Any] = ["restoredSavedSession": restoredSavedSession,
+                                                     "guestBootIDPreserved": matches, "bootID": status.bootID,
+                                                     "agentAuthenticated": true]
+                    try JSONSerialization.data(withJSONObject: observation, options: [.sortedKeys])
+                        .write(to: layout.diagnostics.appending(path: "SessionAcceptance-after.json"), options: .atomic)
+                    RiftVMLog.info("Omarchy saved-session acceptance: restored=\(restoredSavedSession), bootIDPreserved=\(matches)")
+                    requestStop()
+                } else {
+                    try JSONSerialization.data(withJSONObject: ["bootID": status.bootID, "mode": mode], options: [.sortedKeys])
+                        .write(to: before, options: .atomic)
+                    let saveAction = {
+                        if mode.hasPrefix("quit-") {
+                            // Terminate from the AppKit event loop, as a menu
+                            // action does. Calling it inside a main-queue Task
+                            // blocks that queue while AppKit waits for its reply.
+                            RunLoop.main.perform { NSApp.terminate(nil) }
+                        } else { self.saveAndStop() }
+                    }
+                    if mode.hasSuffix("-paused"), let machine {
+                        machine.pause { result in
+                            DispatchQueue.main.async {
+                                switch result {
+                                case .success: saveAction()
+                                case .failure(let error): self.savedSessionFailed(error)
+                                }
+                            }
+                        }
+                    } else { saveAction() }
+                }
+            } catch {
+                RiftVMLog.error("Omarchy saved-session acceptance failed: \(error.localizedDescription)")
+            }
         }
 
         func submitOwnerProvisioning(_ submission: OmarchyOwnerProvisioningSubmission) {
@@ -1384,6 +1610,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                     self.configureNotifications(for: status)
                                     self.handleAutomaticRecoveryReady(status)
                                     self.refreshOwnerProvisioningProgressIfNeeded(status)
+                                    self.runSessionAcceptanceIfRequested(status)
                                 }
                             case .disconnected:
                                 Task { @MainActor [weak self] in
@@ -2114,7 +2341,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             self.automaticRecoveryAfterResume = false
                             self.automaticRecoveryStage = .waitingForPostResumeReady
                         }
-                        self.integrationClient?.virtualMachineDidResume()
+                        if self.integrationClient == nil {
+                            if self.restoredSavedSession { try? VMOmarchySavedSession.discard(layout: self.layout) }
+                            self.startIntegration(layout: self.layout)
+                        } else { self.integrationClient?.virtualMachineDidResume() }
                         self.keyboardBridge?.start()
                         self.phaseChanged(.running)
                     case .failure(let error):
@@ -2126,11 +2356,14 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             }
         }
 
-        private func forceStop() {
+        func forceStop() {
             guard let machine, machine.canStop else {
                 phaseChanged(.failed("Omarchy could not be stopped after the graceful shutdown timed out."))
                 return
             }
+            sessionGeneration += 1
+            savingSession = false
+            VMOmarchySavedSession.discardPending(layout: layout)
             machine.stop { [weak self, weak machine] error in
                 DispatchQueue.main.async {
                     guard let self else { return }
@@ -2168,6 +2401,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         func guestDidStop(_ virtualMachine: VZVirtualMachine) {
             Task { @MainActor in
+                guard !savingSession else { return }
                 WorkspaceCoordinator.shared.omarchyDidStop(virtualMachine)
                 stopIntegration()
                 machine = nil

@@ -596,7 +596,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 }
             case .stopped:
                 writeHeadlessState(launch, phase: "stopped", message: nil)
-                finishHeadless(exitCode: 0)
+                // App quit owns the complete multi-workspace transaction and
+                // must finish its saved-session commits before process exit.
+                if !WorkspaceCoordinator.shared.isQuitting { finishHeadless(exitCode: 0) }
             default:
                 writeHeadlessState(launch, phase: headlessStopRequested ? "stopping" : String(describing: phase), message: nil)
             }

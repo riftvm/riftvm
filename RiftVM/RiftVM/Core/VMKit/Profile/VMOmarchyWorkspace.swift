@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Virtualization
 
 public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
@@ -592,6 +593,125 @@ public struct VMOmarchyRecoveryManager {
         try recoverInterruptedOperations()
         guard workspaceManager.inspect() == .ready else {
             throw VMOmarchyRecoveryError.workspaceNotReady
+        }
+    }
+}
+
+/// A saved session is committed only after its paused VM has stopped. The
+/// compatibility record prevents resuming memory against changed guest disks,
+/// hardware, folder permissions, or host/runtime configuration.
+enum VMOmarchySavedSession {
+    struct Configuration: Codable, Equatable {
+        let cpuCount: Int
+        let memoryBytes: UInt64
+        let microphoneEnabled: Bool
+        let hostVersion: String
+
+        init(cpuCount: Int, memoryBytes: UInt64, microphoneEnabled: Bool) {
+            self.cpuCount = cpuCount
+            self.memoryBytes = memoryBytes
+            self.microphoneEnabled = microphoneEnabled
+            self.hostVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        }
+    }
+
+    private struct Manifest: Codable, Equatable {
+        let schemaVersion: Int
+        let configuration: Configuration
+        let fileDigests: [String: String]
+        let diskSize: Int
+        let diskModifiedAt: Date
+        let stateSize: Int
+    }
+
+    private static func directory(_ layout: VMOmarchyWorkspaceLayout, pending: Bool = false) -> URL {
+        layout.workspace.appending(path: pending ? "SavedSession.pending" : "SavedSession", directoryHint: .isDirectory)
+    }
+
+    static func prepare(layout: VMOmarchyWorkspaceLayout) throws -> URL {
+        discardPending(layout: layout)
+        let pending = directory(layout, pending: true)
+        try FileManager.default.createDirectory(at: pending, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+        return pending.appending(path: "MachineState.vzvmsave")
+    }
+
+    static func commit(layout: VMOmarchyWorkspaceLayout, configuration: Configuration) throws {
+        let pending = directory(layout, pending: true)
+        let state = pending.appending(path: "MachineState.vzvmsave")
+        let manifest = try capture(layout: layout, configuration: configuration, state: state)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(manifest).write(to: pending.appending(path: "Compatibility.json"), options: .atomic)
+        // Never overwrite a previously committed session as part of a new
+        // transaction. A successful resume explicitly consumes that session.
+        try FileManager.default.moveItem(at: pending, to: directory(layout))
+    }
+
+    static func hasSession(layout: VMOmarchyWorkspaceLayout) -> Bool {
+        FileManager.default.fileExists(atPath: directory(layout).path)
+            || FileManager.default.fileExists(atPath: directory(layout, pending: true).path)
+    }
+
+    static func stateToRestore(layout: VMOmarchyWorkspaceLayout, configuration: Configuration) throws -> URL? {
+        guard !FileManager.default.fileExists(atPath: directory(layout, pending: true).path) else {
+            throw SessionError.incompatible
+        }
+        let committed = directory(layout)
+        guard FileManager.default.fileExists(atPath: committed.path) else { return nil }
+        let state = committed.appending(path: "MachineState.vzvmsave")
+        do {
+            let previous = try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: committed.appending(path: "Compatibility.json")))
+            let current = try capture(layout: layout, configuration: configuration, state: state)
+            guard previous == current else { throw SessionError.incompatible }
+            return state
+        } catch {
+            throw SessionError.incompatible
+        }
+    }
+
+    static func discardPending(layout: VMOmarchyWorkspaceLayout) {
+        try? FileManager.default.removeItem(at: directory(layout, pending: true))
+    }
+
+    static func discard(layout: VMOmarchyWorkspaceLayout) throws {
+        let committed = directory(layout)
+        if FileManager.default.fileExists(atPath: committed.path) {
+            try FileManager.default.removeItem(at: committed)
+        }
+        discardPending(layout: layout)
+    }
+
+    private static func capture(layout: VMOmarchyWorkspaceLayout, configuration: Configuration, state: URL) throws -> Manifest {
+        var digests: [String: String] = [:]
+        let required = [layout.configuration, layout.machineIdentifier, layout.efiVariableStore]
+        let optional = [
+            layout.applicationSupportRoot.appending(path: WorkspaceIdentity.fileName),
+            layout.applicationSupportRoot.appending(path: "Resources.json"),
+            layout.applicationSupportRoot.appending(path: "FolderGrants.json"),
+            layout.snapshots.appending(path: "state.json")
+        ]
+        for file in required + optional where required.contains(file) || FileManager.default.fileExists(atPath: file.path) {
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else { throw SessionError.incompatible }
+            let data = try Data(contentsOf: file)
+            let relative = file.path.replacingOccurrences(of: layout.applicationSupportRoot.path + "/", with: "")
+            digests[relative] = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        }
+        let disk = try layout.disk.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey])
+        let saved = try state.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey])
+        guard disk.isRegularFile == true, disk.isSymbolicLink != true,
+              saved.isRegularFile == true, saved.isSymbolicLink != true,
+              let size = disk.fileSize, let modified = disk.contentModificationDate,
+              let stateSize = saved.fileSize, stateSize > 0 else { throw SessionError.incompatible }
+        return Manifest(schemaVersion: 1, configuration: configuration, fileDigests: digests,
+                        diskSize: size, diskModifiedAt: modified, stateSize: stateSize)
+    }
+
+    enum SessionError: LocalizedError {
+        case incompatible
+        var errorDescription: String? {
+            "The saved session does not match the current disk, hardware, permissions, or host configuration. Its files have been preserved."
         }
     }
 }

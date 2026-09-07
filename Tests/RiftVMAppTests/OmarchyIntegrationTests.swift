@@ -5,6 +5,67 @@ import XCTest
 @testable import RiftVM
 
 final class OmarchyIntegrationTests: XCTestCase {
+    func testOmarchySavedSessionIsCommittedAndConsumedTransactionally() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "RiftVMSavedSession-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = try makeSavedSessionFixture(root: root)
+        let configuration = VMOmarchySavedSession.Configuration(cpuCount: 2, memoryBytes: 4 << 30, microphoneEnabled: false)
+        let pending = try VMOmarchySavedSession.prepare(layout: layout)
+        try Data("saved-memory".utf8).write(to: pending)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: layout.workspace.appending(path: "SavedSession").path))
+        try VMOmarchySavedSession.commit(layout: layout, configuration: configuration)
+        let saved = try XCTUnwrap(VMOmarchySavedSession.stateToRestore(layout: layout, configuration: configuration))
+        XCTAssertEqual(try Data(contentsOf: saved), Data("saved-memory".utf8))
+        try VMOmarchySavedSession.discard(layout: layout)
+        XCTAssertNil(try VMOmarchySavedSession.stateToRestore(layout: layout, configuration: configuration))
+        XCTAssertEqual(try Data(contentsOf: layout.disk), Data("guest-disk".utf8))
+    }
+
+    func testInterruptedOmarchySessionRemainsAvailableForExplicitRecovery() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "RiftVMSavedSession-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = try makeSavedSessionFixture(root: root)
+        let configuration = VMOmarchySavedSession.Configuration(cpuCount: 2, memoryBytes: 4 << 30, microphoneEnabled: false)
+        let pending = try VMOmarchySavedSession.prepare(layout: layout)
+        try Data("uncommitted-memory".utf8).write(to: pending)
+        XCTAssertThrowsError(try VMOmarchySavedSession.stateToRestore(layout: layout, configuration: configuration))
+        XCTAssertTrue(VMOmarchySavedSession.hasSession(layout: layout))
+        XCTAssertEqual(try Data(contentsOf: pending), Data("uncommitted-memory".utf8))
+    }
+
+    func testOmarchySavedSessionRejectsChangedDiskIdentityPermissionsAndResources() throws {
+        for mutation in ["disk", "identity", "permissions", "resources", "truncated-state"] {
+            let root = FileManager.default.temporaryDirectory.appending(path: "RiftVMSavedSession-\(UUID())")
+            defer { try? FileManager.default.removeItem(at: root) }
+            let layout = try makeSavedSessionFixture(root: root)
+            let original = VMOmarchySavedSession.Configuration(cpuCount: 2, memoryBytes: 4 << 30, microphoneEnabled: false)
+            var current = original
+            let pending = try VMOmarchySavedSession.prepare(layout: layout)
+            try Data("saved-memory".utf8).write(to: pending)
+            try VMOmarchySavedSession.commit(layout: layout, configuration: original)
+            let saved = try XCTUnwrap(VMOmarchySavedSession.stateToRestore(layout: layout, configuration: original))
+            switch mutation {
+            case "disk": try Data("changed-guest-disk".utf8).write(to: layout.disk)
+            case "identity": try Data("another-machine".utf8).write(to: layout.machineIdentifier)
+            case "permissions": try Data("changed-folder-grants".utf8).write(to: root.appending(path: "FolderGrants.json"))
+            case "resources": current = .init(cpuCount: 4, memoryBytes: 4 << 30, microphoneEnabled: false)
+            default: try Data("cut".utf8).write(to: saved)
+            }
+            XCTAssertThrowsError(try VMOmarchySavedSession.stateToRestore(layout: layout, configuration: current), mutation)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: saved.path), "An incompatible session must remain available for explicit recovery.")
+        }
+    }
+
+    private func makeSavedSessionFixture(root: URL) throws -> VMOmarchyWorkspaceLayout {
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
+        try Data("guest-disk".utf8).write(to: layout.disk)
+        try Data("configuration".utf8).write(to: layout.configuration)
+        try Data("machine".utf8).write(to: layout.machineIdentifier)
+        try Data("efi".utf8).write(to: layout.efiVariableStore)
+        return layout
+    }
+
     func testAccessibilityRequestHasVisiblePendingState() {
         XCTAssertNotEqual(
             OmarchyKeyboardIntegrationState.requestingAccessibility,

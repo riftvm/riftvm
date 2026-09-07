@@ -12,6 +12,10 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
     private var omarchyStates: [URL: VZVirtualMachine.State] = [:]
     @ObservationIgnored private var omarchyStateObservers: [URL: NSKeyValueObservation] = [:]
     private var omarchyShutdownRequests: [URL: () -> Void] = [:]
+    private var omarchySaveRequests: [URL: () -> Void] = [:]
+    private var omarchyCanSave: [URL: () -> Bool] = [:]
+    private var omarchySavePending: [URL: () -> Bool] = [:]
+    private var omarchyForceStopRequests: [URL: () -> Void] = [:]
     private var omarchyLeases: [URL: VMRunLease] = [:]
     @ObservationIgnored private lazy var quitController = WorkspaceQuitController(
         participants: { [weak self] in self?.quitParticipants() ?? [] },
@@ -159,10 +163,23 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         omarchyStates.removeValue(forKey: key)
         omarchyStateObservers.removeValue(forKey: key)
         omarchyShutdownRequests.removeValue(forKey: key)
+        omarchySaveRequests.removeValue(forKey: key)
+        omarchyCanSave.removeValue(forKey: key)
+        omarchySavePending.removeValue(forKey: key)
+        omarchyForceStopRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
-    func registerOmarchy(_ machine: VZVirtualMachine, configuration: VZVirtualMachineConfiguration, at url: URL, requestShutdown: @escaping () -> Void) throws {
+    func registerOmarchy(
+        _ machine: VZVirtualMachine,
+        configuration: VZVirtualMachineConfiguration,
+        at url: URL,
+        requestShutdown: @escaping () -> Void,
+        canSave: @escaping () -> Bool,
+        requestSave: @escaping () -> Void,
+        savePending: @escaping () -> Bool,
+        requestForceStop: @escaping () -> Void
+    ) throws {
         let key = WorkspaceRegistry.canonical(url)
         guard let lease = omarchyLeases[key] else {
             throw VMOSError.regularFailure("This workspace is already running in another process.")
@@ -183,6 +200,10 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
             }
         }
         omarchyShutdownRequests[key] = requestShutdown
+        omarchySaveRequests[key] = requestSave
+        omarchyCanSave[key] = canSave
+        omarchySavePending[key] = savePending
+        omarchyForceStopRequests[key] = requestForceStop
     }
 
     func omarchyDidStop(_ machine: VZVirtualMachine) {
@@ -191,6 +212,10 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         omarchyStates.removeValue(forKey: key)
         omarchyStateObservers.removeValue(forKey: key)
         omarchyShutdownRequests.removeValue(forKey: key)
+        omarchySaveRequests.removeValue(forKey: key)
+        omarchyCanSave.removeValue(forKey: key)
+        omarchySavePending.removeValue(forKey: key)
+        omarchyForceStopRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
@@ -257,9 +282,11 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         let omarchy = omarchyMachines.map { url, machine in
             WorkspaceQuitController.Participant(
                 id: url.path,
-                isStopped: { machine.state == .stopped || machine.state == .error },
-                canSave: { false },
-                save: {},
+                isStopped: { [weak self] in
+                    (machine.state == .stopped || machine.state == .error) && self?.omarchySavePending[url]?() != true
+                },
+                canSave: { [weak self] in self?.omarchyCanSave[url]?() == true },
+                save: { [weak self] in self?.omarchySaveRequests[url]?() },
                 shutDown: { [weak self] in
                     if let shutdown = self?.omarchyShutdownRequests[url] {
                         shutdown()
@@ -269,7 +296,7 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
                         }
                     } else if machine.canRequestStop { try? machine.requestStop() }
                 },
-                forceStop: { if machine.canStop { machine.stop { _ in } } }
+                forceStop: { [weak self] in self?.omarchyForceStopRequests[url]?() }
             )
         }
         return standard + omarchy

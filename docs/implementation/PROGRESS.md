@@ -77,3 +77,13 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Initial Omarchy installation, migration, interrupted-recovery repair and preserve/reinstall now acquire the same maintenance ownership as runtime startup. The lease spans asynchronous work and is released on completion or failure. App build and 56 integration tests pass.
 - Native Apple validation accepts save/restore for the current complete Omarchy configuration. The existing fixed unsupported flag is therefore incorrect; actual Omarchy session save/restore integration is now a required remaining correction. No successful saved Omarchy session is claimed yet.
+
+## Omarchy saved-session correction
+
+- Replaced the fixed unsupported flag with native configuration validation and runtime capability checks. Unified quit now saves supported Omarchy workspaces and waits until their session transaction commits before allowing process exit.
+- Saved sessions include a compatibility record for effective CPU/memory/microphone configuration, host version, workspace/hardware identity, disk size/modification state, directory grants and snapshot metadata. Changed or interrupted sessions remain available until the user explicitly chooses to discard guest memory and cold start; guest disks are preserved.
+- Real development-runtime save/stop/restore passed from both running and paused states. Real App termination through the unified quit coordinator also passed from both states, followed by successful restoration. Each roundtrip preserved the guest boot ID, reauthenticated the Agent and then shut down normally.
+- A first quit acceptance attempt deadlocked because the test invoked AppKit termination inside a main-queue task. Process sampling identified that cause; the disposable test was ended, the hook was moved to the AppKit event loop, and both quit roundtrips then passed. That failed attempt is not counted as successful acceptance.
+- These are development-build checks, not final signed-candidate approval. Multi-workspace save transactions, failure-path runtime acceptance and exact final artifact checks remain required.
+
+- Latest App build and integration suite: 59 tests pass, including saved-session commit/consume, interrupted transaction preservation, and rejection of changed disks, identities, folder permissions, resource allocation and truncated memory files.
