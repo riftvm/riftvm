@@ -1071,7 +1071,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
             context.coordinator.machineView = view
-            try WorkspaceCoordinator.shared.registerOmarchy(machine, configuration: configuration, at: layout.applicationSupportRoot)
+            try WorkspaceCoordinator.shared.registerOmarchy(machine, configuration: configuration, at: layout.applicationSupportRoot, requestShutdown: { [weak coordinator = context.coordinator] in coordinator?.requestStop() })
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
             context.coordinator.installKeyboardBridge(for: view)
@@ -2017,7 +2017,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             }
         }
 
-        private func requestStop() {
+        func requestStop() {
             guard let machine else { return }
             // A paused guest cannot process the ACPI shutdown request.
             if machine.state == .paused {
@@ -2030,6 +2030,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         }
                     }
                 }
+                return
+            }
+            if let integrationClient, latestGuestStatus?.capabilities.contains("shutdown-v1") == true {
+                Task { @MainActor in integrationClient.requestShutdown() }
                 return
             }
             guard machine.canRequestStop else {

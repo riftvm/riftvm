@@ -10,7 +10,7 @@ enum OmarchyHostKeyboardTextEncoder {
     /// Matches the 25 ms spacing used for each key-down and key-up event and
     /// leaves a small margin for the final event to reach the virtual keyboard.
     static func deliveryDuration(for text: String) -> Duration {
-        .milliseconds(text.count * 50 + 250)
+        .milliseconds((strokes(for: text) ?? []).reduce(0) { $0 + ($1.shifted ? 100 : 50) } + 250)
     }
 
     static func strokes(for text: String) -> [OmarchyHostKeyboardStroke]? {
@@ -275,20 +275,32 @@ final class OmarchyFocusedCommandBridge {
               let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
             return false
         }
-        var delay = 0.0
+        var events: [CGEvent] = []
         for stroke in strokes {
+            // VZ consumes modifier transitions as well as key events. Flags on
+            // a letter alone do not establish a pressed Shift key in the Guest.
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = .maskShift
+                events.append(shift)
+            }
             for keyDown in [true, false] {
-                guard let event = CGEvent(
-                    keyboardEventSource: source,
-                    virtualKey: stroke.keyCode,
-                    keyDown: keyDown
-                ) else { return false }
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: keyDown) else { return false }
                 event.flags = stroke.shifted ? .maskShift : []
-                event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    event.post(tap: .cghidEventTap)
-                }
-                delay += 0.025
+                events.append(event)
+            }
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: false) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = []
+                events.append(shift)
+            }
+        }
+        for (index, event) in events.enumerated() {
+            event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.025) {
+                event.post(tap: .cghidEventTap)
             }
         }
         return true

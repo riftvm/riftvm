@@ -9,6 +9,7 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
     private var windows: [UUID: NSWindow] = [:]
     private var runtimeStates: [URL: VMRuntimeState] = [:]
     private var omarchyMachines: [URL: VZVirtualMachine] = [:]
+    private var omarchyShutdownRequests: [URL: () -> Void] = [:]
     private var omarchyLeases: [URL: VMRunLease] = [:]
     @ObservationIgnored private lazy var quitController = WorkspaceQuitController(
         participants: { [weak self] in self?.quitParticipants() ?? [] },
@@ -153,10 +154,11 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         let key = WorkspaceRegistry.canonical(url)
         if let expectedLease, omarchyLeases[key]?.id != expectedLease.id { return }
         omarchyMachines.removeValue(forKey: key)
+        omarchyShutdownRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
-    func registerOmarchy(_ machine: VZVirtualMachine, configuration: VZVirtualMachineConfiguration, at url: URL) throws {
+    func registerOmarchy(_ machine: VZVirtualMachine, configuration: VZVirtualMachineConfiguration, at url: URL, requestShutdown: @escaping () -> Void) throws {
         let key = WorkspaceRegistry.canonical(url)
         guard let lease = omarchyLeases[key] else {
             throw VMOSError.regularFailure("This workspace is already running in another process.")
@@ -167,11 +169,13 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         }
         omarchyLeases[key] = lease
         omarchyMachines[key] = machine
+        omarchyShutdownRequests[key] = requestShutdown
     }
 
     func omarchyDidStop(_ machine: VZVirtualMachine) {
         guard let key = omarchyMachines.first(where: { $0.value === machine })?.key else { return }
         omarchyMachines.removeValue(forKey: key)
+        omarchyShutdownRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
 
@@ -191,6 +195,11 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
     func requestOmarchyStop(at url: URL, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let machine = omarchyMachines[WorkspaceRegistry.canonical(url)] else {
             completion(.failure(VMOSError.regularFailure("The workspace is not running.")))
+            return
+        }
+        if let shutdown = omarchyShutdownRequests[WorkspaceRegistry.canonical(url)] {
+            shutdown()
+            completion(.success(()))
             return
         }
         let request = {
@@ -230,8 +239,10 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
                 isStopped: { machine.state == .stopped || machine.state == .error },
                 canSave: { false },
                 save: {},
-                shutDown: {
-                    if machine.canResume {
+                shutDown: { [weak self] in
+                    if let shutdown = self?.omarchyShutdownRequests[url] {
+                        shutdown()
+                    } else if machine.canResume {
                         machine.resume { result in
                             if case .success = result, machine.canRequestStop { try? machine.requestStop() }
                         }

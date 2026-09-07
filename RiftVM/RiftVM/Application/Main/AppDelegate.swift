@@ -589,7 +589,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 // A failed pause/resume action is not proof that the VM stopped.
                 // Exiting this process would power off a still-live Guest.
                 if WorkspaceCoordinator.shared.hasLiveOmarchy(at: launch.machineURL) {
-                    writeHeadlessState(launch, phase: "needs-attention", message: message)
+                    writeHeadlessState(launch, phase: headlessStopRequested ? "stopping" : "needs-attention", message: message)
                 } else {
                     writeHeadlessState(launch, phase: "failed", message: message)
                     finishHeadless(exitCode: 70)
