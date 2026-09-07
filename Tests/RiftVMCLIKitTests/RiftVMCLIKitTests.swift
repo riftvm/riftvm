@@ -35,6 +35,33 @@ final class RiftVMCLIKitTests: XCTestCase {
         }
     }
 
+    func testStopWaitsForProcessExitAfterStoppedRecord() throws {
+        let machine = try makeMachine("Exiting.riftvm", name: "Exiting")
+        let directory = root.appendingPathComponent("Headless")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let ready = root.appendingPathComponent("ready")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = ["-c", "trap 'sleep 1; exit 0' TERM; touch \"$1\"; while :; do sleep 0.05; done", "sh", ready.path]
+        try process.run()
+        defer { if process.isRunning { process.terminate() }; process.waitUntilExit() }
+        let deadline = Date().addingTimeInterval(5)
+        while !FileManager.default.fileExists(atPath: ready.path), Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ready.path))
+        let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
+        let record = RiftVMHeadlessRecord(schemaVersion: 2, pid: process.processIdentifier,
+            machinePath: machine.path, phase: "stopped", message: nil, updatedAt: Date(), launchToken: UUID().uuidString)
+        try JSONEncoder().encode(record).write(to: directory.appendingPathComponent("\(digest).json"))
+        let previous = ProcessInfo.processInfo.environment["RIFTVM_APP_EXECUTABLE"]
+        setenv("RIFTVM_APP_EXECUTABLE", "/bin/bash", 1)
+        defer { if let previous { setenv("RIFTVM_APP_EXECUTABLE", previous, 1) } else { unsetenv("RIFTVM_APP_EXECUTABLE") } }
+        let started = Date()
+        let (code, _) = RiftVMCLI(headlessStateDirectory: directory).run(arguments: ["stop", machine.path, "--timeout", "5"])
+        XCTAssertEqual(code, .success)
+        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.9)
+        XCTAssertFalse(process.isRunning)
+    }
+
     func testHostAppLocationResolvesHomebrewStyleCLISymlink() throws {
         let app = root.appendingPathComponent("RiftVM.app/Contents")
         let helper = app.appendingPathComponent("Helpers/riftvm")

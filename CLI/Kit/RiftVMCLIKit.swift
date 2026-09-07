@@ -656,13 +656,13 @@ public struct RiftVMCLI {
             }
             let deadline = Date().addingTimeInterval(parsed.timeout)
             while Date() < deadline {
-                if let updated = readHeadlessState(stateURL), updated.phase == "stopped" {
-                    return (.success, .init(command: "stop", result: headlessJSON(updated)))
-                }
-                if kill(record.pid, 0) != 0 { break }
+                // The runtime publishes stopped before its process finishes
+                // exiting. Do not let an immediate next start race that exit
+                // (including the interval where proc_pidpath no longer works).
+                if kill(record.pid, 0) != 0, errno == ESRCH { break }
                 Thread.sleep(forTimeInterval: 0.1)
             }
-            if kill(record.pid, 0) != 0 {
+            if kill(record.pid, 0) != 0, errno == ESRCH {
                 return (.success, .init(command: "stop", result: .object([
                     "machinePath": .string(machine.path), "phase": .string("stopped")
                 ])))
