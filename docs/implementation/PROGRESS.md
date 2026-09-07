@@ -21,7 +21,7 @@ Host: macOS 27.0 (26A5425a), Xcode 27.0 (27A5252f).
 
 - Core tests: 390 cases, zero failures, one inherited skip. /private/tmp/riftvm-swift-test.log.
 - CLI tests: 13 cases passed, including registered-external-directory discovery coverage.
-- App tests: 53 cases, zero failures; includes migrated Omarchy checks and new quit/clipboard ownership tests. See /private/tmp/riftvm-app-tests.log and /private/tmp/riftvm-tests-derived/Logs/Test for xcresult evidence.
+- App tests: 56 cases, zero failures; includes migrated Omarchy checks and new quit/clipboard ownership tests. See /private/tmp/riftvm-app-tests.log and /private/tmp/riftvm-tests-derived/Logs/Test for xcresult evidence.
 - Graphics tests: all 26 passed after EDID fix. /private/tmp/riftvm-graphics-test.log.
 - Guest Agent: go test ./... passed. /private/tmp/riftvm-agent-test.log.
 - New App launched using test virtualization entitlement, isolated RIFTVM_DATA_ROOT and GUI readiness probe. /private/tmp/riftvm-ui-ready.json records com.riftvm.app, responsive event loop and visible 1080x760 window. Inspected home screenshot and macOS creation accessibility tree through computer use. The online macOS catalog failed in that run; local IPSW and latest-compatible choices remained visible. No guest was installed or booted in this UI check.
@@ -45,4 +45,4 @@ Main checkout: /Users/eevv/github/products/riftvm/riftvm. Original /Users/eevv/g
 
 Current single scheme is RiftVM, with RiftVMAppTests hosted by RiftVM.app. Test signing overrides must use scripts/virtualization-test.entitlements; ad-hoc signing with distribution USB/vmnet entitlements was rejected by macOS. Use the user's Developer ID for release checks.
 
-The new image checkout currently remains unchanged at its original main baseline. Its workflow uses ubuntu-24.04-arm/Docker, restricts execution to the old repository name, and checks out an old pinned Agent revision. Adapt before triggering.
+Image migration is now in progress. The old local integration branch (1771f5c) was stale; the remote integration branch is 6aa7490b3cafa417dbb269e524d886fc4bfca29d, containing later owner-provisioning/clipboard implementation. Fetch that exact reference into the new image repository, use its complete source, then apply the new identity and pin the new Agent revision before enabling a build. Do not modify the old checkout.

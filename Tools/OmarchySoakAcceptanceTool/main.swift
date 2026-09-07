@@ -78,11 +78,11 @@ enum OmarchySoakAcceptanceTool {
         }
         let heartbeatURL = root.appending(path: "Diagnostics/soak-heartbeat.json")
         let interval = max(1, Int(ProcessInfo.processInfo.environment[
-            "EZVM_OMARCHY_SOAK_INTERVAL_SECONDS"
+            "RIFTVM_OMARCHY_SOAK_INTERVAL_SECONDS"
         ] ?? "30") ?? 30)
         let maximumAge = max(120, interval * 4)
         let baselineTimeout = max(1, Int(ProcessInfo.processInfo.environment[
-            "EZVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS"
+            "RIFTVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS"
         ] ?? "\(maximumAge)") ?? maximumAge)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
