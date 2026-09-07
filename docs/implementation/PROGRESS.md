@@ -84,3 +84,13 @@ Image migration is now in progress. The old local integration branch (1771f5c) w
 - Native App-process check passed: an uninstalled Omarchy workspace returned exit 70 and an actionable failed state (/private/tmp/riftvm-headless-routing-result.json). All 56 App tests passed after wiring; the trust test now compares both source plist and built App key with Resources/FactoryTrust/omarchy-factory-2026.pub.
 - Local base reconstruction session 95036 completed and verified /private/tmp/riftvm-base.raw. Log /private/tmp/riftvm-base-reconstruction.log. This remains the OLD factory and must not be presented as RiftVM.
 - New image run 34091423206 advanced beyond actual migration/raw verification to Package split RiftVM release assets. Continue observing this run; no restart or duplicate dispatch is needed. New candidate downloads must use its resulting manifest/digests, not the base hash.
+
+## Candidate download, release trust and visual identity
+
+- Image run 34091423206 succeeded. The draft v0.1.0-rc.1 raw digest is 99714624832d5fabaae59f58ad8f657384ebbfcf17ae5a72172b66c79965a000. Agent remains pinned to 1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5. New manifest and provenance are in /private/tmp/riftvm-rc1-assets.
+- Active local candidate download-and-reconstruction process is session 24814: downloads the new raw parts and inventories, then reconstructs /private/tmp/riftvm-rc1.raw with the above digest. Log /private/tmp/riftvm-rc1-reconstruction.log. Poll the same process; do not launch a duplicate. No ASIF conversion or factory signing has happened yet.
+- Factory build script now requires the repository public key (or explicit valid override) and always verifies the finished signed factory. No optional skip of signature verification.
+- CLI Omarchy error reporting retains a live Guest after a pause/resume operation fails instead of terminating its host process. All 56 App tests passed after this change.
+- Fresh App icon replaces all old AppIcon PNGs, generated reproducibly from Resources/Brand/AppIcon.svg by scripts/render-brand-icons.py. Visually inspected the resulting full-size icon. The new website uses the same vector.
+- Website repo c4fa801 is deployed at https://riftvm.github.io/ (Pages run 34092635835 passed; HTTPS and live image loading checked in browser). Desktop 1280 and mobile 393 viewport checks passed without horizontal overflow. FAQ navigation checked. This page explicitly says the App is not yet downloadable and uses labeled CSS illustrations. No CNAME configured. Local preview server session 41954 uses port 8765; no longer needed after deployment.
+- Organization profile repo commit 1198a5e introduces RiftVM and links App/image/website with truthful development status.
