@@ -1055,6 +1055,17 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             }
             return
         }
+        if ProcessInfo.processInfo.environment["RIFTVM_RELEASE_QUIT_TO_SAVE"] == "1" {
+            guard VMOmarchyTemporaryPathPolicy.contains(rootPath) else {
+                failReleaseSmokeTest("quit acceptance requires a temporary fixture", configuration)
+                return
+            }
+            VMReleaseSmokeTest.report("quit-requested", configuration: configuration)
+            // AppKit termination must enter from its event loop, outside a
+            // main-queue task, so asynchronous quit participants can finish.
+            RunLoop.main.perform { NSApp.terminate(nil) }
+            return
+        }
         releaseSmokeDeadline = Date().addingTimeInterval(30)
         releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
             self?.advanceReleaseMachineStateSave(configuration, rootPath: rootPath, timer: timer)
