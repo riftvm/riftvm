@@ -11,7 +11,7 @@ final class VMOmarchyProfileTests: XCTestCase {
         XCTAssertTrue(profile.factoryGuestCapabilities.contains("owner-provisioning-v1"))
         XCTAssertFalse(profile.requiredGuestCapabilities.contains("owner-provisioning-v1"))
         XCTAssertFalse(profile.factoryImage.manifestURL.path.contains("/latest/"))
-        XCTAssertTrue(profile.factoryImage.manifestURL.path.contains("/v4.0.0-alpha-riftvm.32/"))
+        XCTAssertTrue(profile.factoryImage.manifestURL.path.contains("/v0.1.0-rc.1/"))
     }
 
     func testResourcePolicyLeavesHalfMemoryAndTwoProcessorsForHost() {

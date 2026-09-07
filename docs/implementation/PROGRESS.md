@@ -25,7 +25,7 @@ Status: implementation and release acceptance in progress. No public App release
 - Image source CI passed in [run 34091337579](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34091337579).
 - Draft factory build [34091423206](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34091423206) succeeded from a verified pinned base and current overlay. Upstream package drift prevented a fresh package-graph build; provenance preserves the original package base.
 - Candidate raw SHA-256: `99714624832d5fabaae59f58ad8f657384ebbfcf17ae5a72172b66c79965a000`. Agent revision: `1fa95a0de6d0478d2d098321f8d5b2ec929ce5b5`.
-- New Ed25519 factory trust, ASIF byte comparison, multipart signing and signature verification succeeded. Assets remain draft; public cold download and final App manifest pinning are pending.
+- New Ed25519 factory trust, ASIF byte comparison, multipart signing and signature verification succeeded. The verified image is now available as [v0.1.0-rc.1](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v0.1.0-rc.1), a prerelease that does not replace latest. Public cold download and development profile pinning passed; final signed-App acquisition is still pending.
 - [Default Pages site](https://riftvm.github.io/) is deployed, English-only, and accurately says the App is in development. Desktop/mobile layout and navigation checked. The verified Linux installer catalog is served there. Custom domain DNS remains unconfigured.
 - Organization profile and Homebrew tap repositories exist. No unverified cask has been published.
 
@@ -50,7 +50,7 @@ Status: implementation and release acceptance in progress. No public App release
 1. Complete real macOS and Custom ARM64 Linux installation and recovery checks.
 2. Verify two-Guest and mixed-profile input, clipboard, notification and folder isolation.
 3. Complete snapshot/rollback, duplicate identity, portability and signed CLI lifecycle checks.
-4. Consolidate remaining legacy release scripts around the one App; pin the validated immutable factory.
+4. Consolidate remaining legacy release scripts around the one App and carry the validated factory pin into the final signed candidate.
 5. Rebuild and validate the exact final signed candidate, publish accepted artifacts, verify public cold installation and the Homebrew cask, then update download documentation.
 
 Long soak and sleep/wake certification remain explicitly deferred. All other required completion gates remain in scope.
@@ -87,3 +87,12 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - These are development-build checks, not final signed-candidate approval. Multi-workspace save transactions, failure-path runtime acceptance and exact final artifact checks remain required.
 
 - Latest App build and integration suite: 59 tests pass, including saved-session commit/consume, interrupted transaction preservation, and rejection of changed disks, identities, folder permissions, resource allocation and truncated memory files.
+
+## Public factory acquisition
+
+- Main saved-session source CI [34104010780](https://github.com/riftvm/riftvm/actions/runs/34104010780) passed. Image pipeline/documentation CI [34104419888](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34104419888) passed after removing premature raw-only publication and old installation claims.
+- Published only the verified image prerelease, not the App. Its public manifest exactly matches the signed draft bytes and every uploaded part's digest and length. Complete ASIF SHA-256: `be656562670112c480b0ce14b12ff229af5d828268c289bfea9e18eb1a8d94ce`.
+- The App's native factory downloader completed a real public download into an empty cache with no GitHub token. It verified all 5,286,920,192 bytes and published a read-only image. A warm acquisition revalidated and reused the same file without modifying it.
+- A fresh workspace created from that downloaded image completed native first-owner configuration, authenticated Agent/desktop readiness, session save and restore, and normal shutdown. Restoring preserved the Guest boot ID. Automatic clipboard/display/shared-folder probes were interrupted by the deliberate save and are not claimed as passed by this check.
+- Production profile now pins the exact public candidate URL. App integration tests (59), profile tests (4), factory installer tests (10), and existing factory-tool signing/tamper regression checks pass. The new download command exercises the same installer as the App; it does not replace creation-GUI or final signed-candidate acceptance.
+- The two-stage procedure is documented in [FACTORY_RELEASE.md](FACTORY_RELEASE.md).
