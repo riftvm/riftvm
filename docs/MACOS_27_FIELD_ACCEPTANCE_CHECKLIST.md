@@ -1,5 +1,11 @@
 # EZVM macOS 27 field acceptance checklist
 
+Historical imported checklist. For the current RiftVM 0.1.0 release, use
+[Unified release acceptance](implementation/UNIFIED_ACCEPTANCE.md) and the
+[confirmed implementation plan](RIFTVM_IMPLEMENTATION_PLAN.md). In particular,
+the old identity, branch, four-section release prerequisite and deferred
+soak/sleep/USB requirements below are not current RiftVM release instructions.
+
 Use this checklist only with a Developer ID-signed EZVM 2.0.0 candidate built
 from `codex/wwdc26-virtualization`. It covers the release evidence that cannot
 be replaced by unit tests, unsigned builds, synthetic callbacks, or an idle VM.

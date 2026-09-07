@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check notarization receipt validation
         run: ruby scripts/test-notary-receipt.rb
+      - name: Check unified acceptance validation
+        run: ruby scripts/test-unified-acceptance.rb
       - name: Check read-only fixture guards
         run: bash scripts/test-readonly-fixture-guard.sh
       - name: Check CLI fixture cleanup safety

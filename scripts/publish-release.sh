@@ -33,6 +33,7 @@ for command in brew codesign gh git go ruby security xcrun; do
   require_command "$command"
 done
 
+require_environment RIFTVM_RELEASE_ACCEPTANCE
 require_environment APPLE_ID
 require_environment APPLE_TEAM_ID
 require_environment APPLE_SPECIFIC_PASSWORD
@@ -91,6 +92,11 @@ else
   "$project_root/scripts/build-guest-agent.sh" "$version" "$release_dir"
   printf '%s\n' "$source_commit" >"$source_commit_file"
 fi
+
+# Fail before notarization or publication when functional acceptance is missing
+# or belongs to a different ZIP. This record supplements the live checks below.
+ruby "$project_root/scripts/verify-unified-acceptance.rb" \
+  "$archive" "$RIFTVM_RELEASE_ACCEPTANCE" "$version" "$source_commit"
 
 notary_response="$release_dir/notary-response.json"
 notary_digest="$release_dir/notary-archive.sha256"
