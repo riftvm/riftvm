@@ -271,3 +271,11 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Signed build 7, isolated `/private/tmp/riftvm-candidate7/MacOS-Speakers.riftvm`, cloned from the stopped complete installed fixture with active disk layers retained. Speaker-only configuration booted to macOS Hello and then the Language page.
 - Full-screen Save State and Stop succeeded: MachineState.vzvmsave 1,375,735,808 bytes with 884-byte manifest. Reopening through the app restored the Language page; after guest display reconfiguration the window showed the complete centered page. This demonstrates actual OS UI continuity for this speaker-only fixture.
 - Full-screen capture still showed top/right white margins. Initial restore briefly showed the prior larger framebuffer cropped before adaptation. Display transition acceptance remains open; desktop setup and microphone-enabled lifecycle remain unverified.
+
+### 2026-09-07 — Preserve unverified live CLI runtime records
+
+- During cleanup, an older candidate headless process remained live but the newer CLI reported not_running because executable paths differed. The stop path also discarded its record.
+- Start, status and stop now return process_ownership_unverified when a saved record points to an existing PID whose ownership cannot be verified by the current installation. They preserve the record, do not signal the process, and do not launch a replacement. Exact executable ownership checks remain intact.
+- All 14 CLI tests pass, including a live unrelated-process regression that checks all three commands preserve the original state bytes.
+- Cleanup removed 17 obsolete build/test directories and released approximately 7.4 GiB of actual space. Downloaded ISO/IPSW/factory images and installed base fixtures were retained. The obsolete headless test did not exit after its normal shutdown signal and was explicitly terminated; its disk was retained. Current GUI testing uses one fixed installation at ~/Applications/RiftVM.app (signed build 8).
+- User completed Device Control and Data Access authorization; Omarchy permission banner disappeared. A normal stop/cold-start followed by existing-password login reached the desktop and authenticated text/image clipboard readiness. Guest-file rollback is still pending; automatic menu interaction has not yet provided reliable terminal access.

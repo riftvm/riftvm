@@ -356,9 +356,11 @@ public struct RiftVMMachineInspector {
 public struct RiftVMCLI {
     public let inspector: RiftVMMachineInspector
     private let minimumPreinstalledDiskSize: UInt64
-    public init(inspector: RiftVMMachineInspector = .init(), minimumPreinstalledDiskSize: UInt64 = 10 * 1024 * 1024 * 1024) {
+    private let headlessStateDirectory: URL?
+    public init(inspector: RiftVMMachineInspector = .init(), minimumPreinstalledDiskSize: UInt64 = 10 * 1024 * 1024 * 1024, headlessStateDirectory: URL? = nil) {
         self.inspector = inspector
         self.minimumPreinstalledDiskSize = minimumPreinstalledDiskSize
+        self.headlessStateDirectory = headlessStateDirectory
     }
 
     public func run(arguments: [String], environment: [String: String] = ProcessInfo.processInfo.environment) -> (RiftVMCLIExit, RiftVMCLIResponse) {
@@ -576,6 +578,9 @@ public struct RiftVMCLI {
             if let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) {
                 return (.invalidMachine, .init(command: "start", code: "already_running", message: "The machine already has a headless process."))
             }
+            if hasUnverifiedLiveProcess(at: stateURL, machine: machine) {
+                return unverifiedProcessResponse("start")
+            }
             try? FileManager.default.removeItem(at: stateURL)
             guard let executable = hostAppExecutable() else {
                 return (.unavailable, .init(command: "start", code: "host_app_unavailable", message: "Could not locate the RiftVM application executable."))
@@ -616,6 +621,9 @@ public struct RiftVMCLI {
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
             guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record, machine: machine) else {
+                if hasUnverifiedLiveProcess(at: headlessStateURL(for: machine), machine: machine) {
+                    return unverifiedProcessResponse("status")
+                }
                 if let shared = readActiveSharedRuntime(for: machine) {
                     return (.success, .init(command: "status", result: sharedRuntimeJSON(shared)))
                 }
@@ -637,6 +645,9 @@ public struct RiftVMCLI {
             let machine = try inspector.resolve(target, roots: parsed.roots)
             let stateURL = headlessStateURL(for: machine)
             guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) else {
+                if hasUnverifiedLiveProcess(at: stateURL, machine: machine) {
+                    return unverifiedProcessResponse("stop")
+                }
                 try? FileManager.default.removeItem(at: stateURL)
                 return (.notFound, .init(command: "stop", code: "not_running", message: "The machine has no active headless process."))
             }
@@ -674,7 +685,7 @@ public struct RiftVMCLI {
 
     private func headlessStateURL(for machine: URL) -> URL {
         let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let base = headlessStateDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("RiftVM/Headless", isDirectory: true)
         return base.appendingPathComponent("\(digest).json")
     }
@@ -682,6 +693,19 @@ public struct RiftVMCLI {
     private func readHeadlessState(_ url: URL) -> RiftVMHeadlessRecord? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(RiftVMHeadlessRecord.self, from: data)
+    }
+
+    private func hasUnverifiedLiveProcess(at stateURL: URL, machine: URL) -> Bool {
+        guard let record = readHeadlessState(stateURL), record.pid > 1,
+              !isExpectedHeadlessProcess(record, machine: machine) else { return false }
+        // EPERM also means the PID exists. Never erase its record or signal an
+        // unverified process merely because this CLI belongs to another build.
+        return kill(record.pid, 0) == 0 || errno == EPERM
+    }
+
+    private func unverifiedProcessResponse(_ command: String) -> (RiftVMCLIExit, RiftVMCLIResponse) {
+        (.unavailable, .init(command: command, code: "process_ownership_unverified",
+            message: "The saved runtime record refers to a live process that this RiftVM installation cannot verify. Use the RiftVM installation that started the workspace to stop it. The runtime record has been preserved."))
     }
 
     private func hostAppExecutable() -> URL? {

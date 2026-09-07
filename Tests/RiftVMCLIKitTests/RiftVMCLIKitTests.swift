@@ -14,6 +14,27 @@ final class RiftVMCLIKitTests: XCTestCase {
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
 
+    func testLiveUnverifiedProcessPreservesRecordAndBlocksLifecycleCommands() throws {
+        let machine = try makeMachine("Foreign.riftvm", name: "Foreign")
+        let stateDirectory = root.appendingPathComponent("Headless")
+        try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
+        let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let stateURL = stateDirectory.appendingPathComponent("\(digest).json")
+        let record = RiftVMHeadlessRecord(schemaVersion: 2,
+            pid: ProcessInfo.processInfo.processIdentifier, machinePath: machine.path,
+            phase: "running", message: nil, updatedAt: Date(), launchToken: UUID().uuidString)
+        let bytes = try JSONEncoder().encode(record)
+        try bytes.write(to: stateURL)
+        let cli = RiftVMCLI(headlessStateDirectory: stateDirectory)
+        for command in ["status", "stop", "start"] {
+            let (exitCode, response) = cli.run(arguments: [command, machine.path])
+            XCTAssertEqual(exitCode, .unavailable, command)
+            XCTAssertEqual(response.error?.code, "process_ownership_unverified", command)
+            XCTAssertEqual(try Data(contentsOf: stateURL), bytes, command)
+        }
+    }
+
     func testHostAppLocationResolvesHomebrewStyleCLISymlink() throws {
         let app = root.appendingPathComponent("RiftVM.app/Contents")
         let helper = app.appendingPathComponent("Helpers/riftvm")
