@@ -1670,7 +1670,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func installKeyboardBridge(for view: VZVirtualMachineView) {
             let bridge = OmarchyFocusedCommandBridge(
                 focusProbe: { [weak view] in
-                    guard let view, let window = view.window else { return false }
+                    guard let view, view.virtualMachine?.state == .running,
+                          let window = view.window else { return false }
                     guard window.isKeyWindow, NSApp.keyWindow === window, NSApp.modalWindow == nil,
                           window.attachedSheet == nil else { return false }
                     guard let responder = window.firstResponder as? NSView else { return false }

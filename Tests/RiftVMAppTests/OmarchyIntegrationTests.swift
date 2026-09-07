@@ -535,6 +535,29 @@ final class OmarchyIntegrationTests: XCTestCase {
         XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
     }
 
+    @MainActor
+    func testAppTargetedCommandRoutesOnceAndIgnoresOrdinaryOrUnfocusedInput() throws {
+        var focused = true
+        var forwarded: [CGKeyCode] = []
+        let bridge = OmarchyFocusedCommandBridge(focusProbe: { focused }, stateChanged: { _ in },
+            redirectedCommandChord: { code, _ in forwarded.append(code); return true })
+        func event(_ down: Bool, command: Bool = true, synthetic: Bool = false) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = command ? .maskCommand : []
+            if synthetic { value.setIntegerValueField(.eventSourceUserData, value: OmarchyFocusedCommandBridge.syntheticMarker) }
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        XCTAssertNil(bridge.handleLocalEvent(try event(true)))
+        XCTAssertNil(bridge.handleLocalEvent(try event(false)))
+        XCTAssertEqual(forwarded, [36])
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true, command: false)))
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true, synthetic: true)))
+        focused = false
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true)))
+        XCTAssertEqual(forwarded, [36])
+        bridge.stop()
+    }
+
     func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {
         XCTAssertTrue(OmarchyCommandCapturePolicy.shouldRedirect(
             type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: false

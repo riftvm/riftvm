@@ -107,6 +107,7 @@ final class OmarchyFocusedCommandBridge {
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
     private let redirectedCommandChord: (CGKeyCode, CGEventFlags) -> Bool
     private let commandSpaceCaptured: () -> Void
+    private var localMonitor: Any?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
@@ -154,6 +155,12 @@ final class OmarchyFocusedCommandBridge {
         guard AXIsProcessTrusted() else {
             stateChanged(.accessibilityRequired)
             return
+        }
+        if localMonitor == nil {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+                guard let self else { return event }
+                return self.handleLocalEvent(event)
+            }
         }
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: true)
@@ -218,6 +225,10 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func stop() {
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        localMonitor = nil
+        agentForwardedKeys.removeAll()
+        commandSpaceState = OmarchyCommandSpaceCaptureState()
         permissionTimer?.invalidate()
         permissionTimer = nil
         if let activationObserver {
@@ -307,6 +318,15 @@ final class OmarchyFocusedCommandBridge {
             }
         }
         return true
+    }
+
+    /// App-targeted accessibility events can bypass the session event tap.
+    /// Physical events redirected by the tap are consumed before this monitor;
+    /// fallback events carry syntheticMarker and therefore never loop.
+    func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
+        guard event.window == nil || event.window === NSApp.keyWindow,
+              let cgEvent = event.cgEvent else { return event }
+        return handle(type: cgEvent.type, event: cgEvent) == nil ? nil : event
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
