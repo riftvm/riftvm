@@ -61,3 +61,11 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 - Release builds accept RIFTVM_BUILD_NUMBER and pass it into both archive and build paths. Metadata verification rejects invalid/mismatched build numbers. Signed archives now honor the requested isolated derived-data directory. Metadata and signing-preflight regression checks passed.
 - The unified build now verifies the pinned factory public key, compiled icon representations, source metadata and unified production entitlements. Tampered identity, factory trust, missing icon/assets and extra entitlement fixtures are rejected. The existing notarized internal candidate passes these checks.
 - Standalone Omarchy build/publish entry points are retired and fail before creating state. The remaining general publisher still needs full unified functional-evidence integration before it is used for a public release.
+
+## Native installer and signed runtime checks
+
+- The notarized internal candidate completed a real macOS installation using the App's existing native installer acceptance entry and the verified Apple IPSW. Installation reached 100% and returned success. This exercises the GUI's underlying installer; GUI completion and Guest desktop setup remain unverified.
+- The signed CLI concurrently ran macOS and a restored Omarchy workspace, rejected duplicate starts, and normally stopped Omarchy without stopping macOS. macOS graceful stop timed out and is not claimed as passed.
+- A deliberate crash-recovery test initially hit a transient auxiliary-storage lock when immediately restarting macOS. Restart succeeded after the lock released. Immediate post-crash recovery still needs refinement/verification.
+- Protected Omarchy snapshot/marker restoration passed, followed by signed runtime startup. Guest-filesystem mutation/rollback proof still remains.
+- Official Debian ARM64 ISO download and digest verification passed. The signed App created its ISO-backed test configuration and reached VM running state; Linux installation and desktop interaction are not yet complete.
