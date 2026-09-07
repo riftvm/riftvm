@@ -1140,6 +1140,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var notificationAcceptanceProbeCompleted = false
         private var expectedAcceptanceNotificationTitle: String?
         private var latestGuestStatus: VMOmarchyGuestStatus?
+        private var shutdownAfterResume = false
         private var clipboardProbeOwnsTransport = false
         private var sharedFolderProbeTask: Task<Void, Never>?
         private var sharedFolderProbePassed = false
@@ -1364,6 +1365,11 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                         layout: self.layout
                                     )
                                     self.latestGuestStatus = status
+                                    if self.shutdownAfterResume {
+                                        self.shutdownAfterResume = false
+                                        self.requestStop()
+                                        return
+                                    }
                                     self.configureAgentClipboard(for: status)
                                     self.configureNotifications(for: status)
                                     self.handleAutomaticRecoveryReady(status)
@@ -2019,19 +2025,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         func requestStop() {
             guard let machine else { return }
-            // A paused guest cannot process the ACPI shutdown request.
+            // Resume the entire integration lifecycle, then wait for a fresh
+            // authenticated status before sending shutdown. Resuming only VZ
+            // leaves the Agent suspension gate closed and drops the request.
             if machine.state == .paused {
-                machine.resume { [weak self] result in
-                    DispatchQueue.main.async {
-                        guard let self else { return }
-                        switch result {
-                        case .success: self.requestStop()
-                        case .failure(let error): self.phaseChanged(.failed(error.localizedDescription))
-                        }
-                    }
-                }
+                shutdownAfterResume = true
+                resume()
                 return
             }
+            guard !shutdownAfterResume else { return }
             if let integrationClient, latestGuestStatus?.capabilities.contains("shutdown-v1") == true {
                 Task { @MainActor in integrationClient.requestShutdown() }
                 return
@@ -2085,6 +2087,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         private func resume() {
             guard let machine, machine.canResume else {
+                shutdownAfterResume = false
                 phaseChanged(.failed("Omarchy cannot be resumed right now."))
                 return
             }
@@ -2105,6 +2108,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         self.keyboardBridge?.start()
                         self.phaseChanged(.running)
                     case .failure(let error):
+                        self.shutdownAfterResume = false
                         self.automaticPauseResumeProbeStarted = false
                         self.phaseChanged(.failed(error.localizedDescription))
                     }
@@ -2185,6 +2189,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeTask?.cancel()
             dynamicDisplayProbeTask = nil
             dynamicDisplayProbePassed = false
+            shutdownAfterResume = false
             let client = integrationClient
             integrationClient = nil
             Task { @MainActor in client?.stop() }

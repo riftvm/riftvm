@@ -9,6 +9,8 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
     private var windows: [UUID: NSWindow] = [:]
     private var runtimeStates: [URL: VMRuntimeState] = [:]
     private var omarchyMachines: [URL: VZVirtualMachine] = [:]
+    private var omarchyStates: [URL: VZVirtualMachine.State] = [:]
+    @ObservationIgnored private var omarchyStateObservers: [URL: NSKeyValueObservation] = [:]
     private var omarchyShutdownRequests: [URL: () -> Void] = [:]
     private var omarchyLeases: [URL: VMRunLease] = [:]
     @ObservationIgnored private lazy var quitController = WorkspaceQuitController(
@@ -40,8 +42,8 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
 
     func phase(of workspace: WorkspaceRecord) -> String {
         let url = WorkspaceRegistry.canonical(workspace.location)
-        if let machine = omarchyMachines[url] {
-            switch machine.state {
+        if let state = omarchyStates[url] {
+            switch state {
             case .running: return "Running"
             case .paused: return "Paused"
             case .stopped: return "Stopped"
@@ -154,6 +156,8 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         let key = WorkspaceRegistry.canonical(url)
         if let expectedLease, omarchyLeases[key]?.id != expectedLease.id { return }
         omarchyMachines.removeValue(forKey: key)
+        omarchyStates.removeValue(forKey: key)
+        omarchyStateObservers.removeValue(forKey: key)
         omarchyShutdownRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
@@ -169,12 +173,23 @@ final class WorkspaceCoordinator: NSObject, NSWindowDelegate {
         }
         omarchyLeases[key] = lease
         omarchyMachines[key] = machine
+        omarchyStates[key] = machine.state
+        // VZVirtualMachine is KVO observable, not Swift Observation observable.
+        // Bridge state changes so library cards and the menu bar stay current.
+        omarchyStateObservers[key] = machine.observe(\.state, options: [.new]) { [weak self, weak machine] _, _ in
+            Task { @MainActor in
+                guard let self, let machine, self.omarchyMachines[key] === machine else { return }
+                self.omarchyStates[key] = machine.state
+            }
+        }
         omarchyShutdownRequests[key] = requestShutdown
     }
 
     func omarchyDidStop(_ machine: VZVirtualMachine) {
         guard let key = omarchyMachines.first(where: { $0.value === machine })?.key else { return }
         omarchyMachines.removeValue(forKey: key)
+        omarchyStates.removeValue(forKey: key)
+        omarchyStateObservers.removeValue(forKey: key)
         omarchyShutdownRequests.removeValue(forKey: key)
         if let lease = omarchyLeases.removeValue(forKey: key) { VMRunningRegistry.shared.release(lease) }
     }
