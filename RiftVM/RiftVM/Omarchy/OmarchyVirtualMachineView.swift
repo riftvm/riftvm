@@ -1655,11 +1655,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         sendAppleUSBText: { [weak self, weak bridge, weak inputView] text in
                             guard let self, let bridge, let inputView else { return false }
                             inputView.setGuestInputEventHandler(nil)
+                            defer {
+                                if let status = self.latestGuestStatus {
+                                    self.configureDesktopInput(for: status)
+                                }
+                            }
                             guard bridge.runAcceptanceTextInput(text) else { return false }
                             try? await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(for: text))
-                            if let status = self.latestGuestStatus {
-                                self.configureDesktopInput(for: status)
-                            }
                             return true
                         }
                     )
