@@ -669,7 +669,7 @@ private final class VMPreinstalledImageDownloadCoordinator {
               archive.parts.reduce(Int64(0), { $0 + $1.size }) == archive.compressedSize,
               archive.parts.allSatisfy({ $0.size > 0 && $0.sha256.isSHA256 && $0.name.isSafeAssetName }),
               let release = manifest.release,
-              release.repository == "riftvm/omarchy-aarch64-image",
+              release.repository == "riftvm/riftvm-omarchy-aarch64-image",
               release.tag.isSafeAssetName else {
             throw PreparationError.invalidManifest("The release archive metadata is invalid or unsupported.")
         }
