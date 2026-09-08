@@ -528,3 +528,8 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Added acceptance schema 2, retaining all existing gates and separately requiring Omarchy keyboard responsiveness. Only this new check can be deferred for 0.1.0 with the exact owner-approved issue and approval date; observed failure and artifact-bound evidence remain mandatory. Target isolation, modifier release, clipboard/notifications and all other functional gates cannot be deferred through this exception. Schema 1 remains unchanged.
 - Verifier regression: 12 tests, 51 assertions, zero failures. No passing real release report was fabricated. Removed unused build 15–22 DerivedData caches after checking for open file handles; retained latest builds, ZIPs, logs, installers and guests.
+
+### 2026-09-07 — Build 24 extracted-package distribution checks
+
+- Verified installed build number 24 and strict deep signature, then independently extracted the retained build 24 ZIP into a fresh temporary directory. Its strict deep signature passed. Adding a quarantine attribute to this extracted copy and assessing it with spctl returned accepted, source=Developer ID. Logs: /private/tmp/riftvm-candidate24/signature-check.log, unpacked-signature.log, gatekeeper-check.log and quarantine-gatekeeper.log. The unused extracted copy was removed after the checks.
+- These are current-host checks, not proof of a notarization receipt, offline Gatekeeper or a clean Mac installation. Apple notarization submission was rejected before execution by automatic approval review, which requires explicit authorization for uploading this ZIP to Apple. No submission ID or receipt exists from that attempt. Approval was requested; no automatic continuation is treated as approval.
