@@ -12,9 +12,7 @@ expected_version="${2:-}"
 expected_revision="${RIFTVM_EXPECTED_SOURCE_REVISION:-$(git -C "$project_root" rev-parse HEAD)}"
 macos_vm="${RIFTVM_MATRIX_MACOS_VM:-}"
 omarchy_vm="${RIFTVM_MATRIX_OMARCHY_VM:-}"
-ubuntu_vm="${RIFTVM_MATRIX_UBUNTU_VM:-}"
 omarchy_enrollment="${RIFTVM_MATRIX_OMARCHY_ENROLLMENT:-}"
-ubuntu_enrollment="${RIFTVM_MATRIX_UBUNTU_ENROLLMENT:-}"
 matrix_report="${RIFTVM_MATRIX_REPORT:-}"
 matrix_started_at="$(date +%s)"
 
@@ -26,10 +24,9 @@ fail() {
 [[ -d "$app_path" ]] || fail "usage: $0 <RiftVM.app> [expected-version]"
 [[ -d "$macos_vm" ]] || fail "RIFTVM_MATRIX_MACOS_VM must name a macOS fixture"
 [[ -d "$omarchy_vm" ]] || fail "RIFTVM_MATRIX_OMARCHY_VM must name an Omarchy fixture"
-[[ -d "$ubuntu_vm" ]] || fail "RIFTVM_MATRIX_UBUNTU_VM must name an Ubuntu fixture"
 
 declare -A fixture_fingerprints
-for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
+for fixture in "$macos_vm" "$omarchy_vm"; do
   fixture_fingerprints["$fixture"]="$(fixture_metadata_fingerprint "$fixture")" \
     || fail "could not fingerprint read-only fixture: $fixture"
 done
@@ -37,7 +34,7 @@ done
 verify_fixtures_unchanged() {
   local fixture
   local result=0
-  for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
+  for fixture in "$macos_vm" "$omarchy_vm"; do
     assert_fixture_unchanged "$fixture" "${fixture_fingerprints[$fixture]}" || result=1
   done
   return "$result"
@@ -69,23 +66,17 @@ validate_fixture() {
 
 validate_fixture "$macos_vm" macOS ""
 validate_fixture "$omarchy_vm" linux omarchy
-validate_fixture "$ubuntu_vm" linux ubuntu
 
 [[ -n "$omarchy_enrollment" ]] || fail "RIFTVM_MATRIX_OMARCHY_ENROLLMENT is required"
-[[ -n "$ubuntu_enrollment" ]] || fail "RIFTVM_MATRIX_UBUNTU_ENROLLMENT is required"
-[[ "$omarchy_enrollment" != "$ubuntu_enrollment" ]] \
-  || fail "Omarchy and Ubuntu must use different enrollment files"
 validate_release_enrollment "$omarchy_vm" "$omarchy_enrollment" \
   || fail "Omarchy enrollment preflight failed"
-validate_release_enrollment "$ubuntu_vm" "$ubuntu_enrollment" \
-  || fail "Ubuntu enrollment preflight failed"
 
 "$project_root/scripts/verify-release-app.sh" \
   "$app_path" "$expected_version" "$expected_revision"
 "$project_root/scripts/verify-real-low-space-snapshot.sh"
 "$project_root/scripts/verify-large-asif-snapshot.sh"
 
-for fixture in "$macos_vm" "$omarchy_vm" "$ubuntu_vm"; do
+for fixture in "$macos_vm" "$omarchy_vm"; do
   "$project_root/scripts/verify-release-cli.sh" "$app_path" "$fixture"
 done
 
@@ -105,17 +96,16 @@ run_linux_guest_gate() {
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$fixture"
 }
 
-run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment" 0
-run_linux_guest_gate "$ubuntu_vm" "$ubuntu_enrollment" 1
+run_linux_guest_gate "$omarchy_vm" "$omarchy_enrollment" 1
 
-RIFTVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
-  "$project_root/scripts/verify-release-vmnet.sh" "$app_path" "$ubuntu_vm"
+RIFTVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
+  "$project_root/scripts/verify-release-vmnet.sh" "$app_path" "$omarchy_vm"
 
-RIFTVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
-  "$project_root/scripts/verify-release-asif-snapshot.sh" "$app_path" "$ubuntu_vm"
+RIFTVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
+  "$project_root/scripts/verify-release-asif-snapshot.sh" "$app_path" "$omarchy_vm"
 
-RIFTVM_RELEASE_SMOKE_ENROLLMENT="$ubuntu_enrollment" \
-  "$project_root/scripts/verify-release-asif-portability.sh" "$app_path" "$ubuntu_vm"
+RIFTVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
+  "$project_root/scripts/verify-release-asif-portability.sh" "$app_path" "$omarchy_vm"
 
 if [[ "${RIFTVM_MATRIX_REQUIRE_NESTED:-0}" == "1" ]]; then
   RIFTVM_RELEASE_SMOKE_ENROLLMENT="$omarchy_enrollment" \
@@ -131,4 +121,4 @@ if [[ -n "$matrix_report" ]]; then
     "${RIFTVM_MATRIX_REQUIRE_NESTED:-0}"
 fi
 
-echo "Verified the signed macOS 27 guest matrix: macOS, Omarchy, and Ubuntu."
+echo "Verified the signed macOS 27 workspace matrix: macOS and Omarchy."

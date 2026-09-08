@@ -87,29 +87,27 @@ export APPLE_TEAM_ID="YPV49M8592"
 scripts/release-patch.sh
 ```
 
-Set `RiftVM_RELEASE_SMOKE_VM` to a prepared ARM64 Linux VM bundle and
+Set `RiftVM_RELEASE_SMOKE_VM` to a prepared Omarchy VM bundle and
 `RiftVM_RELEASE_SMOKE_ENROLLMENT` to its mode-`0600` Agent enrollment file.
 Release automation uses isolated APFS clones, tests GUI readiness, two
 concurrent headless VMs, Agent authentication and byte-exact file transfer,
 guest KVM API availability, and clean stop. The source VM is not modified. The
 same gates run against the notarized archive and the published Homebrew Cask.
 
-### macOS 27 three-guest release matrix
+### macOS 27 two-workspace release matrix
 
 Before publishing a macOS 27 candidate, keep stopped, disposable fixtures for
-the three creation choices and run the exact signed app through the matrix:
+the two supported workspace types and run the exact signed app through the matrix:
 
 ```bash
 RiftVM_MATRIX_MACOS_VM="$HOME/RiftVM Test Fixtures/macOS.riftvm" \
 RiftVM_MATRIX_OMARCHY_VM="$HOME/RiftVM Test Fixtures/Omarchy.riftvm" \
-RiftVM_MATRIX_UBUNTU_VM="$HOME/RiftVM Test Fixtures/Ubuntu.riftvm" \
 RiftVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/RiftVM Test Fixtures/omarchy-enrollment.json" \
-RiftVM_MATRIX_UBUNTU_ENROLLMENT="$HOME/RiftVM Test Fixtures/ubuntu-enrollment.json" \
 scripts/verify-macos27-guest-matrix.sh /path/to/RiftVM.app 2.0.0
 ```
 
 The script rejects mislabeled fixtures and, before launching anything, verifies
-that each Linux enrollment is a non-symlink mode-`0600` file bound to that
+that the Omarchy enrollment is a non-symlink mode-`0600` file bound to that
 fixture's `MachineIdentifier`. It never prints the enrollment token. It then
 verifies the app signature,
 Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
@@ -117,7 +115,7 @@ concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
 recovery, Guest Agent authentication, byte-exact transfer, ASIF attachment,
 VMNet Shared guest connectivity, signed macOS machine-state save and cross-process
 restore, and clean shutdown. The VMNet gate creates and
-removes its own clone of the Ubuntu fixture. The ASIF gate separately creates a
+removes its own clone of the Omarchy fixture. The ASIF gate separately creates a
 layered snapshot, audits and restores it from fresh app processes, then boots the
 restored clone. Neither gate changes the source VM. Set
 `RiftVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
@@ -154,7 +152,7 @@ GitHub Pages workflow; CI and Release workflows should return when a genuine
 macOS 27 runner can execute the same app, GUI, Virtualization.framework, and
 real-VM gates. GitHub Release and Homebrew publication remain gated on a
 Developer ID certificate, Apple notarization credentials, tap access, a mode
-`0600` Agent enrollment, and a disposable clone of a real ARM64 Linux VM.
+`0600` Agent enrollment, and disposable macOS and Omarchy fixtures.
 
 ## Release traps to keep fixed
 
