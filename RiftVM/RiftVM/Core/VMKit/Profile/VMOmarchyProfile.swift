@@ -61,7 +61,7 @@ public struct VMOmarchyProfile: Codable, Equatable {
         guard schemaVersion == Self.currentSchemaVersion else {
             throw ValidationError.unsupportedSchema(schemaVersion)
         }
-        guard productID == "com.everettjf.riftvm.omarchy" else {
+        guard productID == "com.riftvm.app.omarchy" else {
             throw ValidationError.invalidProductID
         }
         guard minimumHostMajorVersion >= 27,
@@ -119,7 +119,7 @@ public struct VMOmarchyProfile: Codable, Equatable {
 extension VMOmarchyProfile {
     public static let production = VMOmarchyProfile(
         schemaVersion: currentSchemaVersion,
-        productID: "com.everettjf.riftvm.omarchy",
+        productID: "com.riftvm.app.omarchy",
         minimumHostMajorVersion: 27,
         diskCapacityBytes: 64 * 1_024 * 1_024 * 1_024,
         resourceTiers: [

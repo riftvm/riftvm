@@ -95,7 +95,7 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let bundle = root.appending(path: "macOS.riftvm", directoryHint: .isDirectory)
 
         let first = try store.registerIfNeeded(name: "macOS", kind: .macOS, bundleURL: bundle)
-        let second = try store.registerIfNeeded(name: "Renamed", kind: .customLinux, bundleURL: bundle)
+        let second = try store.registerIfNeeded(name: "Renamed", kind: .omarchy, bundleURL: bundle)
 
         XCTAssertEqual(first.workspaces.count, 1)
         XCTAssertEqual(second.workspaces, first.workspaces)

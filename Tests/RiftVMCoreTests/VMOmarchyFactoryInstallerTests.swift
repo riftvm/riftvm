@@ -219,7 +219,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             let signingKeyID = "test-key"
             profile = VMOmarchyProfile(
                 schemaVersion: 1,
-                productID: "com.everettjf.riftvm.omarchy",
+                productID: "com.riftvm.app.omarchy",
                 minimumHostMajorVersion: 27,
                 diskCapacityBytes: 64 * 1_024 * 1_024 * 1_024,
                 resourceTiers: VMOmarchyProfile.production.resourceTiers,

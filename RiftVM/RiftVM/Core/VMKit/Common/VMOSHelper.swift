@@ -1480,7 +1480,7 @@ enum VMGuestProvisioningCompatibility {
 }
 
 enum VMGuestProvisioningCredentialStore {
-    private static let service = "com.everettjf.riftvm.guest-provisioning"
+    private static let service = "com.riftvm.app.guest-provisioning"
 
     static func save(_ credential: VMGuestProvisioningCredential, vmRootPath: URL) -> VMOSResultVoid {
         do {

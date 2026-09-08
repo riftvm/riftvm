@@ -4,7 +4,7 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
-tap_repo="${RIFTVM_HOMEBREW_TAP:-git@github.com:everettjf/homebrew-tap.git}"
+tap_repo="${RIFTVM_HOMEBREW_TAP:-git@github.com:riftvm/homebrew-tap.git}"
 release_branch="${RIFTVM_RELEASE_BRANCH:-main}"
 
 if [[ -z "$version" ]]; then

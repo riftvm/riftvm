@@ -5,8 +5,32 @@ RiftVM is a macOS application, so it should be distributed as a **Homebrew Cask*
 RiftVM is published through the project's Homebrew tap:
 
 ```sh
-brew install --cask everettjf/tap/riftvm
+brew install --cask riftvm/tap/riftvm
 ```
+
+## Tap repository setup
+
+The public tap lives at `riftvm/homebrew-tap`. Homebrew removes the
+`homebrew-` prefix when deriving the short tap name, so this repository is
+installed as `riftvm/tap` and the fully qualified Cask name is
+`riftvm/tap/riftvm`.
+
+Create it once from an account that may create public repositories in the
+`riftvm` GitHub organization:
+
+```sh
+brew tap-new riftvm/homebrew-tap
+gh repo create riftvm/homebrew-tap \
+  --public \
+  --source "$(brew --repository riftvm/homebrew-tap)" \
+  --push
+```
+
+Keep `Casks/riftvm.rb` as the canonical path in the tap. The release account
+or CI identity needs `Write` access to that repository; repository
+administration permission is not required for routine Cask updates. The
+publisher defaults to `git@github.com:riftvm/homebrew-tap.git`, and
+`RIFTVM_HOMEBREW_TAP` can override it for a staging remote.
 
 ## Current release
 
@@ -44,8 +68,8 @@ cask "riftvm" do
 
   zap trash: [
     "~/Library/Application Support/RiftVM",
-    "~/Library/Preferences/com.everettjf.riftvm.plist",
-    "~/Library/Saved Application State/com.everettjf.riftvm.savedState",
+    "~/Library/Preferences/com.riftvm.app.plist",
+    "~/Library/Saved Application State/com.riftvm.app.savedState",
   ]
 end
 ```
@@ -111,13 +135,13 @@ calculates the next patch version, updates every Xcode target, runs tests and a
 Release build, commits the version bump when needed, then builds the pinned
 VirGL runtime, signs and notarizes the app locally, and exercises the exact
 candidate before pushing `main` and the tag. Only after those gates pass does
-it create the GitHub Release and update `everettjf/homebrew-tap`. Set
+it create the GitHub Release and update `riftvm/homebrew-tap`. Set
 `RiftVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
 
 1. Build and sign the application with its virtualization entitlement and hardened runtime.
 2. Notarize the archive, quarantine-extract it, and pass GUI plus real-VM gates.
 3. Push the exact tested commit/tag and upload the immutable archive plus checksums.
-4. Update `everettjf/homebrew-tap` to that exact URL and SHA-256.
+4. Update `riftvm/homebrew-tap` to that exact URL and SHA-256.
 5. Upgrade/install from Homebrew and repeat the GUI plus real-VM gates.
 6. Submit it to `Homebrew/homebrew-cask` once RiftVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask riftvm`.
 7. Publish the working install command in the README and website.

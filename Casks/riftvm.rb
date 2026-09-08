@@ -18,7 +18,7 @@ cask "riftvm" do
 
   zap trash: [
     "~/Library/Application Support/RiftVM",
-    "~/Library/Preferences/com.everettjf.riftvm.plist",
-    "~/Library/Saved Application State/com.everettjf.riftvm.savedState",
+    "~/Library/Preferences/com.riftvm.app.plist",
+    "~/Library/Saved Application State/com.riftvm.app.savedState",
   ]
 end

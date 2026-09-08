@@ -78,8 +78,8 @@ done
 # A normal second click on the app sends reopen/activate, so exercise that
 # public lifecycle path before requiring a visible Control Center window.
 osascript \
-  -e 'tell application id "com.everettjf.riftvm" to reopen' \
-  -e 'tell application id "com.everettjf.riftvm" to activate'
+  -e 'tell application id "com.riftvm.app" to reopen' \
+  -e 'tell application id "com.riftvm.app" to activate'
 
 for ((second = 1; second <= launch_timeout; second++)); do
   for _ in {1..10}; do
@@ -96,7 +96,7 @@ ruby -rjson -e '
   abort "main event loop did not respond" unless value["eventLoopResponsive"] == true
   abort "window is not visible" unless value["windowVisible"] == true
   abort "window is too small" unless value["windowWidth"] >= 800 && value["windowHeight"] >= 600
-  abort "wrong bundle" unless value["bundleIdentifier"] == "com.everettjf.riftvm"
+  abort "wrong bundle" unless value["bundleIdentifier"] == "com.riftvm.app"
 ' "$ready_file"
 
 app_pid="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("pid")' "$ready_file")"

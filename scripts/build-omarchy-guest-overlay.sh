@@ -42,7 +42,7 @@ jq -n \
   --arg session_sha "$(shasum -a 256 "$session_unit" | awk '{print $1}')" \
   '{
     schemaVersion: 1,
-    productID: "com.everettjf.riftvm.omarchy",
+    productID: "com.riftvm.app.omarchy",
     version: $version,
     files: [
       {path: "etc/systemd/system/mnt-riftvm\\x2dshared.mount", sha256: $mount_sha},

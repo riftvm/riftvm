@@ -68,7 +68,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     let onScanoutInvalidated: @MainActor (UInt64) -> Void
     let onCursor: @MainActor (RiftVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
-    let deviceQueue = DispatchQueue(label: "com.everettjf.riftvm.prototype.virtio-gpu")
+    let deviceQueue = DispatchQueue(label: "com.riftvm.app.prototype.virtio-gpu")
     private let deviceQueueKey = DispatchSpecificKey<UInt8>()
 
     private(set) var device: VZCustomVirtioDevice?
@@ -215,7 +215,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
     }
 
-    private let logger = Logger(subsystem: "com.everettjf.riftvm", category: "virtio-gpu")
+    private let logger = Logger(subsystem: "com.riftvm.app", category: "virtio-gpu")
 
     private var diagnosticsEnabled: Bool {
         ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1"

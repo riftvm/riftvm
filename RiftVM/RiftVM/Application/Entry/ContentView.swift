@@ -32,9 +32,8 @@ struct ContentView: View {
             workspaceView(workspace)
         } else if snapshot.workspaces.isEmpty {
             WorkspaceWelcomeView(
-                createOmarchy: createOmarchyWorkspace,
-                createMacOS: { openWindow(id: "create-machine-guide") },
-                createCustomLinux: { openWindow(id: "create-machine-guide") }
+                createOmarchy: { openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy) },
+                createMacOS: { openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.macOS) }
             )
         } else {
             WorkspaceChooserView(
@@ -53,10 +52,14 @@ struct ContentView: View {
             Divider()
             switch workspace.kind {
             case .omarchy:
-                let manager = VMOmarchyWorkspaceManager(layout: .init(applicationSupportRoot: workspace.bundleURL))
-                OmarchyRootView(profile: .production, workspaceManager: manager)
-                    .onAppear { OmarchyReleaseReadinessReporter.reportWhenReady(workspaceManager: manager) }
-            case .macOS, .customLinux:
+                if FileManager.default.fileExists(atPath: VMModel.getConfigURL(rootPath: workspace.bundleURL).path) {
+                    VMOSMainVirtualMachineView(rootPath: workspace.bundleURL, recoveryMode: false)
+                } else {
+                    let manager = VMOmarchyWorkspaceManager(layout: .init(applicationSupportRoot: workspace.bundleURL))
+                    OmarchyRootView(profile: .production, workspaceManager: manager)
+                        .onAppear { OmarchyReleaseReadinessReporter.reportWhenReady(workspaceManager: manager) }
+                }
+            case .macOS:
                 VMOSMainVirtualMachineView(rootPath: workspace.bundleURL, recoveryMode: false)
             }
         }
@@ -94,25 +97,6 @@ struct ContentView: View {
         }
     }
 
-    private func createOmarchyWorkspace() {
-        do {
-            let id = UUID()
-            let machines = FileManager.default.homeDirectoryForCurrentUser
-                .appending(path: "RiftVM Virtual Machines", directoryHint: .isDirectory)
-            let workspace = try RiftWorkspaceRecord(
-                id: id,
-                name: "Omarchy",
-                kind: .omarchy,
-                bundleURL: machines.appending(path: "Omarchy-\(id.uuidString).riftvm", directoryHint: .isDirectory)
-            )
-            snapshot = try registry.register(workspace, makeDefault: snapshot?.workspaces.isEmpty == true)
-            selectedWorkspaceID = workspace.id
-            errorMessage = nil
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
     private func setDefault(_ workspace: RiftWorkspaceRecord) {
         do {
             snapshot = try registry.setDefault(workspace.id)
@@ -125,7 +109,6 @@ struct ContentView: View {
 private struct WorkspaceWelcomeView: View {
     let createOmarchy: () -> Void
     let createMacOS: () -> Void
-    let createCustomLinux: () -> Void
 
     var body: some View {
         VStack(spacing: 28) {
@@ -138,7 +121,6 @@ private struct WorkspaceWelcomeView: View {
                 WorkspaceCreationCard(title: "Create macOS Workspace", description: "Install from a supported restore image or local IPSW.", systemImage: "macwindow", action: createMacOS)
             }
             .frame(maxWidth: 780)
-            Button("More Systems / Custom ISO…", systemImage: "opticaldisc", action: createCustomLinux)
         }
         .padding(48)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -196,7 +178,6 @@ private struct WorkspaceChooserView: View {
         switch kind {
         case .omarchy: "sparkles.rectangle.stack"
         case .macOS: "macwindow"
-        case .customLinux: "terminal"
         }
     }
 }

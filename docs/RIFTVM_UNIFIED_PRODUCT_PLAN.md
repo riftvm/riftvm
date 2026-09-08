@@ -7,7 +7,7 @@ Phase A 的基线、迁移边界和逐阶段证据记录在
 ## 1. 产品决策
 
 - 只发布一个 **RiftVM 1.0.0**，合并现有 EZVM 与 EZVM Omarchy。
-- Omarchy 和 macOS 是两种主打工作空间；其他 ARM64 Linux 放在“更多系统 / 自定义 ISO”。
+- 只支持 Omarchy 和 macOS 两种工作空间，把两条体验做深、做稳。
 - 一个 App、Bundle ID、CLI、Homebrew Cask、权限身份和应用发行包。
 - Omarchy 专用安装器和集成模块保留，独立 App target 和发行入口取消。
 - 不考虑 EZVM 旧数据、格式、命令、环境变量和 Agent 兼容；不自动删除旧数据。
@@ -18,7 +18,7 @@ Phase A 的基线、迁移边界和逐阶段证据记录在
 
 ## 2. 用户路径
 
-首次打开，展示“创建 Omarchy 工作空间”和“创建 macOS 工作空间”；更多系统作为次级入口。
+首次打开，只展示“创建 Omarchy 工作空间”和“创建 macOS 工作空间”。
 
 Omarchy：选择名称/目录/资源 → 下载并验证 factory → 创建独立工作磁盘 → 设置账号 → 进入桌面。默认使用 macOS 原生全屏窗口形成 Space，保留窗口模式。
 
@@ -43,7 +43,7 @@ macOS：选择支持的恢复镜像或本地 IPSW → 选择名称/目录/资源
 | 对象 | 唯一目标 |
 |---|---|
 | App / 主 target / scheme | RiftVM |
-| Bundle ID | com.everettjf.riftvm |
+| Bundle ID | com.riftvm.app |
 | 主工程 | RiftVM/RiftVM.xcodeproj |
 | 核心 / CLI 模块 | RiftVMCore / RiftVMCLIKit |
 | Host CLI / Cask | riftvm |
@@ -78,7 +78,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 - Workspace Registry：UUID、profile、位置、默认项。
 - Workspace Coordinator：创建、打开、窗口路由、生命周期和退出协调。
-- Workspace Profile：Omarchy / macOS / Custom Linux 的安装方式、资源建议和能力。
+- Workspace Profile：Omarchy / macOS 的安装方式、资源建议和能力。
 - VM Runtime：复用现有 Virtualization.framework、图形和设备实现。
 - Integration Session：按工作空间管理 Agent、输入、剪贴板、通知和授权。
 
@@ -101,7 +101,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 必须交付：
 
-1. 同一 App 内完成 Omarchy/macOS 创建、运行和切换，保留其他 Linux ISO 入口。
+1. 同一 App 内完成 Omarchy/macOS 创建、运行和切换；不提供通用 Linux 或自定义 ISO 入口。
 2. 默认工作空间、直接启动、多窗口、全屏与统一退出处理。
 3. Omarchy 镜像信任校验、安装、账号设置和失败重试。
 4. macOS 恢复镜像/本地 IPSW 安装和首次设置。
@@ -169,7 +169,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 - 品牌仅 RiftVM；不再出现两个应用下载选择。
 - 左侧 Omarchy、右侧 macOS，保留斜向裂缝和中心赛车视觉。
 - 唯一主按钮“Download RiftVM”，不显示版本号。
-- 两侧进入各自功能介绍，最终下载同一包；其他 Linux 在次级区域介绍。
+- 两侧进入各自功能介绍，最终下载同一包；不展示其他 Linux 发行版入口。
 - App 图标、网站 Logo、截图及赛车上的 EZ/Z 标记统一检查，必要时换成 R/裂缝；实测 Dock/Finder 图标。
 - canonical、Open Graph、Cask homepage、支持链接使用 https://riftvm.com。
 - DNS、HTTPS 和托管实际确认后切换；旧站跳转按托管能力实施，不假设静态 Pages 支持任意 301。

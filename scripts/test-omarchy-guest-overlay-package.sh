@@ -29,7 +29,7 @@ for attempt in first second; do
   tar -xzf "$archive" -C "$extracted"
   jq -e '
     .schemaVersion == 1 and
-    .productID == "com.everettjf.riftvm.omarchy" and
+    .productID == "com.riftvm.app.omarchy" and
     .version == "0.1.0-test" and
     (.files | length) == 2 and
     ([.files[].path] == [

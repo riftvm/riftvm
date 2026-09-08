@@ -1,9 +1,8 @@
 import Foundation
 
-public enum RiftWorkspaceKind: String, Codable, CaseIterable, Sendable {
+public enum RiftWorkspaceKind: String, Codable, CaseIterable, Hashable, Sendable {
     case omarchy
     case macOS
-    case customLinux
 }
 
 public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {

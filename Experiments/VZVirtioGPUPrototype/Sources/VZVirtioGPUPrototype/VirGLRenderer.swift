@@ -94,7 +94,7 @@ final class VirGLRenderer {
     private var nextHostFenceID: UInt32 = 1
     private var pendingFences: [UInt32: PendingFence] = [:]
     private var lastLoggedScanoutDiagnosticGeneration: UInt64 = 0
-    private let logger = Logger(subsystem: "com.everettjf.riftvm", category: "virgl-fence")
+    private let logger = Logger(subsystem: "com.riftvm.app", category: "virgl-fence")
 
     init(libraryURL: URL) throws {
         self.libraryURL = libraryURL

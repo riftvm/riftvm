@@ -54,6 +54,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 context.formData.creationStage = "Ready"
                 context.formData.changeProgress(1)
                 context.formData.disablePreviousButton = true
+                registerCreatedWorkspace(kind: .omarchy, context: context)
             }
             return result
         }
@@ -146,23 +147,33 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.creationStage = "Ready"
             context.formData.changeProgress(1)
             context.formData.disablePreviousButton = true
-            sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
-            do {
-                let kind: RiftWorkspaceKind = context.configData.osType == .macOS ? .macOS : .customLinux
-                _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
-                    name: context.configData.name,
-                    kind: kind,
-                    bundleURL: rootPath
-                )
-                NotificationCenter.default.post(name: .riftWorkspaceRegistryDidChange, object: rootPath)
-            } catch {
-                let message = "Workspace registry update failed: \(error.localizedDescription)"
-                context.formData.addLog("⚠️ \(message)")
-                RiftVMLog.error(message, logger: RiftVMLog.lifecycle)
-            }
+            registerCreatedWorkspace(
+                kind: context.configData.osType == .macOS ? .macOS : .omarchy,
+                context: context
+            )
         }
 
         return result
+    }
+
+    private func registerCreatedWorkspace(
+        kind: RiftWorkspaceKind,
+        context: VMCreateStepperGuidePhaseContext
+    ) {
+        let rootPath = URL(filePath: context.formData.rootPath)
+        sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
+        do {
+            _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
+                name: context.configData.name,
+                kind: kind,
+                bundleURL: rootPath
+            )
+            NotificationCenter.default.post(name: .riftWorkspaceRegistryDidChange, object: rootPath)
+        } catch {
+            let message = "Workspace registry update failed: \(error.localizedDescription)"
+            context.formData.addLog("⚠️ \(message)")
+            RiftVMLog.error(message, logger: RiftVMLog.lifecycle)
+        }
     }
 
     private func resolveSystemImage(context: VMCreateStepperGuidePhaseContext) async -> VMOSResult<URL, String> {

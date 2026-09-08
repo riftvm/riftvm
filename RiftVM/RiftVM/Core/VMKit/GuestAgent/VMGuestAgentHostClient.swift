@@ -65,7 +65,7 @@ final class VMGuestAgentHostClient {
     private var pendingInputBatches: [[VMGuestAgentInputEvent]] = []
     private var inputTask: Task<Void, Never>?
     private var transferTask: Task<Void, Never>?
-    private let ioQueue = DispatchQueue(label: "com.everettjf.riftvm.guest-agent.read", qos: .utility)
+    private let ioQueue = DispatchQueue(label: "com.riftvm.app.guest-agent.read", qos: .utility)
 
     init(
         device: VZVirtioSocketDevice,

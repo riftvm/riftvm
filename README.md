@@ -19,7 +19,7 @@ On an Apple silicon Mac running **macOS 27 or later**, install the signed
 and notarized app with Homebrew:
 
 ```bash
-brew install --cask everettjf/tap/riftvm
+brew install --cask riftvm/tap/riftvm
 ```
 
 RiftVM is one application with focused Omarchy and macOS workspace journeys.
@@ -29,7 +29,7 @@ display, shared folders, clipboard, notifications, and focus-scoped input.
 macOS workspaces use Apple's native restore-image path and do not depend on the
 Linux guest agent.
 
-RiftVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
+RiftVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to deliver two focused experiences: native macOS virtual machines and a deeply integrated Omarchy workspace.
 
 > **Project status:** RiftVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
 
@@ -43,7 +43,7 @@ RiftVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 ## What it does
 
 - Creates and runs macOS virtual machines from a local IPSW, a selectable macOS version, or Apple's latest supported restore image
-- Creates and runs ARM64 Linux virtual machines from a local ISO or a built-in list of common distributions
+- Creates and runs a verified, preinstalled Omarchy workspace with first-run owner setup
 - Stores machines in `~/RiftVM Virtual Machines` by default; any other location can still be chosen
 - Keeps downloaded system images in a shared store and reuses them when creating more machines
 - Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
@@ -61,14 +61,14 @@ RiftVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/doc
 
 - An Apple silicon Mac
 - macOS 27 or later
-- An ARM64 guest image; RiftVM does not emulate x86 guests
+- A supported macOS restore image, or the verified Omarchy image downloaded by RiftVM
 
 ## Installation details
 
 Install the signed and notarized release from the RiftVM Homebrew tap:
 
 ```sh
-brew install --cask everettjf/tap/riftvm
+brew install --cask riftvm/tap/riftvm
 ```
 
 Or download the archive from [GitHub Releases](https://github.com/everettjf/riftvm/releases/latest).
@@ -88,14 +88,14 @@ codes, making it suitable for local scripts:
 
 ```sh
 riftvm list
-riftvm inspect "My Linux VM"
+riftvm inspect "My Omarchy Workspace"
 riftvm validate "/path/to/My VM.riftvm"
 riftvm doctor
-riftvm start "My Linux VM" --timeout 90
-riftvm status "My Linux VM"
-riftvm stop "My Linux VM" --timeout 30
+riftvm start "My Omarchy Workspace" --timeout 90
+riftvm status "My Omarchy Workspace"
+riftvm stop "My Omarchy Workspace" --timeout 30
 riftvm install-image preinstalled-image.json --image disk.raw \
-  --destination "$HOME/RiftVM Virtual Machines/My Linux VM.riftvm" --timeout 300
+  --destination "$HOME/RiftVM Virtual Machines/My Omarchy Workspace.riftvm" --timeout 300
 ```
 
 Use `--root /path/to/library` one or more times when machines are stored outside
@@ -162,9 +162,9 @@ select Custom VirGL while retaining the Apple Virtio startup fallback.
 
 Pick a macOS version from the built-in list in the creation flow (or use the latest supported restore image), or select a compatible `.ipsw` restore image from disk. Apple publishes current restore images through `Virtualization.framework`; third-party indexes such as [ipsw.me](https://ipsw.me/product/Mac) can help locate older versions.
 
-### Linux
+### Omarchy
 
-Pick a distribution from the built-in list in the creation flow (Ubuntu Server/Desktop, Debian, Fedora), or choose any **ARM64 / AArch64** installer ISO, for example [Ubuntu](https://ubuntu.com/download/server/arm) or [Fedora](https://fedoraproject.org/server/download). Intel/AMD (`x86_64`) images are not supported.
+Choose **Create Omarchy Workspace**. RiftVM downloads the pinned Factory release, verifies its signed manifest and image digest, creates a private writable disk and machine identity, then guides you through owner setup. Generic Linux distributions and custom ISO installation are intentionally outside RiftVM's product scope.
 
 ## Direction
 

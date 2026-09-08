@@ -27,8 +27,8 @@ struct MainApp: App {
         .defaultSize(width: 1080, height: 760)
         .windowResizability(.contentMinSize)
         
-        Window("Create Virtual Machine Guide", id: "create-machine-guide") {
-            VMCreateStepperGuideView()
+        WindowGroup("Create Workspace", id: "create-machine-guide", for: RiftWorkspaceKind.self) { $initialKind in
+            VMCreateStepperGuideView(initialKind: initialKind)
         }
         .defaultPosition(.center)
         .defaultSize(width: 960, height: 660)

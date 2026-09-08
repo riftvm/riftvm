@@ -6,7 +6,7 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 vm_path="${2:-}"
 expected_revision="${3:-${RIFTVM_EXPECTED_SOURCE_REVISION:-}}"
-cask="${RIFTVM_HOMEBREW_CASK:-everettjf/tap/riftvm}"
+cask="${RIFTVM_HOMEBREW_CASK:-riftvm/tap/riftvm}"
 
 fail() {
   echo "verify-homebrew-release: $*" >&2

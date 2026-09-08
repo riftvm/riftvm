@@ -12,12 +12,12 @@ import OSLog
 import Darwin
 
 enum RiftVMLog {
-    static let lifecycle = Logger(subsystem: "com.everettjf.riftvm", category: "lifecycle")
-    static let storage = Logger(subsystem: "com.everettjf.riftvm", category: "storage")
-    static let download = Logger(subsystem: "com.everettjf.riftvm", category: "download")
-    static let network = Logger(subsystem: "com.everettjf.riftvm", category: "network")
-    static let graphics = Logger(subsystem: "com.everettjf.riftvm", category: "graphics")
-    static let input = Logger(subsystem: "com.everettjf.riftvm", category: "input")
+    static let lifecycle = Logger(subsystem: "com.riftvm.app", category: "lifecycle")
+    static let storage = Logger(subsystem: "com.riftvm.app", category: "storage")
+    static let download = Logger(subsystem: "com.riftvm.app", category: "download")
+    static let network = Logger(subsystem: "com.riftvm.app", category: "network")
+    static let graphics = Logger(subsystem: "com.riftvm.app", category: "graphics")
+    static let input = Logger(subsystem: "com.riftvm.app", category: "input")
 
     static func info(_ message: String, logger: Logger = lifecycle) {
         logger.info("\(message, privacy: .public)")
@@ -76,7 +76,7 @@ enum RiftVMDiagnostics {
         if let store = try? OSLogStore(scope: .currentProcessIdentifier) {
             let position = store.position(date: Date().addingTimeInterval(-3600))
             if let entries = try? store.getEntries(at: position) {
-                for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.everettjf.riftvm" {
+                for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.riftvm.app" {
                     let message = VMDiagnosticSanitizer.sanitizedLogMessage(
                         entry.composedMessage,
                         machinePaths: machinePaths

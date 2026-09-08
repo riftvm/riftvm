@@ -20,7 +20,7 @@ final class VirtioInputProbeDevice: NSObject, @unchecked Sendable,
         static let synReport: UInt16 = 0
     }
 
-    let deviceQueue = DispatchQueue(label: "com.everettjf.riftvm.prototype.virtio-input-probe")
+    let deviceQueue = DispatchQueue(label: "com.riftvm.app.prototype.virtio-input-probe")
     private weak var device: VZCustomVirtioDevice?
     private var pendingEvents: [Data] = []
     private var deliveredEventCount: UInt64 = 0

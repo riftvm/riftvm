@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Virtualization
 
-private let omarchyMetadataQueue = DispatchQueue(label: "com.everettjf.riftvm.omarchy.metadata")
+private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.omarchy.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     private func recordAcceptanceRoute(_ route: String, event: NSEvent) {

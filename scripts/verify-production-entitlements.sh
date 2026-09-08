@@ -44,7 +44,7 @@ if grep -q '^\[Dict\]$' "$entitlements_file"; then
   done <<<"$required_boolean_keys"
   if [[ "$entitlement_keys" == "$profile_keys" ]]; then
     grep -A2 '^[[:space:]]*\[Key\] com.apple.application-identifier$' "$entitlements_file" | \
-      grep -q '^[[:space:]]*\[String\] YPV49M8592.com.everettjf.riftvm$' || \
+      grep -q '^[[:space:]]*\[String\] YPV49M8592.com.riftvm.app$' || \
       fail "application identifier does not match the production App ID"
     grep -A2 '^[[:space:]]*\[Key\] com.apple.developer.team-identifier$' "$entitlements_file" | \
       grep -q '^[[:space:]]*\[String\] YPV49M8592$' || fail "team identifier does not match"
@@ -62,7 +62,7 @@ else
   done <<<"$required_boolean_keys"
   if [[ "$entitlement_keys" == "$profile_keys" ]]; then
     application_identifier="$(plutil -extract com.apple.application-identifier raw "$entitlements_file")"
-    [[ "$application_identifier" == "YPV49M8592.com.everettjf.riftvm" ]] || \
+    [[ "$application_identifier" == "YPV49M8592.com.riftvm.app" ]] || \
       fail "application identifier does not match the production App ID"
     embedded_team_identifier="$(plutil -extract com.apple.developer.team-identifier raw "$entitlements_file")"
     [[ "$embedded_team_identifier" == "YPV49M8592" ]] || fail "team identifier does not match"

@@ -14,7 +14,7 @@ after its replacement passes the stated evidence gate.
 
 | Current entry | Current role | RiftVM destination | Removal gate |
 | --- | --- | --- | --- |
-| `EZVM/EZVM.xcodeproj` | General VM application and multi-machine control center | `RiftVM/RiftVM.xcodeproj` | RiftVM builds the general, macOS, custom-Linux, and Omarchy journeys |
+| `EZVM/EZVM.xcodeproj` | General VM application and multi-machine control center | `RiftVM/RiftVM.xcodeproj` | RiftVM builds the macOS and Omarchy journeys |
 | `EZVM/EZVM/Application/Main/MainApp.swift` | General application `@main`, windows, settings, headless launch | RiftVM application shell | One application owns workspace routing and coordinated termination |
 | Removed standalone Omarchy project | Former dedicated Omarchy application | No desktop application target | Omarchy GUI and acceptance coverage now run through RiftVM |
 | `RiftVM/RiftVM/Omarchy` | Omarchy first-run, runtime, and integration UI | Omarchy workspace profile and views inside RiftVM | No second `@main` or process-global Omarchy workspace remains |
@@ -47,7 +47,7 @@ They will keep independent schema and upstream image versions, but published
 desktop artifacts must converge on:
 
 - application: `RiftVM.app`
-- bundle ID: `com.everettjf.riftvm`
+- bundle ID: `com.riftvm.app`
 - package: `RiftVM-1.0.0.zip`
 - CLI and Homebrew cask: `riftvm`
 - workspace extension: `.riftvm`

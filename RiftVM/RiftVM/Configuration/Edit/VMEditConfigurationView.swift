@@ -2,7 +2,7 @@ import SwiftUI
 
 #if arch(arm64)
 extension Notification.Name {
-    static let riftvmConfigurationSaved = Notification.Name("com.everettjf.riftvm.configuration-saved")
+    static let riftvmConfigurationSaved = Notification.Name("com.riftvm.app.configuration-saved")
 }
 
 struct VMEditConfigurationView: View {

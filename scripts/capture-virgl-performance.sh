@@ -55,7 +55,7 @@ trap cleanup EXIT
 started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 /usr/bin/log stream --style compact --level info \
-    --predicate "processID == $pid AND subsystem == 'com.everettjf.riftvm' AND (category == 'graphics' OR category == 'virtio-gpu')" \
+    --predicate "processID == $pid AND subsystem == 'com.riftvm.app' AND (category == 'graphics' OR category == 'virtio-gpu')" \
     > "$graphics_logs" &
 log_pid=$!
 

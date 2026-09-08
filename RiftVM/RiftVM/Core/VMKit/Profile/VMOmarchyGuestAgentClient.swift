@@ -249,7 +249,7 @@ public final class VMOmarchyGuestAgentClient {
     private let enrollment: VMGuestAgentEnrollment
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
     private let hostPowerChanged: (VMOmarchyHostPowerEvent) -> Void
-    private let ioQueue = DispatchQueue(label: "com.everettjf.riftvm.omarchy.agent", qos: .utility)
+    private let ioQueue = DispatchQueue(label: "com.riftvm.app.omarchy.agent", qos: .utility)
     private let writeLock = NSLock()
     private var connection: VZVirtioSocketConnection?
     private var generation: UInt64 = 0

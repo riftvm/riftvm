@@ -187,7 +187,7 @@ final class RiftVMOmarchyTests: XCTestCase {
     func testDedicatedAppUsesOmarchyProductIdentity() throws {
         let profile = VMOmarchyProfile.production
         try profile.validate()
-        XCTAssertEqual(profile.productID, "com.everettjf.riftvm.omarchy")
+        XCTAssertEqual(profile.productID, "com.riftvm.app.omarchy")
     }
 
     func testMicrophonePermissionPolicyRequiresExplicitAuthorization() {
