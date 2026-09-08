@@ -1492,6 +1492,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         // the process-global virglrenderer instance alive across an in-app VM
         // restart (the next virgl_renderer_init would otherwise return EINVAL).
         virtualMachine = nil
+        // The configuration retains storage and directory-share attachments.
+        // A stopped workspace scene can remain alive after its window closes,
+        // so keeping this configuration around leaves the disk attached inside
+        // Virtualization.framework and makes the next in-app launch fail with
+        // an opaque "Internal Virtualization error." The workspace window does
+        // not support restarting in place; a new launch rebuilds configuration
+        // from disk, so release these attachments as part of the stop boundary.
+        virtualMachineConfiguration = nil
         graphicsBackend?.shutdown()
         graphicsBackend = nil
     }

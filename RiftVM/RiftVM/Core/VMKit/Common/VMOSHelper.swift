@@ -2082,8 +2082,12 @@ struct VMMacOSCatalogPayload: Codable, Equatable {
         var seen = Set<String>()
         return firmwares
             .filter { firmware in
-                guard firmware.signed,
-                      firmware.filesize > 0,
+                // IPSW.me's `signed` flag models device restore signing, but
+                // Virtualization.framework can still install an Apple-hosted
+                // VirtualMac image that the feed marks unsigned. Let Apple's
+                // installation service make the authoritative compatibility
+                // decision after we validate the download origin and shape.
+                guard firmware.filesize > 0,
                       firmware.url.scheme?.lowercased() == "https",
                       let host = firmware.url.host?.lowercased(),
                       host == "apple.com" || host.hasSuffix(".apple.com") || host == "updates.cdn-apple.com",

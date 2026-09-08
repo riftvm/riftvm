@@ -65,18 +65,6 @@ struct CreatePhaseSystemView: View {
     private var systemSelection: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2), spacing: 14) {
             SystemChoiceCard(
-                title: "macOS",
-                detail: "Choose a compatible macOS restore image",
-                systemImage: "apple.logo",
-                accent: .blue,
-                badge: "Choose version",
-                isSelected: configData.osType == .macOS && formData.hasChosenSystem
-            ) {
-                switchOSType(.macOS)
-                showingMacOSVersions = true
-            }
-
-            SystemChoiceCard(
                 title: "Omarchy",
                 detail: "Preinstalled Arch Linux desktop, ready on first boot",
                 systemImage: "o.circle.fill",
@@ -88,6 +76,17 @@ struct CreatePhaseSystemView: View {
                 selectImage(.preinstalled(.omarchy))
             }
 
+            SystemChoiceCard(
+                title: "macOS",
+                detail: "Choose a compatible macOS restore image",
+                systemImage: "apple.logo",
+                accent: .blue,
+                badge: "Choose version",
+                isSelected: configData.osType == .macOS && formData.hasChosenSystem
+            ) {
+                switchOSType(.macOS)
+                showingMacOSVersions = true
+            }
         }
     }
 
@@ -256,45 +255,47 @@ private struct MacOSImageSelectionView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                Text("The signed-release list updates automatically via IPSW.me. Downloads come directly from Apple; RiftVM performs the final host compatibility check before installation.")
+                Text("The Apple-hosted release list updates automatically via IPSW.me. Downloads come directly from Apple; RiftVM asks Apple’s installation service for the final host compatibility check.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
-                Text("Recommended releases")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                if !catalog.items.isEmpty {
+                    Text("Recommended releases")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
 
-                ForEach(catalog.featuredItems) { item in
-                    ImageChoiceButton(
-                        title: item.name,
-                        detail: item.detail,
-                        systemImage: "shippingbox",
-                        accent: .indigo,
-                        badge: cachedBadge(for: item),
-                        isSelected: selectedCatalogID == item.id,
-                        identifier: "macos-image-\(item.id)"
-                    ) {
-                        onSelect(.catalog(item))
-                    }
-                }
-
-                DisclosureGroup("All available releases (\(catalog.items.count))", isExpanded: $showAllReleases) {
-                    LazyVStack(spacing: 8) {
-                        ForEach(catalog.items) { item in
-                            ImageChoiceButton(
-                                title: item.name,
-                                detail: item.detail,
-                                systemImage: "shippingbox",
-                                accent: .indigo,
-                                badge: cachedBadge(for: item),
-                                isSelected: selectedCatalogID == item.id,
-                                identifier: "macos-image-\(item.id)"
-                            ) {
-                                onSelect(.catalog(item))
-                            }
+                    ForEach(catalog.featuredItems) { item in
+                        ImageChoiceButton(
+                            title: item.name,
+                            detail: item.detail,
+                            systemImage: "shippingbox",
+                            accent: .indigo,
+                            badge: cachedBadge(for: item),
+                            isSelected: selectedCatalogID == item.id,
+                            identifier: "macos-image-\(item.id)"
+                        ) {
+                            onSelect(.catalog(item))
                         }
                     }
-                    .padding(.top, 8)
+
+                    DisclosureGroup("All available releases (\(catalog.items.count))", isExpanded: $showAllReleases) {
+                        LazyVStack(spacing: 8) {
+                            ForEach(catalog.items) { item in
+                                ImageChoiceButton(
+                                    title: item.name,
+                                    detail: item.detail,
+                                    systemImage: "shippingbox",
+                                    accent: .indigo,
+                                    badge: cachedBadge(for: item),
+                                    isSelected: selectedCatalogID == item.id,
+                                    identifier: "macos-image-\(item.id)"
+                                ) {
+                                    onSelect(.catalog(item))
+                                }
+                            }
+                        }
+                        .padding(.top, 8)
+                    }
                 }
             }
 
@@ -333,7 +334,7 @@ private struct MacOSImageSelectionView: View {
 
     private var catalogStatusText: String {
         guard let lastUpdated = catalog.lastUpdated else {
-            return "Built-in catalog · refreshes automatically"
+            return "Online catalog not updated yet"
         }
         if abs(lastUpdated.timeIntervalSinceNow) < 60 {
             return "Online catalog updated just now"

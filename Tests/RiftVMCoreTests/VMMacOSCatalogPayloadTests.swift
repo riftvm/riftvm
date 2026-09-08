@@ -2,12 +2,12 @@ import XCTest
 @testable import RiftVMCore
 
 final class VMMacOSCatalogPayloadTests: XCTestCase {
-    func testAvailableFirmwaresKeepsOnlySignedAppleDownloadsAndSortsNewestFirst() throws {
+    func testAvailableFirmwaresKeepsAppleDownloadsRegardlessOfDeviceSigningFlagAndSortsNewestFirst() throws {
         let data = #"{"firmwares":[{"version":"26.0","buildid":"25A1","filesize":12,"url":"https://updates.cdn-apple.com/new.ipsw","signed":true},{"version":"15.7","buildid":"24G1","filesize":10,"url":"https://updates.cdn-apple.com/old.ipsw","signed":true},{"version":"27.0","buildid":"26A1","filesize":20,"url":"https://updates.cdn-apple.com/beta.ipsw","signed":false},{"version":"99.0","buildid":"evil","filesize":20,"url":"https://notapple.com/evil.ipsw","signed":true}]}"#.data(using: .utf8)!
 
         let payload = try JSONDecoder().decode(VMMacOSCatalogPayload.self, from: data)
 
-        XCTAssertEqual(payload.availableFirmwares.map(\.version), ["26.0", "15.7"])
+        XCTAssertEqual(payload.availableFirmwares.map(\.version), ["27.0", "26.0", "15.7"])
     }
 
     func testAvailableFirmwaresDeduplicatesBuildsAndRejectsInvalidMetadata() throws {

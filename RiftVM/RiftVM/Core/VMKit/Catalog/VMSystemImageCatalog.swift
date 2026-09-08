@@ -11,13 +11,12 @@ import Observation
 #if arch(arm64)
 
 /*
- A dynamic list of restore images (macOS) and curated install ISOs (Linux, aarch64)
- that can be downloaded directly from the create-machine guide, so users can
- pick a system version instead of hunting for an ipsw/iso themselves.
-
- The URLs point to the vendors' official CDNs. When a vendor retires a point
- release the URL may stop working; refresh the entries here in that case.
- Users can always fall back to "Custom URL" or a local file.
+ A live list of Apple-hosted restore images (macOS) and curated install ISOs
+ (Linux, aarch64) that can be downloaded directly from the create-machine
+ guide. Apple restore images intentionally have no static fallback because
+ personalization availability changes independently of CDN availability.
+ Users can always choose Latest compatible macOS, an Apple URL, or a local
+ IPSW when no specific release is currently listed.
  */
 struct VMSystemImageCatalogItem: Identifiable, Hashable {
     let id: String
@@ -130,8 +129,8 @@ final class VMMacOSImageCatalogService {
                 try? cacheData.write(to: cacheURL, options: .atomic)
             }
         } catch {
-            errorMessage = items == VMSystemImageCatalog.macOSItems
-                ? "Couldn’t reach the online catalog. Built-in versions are available, or choose Latest compatible macOS."
+            errorMessage = items.isEmpty
+                ? "Couldn’t reach the online catalog. Try Latest compatible macOS, a direct Apple URL, or a local IPSW."
                 : "Couldn’t refresh the catalog. Showing the last saved version list."
         }
     }
@@ -280,36 +279,10 @@ final class VMLinuxImageCatalogService {
 
 struct VMSystemImageCatalog {
 
-    static let macOSItems: [VMSystemImageCatalogItem] = [
-        VMSystemImageCatalogItem(
-            id: "macos-15.0",
-            osType: .macOS,
-            name: "macOS Sequoia 15.0",
-            detail: "Build 24A335",
-            urlString: "https://updates.cdn-apple.com/2024FallFCS/fullrestores/062-78489/BDA44327-C79E-4608-A7E0-455A7E91911F/UniversalMac_15.0_24A335_Restore.ipsw"
-        ),
-        VMSystemImageCatalogItem(
-            id: "macos-14.0",
-            osType: .macOS,
-            name: "macOS Sonoma 14.0",
-            detail: "Build 23A344",
-            urlString: "https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-54934/0E101AD6-3117-4B63-9BF1-143B6DB9270A/UniversalMac_14.0_23A344_Restore.ipsw"
-        ),
-        VMSystemImageCatalogItem(
-            id: "macos-13.0",
-            osType: .macOS,
-            name: "macOS Ventura 13.0",
-            detail: "Build 22A380",
-            urlString: "https://updates.cdn-apple.com/2022FallFCS/fullrestores/012-92188/2C38BCD1-2BFF-4A10-B358-94E8E28BE805/UniversalMac_13.0_22A380_Restore.ipsw"
-        ),
-        VMSystemImageCatalogItem(
-            id: "macos-12.0.1",
-            osType: .macOS,
-            name: "macOS Monterey 12.0.1",
-            detail: "Build 21A559",
-            urlString: "https://updates.cdn-apple.com/2021FallFCS/fullrestores/002-23589/A54AC135-A25C-4C21-B47A-3C4930D18C13/UniversalMac_12.0.1_21A559_Restore.ipsw"
-        ),
-    ]
+    // Restore-image compatibility is decided by Apple's installation service.
+    // A hard-coded historical list cannot track that service, so only live
+    // Apple-hosted catalog entries are shown.
+    static let macOSItems: [VMSystemImageCatalogItem] = []
 
     static let linuxItems: [VMSystemImageCatalogItem] = [
         VMSystemImageCatalogItem(

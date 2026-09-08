@@ -2,6 +2,10 @@ import XCTest
 @testable import RiftVM
 
 final class OmarchyAccessibilityTests: XCTestCase {
+    func testMacOSCatalogNeverFallsBackToHardCodedHistoricalImages() {
+        XCTAssertTrue(VMSystemImageCatalog.macOSItems.isEmpty)
+    }
+
     func testAccessibilityButtonTargetsTheAccessibilityPrivacyPane() {
         XCTAssertEqual(
             OmarchyFocusedCommandBridge.accessibilitySettingsURL.absoluteString,
