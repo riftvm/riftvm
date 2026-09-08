@@ -346,47 +346,154 @@ private struct WorkspaceControlCenterWelcomeView: View {
     let createMacOS: () -> Void
 
     var body: some View {
-        VStack(spacing: 28) {
-            VStack(spacing: 8) {
-                Text("RiftVM").font(.system(size: 42, weight: .bold))
-                Text("A workspace is an independent virtual machine on your Mac.")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+        ZStack {
+            WorkspaceRiftBackdrop()
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 30) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("APPLE SILICON  /  TWO WORLDS  /  ONE MAC")
+                        .font(.caption2.monospaced().weight(.semibold))
+                        .tracking(2.4)
+                        .foregroundStyle(.white.opacity(0.58))
+                    Text("Break into")
+                        .font(.system(.largeTitle, design: .rounded, weight: .black))
+                        .foregroundStyle(.white)
+                    Text("another world.")
+                        .font(.system(.largeTitle, design: .rounded, weight: .black))
+                        .foregroundStyle(
+                            .linearGradient(
+                                colors: [.pink, .orange, .cyan],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                    Text("A Workspace is an independent virtual machine. Pick a world to begin.")
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .padding(.top, 2)
+                }
+
+                HStack(spacing: 18) {
+                    WorkspaceControlCenterCreationCard(
+                        title: "Omarchy",
+                        description: "A focused Arch Linux desktop, ready on first boot.",
+                        badge: "RECOMMENDED",
+                        systemImage: "sparkles.rectangle.stack",
+                        accent: .orange,
+                        action: createOmarchy
+                    )
+                    WorkspaceControlCenterCreationCard(
+                        title: "macOS",
+                        description: "Create a clean Mac from a supported restore image.",
+                        badge: "CHOOSE VERSION",
+                        systemImage: "macwindow",
+                        accent: .cyan,
+                        action: createMacOS
+                    )
+                }
+                .frame(maxWidth: 880)
             }
-            HStack(spacing: 20) {
-                WorkspaceControlCenterCreationCard(title: "Create Omarchy Workspace", description: "A focused Linux desktop with Rift integration.", systemImage: "sparkles.rectangle.stack", action: createOmarchy)
-                WorkspaceControlCenterCreationCard(title: "Create macOS Workspace", description: "Install from a supported restore image or local IPSW.", systemImage: "macwindow", action: createMacOS)
-            }
-            .frame(maxWidth: 780)
+            .frame(maxWidth: 920, alignment: .leading)
+            .padding(44)
         }
-        .padding(48)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 }
 
 private struct WorkspaceControlCenterCreationCard: View {
     let title: String
     let description: String
+    let badge: String
     let systemImage: String
+    let accent: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 16) {
-                Image(systemName: systemImage).font(.system(size: 34))
-                Text(title).font(.title2.weight(.semibold))
-                Text(description).foregroundStyle(.secondary)
-                Label("Continue", systemImage: "arrow.right")
-                    .padding(.top, 12)
+            VStack(alignment: .leading, spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 25, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 54, height: 54)
+                    .background(accent.gradient, in: .rect(cornerRadius: 15))
+                    .shadow(color: accent.opacity(0.45), radius: 18)
+                Text(title)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                Text(description)
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.67))
+                    .lineLimit(2, reservesSpace: true)
+                Label(badge, systemImage: "arrow.up.right")
+                    .font(.caption.monospaced().weight(.bold))
+                    .tracking(1.1)
+                    .foregroundStyle(accent)
+                    .padding(.top, 10)
             }
             .multilineTextAlignment(.leading)
-            .padding(24)
-            .frame(maxWidth: .infinity, minHeight: 230, maxHeight: 250, alignment: .leading)
+            .padding(22)
+            .frame(maxWidth: .infinity, minHeight: 245, alignment: .leading)
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .background(.regularMaterial, in: .rect(cornerRadius: 18))
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(.quaternary) }
+        .background(Color.white.opacity(0.075), in: .rect(cornerRadius: 20))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(accent.opacity(0.62), lineWidth: 1.5)
+        }
+        .shadow(color: accent.opacity(0.12), radius: 24)
+        .accessibilityLabel("Create \(title) Workspace")
+        .accessibilityHint(description)
+    }
+}
+
+private struct WorkspaceRiftBackdrop: View {
+    var body: some View {
+        Canvas { context, size in
+            let centerX = size.width * 0.56
+            let centerY = size.height * 0.43
+            let red = GraphicsContext.Shading.radialGradient(
+                Gradient(colors: [.orange.opacity(0.42), .pink.opacity(0.2), .clear]),
+                center: CGPoint(x: size.width * 0.18, y: centerY),
+                startRadius: 0,
+                endRadius: size.width * 0.65
+            )
+            let blue = GraphicsContext.Shading.radialGradient(
+                Gradient(colors: [.cyan.opacity(0.36), .blue.opacity(0.18), .clear]),
+                center: CGPoint(x: size.width * 0.9, y: centerY),
+                startRadius: 0,
+                endRadius: size.width * 0.58
+            )
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: red)
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: blue)
+
+            for index in 0..<9 {
+                let offset = CGFloat(index - 4)
+                var path = Path()
+                path.move(to: CGPoint(x: centerX + offset * 12, y: -30))
+                path.addLine(to: CGPoint(x: centerX - 90 + offset * 19, y: size.height + 30))
+                context.stroke(
+                    path,
+                    with: .linearGradient(
+                        Gradient(colors: [.pink.opacity(0.05), .white.opacity(0.3), .cyan.opacity(0.05)]),
+                        startPoint: CGPoint(x: centerX, y: 0),
+                        endPoint: CGPoint(x: centerX, y: size.height)
+                    ),
+                    lineWidth: index == 4 ? 2.2 : 0.7
+                )
+            }
+        }
+        .blur(radius: 0.4)
+        .overlay {
+            LinearGradient(
+                colors: [.black.opacity(0.08), .clear, .black.opacity(0.42)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea()
     }
 }
 
