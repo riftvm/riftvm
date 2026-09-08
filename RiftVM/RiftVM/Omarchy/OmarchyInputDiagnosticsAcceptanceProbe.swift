@@ -27,7 +27,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
         diagnosticsDirectory: URL,
-        sendTextBurst: (String) -> Bool
+        sendTextBurst: (String) -> Bool,
+        sendKeyRepeat: (Int) -> Bool
     ) async throws {
         let alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         let payloads = (0..<10).map { index in
@@ -62,12 +63,33 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
             guard let actual = try? String(contentsOf: resultURL, encoding: .utf8),
                   actual == payload else { throw ProbeError.timeout }
         }
+        let repeatCount = 64
+        let repeatURL = probeDirectory.appending(path: "key-repeat.txt")
+        guard sendTextBurst(
+            "IFS= read -r value; printf '%s' \"$value\" > \(guestDirectory)/key-repeat.txt\n"
+        ), sendKeyRepeat(repeatCount), sendTextBurst("\n") else {
+            throw ProbeError.shortcutUnavailable
+        }
+        let repeatDeadline = ContinuousClock.now + timeout
+        repeat {
+            if let actual = try? String(contentsOf: repeatURL, encoding: .utf8),
+               actual == String(repeating: "a", count: repeatCount) {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        } while ContinuousClock.now < repeatDeadline
+        guard let repeated = try? String(contentsOf: repeatURL, encoding: .utf8),
+              repeated == String(repeating: "a", count: repeatCount) else {
+            throw ProbeError.timeout
+        }
         guard sendTextBurst("exit\n") else { throw ProbeError.shortcutUnavailable }
         let report: [String: Any] = [
             "schemaVersion": 1,
             "result": "passed",
             "sampleCount": payloads.count,
             "charactersPerSample": payloads.first?.count ?? 0,
+            "keyRepeatCount": repeatCount,
+            "returnKeyVerified": true,
             "completedAt": ISO8601DateFormatter().string(from: Date()),
             "route": "AppKit-view-to-Guest-Agent-uinput",
         ]

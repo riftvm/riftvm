@@ -15,7 +15,7 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        WindowGroup("RiftVM Control Center", id: "control-center") {
+        Window("RiftVM Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
                 WorkspaceControlCenterView()
                     .frame(minWidth: 800, minHeight: 600)

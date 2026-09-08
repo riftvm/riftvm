@@ -165,6 +165,10 @@ final class RiftVMOmarchyTests: XCTestCase {
             OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey,
             "RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
         )
+        XCTAssertEqual(
+            OmarchyWorkspaceConfiguration.acceptanceBootUnlockKey,
+            "RIFTVM_OMARCHY_BOOT_UNLOCK_ACCEPTANCE"
+        )
     }
 
     func testAutomaticOwnerPasswordRequiresValidTemporaryAcceptanceWorkspace() {
@@ -521,10 +525,10 @@ final class RiftVMOmarchyTests: XCTestCase {
         view.keyUp(with: try event(.keyUp))
         XCTAssertEqual(batches.count, 3)
         XCTAssertEqual(batches[0], VMGuestAgentInputBatch.key(code: 30, pressed: true).events)
-        XCTAssertEqual(batches[1], [
-            VMGuestAgentInputEvent(type: 1, code: 30, value: 2),
-            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-        ])
+        XCTAssertEqual(batches[1],
+            VMGuestAgentInputBatch.key(code: 30, pressed: false).events
+            + VMGuestAgentInputBatch.key(code: 30, pressed: true).events
+        )
         XCTAssertEqual(batches[2], VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
     }
 

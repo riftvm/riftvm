@@ -213,7 +213,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
 
         let hostDispatchOnGuestClock = adding(hostDispatch, clock.offset)
         let hostToGuest = milliseconds(from: hostDispatchOnGuestClock, to: fields.receivedAt)
-        let guestToVisible = milliseconds(from: fields.receivedAt, to: fields.visibleAt)
+        let guestToVisible = Double(fields.visibleAfterReceivedNanoseconds) / 1_000_000
         let hostToVisibleObservation = milliseconds(from: hostDispatch, to: hostObserved)
         succeeded = true
         return Sample(
@@ -226,7 +226,8 @@ enum OmarchyInputLatencyAcceptanceProbe {
             guestAgentReceivedAtUnixNanoseconds: trace?.guestReceivedAtUnixNanoseconds,
             uinputCompletedAtUnixNanoseconds: trace?.uinputCompletedAtUnixNanoseconds,
             guestApplicationReceivedAtUnixNanoseconds: fields.receivedAt,
-            guestVisibleSurfaceCapturedAtUnixNanoseconds: fields.visibleAt,
+            guestVisibleSurfaceCapturedAtUnixNanoseconds:
+                fields.receivedAt &+ fields.visibleAfterReceivedNanoseconds,
             hostObservedAtUnixNanoseconds: hostObserved,
             agentWriteMilliseconds: trace.map {
                 milliseconds(from: $0.guestReceivedAtUnixNanoseconds, to: $0.uinputCompletedAtUnixNanoseconds)
@@ -268,20 +269,24 @@ enum OmarchyInputLatencyAcceptanceProbe {
     }
 
     private static func parseResult(_ value: String) throws -> (
-        receivedAt: UInt64, visibleAt: UInt64, baselineSHA256: String, visibleSHA256: String
+        receivedAt: UInt64,
+        visibleAfterReceivedNanoseconds: UInt64,
+        baselineSHA256: String,
+        visibleSHA256: String
     ) {
         let fields = Dictionary(uniqueKeysWithValues: value.split(whereSeparator: \Character.isNewline).compactMap { line in
             let parts = line.split(separator: "=", maxSplits: 1).map(String.init)
             return parts.count == 2 ? (parts[0], parts[1]) : nil
         })
         guard let received = fields["received_ns"].flatMap(UInt64.init),
-              let visible = fields["visible_ns"].flatMap(UInt64.init),
-              visible >= received,
+              let receivedMonotonic = fields["received_monotonic_ns"].flatMap(UInt64.init),
+              let visibleMonotonic = fields["visible_monotonic_ns"].flatMap(UInt64.init),
+              visibleMonotonic >= receivedMonotonic,
               let baseline = fields["baseline_sha256"], baseline.count == 64,
               let changed = fields["visible_sha256"], changed.count == 64 else {
             throw ProbeError.invalidResult(value)
         }
-        return (received, visible, baseline, changed)
+        return (received, visibleMonotonic - receivedMonotonic, baseline, changed)
     }
 
     private static func probeScript(guestDirectory: String) -> String {
@@ -299,6 +304,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
         grim -t png "$baseline"
         touch "$d/ready"
         IFS= read -rsn1 key
+        received_monotonic_ns=$(python -c 'import time; print(time.monotonic_ns())')
         received_ns=$(date +%s%N)
         clear
         printf '\033[48;2;255;64;16m\033[38;2;255;255;255m'
@@ -306,10 +312,13 @@ enum OmarchyInputLatencyAcceptanceProbe {
         printf '\033[0m'
         sleep 0.02
         grim -t png "$visible"
+        visible_monotonic_ns=$(python -c 'import time; print(time.monotonic_ns())')
         visible_ns=$(date +%s%N)
         {
           printf 'received_ns=%s\n' "$received_ns"
           printf 'visible_ns=%s\n' "$visible_ns"
+          printf 'received_monotonic_ns=%s\n' "$received_monotonic_ns"
+          printf 'visible_monotonic_ns=%s\n' "$visible_monotonic_ns"
           printf 'baseline_sha256=%s\n' "$(sha256sum "$baseline" | cut -d' ' -f1)"
           printf 'visible_sha256=%s\n' "$(sha256sum "$visible" | cut -d' ' -f1)"
         } > "$result.part"

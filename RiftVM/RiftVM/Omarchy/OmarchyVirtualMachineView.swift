@@ -157,10 +157,18 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             if !event.isARepeat, guestPressedKeys.insert(code).inserted {
                 guestInputEventHandler(VMGuestAgentInputBatch.key(code: code, pressed: true).events)
             } else if event.isARepeat {
-                guestInputEventHandler([
-                    VMGuestAgentInputEvent(type: 1, code: code, value: 2),
-                    VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-                ])
+                if guestPressedKeys.contains(code) {
+                    // Hyprland's virtual-keyboard path does not surface raw
+                    // EV_KEY value=2 repeats consistently. Preserve AppKit's
+                    // repeat cadence as balanced release/press pulses so each
+                    // host repeat becomes exactly one visible Guest key.
+                    guestInputEventHandler(
+                        VMGuestAgentInputBatch.key(code: code, pressed: false).events
+                        + VMGuestAgentInputBatch.key(code: code, pressed: true).events
+                    )
+                } else if guestPressedKeys.insert(code).inserted {
+                    guestInputEventHandler(VMGuestAgentInputBatch.key(code: code, pressed: true).events)
+                }
             }
             return
         }
@@ -255,6 +263,35 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
                 if let event = NSEvent(cgEvent: shiftUp) { flagsChanged(with: event) }
             }
         }
+        return true
+    }
+
+    /// Sends one physical-style key down, a bounded stream of AppKit repeat
+    /// events, and a matching key up through the production Agent/uinput path.
+    /// This catches repeat events being collapsed, duplicated, or left held.
+    func runGuestAgentKeyRepeatAcceptance(keyCode: CGKeyCode, count: Int) -> Bool {
+        guard guestInputEventHandler != nil, count > 0,
+              let source = CGEventSource(stateID: .combinedSessionState) else {
+            return false
+        }
+        for index in 0..<count {
+            guard let cgEvent = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: keyCode,
+                keyDown: true
+            ) else { return false }
+            if index > 0 {
+                cgEvent.setIntegerValueField(.keyboardEventAutorepeat, value: 1)
+            }
+            guard let event = NSEvent(cgEvent: cgEvent) else { return false }
+            keyDown(with: event)
+        }
+        guard let keyUpEvent = CGEvent(
+            keyboardEventSource: source,
+            virtualKey: keyCode,
+            keyDown: false
+        ), let event = NSEvent(cgEvent: keyUpEvent) else { return false }
+        keyUp(with: event)
         return true
     }
 
@@ -1394,6 +1431,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     switch result {
                     case .success:
                         self.startIntegration(layout: self.layout)
+                        self.startBootUnlockAcceptanceIfNeeded()
                         self.phaseChanged(.running)
                     case .failure(let error):
                         guard permitsEFIVariableStoreRecovery,
@@ -1458,6 +1496,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var inputLatencyProbeStarted = false
         private var continuousInputProbeTask: Task<Void, Never>?
         private var continuousInputProbeStarted = false
+        private var bootUnlockAcceptanceStarted = false
         private var dynamicDisplayProbePassed = false
         private var automaticLockProbe = OmarchyLockAcceptanceState()
         private var automaticPauseResumeProbeStarted = false
@@ -1740,6 +1779,39 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         @MainActor
+        private func startBootUnlockAcceptanceIfNeeded() {
+            let environment = ProcessInfo.processInfo.environment
+            guard environment[OmarchyWorkspaceConfiguration.acceptanceBootUnlockKey] == "1",
+                  !bootUnlockAcceptanceStarted,
+                  let password = environment[
+                    OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
+                  ], !password.isEmpty else { return }
+            bootUnlockAcceptanceStarted = true
+            Task { @MainActor [weak self] in
+                // The encrypted-volume prompt appears before the authenticated
+                // desktop Agent. Waiting here keeps this acceptance-only seam
+                // out of firmware startup while still avoiding UI automation's
+                // synthetic text path.
+                // VZ reports the VM as running before the encrypted-volume
+                // prompt is ready to consume keyboard reports. Sending during
+                // that gap silently drops the leading keys, so leave enough
+                // time for the prompt rather than treating VM start as input
+                // readiness.
+                try? await Task.sleep(for: .seconds(20))
+                guard let self,
+                      self.latestGuestStatus?.desktopSessionActive != true,
+                      let inputView = self.machineView as? OmarchyVirtualMachineInputView else {
+                    return
+                }
+                guard inputView.runAppleUSBTextAcceptance(password + "\n") else {
+                    self.phaseChanged(.failed("Boot unlock acceptance could not deliver Apple USB input."))
+                    return
+                }
+                NSLog("Omarchy boot unlock acceptance dispatched through Apple USB")
+            }
+        }
+
+        @MainActor
         private func startInputLatencyProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
             let environment = ProcessInfo.processInfo.environment
             guard environment["RIFTVM_OMARCHY_INPUT_LATENCY_ACCEPTANCE"] == "1",
@@ -1822,7 +1894,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         client: client,
                         sharedDirectory: self.layout.shared,
                         diagnosticsDirectory: self.layout.diagnostics,
-                        sendTextBurst: { inputView.runGuestAgentTextBurstAcceptance($0) }
+                        sendTextBurst: { inputView.runGuestAgentTextBurstAcceptance($0) },
+                        sendKeyRepeat: {
+                            inputView.runGuestAgentKeyRepeatAcceptance(keyCode: 0, count: $0)
+                        }
                     )
                     NSLog("Omarchy continuous input burst acceptance passed")
                 } catch is CancellationError {

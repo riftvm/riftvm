@@ -6,6 +6,7 @@ enum OmarchyWorkspaceConfiguration {
     static let acceptanceEnabledKey = "RIFTVM_OMARCHY_ACCEPTANCE"
     static let acceptanceRootKey = "RIFTVM_OMARCHY_ACCEPTANCE_WORKSPACE_ROOT"
     static let acceptanceUnlockPasswordKey = "RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
+    static let acceptanceBootUnlockKey = "RIFTVM_OMARCHY_BOOT_UNLOCK_ACCEPTANCE"
 
     static func acceptanceOwnerProvisioningPassword(
         environment: [String: String] = ProcessInfo.processInfo.environment,
