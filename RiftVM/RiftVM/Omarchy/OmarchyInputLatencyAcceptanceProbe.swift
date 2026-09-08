@@ -11,6 +11,8 @@ enum OmarchyInputLatencyAcceptanceProbe {
         let backend: Backend
         let index: Int
         let traceID: String
+        let clockOffsetGuestMinusHostNanoseconds: Int64
+        let calibrationRoundTripMilliseconds: Double
         let hostDispatchedAtUnixNanoseconds: UInt64
         let guestAgentReceivedAtUnixNanoseconds: UInt64?
         let uinputCompletedAtUnixNanoseconds: UInt64?
@@ -71,25 +73,37 @@ enum OmarchyInputLatencyAcceptanceProbe {
         sharedDirectory: URL,
         diagnosticsDirectory: URL,
         sampleCount: Int = 20,
+        unlockPassword: String? = nil,
         sendAppleUSBText: @escaping (String) async -> Bool
     ) async throws -> Report {
         guard (5...100).contains(sampleCount) else { throw ProbeError.invalidSampleCount }
         let clock = try await calibrateClock(client: client)
+        // A previous interrupted acceptance run may have left its terminal
+        // blocked in `read`. Clear that foreground process before opening the
+        // dedicated probe terminal so retries remain deterministic.
+        try? await client.injectKeyChord(modifiers: [29], key: 46)
+        try await Task.sleep(for: .milliseconds(150))
         try await client.injectKeyChord(modifiers: [125], key: 28)
         try await Task.sleep(for: .seconds(2))
 
         var samples: [Sample] = []
-        for backend in Backend.allCases {
-            for index in 0..<sampleCount {
-                samples.append(try await runSample(
-                    backend: backend,
-                    index: index,
-                    client: client,
-                    sharedDirectory: sharedDirectory,
-                    clockOffset: clock.offset,
-                    sendAppleUSBText: sendAppleUSBText
-                ))
+        do {
+            for backend in Backend.allCases {
+                for index in 0..<sampleCount {
+                    samples.append(try await runSample(
+                        backend: backend,
+                        index: index,
+                        client: client,
+                        sharedDirectory: sharedDirectory,
+                        unlockPassword: samples.isEmpty ? unlockPassword : nil,
+                        sendAppleUSBText: sendAppleUSBText
+                    ))
+                }
             }
+        } catch {
+            // Startup clears a prior foreground reader. Report the original
+            // failure immediately rather than hiding it behind cleanup I/O.
+            throw error
         }
         try? await client.typeUSASCII("exit\n")
 
@@ -101,7 +115,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
             return $0.p95HostToGuestApplicationMilliseconds < $1.p95HostToGuestApplicationMilliseconds
         }?.backend ?? .guestAgent
         let report = Report(
-            schemaVersion: 1,
+            schemaVersion: 2,
             measuredAt: Date(),
             clockOffsetGuestMinusHostNanoseconds: clock.offset,
             calibrationRoundTripMilliseconds: clock.roundTripMilliseconds,
@@ -143,7 +157,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
         index: Int,
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
-        clockOffset: Int64,
+        unlockPassword: String?,
         sendAppleUSBText: @escaping (String) async -> Bool
     ) async throws -> Sample {
         let traceID = UUID().uuidString.lowercased()
@@ -157,8 +171,27 @@ enum OmarchyInputLatencyAcceptanceProbe {
         try Data(probeScript(guestDirectory: "/mnt/riftvm-shared/\(directory.lastPathComponent)").utf8)
             .write(to: script, options: .atomic)
         try await client.typeUSASCII("bash /mnt/riftvm-shared/\(directory.lastPathComponent)/probe.sh\n")
-        try await waitForFile(ready, timeout: .seconds(10))
+        do {
+            try await waitForFile(ready, timeout: .seconds(10))
+        } catch {
+            // A persistent workspace can reconnect while the secure lock
+            // surface is still visible. uinput is intentionally ignored there,
+            // so unlock through the always-present Apple USB keyboard, wait for
+            // the desktop Agent to rebind, then open a fresh probe terminal.
+            guard let unlockPassword,
+                  await sendAppleUSBText(unlockPassword + "\n") else { throw error }
+            try await Task.sleep(for: .seconds(5))
+            try await client.injectKeyChord(modifiers: [125], key: 28)
+            try await Task.sleep(for: .seconds(2))
+            try await client.typeUSASCII("bash /mnt/riftvm-shared/\(directory.lastPathComponent)/probe.sh\n")
+            try await waitForFile(ready, timeout: .seconds(10))
+        }
 
+        // Linux's wall clock can slew while chronyd converges after boot. A
+        // single calibration for the whole run made later samples appear
+        // hundreds of milliseconds slower. Calibrate immediately before each
+        // dispatch so Host -> Guest timings remain comparable and auditable.
+        let clock = try await calibrateClock(client: client)
         let hostDispatch = unixNanoseconds()
         let trace: VMOmarchyInputTraceResult?
         switch backend {
@@ -178,7 +211,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
         let fields = try parseResult(String(decoding: Data(contentsOf: result), as: UTF8.self))
         guard fields.baselineSHA256 != fields.visibleSHA256 else { throw ProbeError.noVisibleChange }
 
-        let hostDispatchOnGuestClock = adding(hostDispatch, clockOffset)
+        let hostDispatchOnGuestClock = adding(hostDispatch, clock.offset)
         let hostToGuest = milliseconds(from: hostDispatchOnGuestClock, to: fields.receivedAt)
         let guestToVisible = milliseconds(from: fields.receivedAt, to: fields.visibleAt)
         let hostToVisibleObservation = milliseconds(from: hostDispatch, to: hostObserved)
@@ -187,6 +220,8 @@ enum OmarchyInputLatencyAcceptanceProbe {
             backend: backend,
             index: index,
             traceID: traceID,
+            clockOffsetGuestMinusHostNanoseconds: clock.offset,
+            calibrationRoundTripMilliseconds: clock.roundTripMilliseconds,
             hostDispatchedAtUnixNanoseconds: hostDispatch,
             guestAgentReceivedAtUnixNanoseconds: trace?.guestReceivedAtUnixNanoseconds,
             uinputCompletedAtUnixNanoseconds: trace?.uinputCompletedAtUnixNanoseconds,

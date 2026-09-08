@@ -7,6 +7,14 @@ struct OmarchyHostKeyboardStroke: Equatable {
 }
 
 enum OmarchyHostKeyboardTextEncoder {
+    /// Time required for the last asynchronously posted key event to enter
+    /// AppKit, plus one 25 ms scheduling quantum. Unlike `deliveryDuration`,
+    /// this contains no acceptance settling margin.
+    static func eventQueueDuration(for text: String) -> Duration {
+        let eventCount = (strokes(for: text) ?? []).reduce(0) { $0 + ($1.shifted ? 4 : 2) }
+        return .milliseconds(max(25, eventCount * 25 + 25))
+    }
+
     /// Matches the 25 ms spacing used for each key-down and key-up event and
     /// leaves a small margin for the final event to reach the virtual keyboard.
     static func deliveryDuration(for text: String) -> Duration {
@@ -70,6 +78,10 @@ enum OmarchyKeyboardIntegrationState: Equatable {
 }
 
 enum OmarchyCommandCapturePolicy {
+    static func ownsCommandModifier(keyCode: UInt16) -> Bool {
+        keyCode == 54 || keyCode == 55
+    }
+
     static func shouldRedirect(
         type: CGEventType,
         keyCode: CGKeyCode,

@@ -318,7 +318,7 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("More", systemImage: "ellipsis.circle") {
-                    Button("Show Control Center", systemImage: "rectangle.grid.1x2") {
+                    Button("Show RiftVM Control Center", systemImage: "rectangle.grid.1x2") {
                         openWindow(id: "control-center")
                     }
                     .keyboardShortcut("0", modifiers: .command)

@@ -127,10 +127,21 @@ func findHyprlandSessions() []hyprlandSession {
 	return sessions
 }
 
+func activeUserHyprlandSessions() []hyprlandSession {
+	activeUIDs := activeSessionUIDs(time.Now())
+	var sessions []hyprlandSession
+	for _, session := range findHyprlandSessions() {
+		if activeUIDs[session.uid] {
+			sessions = append(sessions, session)
+		}
+	}
+	return sessions
+}
+
 func hyprlandDeviceDiagnostics() string {
-	sessions := findHyprlandSessions()
+	sessions := activeUserHyprlandSessions()
 	if len(sessions) == 0 {
-		return "hyprctl devices unavailable: Hyprland process not found"
+		return "hyprctl devices unavailable: active user Hyprland session not found"
 	}
 	var failures []string
 	for _, session := range sessions {
@@ -164,15 +175,15 @@ func hyprlandDeviceDiagnostics() string {
 }
 
 func desktopInputReady() bool {
-	if len(findHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl RiftVM Keyboard:") {
+	if len(activeUserHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl RiftVM Keyboard:") {
 		return true
 	}
 	return intersects(riftvmKeyboardEventDevices(), desktopCompositorInputDevices())
 }
 
 func desktopSessionActive() bool {
-	compositorPIDs := desktopCompositorPIDs()
-	if len(compositorPIDs) == 0 || len(desktopLockerPIDs()) > 0 {
+	sessions := activeUserHyprlandSessions()
+	if len(sessions) == 0 || len(desktopLockerPIDs()) > 0 {
 		return false
 	}
 	if locked, determined := omarchyShellLockState(); determined {

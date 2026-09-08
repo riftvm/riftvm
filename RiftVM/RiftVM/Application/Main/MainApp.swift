@@ -15,7 +15,7 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        WindowGroup("Control Center", id: "control-center") {
+        WindowGroup("RiftVM Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
                 WorkspaceControlCenterView()
                     .frame(minWidth: 800, minHeight: 600)
@@ -37,6 +37,7 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
         .windowToolbarStyle(.unifiedCompact)
+        .restorationBehavior(.disabled)
         
         WindowGroup("Create Workspace", id: "create-machine-guide", for: RiftWorkspaceKind.self) { $initialKind in
             VMCreateStepperGuideView(initialKind: initialKind)
@@ -44,6 +45,7 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 960, height: 660)
         .windowResizability(.contentMinSize)
+        .restorationBehavior(.disabled)
         
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             if let rootPath = modelRootPath {
@@ -55,6 +57,7 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
         .windowToolbarStyle(.unifiedCompact)
+        .restorationBehavior(.disabled)
         .commands {
             ControlCenterCommands()
         }
@@ -70,6 +73,7 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1024, height: 768)
         .windowToolbarStyle(.unifiedCompact)
+        .restorationBehavior(.disabled)
         .commands {
             ControlCenterCommands()
         }
@@ -97,7 +101,7 @@ private struct ControlCenterCommands: Commands {
     var body: some Commands {
         if HeadlessLaunchConfiguration.current == nil {
             CommandGroup(before: .windowList) {
-                Button("Show Control Center") {
+                Button("Show RiftVM Control Center") {
                     openWindow(id: "control-center")
                 }
                 .keyboardShortcut("0", modifiers: .command)

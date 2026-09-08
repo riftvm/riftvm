@@ -159,6 +159,24 @@ func activeSessionCapabilities(now time.Time) []string {
 	return values
 }
 
+// activeSessionUIDs returns only desktop users whose per-session Agent has
+// refreshed its authenticated registration recently.  In particular, SDDM's
+// Hyprland greeter never registers here, so callers can distinguish the login
+// compositor from the user's real Omarchy desktop.
+func activeSessionUIDs(now time.Time) map[uint32]bool {
+	desktopSessions.Lock()
+	defer desktopSessions.Unlock()
+	result := map[uint32]bool{}
+	for uid, session := range desktopSessions.byUID {
+		if now.Sub(session.updatedAt) > 15*time.Second {
+			delete(desktopSessions.byUID, uid)
+			continue
+		}
+		result[uid] = true
+	}
+	return result
+}
+
 func activeDesktopSession(now time.Time, requiredCapability string) (registeredSession, bool) {
 	desktopSessions.Lock()
 	defer desktopSessions.Unlock()

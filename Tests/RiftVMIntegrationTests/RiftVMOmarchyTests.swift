@@ -482,7 +482,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         bridge.stop()
     }
 
-    func testDesktopInputBackendUsesOnePathOnlyAfterDesktopReadiness() {
+    func testDesktopInputPolicyUsesOnlyAgentAfterDesktopReadiness() {
         func status(
             capabilities: Set<String> = ["input-uinput-v1", "desktop-input-v1"],
             active: Bool = true,
@@ -495,22 +495,12 @@ final class RiftVMOmarchyTests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status()))
-        XCTAssertTrue(OmarchyDesktopInputBackend.guestAgent.usesGuestAgent(status: status()))
-        XCTAssertFalse(OmarchyDesktopInputBackend.appleUSB.usesGuestAgent(status: status()))
-        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status(active: false)))
-        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status(provisioning: true)))
-        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(
+        XCTAssertTrue(OmarchyDesktopInputPolicy.usesGuestAgent(status: status()))
+        XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(status: status(active: false)))
+        XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(status: status(provisioning: true)))
+        XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(
             status: status(capabilities: ["input-uinput-v1"])
         ))
-        XCTAssertEqual(
-            OmarchyDesktopInputBackend.configured(in: ["RIFTVM_OMARCHY_INPUT_BACKEND": "usb"]),
-            .appleUSB
-        )
-        XCTAssertEqual(
-            OmarchyDesktopInputBackend.configured(in: ["RIFTVM_OMARCHY_INPUT_BACKEND": "uinput"]),
-            .guestAgent
-        )
     }
 
     @MainActor
@@ -551,6 +541,28 @@ final class RiftVMOmarchyTests: XCTestCase {
         view.keyDown(with: down)
         view.setGuestInputEventHandler(nil)
         XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
+    }
+
+    @MainActor
+    func testDesktopUinputDoesNotDuplicateCommandModifierOwnedByShortcutBridge() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        for (keyCode, flags) in [(UInt16(55), NSEvent.ModifierFlags.command), (55, [])] {
+            let event = try XCTUnwrap(NSEvent.keyEvent(
+                with: .flagsChanged, location: .zero, modifierFlags: flags,
+                timestamp: 0, windowNumber: 0, context: nil, characters: "",
+                charactersIgnoringModifiers: "", isARepeat: false, keyCode: keyCode
+            ))
+            view.flagsChanged(with: event)
+        }
+        XCTAssertTrue(batches.isEmpty)
+    }
+
+    func testCommandModifierIsAlwaysOwnedByShortcutBridge() {
+        XCTAssertTrue(OmarchyCommandCapturePolicy.ownsCommandModifier(keyCode: 54))
+        XCTAssertTrue(OmarchyCommandCapturePolicy.ownsCommandModifier(keyCode: 55))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.ownsCommandModifier(keyCode: 56))
     }
 
     @MainActor

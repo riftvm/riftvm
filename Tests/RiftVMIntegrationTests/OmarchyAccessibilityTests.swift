@@ -35,6 +35,14 @@ final class OmarchyAccessibilityTests: XCTestCase {
             OmarchyHostKeyboardTextEncoder.deliveryDuration(for: "123456\n"),
             .milliseconds(600)
         )
+        XCTAssertEqual(
+            OmarchyHostKeyboardTextEncoder.eventQueueDuration(for: "x"),
+            .milliseconds(75)
+        )
+        XCTAssertEqual(
+            OmarchyHostKeyboardTextEncoder.eventQueueDuration(for: "X"),
+            .milliseconds(125)
+        )
     }
 
     func testHostAcceptanceTextEncoderRejectsNonASCII() {

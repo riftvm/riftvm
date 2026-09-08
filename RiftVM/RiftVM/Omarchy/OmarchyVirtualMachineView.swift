@@ -56,11 +56,17 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         displayObservers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification, object: window, queue: .main
         ) { [weak self] _ in self?.scheduleDisplayRefresh() })
+        displayObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+        ) { [weak self, weak window] _ in
+            guard let self, let window, self.window === window,
+                  window.attachedSheet == nil else { return }
+            window.makeFirstResponder(self)
+        })
         refreshDisplayAfterTransition()
         DispatchQueue.main.async { [weak self, weak window] in
             guard let self, let window, self.window === window,
-                  window.isKeyWindow, window.attachedSheet == nil,
-                  window.firstResponder === window else { return }
+                  window.isKeyWindow, window.attachedSheet == nil else { return }
             window.makeFirstResponder(self)
         }
     }
@@ -178,6 +184,13 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     override func flagsChanged(with event: NSEvent) {
         recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("flagsChanged", event: event)
+        // Command/Super chords are synthesized as one balanced Agent batch by
+        // OmarchyFocusedCommandBridge. Forwarding AppKit's independent Command
+        // flagsChanged event as well can leave Linux Super held when macOS does
+        // not deliver the matching transition to this view.
+        if OmarchyCommandCapturePolicy.ownsCommandModifier(keyCode: event.keyCode) {
+            return
+        }
         if let guestInputEventHandler,
            let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
            let pressed = VMGuestAgentKeyboard.modifierPressed(
@@ -206,21 +219,114 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         }
         guestInputEventHandler = handler
     }
-}
 
-enum OmarchyDesktopInputBackend: String, Equatable {
-    case automatic
-    case appleUSB = "usb"
-    case guestAgent = "uinput"
-
-    static func configured(in environment: [String: String] = ProcessInfo.processInfo.environment) -> Self {
-        guard let value = environment["RIFTVM_OMARCHY_INPUT_BACKEND"] else { return .automatic }
-        return Self(rawValue: value) ?? .automatic
+    /// Sends an intentionally unpaced burst through the same view-to-Agent
+    /// handler used by physical AppKit key events. This acceptance seam keeps
+    /// TCC and UI automation timing out of the measurement while still
+    /// exercising the production batching queue that previously lost keys.
+    func runGuestAgentTextBurstAcceptance(_ text: String) -> Bool {
+        guard guestInputEventHandler != nil,
+              let source = CGEventSource(stateID: .combinedSessionState),
+              let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
+            return false
+        }
+        let shifted = CGEventFlags.maskShift.union(CGEventFlags(rawValue: 0x00000002))
+        for stroke in strokes {
+            if stroke.shifted,
+               let shiftDown = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) {
+                shiftDown.type = .flagsChanged
+                shiftDown.flags = shifted
+                if let event = NSEvent(cgEvent: shiftDown) { flagsChanged(with: event) }
+            }
+            for down in [true, false] {
+                guard let cgEvent = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: stroke.keyCode,
+                    keyDown: down
+                ) else { return false }
+                cgEvent.flags = stroke.shifted ? shifted : []
+                guard let event = NSEvent(cgEvent: cgEvent) else { return false }
+                if down { keyDown(with: event) } else { keyUp(with: event) }
+            }
+            if stroke.shifted,
+               let shiftUp = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: false) {
+                shiftUp.type = .flagsChanged
+                shiftUp.flags = []
+                if let event = NSEvent(cgEvent: shiftUp) { flagsChanged(with: event) }
+            }
+        }
+        return true
     }
 
-    func usesGuestAgent(status: VMOmarchyGuestStatus) -> Bool {
-        guard self != .appleUSB,
-              status.desktopSessionActive,
+    /// Exercises Virtualization.framework's Apple USB keyboard directly.
+    ///
+    /// Acceptance probes must not depend on Accessibility permission: that
+    /// permission exists only to keep Command shortcuts inside the VM and is
+    /// unrelated to ordinary VZ keyboard delivery. Posting CGEvents through
+    /// the session tap made the USB latency probe fail whenever the installed
+    /// build's signing requirement changed. Dispatching equivalent NSEvents to
+    /// `super` measures the same VZ keyboard path without involving TCC.
+    func runAppleUSBTextAcceptance(_ text: String) -> Bool {
+        guard let window, let source = CGEventSource(stateID: .combinedSessionState),
+              let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
+            return false
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(self)
+        let leftShiftFlags = CGEventFlags.maskShift.union(CGEventFlags(rawValue: 0x00000002))
+        var events: [CGEvent] = []
+        for stroke in strokes {
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = leftShiftFlags
+                events.append(shift)
+            }
+            for keyDown in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: keyDown) else { return false }
+                event.flags = stroke.shifted ? leftShiftFlags : []
+                events.append(event)
+            }
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: false) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = []
+                events.append(shift)
+            }
+        }
+        for (index, event) in events.enumerated() {
+            event.setIntegerValueField(.eventSourceUserData, value: OmarchyFocusedCommandBridge.acceptanceMarker)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.025) { [weak self] in
+                guard let self, let appKitEvent = NSEvent(cgEvent: event) else { return }
+                self.deliverAppleUSBEvent(appKitEvent)
+            }
+        }
+        return true
+    }
+
+    private func deliverAppleUSBEvent(_ event: NSEvent) {
+        switch event.type {
+        case .keyDown:
+            super.keyDown(with: event)
+        case .keyUp:
+            super.keyUp(with: event)
+        case .flagsChanged:
+            super.flagsChanged(with: event)
+        default:
+            break
+        }
+    }
+
+}
+
+enum OmarchyDesktopInputPolicy {
+    /// The authenticated Agent/uinput route is the sole Omarchy desktop input
+    /// path. When there is no desktop session (firmware, owner setup, lock
+    /// screen), leaving the handler unset lets Virtualization.framework's
+    /// virtual keyboard serve that different lifecycle surface.
+    static func usesGuestAgent(status: VMOmarchyGuestStatus) -> Bool {
+        guard status.desktopSessionActive,
               !status.provisioningPending,
               status.capabilities.contains("input-uinput-v1"),
               status.capabilities.contains("desktop-input-v1") else { return false }
@@ -1350,6 +1456,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var dynamicDisplayProbeTask: Task<Void, Never>?
         private var inputLatencyProbeTask: Task<Void, Never>?
         private var inputLatencyProbeStarted = false
+        private var continuousInputProbeTask: Task<Void, Never>?
+        private var continuousInputProbeStarted = false
         private var dynamicDisplayProbePassed = false
         private var automaticLockProbe = OmarchyLockAcceptanceState()
         private var automaticPauseResumeProbeStarted = false
@@ -1583,6 +1691,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                     self.latestGuestStatus = status
                                     self.configureDesktopInput(for: status)
                                     self.startInputLatencyProbeIfNeeded(status)
+                                    self.startContinuousInputProbeIfNeeded(status)
                                     self.configureAgentClipboard(for: status)
                                     self.configureNotifications(for: status)
                                     self.handleAutomaticRecoveryReady(status)
@@ -1620,8 +1729,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func configureDesktopInput(for status: VMOmarchyGuestStatus) {
             guard let view = machineView as? OmarchyVirtualMachineInputView else { return }
-            let backend = OmarchyDesktopInputBackend.configured()
-            guard backend.usesGuestAgent(status: status), let integrationClient else {
+            guard OmarchyDesktopInputPolicy.usesGuestAgent(status: status),
+                  let integrationClient else {
                 view.setGuestInputEventHandler(nil)
                 return
             }
@@ -1640,29 +1749,33 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                   status.capabilities.contains("input-uinput-v1"),
                   status.capabilities.contains("desktop-input-v1"),
                   let client = integrationClient,
-                  let bridge = keyboardBridge,
                   let inputView = machineView as? OmarchyVirtualMachineInputView else { return }
             inputLatencyProbeStarted = true
             let requestedSamples = environment["RIFTVM_OMARCHY_INPUT_LATENCY_SAMPLES"]
                 .flatMap(Int.init) ?? 20
-            inputLatencyProbeTask = Task { @MainActor [weak self, weak client, weak bridge, weak inputView] in
-                guard let self, let client, let bridge, let inputView else { return }
+            inputLatencyProbeTask = Task { @MainActor [weak self, weak client, weak inputView] in
+                guard let self, let client, let inputView else { return }
                 do {
                     let report = try await OmarchyInputLatencyAcceptanceProbe.run(
                         client: client,
                         sharedDirectory: self.layout.shared,
                         diagnosticsDirectory: self.layout.diagnostics,
                         sampleCount: requestedSamples,
-                        sendAppleUSBText: { [weak self, weak bridge, weak inputView] text in
-                            guard let self, let bridge, let inputView else { return false }
+                        unlockPassword: environment[
+                            OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
+                        ],
+                        sendAppleUSBText: { [weak self, weak inputView] text in
+                            guard let self, let inputView else { return false }
                             inputView.setGuestInputEventHandler(nil)
                             defer {
                                 if let status = self.latestGuestStatus {
                                     self.configureDesktopInput(for: status)
                                 }
                             }
-                            guard bridge.runAcceptanceTextInput(text) else { return false }
-                            try? await Task.sleep(for: OmarchyHostKeyboardTextEncoder.deliveryDuration(for: text))
+                            guard inputView.runAppleUSBTextAcceptance(text) else { return false }
+                            try? await Task.sleep(for: OmarchyHostKeyboardTextEncoder.eventQueueDuration(
+                                for: text
+                            ))
                             return true
                         }
                     )
@@ -1677,6 +1790,49 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     self.phaseChanged(.failed("Input latency acceptance failed: \(error.localizedDescription)"))
                 }
                 self.inputLatencyProbeTask = nil
+            }
+        }
+
+        @MainActor
+        private func startContinuousInputProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
+            let environment = ProcessInfo.processInfo.environment
+            guard environment["RIFTVM_OMARCHY_CONTINUOUS_INPUT_ACCEPTANCE"] == "1",
+                  !continuousInputProbeStarted,
+                  status.desktopSessionActive,
+                  !status.provisioningPending,
+                  status.capabilities.contains("input-uinput-v1"),
+                  status.capabilities.contains("desktop-input-v1"),
+                  let client = integrationClient,
+                  let inputView = machineView as? OmarchyVirtualMachineInputView else { return }
+            continuousInputProbeStarted = true
+            continuousInputProbeTask = Task { @MainActor [weak self, weak client, weak inputView] in
+                guard let self, let client, let inputView else { return }
+                do {
+                    // A running Wayland session can still be covered by
+                    // hyprlock. Wait for a command to reach a real terminal so
+                    // the burst cannot be mistaken for an unlock-screen test.
+                    try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
+                        client: client,
+                        sharedDirectory: self.layout.shared,
+                        attempts: 120,
+                        timeoutPerAttempt: .seconds(2),
+                        retryDelay: .seconds(1)
+                    )
+                    try await OmarchyInputDiagnosticsAcceptanceProbe.runContinuousInputBurst(
+                        client: client,
+                        sharedDirectory: self.layout.shared,
+                        diagnosticsDirectory: self.layout.diagnostics,
+                        sendTextBurst: { inputView.runGuestAgentTextBurstAcceptance($0) }
+                    )
+                    NSLog("Omarchy continuous input burst acceptance passed")
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.phaseChanged(.failed(
+                        "Continuous input acceptance failed: \(error.localizedDescription)"
+                    ))
+                }
+                self.continuousInputProbeTask = nil
             }
         }
 

@@ -79,6 +79,20 @@ func TestDesktopSessionRegistrationsExpire(t *testing.T) {
 	}
 }
 
+func TestActiveSessionUIDsExcludeExpiredAndIncludeCapabilitylessDesktop(t *testing.T) {
+	now := time.Now()
+	desktopSessions.Lock()
+	desktopSessions.byUID = map[uint32]registeredSession{
+		1000: {uid: 1000, capabilities: nil, updatedAt: now},
+		1001: {uid: 1001, capabilities: []string{"clipboard-text-v1"}, updatedAt: now.Add(-16 * time.Second)},
+	}
+	desktopSessions.Unlock()
+	actual := activeSessionUIDs(now)
+	if !actual[1000] || actual[1001] || len(actual) != 1 {
+		t.Fatalf("active session UIDs = %#v", actual)
+	}
+}
+
 func TestInvalidDesktopSessionRegistrationDoesNotPoisonRegistry(t *testing.T) {
 	now := time.Now()
 	desktopSessions.Lock()

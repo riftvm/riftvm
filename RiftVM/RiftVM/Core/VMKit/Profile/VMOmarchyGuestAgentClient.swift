@@ -344,13 +344,12 @@ public final class VMOmarchyGuestAgentClient {
     private func drainInputQueue() async {
         defer { inputTask = nil }
         while !Task.isCancelled, !pendingInputBatches.isEmpty {
-            await Task.yield()
-            var events: [VMGuestAgentInputEvent] = []
-            while let next = pendingInputBatches.first,
-                  events.count + next.count <= VMGuestAgentInputBatch.maximumEventCount {
-                events.append(contentsOf: next)
-                pendingInputBatches.removeFirst()
-            }
+            // Preserve the AppKit event boundary. Hyprland/libinput can drop a
+            // large zero-duration burst even after /dev/uinput reports a
+            // successful write. The local vsock round trip is sub-millisecond,
+            // so acknowledge each key transition batch before sending the next
+            // instead of trading correctness for cross-key coalescing.
+            let events = pendingInputBatches.removeFirst()
             let traceEnabled = ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
             let traceID = traceEnabled ? UUID().uuidString.lowercased() : nil
             let sentAt = traceEnabled ? Self.unixNanoseconds() : nil
@@ -384,6 +383,12 @@ public final class VMOmarchyGuestAgentClient {
                         ackAt, roundTrip, guestWrite ?? -1
                     )
                 }
+                // The Agent acknowledgement proves the kernel accepted the
+                // write, not that libinput has consumed the state transition.
+                // Keep consecutive AppKit transitions distinct at the seat;
+                // 2 ms is below perceptible interactive latency while avoiding
+                // the reproducible half-burst loss seen with zero spacing.
+                try await Task.sleep(for: .milliseconds(2))
             } catch is CancellationError {
                 return
             } catch {

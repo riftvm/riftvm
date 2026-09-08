@@ -23,6 +23,59 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
 
     private static let timeout: Duration = .seconds(20)
 
+    static func runContinuousInputBurst(
+        client: VMOmarchyGuestAgentClient,
+        sharedDirectory: URL,
+        diagnosticsDirectory: URL,
+        sendTextBurst: (String) -> Bool
+    ) async throws {
+        let alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        let payloads = (0..<10).map { index in
+            "RiftVMQueueBurst\(index)-\(alphabet)-\(alphabet)-END"
+        }
+        let probeDirectory = sharedDirectory.appending(
+            path: ".riftvm-continuous-input-\(UUID().uuidString.lowercased())"
+        )
+        let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
+        let reportURL = diagnosticsDirectory.appending(path: "continuous-input-burst.json")
+        var completed = false
+        defer {
+            if completed { try? FileManager.default.removeItem(at: probeDirectory) }
+        }
+        try FileManager.default.createDirectory(at: probeDirectory, withIntermediateDirectories: false)
+        try FileManager.default.createDirectory(at: diagnosticsDirectory, withIntermediateDirectories: true)
+
+        try await client.injectKeyChord(modifiers: [125], key: 28)
+        try await Task.sleep(for: .seconds(2))
+        for (index, payload) in payloads.enumerated() {
+            let resultURL = probeDirectory.appending(path: "sample-\(index).txt")
+            let command = "printf '%s' '\(payload)' > \(guestDirectory)/sample-\(index).txt\n"
+            guard sendTextBurst(command) else { throw ProbeError.shortcutUnavailable }
+            let deadline = ContinuousClock.now + timeout
+            repeat {
+                if let actual = try? String(contentsOf: resultURL, encoding: .utf8),
+                   actual == payload {
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(50))
+            } while ContinuousClock.now < deadline
+            guard let actual = try? String(contentsOf: resultURL, encoding: .utf8),
+                  actual == payload else { throw ProbeError.timeout }
+        }
+        guard sendTextBurst("exit\n") else { throw ProbeError.shortcutUnavailable }
+        let report: [String: Any] = [
+            "schemaVersion": 1,
+            "result": "passed",
+            "sampleCount": payloads.count,
+            "charactersPerSample": payloads.first?.count ?? 0,
+            "completedAt": ISO8601DateFormatter().string(from: Date()),
+            "route": "AppKit-view-to-Guest-Agent-uinput",
+        ]
+        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: reportURL, options: .atomic)
+        completed = true
+    }
+
     static func run(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
