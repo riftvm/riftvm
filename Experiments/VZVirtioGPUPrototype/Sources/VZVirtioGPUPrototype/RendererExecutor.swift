@@ -16,7 +16,7 @@ final class RendererExecutor: @unchecked Sendable {
 
     init() {
         thread = Thread { [unowned self] in run() }
-        thread.name = "com.everettjf.ezvm.prototype.virgl-renderer"
+        thread.name = "com.everettjf.riftvm.prototype.virgl-renderer"
         thread.qualityOfService = .userInteractive
         thread.start()
         ready.wait()

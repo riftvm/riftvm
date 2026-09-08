@@ -5,7 +5,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd -P)"
 pins="$project_root/scripts/virgl-runtime-pins.sh"
 output_dir="${1:-$project_root/.build/virgl-runtime}"
-archive_dir="${EZVM_VIRGL_ARCHIVE_DIR:-$project_root/.build/virgl-archives}"
+archive_dir="${RIFTVM_VIRGL_ARCHIVE_DIR:-$project_root/.build/virgl-archives}"
 
 fail() {
   echo "build-virgl-runtime: $*" >&2
@@ -32,7 +32,7 @@ case "$archive_dir" in
 esac
 
 mkdir -p "$archive_dir" "$(dirname "$output_dir")"
-work_dir="$(mktemp -d /tmp/ezvm-virgl-runtime.XXXXXX)"
+work_dir="$(mktemp -d /tmp/riftvm-virgl-runtime.XXXXXX)"
 publish_dir="$(mktemp -d "$(dirname "$output_dir")/.virgl-runtime-publish.XXXXXX")"
 cleanup() {
   rm -rf "$work_dir" "$publish_dir"
@@ -57,25 +57,25 @@ require_member() {
     fail "$label archive is missing $member"
 }
 
-virgl_archive="$archive_dir/$EZVM_VIRGL_ARCHIVE"
-angle_archive="$archive_dir/$EZVM_ANGLE_ARCHIVE"
-epoxy_archive="$archive_dir/$EZVM_EPOXY_ARCHIVE"
-download "virglrenderer $EZVM_VIRGL_VERSION" "$EZVM_VIRGL_URL" "$EZVM_VIRGL_SHA256" "$virgl_archive"
-download "ANGLE $EZVM_ANGLE_VERSION" "$EZVM_ANGLE_URL" "$EZVM_ANGLE_SHA256" "$angle_archive"
-download "libepoxy $EZVM_EPOXY_VERSION" "$EZVM_EPOXY_URL" "$EZVM_EPOXY_SHA256" "$epoxy_archive"
+virgl_archive="$archive_dir/$RIFTVM_VIRGL_ARCHIVE"
+angle_archive="$archive_dir/$RIFTVM_ANGLE_ARCHIVE"
+epoxy_archive="$archive_dir/$RIFTVM_EPOXY_ARCHIVE"
+download "virglrenderer $RIFTVM_VIRGL_VERSION" "$RIFTVM_VIRGL_URL" "$RIFTVM_VIRGL_SHA256" "$virgl_archive"
+download "ANGLE $RIFTVM_ANGLE_VERSION" "$RIFTVM_ANGLE_URL" "$RIFTVM_ANGLE_SHA256" "$angle_archive"
+download "libepoxy $RIFTVM_EPOXY_VERSION" "$RIFTVM_EPOXY_URL" "$RIFTVM_EPOXY_SHA256" "$epoxy_archive"
 
-require_member virglrenderer "$virgl_archive" "$EZVM_VIRGL_MEMBER"
-require_member ANGLE "$angle_archive" "$EZVM_EGL_MEMBER"
-require_member ANGLE "$angle_archive" "$EZVM_GLES_MEMBER"
-require_member libepoxy "$epoxy_archive" "$EZVM_EPOXY_MEMBER"
-tar -xzf "$virgl_archive" -C "$work_dir" "$EZVM_VIRGL_MEMBER"
-tar -xzf "$angle_archive" -C "$work_dir" "$EZVM_EGL_MEMBER" "$EZVM_GLES_MEMBER"
-tar -xzf "$epoxy_archive" -C "$work_dir" "$EZVM_EPOXY_MEMBER"
+require_member virglrenderer "$virgl_archive" "$RIFTVM_VIRGL_MEMBER"
+require_member ANGLE "$angle_archive" "$RIFTVM_EGL_MEMBER"
+require_member ANGLE "$angle_archive" "$RIFTVM_GLES_MEMBER"
+require_member libepoxy "$epoxy_archive" "$RIFTVM_EPOXY_MEMBER"
+tar -xzf "$virgl_archive" -C "$work_dir" "$RIFTVM_VIRGL_MEMBER"
+tar -xzf "$angle_archive" -C "$work_dir" "$RIFTVM_EGL_MEMBER" "$RIFTVM_GLES_MEMBER"
+tar -xzf "$epoxy_archive" -C "$work_dir" "$RIFTVM_EPOXY_MEMBER"
 
-install -m 0755 "$work_dir/$EZVM_VIRGL_MEMBER" "$publish_dir/libvirglrenderer.1.dylib"
-install -m 0755 "$work_dir/$EZVM_EPOXY_MEMBER" "$publish_dir/libepoxy.0.dylib"
-install -m 0755 "$work_dir/$EZVM_EGL_MEMBER" "$publish_dir/libEGL.dylib"
-install -m 0755 "$work_dir/$EZVM_GLES_MEMBER" "$publish_dir/libGLESv2.dylib"
+install -m 0755 "$work_dir/$RIFTVM_VIRGL_MEMBER" "$publish_dir/libvirglrenderer.1.dylib"
+install -m 0755 "$work_dir/$RIFTVM_EPOXY_MEMBER" "$publish_dir/libepoxy.0.dylib"
+install -m 0755 "$work_dir/$RIFTVM_EGL_MEMBER" "$publish_dir/libEGL.dylib"
+install -m 0755 "$work_dir/$RIFTVM_GLES_MEMBER" "$publish_dir/libGLESv2.dylib"
 
 install_name_tool -id @rpath/libvirglrenderer.1.dylib "$publish_dir/libvirglrenderer.1.dylib"
 install_name_tool -change "@@HOMEBREW_PREFIX@@/opt/libepoxy/lib/libepoxy.0.dylib" \

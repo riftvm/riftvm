@@ -7,7 +7,7 @@ mode=${1:-}
 tag=${2:-}
 asset_dir=${3:-}
 public_key=${4:-}
-repository=${EZVM_OMARCHY_IMAGE_REPOSITORY:-everettjf/omarchy-aarch64-image}
+repository=${RIFTVM_OMARCHY_IMAGE_REPOSITORY:-everettjf/omarchy-aarch64-image}
 
 fail() { printf 'publish-omarchy-factory-assets: %s\n' "$*" >&2; exit "${2:-1}"; }
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1" 69; }
@@ -21,9 +21,9 @@ require_command() { command -v "$1" >/dev/null 2>&1 || fail "required command no
 for command in ruby shasum stat; do require_command "$command"; done
 
 asset_dir=$(cd "$asset_dir" && pwd)
-manifest="$asset_dir/ezvm-omarchy-factory-manifest.json"
+manifest="$asset_dir/riftvm-omarchy-factory-manifest.json"
 factory="$asset_dir/Omarchy-Factory.asif"
-checksum="$asset_dir/EZVM_FACTORY_SHA256SUMS"
+checksum="$asset_dir/RIFTVM_FACTORY_SHA256SUMS"
 for path in "$manifest" "$factory" "$checksum"; do
   [[ -f $path && ! -L $path ]] || fail "required Factory input is missing or unsafe: $path" 66
 done

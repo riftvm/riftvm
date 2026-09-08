@@ -1,5 +1,5 @@
 import CryptoKit
-import EZVMCore
+import RiftVMCore
 import Foundation
 
 private struct RollbackObservation: Codable {
@@ -48,7 +48,7 @@ enum OmarchyRollbackAcceptanceTool {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
         let workspaceManager = VMOmarchyWorkspaceManager(layout: layout)
         guard workspaceManager.inspect() == .ready else { throw CocoaError(.fileReadCorruptFile) }
-        let marker = layout.workspace.appending(path: ".ezvm-update-rollback-acceptance")
+        let marker = layout.workspace.appending(path: ".riftvm-update-rollback-acceptance")
         guard !FileManager.default.fileExists(atPath: marker.path) else {
             throw CocoaError(.fileWriteFileExists)
         }

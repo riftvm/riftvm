@@ -1,3 +1,3 @@
-module github.com/everettjf/ezvm/guest-agent
+module github.com/everettjf/riftvm/guest-agent
 
 go 1.22

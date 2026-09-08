@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+name="RiftVM Guest Agent"
+command="/usr/local/sbin/rift-agent"
+command_args="--config /etc/rift-agent/config.json"
+command_background="yes"
+pidfile="/run/rift-agent.pid"
+output_log="/var/log/rift-agent.log"
+error_log="/var/log/rift-agent.log"
+
+depend() {
+    after net
+}

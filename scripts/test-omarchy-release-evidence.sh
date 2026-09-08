@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ezvm-omarchy-evidence.XXXXXX")
+work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-evidence.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 revision=0123456789abcdef0123456789abcdef01234567
 printf app >"$work/app.zip"
@@ -83,7 +83,7 @@ printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","enteredAt":"
   "$ended" "$revision" "$ended" "$ended" >"$work/full-screen.json"
 full_screen_sha=$(shasum -a 256 "$work/full-screen.json" | awk '{print $1}')
 cp "$work/full-screen.json" "$work/full-screen.valid.json"
-printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","guestBootID":"boot-after","guestNotificationID":"notification-id","notificationTitle":"EZVM notification 12345678-1234-1234-1234-123456789abc","macOSRequestAccepted":true}\n' \
+printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","guestBootID":"boot-after","guestNotificationID":"notification-id","notificationTitle":"RiftVM notification 12345678-1234-1234-1234-123456789abc","macOSRequestAccepted":true}\n' \
   "$ended" "$revision" >"$work/notification.json"
 notification_sha=$(shasum -a 256 "$work/notification.json" | awk '{print $1}')
 cp "$work/notification.json" "$work/notification.valid.json"
@@ -194,4 +194,4 @@ if "${verify[@]}" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Verified EZVM Omarchy release evidence binding and rejection gates."
+echo "Verified RiftVM Omarchy release evidence binding and rejection gates."

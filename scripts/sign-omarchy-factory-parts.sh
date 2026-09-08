@@ -8,9 +8,9 @@ image_version=${2:-}
 omarchy_revision=${3:-}
 agent_version=${4:-}
 private_key=${5:-}
-release_base_url=${EZVM_OMARCHY_FACTORY_RELEASE_BASE_URL:-}
-key_id=${EZVM_OMARCHY_FACTORY_KEY_ID:-ezvm-omarchy-factory-2026}
-part_bytes=${EZVM_OMARCHY_FACTORY_PART_BYTES:-1992294400}
+release_base_url=${RIFTVM_OMARCHY_FACTORY_RELEASE_BASE_URL:-}
+key_id=${RIFTVM_OMARCHY_FACTORY_KEY_ID:-riftvm-omarchy-factory-2026}
+part_bytes=${RIFTVM_OMARCHY_FACTORY_PART_BYTES:-1992294400}
 
 fail() { printf 'sign-omarchy-factory-parts: %s\n' "$*" >&2; exit 1; }
 
@@ -19,15 +19,15 @@ fail() { printf 'sign-omarchy-factory-parts: %s\n' "$*" >&2; exit 1; }
   fail "usage: $0 <factory.asif> <image-version> <omarchy-revision> <agent-version> <private-key>"
 [[ -f $private_key && ! -L $private_key ]] || fail "private signing key is missing or unsafe"
 [[ $release_base_url == https://* && $release_base_url != */ ]] || \
-  fail "EZVM_OMARCHY_FACTORY_RELEASE_BASE_URL must be an HTTPS URL without a trailing slash"
+  fail "RIFTVM_OMARCHY_FACTORY_RELEASE_BASE_URL must be an HTTPS URL without a trailing slash"
 [[ $key_id =~ ^[A-Za-z0-9._-]+$ ]] || fail "invalid signing key id"
 [[ $part_bytes =~ ^[0-9]+$ && $part_bytes -gt 0 && $part_bytes -le 1992294400 ]] || \
-  fail "EZVM_OMARCHY_FACTORY_PART_BYTES must be between 1 and 1992294400"
+  fail "RIFTVM_OMARCHY_FACTORY_PART_BYTES must be between 1 and 1992294400"
 
 output_dir=$(cd "$(dirname "$factory")" && pwd)
 factory="$output_dir/$(basename "$factory")"
-manifest="$output_dir/ezvm-omarchy-factory-manifest.json"
-checksum="$output_dir/EZVM_FACTORY_SHA256SUMS"
+manifest="$output_dir/riftvm-omarchy-factory-manifest.json"
+checksum="$output_dir/RIFTVM_FACTORY_SHA256SUMS"
 [[ ! -e $manifest && ! -e $checksum ]] || fail "signed Factory metadata already exists"
 if find "$output_dir" -mindepth 1 -maxdepth 1 -name 'Omarchy-Factory.asif.part-*' -print -quit | grep -q .; then
   fail "Factory release parts already exist"
@@ -56,6 +56,6 @@ done
 swift run --package-path "$project_root" -c release omarchy-factory-tool "${sign_arguments[@]}"
 
 (cd "$output_dir" && shasum -a 256 \
-  Omarchy-Factory.asif.part-* ezvm-omarchy-factory-manifest.json > EZVM_FACTORY_SHA256SUMS)
+  Omarchy-Factory.asif.part-* riftvm-omarchy-factory-manifest.json > RIFTVM_FACTORY_SHA256SUMS)
 completed=1
 printf 'Created signed multipart Omarchy Factory assets in %s\n' "$output_dir"

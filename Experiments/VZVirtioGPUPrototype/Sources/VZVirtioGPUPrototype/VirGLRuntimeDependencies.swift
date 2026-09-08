@@ -1,7 +1,7 @@
 import Foundation
 
 public struct VirGLRuntimeDependencies: Sendable, Equatable {
-    public static let environmentOverrideKey = "EZVM_VIRGL_RUNTIME_DIRECTORY"
+    public static let environmentOverrideKey = "RIFTVM_VIRGL_RUNTIME_DIRECTORY"
     public static let bundledDirectoryName = "VirGLRuntime"
 
     public let directoryURL: URL

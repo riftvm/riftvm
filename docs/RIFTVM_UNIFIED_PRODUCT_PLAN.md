@@ -1,6 +1,8 @@
 # RiftVM 1.0.0 统一产品实施计划
 
-状态：拟执行。本文取代 RIFTVM_REBRAND_AND_PRODUCT_PLAN.md 中的双应用结构；本轮仅制定计划。
+状态：执行中。本文取代 RIFTVM_REBRAND_AND_PRODUCT_PLAN.md 中的双应用结构；
+Phase A 的基线、迁移边界和逐阶段证据记录在
+[RIFTVM_MIGRATION_INVENTORY.md](RIFTVM_MIGRATION_INVENTORY.md)。
 
 ## 1. 产品决策
 

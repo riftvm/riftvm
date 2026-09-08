@@ -11,7 +11,7 @@ swift build --package-path "$project_root" --product omarchy-factory-tool >/dev/
 bin_dir="$(swift build --package-path "$project_root" --show-bin-path)"
 tool="$bin_dir/omarchy-factory-tool"
 
-printf 'EZVM-SPARSE-1\n8\n2 3\nabc\nEND\n' | gzip -c > "$work/image.sparse.gz"
+printf 'RiftVM-SPARSE-1\n8\n2 3\nabc\nEND\n' | gzip -c > "$work/image.sparse.gz"
 "$tool" decode-sparse-gzip "$work/image.sparse.gz" 8 "$work/image.raw"
 [[ $(stat -f '%z' "$work/image.raw") == 8 ]]
 [[ $(dd if="$work/image.raw" bs=1 skip=2 count=3 2>/dev/null) == abc ]]
@@ -60,28 +60,28 @@ fi
 
 mkdir "$work/release-assets"
 cp "$work/factory.asif" "$work/release-assets/Omarchy-Factory.asif"
-EZVM_OMARCHY_FACTORY_RELEASE_BASE_URL=https://github.com/example/test/releases/download/test \
-EZVM_OMARCHY_FACTORY_PART_BYTES=8 \
+RIFTVM_OMARCHY_FACTORY_RELEASE_BASE_URL=https://github.com/example/test/releases/download/test \
+RIFTVM_OMARCHY_FACTORY_PART_BYTES=8 \
   "$project_root/scripts/sign-omarchy-factory-parts.sh" \
     "$work/release-assets/Omarchy-Factory.asif" \
     test-version test-revision test-agent "$work/private.key"
 [[ -f "$work/release-assets/Omarchy-Factory.asif.part-00" ]]
 [[ -f "$work/release-assets/Omarchy-Factory.asif.part-01" ]]
-(cd "$work/release-assets" && shasum -a 256 -c EZVM_FACTORY_SHA256SUMS)
+(cd "$work/release-assets" && shasum -a 256 -c RIFTVM_FACTORY_SHA256SUMS)
 "$tool" verify \
-  "$work/release-assets/ezvm-omarchy-factory-manifest.json" \
+  "$work/release-assets/riftvm-omarchy-factory-manifest.json" \
   "$work/release-assets/Omarchy-Factory.asif" "$work/public.key"
 ruby -rjson -e '
   parts = JSON.parse(File.read(ARGV.fetch(0))).dig("payload", "imageParts")
   abort "wrong release URL" unless parts.first.fetch("url") ==
     "https://github.com/example/test/releases/download/test/Omarchy-Factory.asif.part-00"
-' "$work/release-assets/ezvm-omarchy-factory-manifest.json"
-EZVM_OMARCHY_IMAGE_REPOSITORY=example/test \
+' "$work/release-assets/riftvm-omarchy-factory-manifest.json"
+RIFTVM_OMARCHY_IMAGE_REPOSITORY=example/test \
   "$project_root/scripts/publish-omarchy-factory-assets.sh" verify \
     test "$work/release-assets" "$work/public.key"
 cp -R "$work/release-assets" "$work/unsafe-checksum-assets"
-printf '%064d  ../../outside\n' 0 >> "$work/unsafe-checksum-assets/EZVM_FACTORY_SHA256SUMS"
-if EZVM_OMARCHY_IMAGE_REPOSITORY=example/test \
+printf '%064d  ../../outside\n' 0 >> "$work/unsafe-checksum-assets/RIFTVM_FACTORY_SHA256SUMS"
+if RIFTVM_OMARCHY_IMAGE_REPOSITORY=example/test \
     "$project_root/scripts/publish-omarchy-factory-assets.sh" verify \
       test "$work/unsafe-checksum-assets" "$work/public.key" 2>/dev/null; then
   echo 'unsafe Factory checksum entry unexpectedly passed publication preflight' >&2
@@ -90,16 +90,16 @@ fi
 
 mkdir "$work/rejected-assets"
 cp "$work/factory.asif" "$work/rejected-assets/Omarchy-Factory.asif"
-if EZVM_OMARCHY_FACTORY_RELEASE_BASE_URL=http://example.test/releases/test \
-   EZVM_OMARCHY_FACTORY_PART_BYTES=8 \
+if RIFTVM_OMARCHY_FACTORY_RELEASE_BASE_URL=http://example.test/releases/test \
+   RIFTVM_OMARCHY_FACTORY_PART_BYTES=8 \
     "$project_root/scripts/sign-omarchy-factory-parts.sh" \
       "$work/rejected-assets/Omarchy-Factory.asif" \
       test-version test-revision test-agent "$work/private.key" 2>/dev/null; then
   echo 'insecure Factory release URL unexpectedly produced assets' >&2
   exit 1
 fi
-[[ ! -e "$work/rejected-assets/ezvm-omarchy-factory-manifest.json" ]]
-[[ ! -e "$work/rejected-assets/EZVM_FACTORY_SHA256SUMS" ]]
+[[ ! -e "$work/rejected-assets/riftvm-omarchy-factory-manifest.json" ]]
+[[ ! -e "$work/rejected-assets/RIFTVM_FACTORY_SHA256SUMS" ]]
 [[ -z $(find "$work/rejected-assets" -name 'Omarchy-Factory.asif.part-*' -print -quit) ]]
 
 "$tool" prepare-workspace \

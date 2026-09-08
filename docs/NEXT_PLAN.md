@@ -1,6 +1,6 @@
-# EZVM post-1.0 execution plan
+# RiftVM post-1.0 execution plan
 
-_Baseline: EZVM 1.0.4 — September 1, 2026_
+_Baseline: RiftVM 1.0.4 — September 1, 2026_
 
 This document turns the broader [capability roadmap](ROADMAP.md) into an
 ordered engineering plan. It covers only work that remains after 1.0.4 and
@@ -21,7 +21,7 @@ The next cycle starts with these foundations already delivered:
   notarization, Gatekeeper, GUI readiness, GitHub, and Homebrew gates;
 - cross-process single-owner leases, atomic runtime metadata, multi-VM resource
   admission, and two-VM headless CLI coverage;
-- native clone and `.ezvmexport` import/export with explicit copy-versus-
+- native clone and `.riftvmexport` import/export with explicit copy-versus-
   restore identity semantics, checksums, rollback, and sparse allocation
   estimates;
 - APFS snapshots, saved state, raw and ASIF disks, and interrupted-restore
@@ -56,7 +56,7 @@ The next cycle starts with these foundations already delivered:
 
 - A versioned, product-neutral `preinstalled-image` manifest is the source of
   truth for raw ARM64 guest identity, compatibility, logical size, and SHA-256.
-- `ezvm install-image` validates the manifest and decoded disk before invoking
+- `riftvm install-image` validates the manifest and decoded disk before invoking
   the signed app; the app validates both again before creating host identity
   and EFI state.
 - Preinstalled-image creation stages a hidden sibling bundle and commits it by
@@ -75,7 +75,7 @@ These items become part of the release baseline after the Homebrew-installed
 
 | Workstream | Deliverable | Acceptance criteria |
 | --- | --- | --- |
-| Headless failure cleanup | Make start timeout/cancellation terminate a VM that is stuck in `starting`, even if its bundle disappears; reap stale state files and release resource leases. | Fault-injection tests cover pre-start, start-callback-never-arrives, deleted bundle, SIGTERM, and forced-stop fallback; no EZVM process or lease remains. |
+| Headless failure cleanup | Make start timeout/cancellation terminate a VM that is stuck in `starting`, even if its bundle disappears; reap stale state files and release resource leases. | Fault-injection tests cover pre-start, start-callback-never-arrives, deleted bundle, SIGTERM, and forced-stop fallback; no RiftVM process or lease remains. |
 | Release fixture ownership | Add a documented builder for the Alpine Agent fixture, including EFI variable store, disk provenance, Agent version, enrollment generation, and checksum manifest. Keep secrets and the mutable disk outside Git. | A new fixture can be reproduced from documented inputs; CI/release rejects a fixture whose manifest, machine identity, Agent version, permissions, or checksum is wrong. |
 | Release diagnostic bundle | Preserve logs, state JSON, candidate checksum, host/SDK build, VM config, and failure stage automatically when any release gate fails; redact enrollment tokens. | A failed gate produces one timestamped archive that explains whether failure occurred at launch, VM start, Agent auth, transfer, KVM, stop, or Homebrew install. |
 | Candidate identity chain | Extend the existing source-commit marker to record toolchain version, signing identity fingerprint, Agent source commit, and fixture manifest digest. | Every published checksum can be traced to one commit and build context; resume refuses any mismatch. |
@@ -128,7 +128,7 @@ and two supported host OS releases before promotion.
 | macOS 27 guest provisioning | Real-guest account creation, secret deletion, partially provisioned guest inspection, explicit retry, final-system verification, and Developer ID/Homebrew validation. Stable attempt identity, backward-compatible Keychain state, and no automatic replay after ambiguous interruption are covered in code and policy tests. |
 | EFI Secure Boot management | Enrollment/disable/reenable lifecycle, corrupted variable store recovery, saved-state compatibility, distro matrix, and clear ownership of keys. |
 | Additional Custom Virtio devices | The concrete Linux graphics use case is now implemented as the availability-gated Custom VirGL backend. Do not add a generic device toggle or another device without a maintained guest driver, protocol contract, safe fallback, and lifecycle tests. |
-| OCI/image distribution | Decide whether a local cache/import adapter solves a real workflow without turning EZVM into a registry or CI platform. |
+| OCI/image distribution | Decide whether a local cache/import adapter solves a real workflow without turning RiftVM into a registry or CI platform. |
 | Local API or MCP | Threat model, per-operation authorization, local peer identity, audit log, cancellation, and stable CLI schemas first. Start read-only. |
 | macOS guest iCloud workflow | Legal/product/security review of Apple account behavior before any UI or automation work. |
 
@@ -136,7 +136,7 @@ and two supported host OS releases before promotion.
 
 These items are not scheduled in P0–P3:
 
-- EZVM targets macOS 27 and uses only `com.apple.developer.networking.vmnet`
+- RiftVM targets macOS 27 and uses only `com.apple.developer.networking.vmnet`
   for advanced VM networking;
 - physical USB passthrough and hot-plug require the Accessory Access entitlement
   already carried by the signed Homebrew build. The implementation remains in

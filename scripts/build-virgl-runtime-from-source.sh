@@ -5,8 +5,8 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd -P)"
 pins="$project_root/scripts/virgl-runtime-pins.sh"
 output_dir="${1:-$project_root/.build/virgl-runtime-source}"
-work_root="${EZVM_VIRGL_SOURCE_WORK_DIR:-$project_root/.build/virgl-source-work}"
-archive_dir="${EZVM_VIRGL_SOURCE_ARCHIVE_DIR:-$project_root/.build/virgl-source-archives}"
+work_root="${RIFTVM_VIRGL_SOURCE_WORK_DIR:-$project_root/.build/virgl-source-work}"
+archive_dir="${RIFTVM_VIRGL_SOURCE_ARCHIVE_DIR:-$project_root/.build/virgl-source-archives}"
 python_bin="${VIRGL_PYTHON:-/usr/bin/python3}"
 
 fail() {
@@ -31,7 +31,7 @@ done
 
 mkdir -p "$work_root" "$archive_dir" "$(dirname "$output_dir")"
 prepared="$work_root/prepared"
-EZVM_VIRGL_SOURCE_ARCHIVE_DIR="$archive_dir" \
+RIFTVM_VIRGL_SOURCE_ARCHIVE_DIR="$archive_dir" \
   "$project_root/scripts/prepare-virgl-sources.sh" "$prepared"
 
 download() {
@@ -45,8 +45,8 @@ download() {
   [[ $actual == "$expected" ]] || fail "$label checksum mismatch: $actual"
 }
 
-angle_recipe_archive="$archive_dir/$EZVM_ANGLE_RECIPE_ARCHIVE"
-download ANGLE-recipe "$EZVM_ANGLE_RECIPE_URL" "$EZVM_ANGLE_RECIPE_SHA256" "$angle_recipe_archive"
+angle_recipe_archive="$archive_dir/$RIFTVM_ANGLE_RECIPE_ARCHIVE"
+download ANGLE-recipe "$RIFTVM_ANGLE_RECIPE_URL" "$RIFTVM_ANGLE_RECIPE_SHA256" "$angle_recipe_archive"
 recipe_extract="$work_root/angle-recipe"
 rm -rf "$recipe_extract"
 mkdir -p "$recipe_extract"
@@ -58,9 +58,9 @@ depot_tools="$work_root/depot_tools"
 if [[ ! -d $depot_tools/.git ]]; then
   git clone --no-checkout https://chromium.googlesource.com/chromium/tools/depot_tools.git "$depot_tools"
 fi
-git -C "$depot_tools" fetch --depth=1 origin "$EZVM_DEPOT_TOOLS_COMMIT"
+git -C "$depot_tools" fetch --depth=1 origin "$RIFTVM_DEPOT_TOOLS_COMMIT"
 git -C "$depot_tools" checkout --detach FETCH_HEAD
-[[ $(git -C "$depot_tools" rev-parse HEAD) == "$EZVM_DEPOT_TOOLS_COMMIT" ]] || \
+[[ $(git -C "$depot_tools" rev-parse HEAD) == "$RIFTVM_DEPOT_TOOLS_COMMIT" ]] || \
   fail "depot_tools checkout drifted"
 
 angle="$work_root/angle"
@@ -69,22 +69,22 @@ if [[ ! -d $angle/.git ]]; then
   git -C "$angle" init
   git -C "$angle" remote add origin https://chromium.googlesource.com/angle/angle
 fi
-git -C "$angle" fetch --depth=1 origin "$EZVM_ANGLE_UPSTREAM_COMMIT"
+git -C "$angle" fetch --depth=1 origin "$RIFTVM_ANGLE_UPSTREAM_COMMIT"
 # A previous successful build leaves the pinned macOS patch applied in this
 # reusable checkout. A plain checkout of the same commit preserves those
 # tracked modifications, so the next build tries to reverse/repair a working
 # tree that gclient may also have refreshed. Force the pinned source tree back
 # to its authoritative commit before dependency synchronization instead.
 git -C "$angle" checkout --force --detach FETCH_HEAD
-[[ $(git -C "$angle" rev-parse HEAD) == "$EZVM_ANGLE_UPSTREAM_COMMIT" ]] || fail "ANGLE checkout drifted"
+[[ $(git -C "$angle" rev-parse HEAD) == "$RIFTVM_ANGLE_UPSTREAM_COMMIT" ]] || fail "ANGLE checkout drifted"
 
 depot_path="$depot_tools:/usr/bin:/bin:/usr/sbin:/sbin"
 if [[ ! -f $angle/.gclient ]]; then
   (cd "$angle" && env DEPOT_TOOLS_UPDATE=0 PATH="$depot_path" /usr/bin/python3 scripts/bootstrap.py)
 fi
 (cd "$angle" && env DEPOT_TOOLS_UPDATE=0 PATH="$depot_path" \
-  gclient sync --no-history --shallow --jobs "${EZVM_GCLIENT_JOBS:-4}")
-[[ $(git -C "$angle" rev-parse HEAD) == "$EZVM_ANGLE_UPSTREAM_COMMIT" ]] || \
+  gclient sync --no-history --shallow --jobs "${RIFTVM_GCLIENT_JOBS:-4}")
+[[ $(git -C "$angle" rev-parse HEAD) == "$RIFTVM_ANGLE_UPSTREAM_COMMIT" ]] || \
   fail "gclient changed the pinned ANGLE checkout"
 if git -C "$angle" apply --check "$angle_patch"; then
   git -C "$angle" apply "$angle_patch"
@@ -122,9 +122,9 @@ esac
 EOF
 chmod +x "$tool_wrappers/xcrun"
 
-angle_out="$angle/out/ezvm-release"
+angle_out="$angle/out/riftvm-release"
 gn_args='target_cpu="arm64" angle_build_all=false is_debug=false symbol_level=0 angle_has_frame_capture=false angle_enable_gl=false angle_enable_vulkan=false angle_enable_swiftshader=false angle_enable_wgpu=false angle_enable_metal=true angle_enable_null=false angle_enable_abseil=false use_siso=false use_system_xcode=true use_custom_libcxx=false use_lld=false is_component_build=false treat_warnings_as_errors=false fatal_linker_warnings=false'
-(cd "$angle" && buildtools/mac/gn gen out/ezvm-release --args="$gn_args")
+(cd "$angle" && buildtools/mac/gn gen out/riftvm-release --args="$gn_args")
 env PATH="$tool_wrappers:$PATH" "$angle/third_party/ninja/ninja" -C "$angle_out" libEGL libGLESv2
 
 pc_dir="$work_root/pkgconfig"
@@ -134,7 +134,7 @@ prefix=$angle_out
 includedir=$angle/include
 libdir=\${prefix}
 Name: EGL
-Description: EZVM pinned ANGLE EGL
+Description: RiftVM pinned ANGLE EGL
 Version: 1.5
 Libs: -L\${libdir} -lEGL
 Cflags: -I\${includedir}
@@ -144,7 +144,7 @@ prefix=$angle_out
 includedir=$angle/include
 libdir=\${prefix}
 Name: GLESv2
-Description: EZVM pinned ANGLE GLESv2
+Description: RiftVM pinned ANGLE GLESv2
 Version: 3.0
 Libs: -L\${libdir} -lGLESv2
 Cflags: -I\${includedir}
@@ -185,7 +185,7 @@ for library in "$publish_dir"/*.dylib; do
   codesign --force --sign - --timestamp=none "$library" >/dev/null
 done
 "$project_root/scripts/verify-virgl-runtime.sh" "$publish_dir"
-grep -aFq "${EZVM_ANGLE_UPSTREAM_COMMIT:0:12}" "$publish_dir/libGLESv2.dylib" || \
+grep -aFq "${RIFTVM_ANGLE_UPSTREAM_COMMIT:0:12}" "$publish_dir/libGLESv2.dylib" || \
   fail "ANGLE binary does not contain the pinned commit identity"
 
 if [[ -e $output_dir || -L $output_dir ]]; then
@@ -194,4 +194,4 @@ if [[ -e $output_dir || -L $output_dir ]]; then
 fi
 mv "$publish_dir" "$output_dir"
 trap - EXIT
-echo "Built source-qualified EZVM VirGL runtime at $output_dir"
+echo "Built source-qualified RiftVM VirGL runtime at $output_dir"

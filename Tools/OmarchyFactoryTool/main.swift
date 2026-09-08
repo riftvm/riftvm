@@ -1,5 +1,5 @@
 import CryptoKit
-import EZVMCore
+import RiftVMCore
 import Foundation
 import Virtualization
 

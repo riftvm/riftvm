@@ -17,7 +17,7 @@ func power(string)                         {}
 type unavailableInput struct{}
 
 func newGuestInput() guestInput                         { return unavailableInput{} }
-func inputDiagnostics() string                          { return "EZVM input unavailable" }
+func inputDiagnostics() string                          { return "RiftVM input unavailable" }
 func hyprlandDeviceDiagnostics() string                 { return "Hyprland unavailable" }
 func desktopInputReady() bool                           { return false }
 func desktopSessionActive() bool                        { return false }

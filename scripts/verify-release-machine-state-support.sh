@@ -7,22 +7,22 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
-timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
+timeout="${RIFTVM_VM_SMOKE_TIMEOUT:-90}"
 
 fail() {
   echo "verify-release-machine-state-support: $*" >&2
   exit 1
 }
 
-[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <EZVM.app> <macos-vm>"
+[[ -d "$app_path" && -d "$vm_path" ]] || fail "usage: $0 <RiftVM.app> <macos-vm>"
 [[ -f "$vm_path/config.json" ]] || fail "fixture has no config.json: $vm_path"
-[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EZVM_VM_SMOKE_TIMEOUT must be a positive integer"
+[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_VM_SMOKE_TIMEOUT must be a positive integer"
 
 fixture_parent="$(dirname "$vm_path")"
-fixture_root="$(mktemp -d "$fixture_parent/.ezvm-machine-state-fixture.XXXXXX")"
-fixture="$fixture_root/Machine-State.ezvm"
+fixture_root="$(mktemp -d "$fixture_parent/.riftvm-machine-state-fixture.XXXXXX")"
+fixture="$fixture_root/Machine-State.riftvm"
 result_file="$fixture_root/result.txt"
-launch_log="$(mktemp "${TMPDIR:-/tmp}/ezvm-machine-state-launch.XXXXXX")"
+launch_log="$(mktemp "${TMPDIR:-/tmp}/riftvm-machine-state-launch.XXXXXX")"
 open_pid=""
 cleanup() {
   if [[ -n "$open_pid" ]] && kill -0 "$open_pid" 2>/dev/null; then
@@ -42,10 +42,10 @@ run_action() {
   local save_state="$2"
   rm -f "$result_file"
   open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
-    --env "EZVM_RELEASE_SMOKE_VM=$fixture" \
-    --env "EZVM_RELEASE_SMOKE_RESULT=$result_file" \
-    --env "EZVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT=1" \
-    --env "EZVM_RELEASE_SAVE_MACHINE_STATE=$save_state" \
+    --env "RIFTVM_RELEASE_SMOKE_VM=$fixture" \
+    --env "RIFTVM_RELEASE_SMOKE_RESULT=$result_file" \
+    --env "RIFTVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT=1" \
+    --env "RIFTVM_RELEASE_SAVE_MACHINE_STATE=$save_state" \
     "$app_path" &
   open_pid=$!
 

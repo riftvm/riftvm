@@ -469,8 +469,9 @@ enum VirtioGPU {
         bytes[dtd + 14] = 0x30
         bytes[dtd + 17] = 0x1a
 
-        let name = Array("EZVM Display\n".utf8)
-        bytes[72..<90] = [0, 0, 0, 0xfc, 0] + name
+        let displayName = Array("RiftVM\n".utf8)
+        let paddedDisplayName = displayName + Array(repeating: UInt8(0x20), count: 13 - displayName.count)
+        bytes[72..<90] = [0, 0, 0, 0xfc, 0] + paddedDisplayName
         bytes[126] = 0
         bytes[127] = UInt8(truncatingIfNeeded: 256 - bytes.prefix(127).reduce(0) { ($0 + Int($1)) & 0xff })
         return Data(bytes)

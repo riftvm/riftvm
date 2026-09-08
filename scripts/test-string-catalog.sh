@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-catalog="$project_root/EZVM/EZVM/Localizable.xcstrings"
+catalog="$project_root/RiftVM/RiftVM/Localizable.xcstrings"
 
 ruby -rjson -e '
   catalog = JSON.parse(File.read(ARGV.fetch(0)))
@@ -42,10 +42,10 @@ ruby -rjson -e '
     "The host disconnected this network adapter. Check the selected interface, VPN, and network access, then reconnect.",
     "macOS 27 First-Boot Provisioning",
     "macOS is applying the first-boot settings for “%@”.",
-    "The previous provisioning attempt was interrupted. Sign in as “%@” if the account exists; otherwise choose Retry Next Start. EZVM will not submit it again automatically.",
+    "The previous provisioning attempt was interrupted. Sign in as “%@” if the account exists; otherwise choose Retry Next Start. RiftVM will not submit it again automatically.",
     "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again.",
     "Use macOS Setup Assistant Instead?",
-    "Confirm that you can sign in as “%@”. EZVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.",
+    "Confirm that you can sign in as “%@”. RiftVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone.",
     "Could not access guest provisioning credentials in Keychain: %@",
     "The temporary provisioning credential is no longer available.",
     "Virtualization.framework rejected the guest provisioning settings. Review the account details and try again.",
@@ -62,7 +62,7 @@ ruby -rjson -e '
     "Copying machine data",
     "Verifying snapshot integrity",
     "Installing the verified transaction",
-    "Cancellation requested. EZVM will stop at the next safe boundary.",
+    "Cancellation requested. RiftVM will stop at the next safe boundary.",
     "Protecting snapshot \"%@\"…",
     "Unprotecting snapshot \"%@\"…",
     "Custom VirGL active",
@@ -70,8 +70,8 @@ ruby -rjson -e '
     "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting.",
     "Custom VirGL state cannot be saved.",
     "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input.",
-    "Apple Virtio is used until the EZVM Guest Agent confirms reliable keyboard and pointer input.",
-    "The saved session used a graphics configuration that Custom VirGL cannot restore. EZVM discarded it and started the virtual machine normally."
+    "Apple Virtio is used until the RiftVM Guest Agent confirms reliable keyboard and pointer input.",
+    "The saved session used a graphics configuration that Custom VirGL cannot restore. RiftVM discarded it and started the virtual machine normally."
   ]
 
   required.each do |key|

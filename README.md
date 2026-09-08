@@ -1,66 +1,55 @@
 <p align="center">
-  <img src="./Assets/EZVM-mark.png" width="160" height="160" alt="EZVM blue and orange interlocking hexagon icon">
+  <img src="./Assets/RiftVM-mark.png" width="160" height="160" alt="RiftVM blue and orange interlocking hexagon icon">
 </p>
 
-# EZVM
+# RiftVM
 
 **Virtual machines, made easy — a focused native app for Apple silicon Macs.**
 
 [![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
-[![License](https://img.shields.io/github/license/everettjf/ezvm)](LICENSE)
-[![Pages](https://github.com/everettjf/ezvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/ezvm/)
+[![License](https://img.shields.io/github/license/everettjf/riftvm)](LICENSE)
+[![Pages](https://github.com/everettjf/riftvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/riftvm/)
 
-![EZVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
+![RiftVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
 
-## Install EZVM
+## Install RiftVM
 
 On an Apple silicon Mac running **macOS 27 or later**, install the signed
 and notarized app with Homebrew:
 
 ```bash
-brew install --cask everettjf/tap/ezvm
+brew install --cask everettjf/tap/riftvm
 ```
 
-### EZVM Omarchy
+RiftVM is one application with focused Omarchy and macOS workspace journeys.
+An Omarchy workspace downloads and verifies the pinned Factory image, creates
+its own writable disk and machine identity, and provides owner setup, dynamic
+display, shared folders, clipboard, notifications, and focus-scoped input.
+macOS workspaces use Apple's native restore-image path and do not depend on the
+Linux guest agent.
 
-**EZVM Omarchy** is a separate, single-purpose macOS app: open it and continue
-directly into one persistent Omarchy workspace. It uses the same native
-Virtualization.framework core as EZVM, but replaces the VM-library workflow
-with Omarchy-focused onboarding, recovery, dynamic display, shared folders,
-text/PNG clipboard, notifications, and focus-scoped Command-to-Super shortcuts.
+RiftVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
 
-[Download EZVM Omarchy directly](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip).
-No separate EZVM installation or Homebrew command is required: on first launch,
-the app downloads and verifies its pinned Omarchy Factory image and creates the
-persistent workspace. Allow approximately **16 GiB of free disk space**.
-
-It is an independent community preview for Apple silicon Macs running macOS 27
-or later—not an Omarchy-endorsed stable release. The remaining Daily Driver
-endurance work is tracked in the
-[EZVM Omarchy follow-up TODO](docs/todo/EZVM_OMARCHY_TODO.md).
-
-EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization) to create and run macOS and Linux virtual machines with a focused SwiftUI interface. It aims to be dependable, understandable, and useful without becoming a full emulation suite.
-
-> **Project status:** EZVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
+> **Project status:** RiftVM is Developer ID-signed and Apple-notarized. VM software can affect large disk images, so keep backups of important guests.
 
 ## Screenshots
 
 <p align="center">
-  <img src="./Assets/screenshot2.png" width="58%" alt="EZVM randomly naming a virtual machine Saturn and saving it under EZVM Virtual Machines">
-  <img src="./Assets/screenshot3.png" width="39%" alt="EZVM snapshot history tree with restore and protection controls">
+  <img src="./Assets/screenshot2.png" width="58%" alt="RiftVM randomly naming a virtual machine Saturn and saving it under RiftVM Virtual Machines">
+  <img src="./Assets/screenshot3.png" width="39%" alt="RiftVM snapshot history tree with restore and protection controls">
 </p>
 
 ## What it does
 
 - Creates and runs macOS virtual machines from a local IPSW, a selectable macOS version, or Apple's latest supported restore image
 - Creates and runs ARM64 Linux virtual machines from a local ISO or a built-in list of common distributions
-- Stores machines in `~/EZVM Virtual Machines` by default; any other location can still be chosen
+- Stores machines in `~/RiftVM Virtual Machines` by default; any other location can still be chosen
 - Keeps downloaded system images in a shared store and reuses them when creating more machines
 - Takes, restores, and deletes snapshots of a stopped machine (APFS copy-on-write clones)
-- Clones stopped machines with a new hardware identity and imports/exports checksum-verified `.ezvmexport` packages
+- Clones stopped machines with a new hardware identity and imports/exports checksum-verified `.riftvmexport` packages
 - Integrates with an optional authenticated Linux guest agent for readiness, IP reporting, SSH links, safe file transfer, and explicit shutdown/restart commands
-- Installs an `ezvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
+- Installs an `riftvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
 - Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
 - Accelerates Linux desktops with a native Custom Virtio GPU backed by
   VirGLRenderer and ANGLE/Metal; macOS guests retain Apple native graphics and
@@ -72,51 +61,45 @@ EZVM uses Apple's [`Virtualization.framework`](https://developer.apple.com/docum
 
 - An Apple silicon Mac
 - macOS 27 or later
-- An ARM64 guest image; EZVM does not emulate x86 guests
+- An ARM64 guest image; RiftVM does not emulate x86 guests
 
 ## Installation details
 
-### EZVM only
-
-Install the signed and notarized release from the EZVM Homebrew tap:
+Install the signed and notarized release from the RiftVM Homebrew tap:
 
 ```sh
-brew install --cask everettjf/tap/ezvm
+brew install --cask everettjf/tap/riftvm
 ```
 
-Or download the archive from [GitHub Releases](https://github.com/everettjf/ezvm/releases/latest).
+Or download the archive from [GitHub Releases](https://github.com/everettjf/riftvm/releases/latest).
 
-### EZVM Omarchy
+Open RiftVM and choose **Create Omarchy Workspace** or **Create macOS
+Workspace**. Both journeys are part of the same signed application and release
+archive. `scripts/install-omarchy.sh` remains a developer and recovery tool for
+building an Omarchy workspace from the command line.
 
-[Download the dedicated signed and notarized Alpha](https://github.com/everettjf/ezvm/releases/download/ezvm-omarchy-v1.0.0-alpha.44/EZVM-Omarchy-1.0.0-alpha.44.zip),
-open `EZVM Omarchy.app`, and complete the native owner setup. The app handles
-the verified Omarchy image download and persistent workspace automatically.
-The older `scripts/install-omarchy.sh` path remains available for users who
-specifically want Omarchy as a VM inside the general-purpose EZVM app, but it
-is no longer the recommended Omarchy experience.
-
-![Omarchy reaching its first-run welcome screen inside EZVM](./docs/assets/omarchy-ezvm.png)
+![Omarchy reaching its first-run welcome screen inside RiftVM](./docs/assets/omarchy-riftvm.png)
 
 ### Command line and headless mode
 
-The Homebrew cask links `ezvm` into Homebrew's executable prefix. Every
+The Homebrew cask links `riftvm` into Homebrew's executable prefix. Every
 command writes one schema-versioned JSON object and uses deterministic exit
 codes, making it suitable for local scripts:
 
 ```sh
-ezvm list
-ezvm inspect "My Linux VM"
-ezvm validate "/path/to/My VM.ezvm"
-ezvm doctor
-ezvm start "My Linux VM" --timeout 90
-ezvm status "My Linux VM"
-ezvm stop "My Linux VM" --timeout 30
-ezvm install-image preinstalled-image.json --image disk.raw \
-  --destination "$HOME/EZVM Virtual Machines/My Linux VM.ezvm" --timeout 300
+riftvm list
+riftvm inspect "My Linux VM"
+riftvm validate "/path/to/My VM.riftvm"
+riftvm doctor
+riftvm start "My Linux VM" --timeout 90
+riftvm status "My Linux VM"
+riftvm stop "My Linux VM" --timeout 30
+riftvm install-image preinstalled-image.json --image disk.raw \
+  --destination "$HOME/RiftVM Virtual Machines/My Linux VM.riftvm" --timeout 300
 ```
 
 Use `--root /path/to/library` one or more times when machines are stored outside
-`~/EZVM Virtual Machines`. Headless mode runs the signed EZVM virtualization
+`~/RiftVM Virtual Machines`. Headless mode runs the signed RiftVM virtualization
 process without presenting a VM window. Stop first requests a guest shutdown
 and uses a bounded force-stop fallback.
 
@@ -128,20 +111,18 @@ installation leaves no partial machine bundle.
 ## Build from source
 
 1. Clone this repository.
-2. Open `EZVM/EZVM.xcodeproj` in Xcode.
-3. Select the **EZVM** scheme and your Mac as the run destination.
+2. Open `RiftVM/RiftVM.xcodeproj` in Xcode.
+3. Select the **RiftVM** scheme and your Mac as the run destination.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
 
-To build the independent EZVM Omarchy app instead, open
-`EZVMOmarchy/EZVMOmarchy.xcodeproj` and select the **EZVM Omarchy** scheme. Its
-architecture, product boundaries, image policy, security model, and acceptance
-history are documented in the
-[EZVM Omarchy product plan](docs/EZVM_OMARCHY_PLAN.md).
+The unified product architecture, migration boundaries, image policy, and
+acceptance gates are documented in the
+[RiftVM unified product plan](docs/RIFTVM_UNIFIED_PRODUCT_PLAN.md).
 
 ### Linux graphics backends
 
-EZVM selects the graphics backend at runtime:
+RiftVM selects the graphics backend at runtime:
 
 | Host and guest | Graphics path |
 | --- | --- |
@@ -187,7 +168,7 @@ Pick a distribution from the built-in list in the creation flow (Ubuntu Server/D
 
 ## Direction
 
-EZVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction is narrower:
+RiftVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction is narrower:
 
 1. Make VM creation, launch, stop, recovery, and error handling reliable.
 2. Keep local macOS 27 tests, signed releases, Homebrew distribution,
@@ -195,7 +176,7 @@ EZVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction is
    when a genuine macOS 27 runner can execute the same GUI and VM gates.
 3. Expose a small, local automation surface so scripts and AI agents can create, start, inspect, and discard isolated VMs safely.
 
-The automation layer will remain local-first, explicit, and opt-in. EZVM will not embed an AI model or require a cloud account. See the [refresh roadmap](docs/ROADMAP.md), [ecosystem research](docs/RESEARCH.md), and [Homebrew distribution plan](docs/HOMEBREW.md).
+The automation layer will remain local-first, explicit, and opt-in. RiftVM will not embed an AI model or require a cloud account. See the [refresh roadmap](docs/ROADMAP.md), [ecosystem research](docs/RESEARCH.md), and [Homebrew distribution plan](docs/HOMEBREW.md).
 
 ## Contributing
 
@@ -205,10 +186,10 @@ When reporting a VM problem, include the host macOS version, Mac model/chip, gue
 
 ## Community
 
-- [GitHub Issues](https://github.com/everettjf/ezvm/issues) for bugs and focused feature requests
-- [GitHub Issues](https://github.com/everettjf/ezvm/issues) for questions and design ideas
+- [GitHub Issues](https://github.com/everettjf/riftvm/issues) for bugs and focused feature requests
+- [GitHub Issues](https://github.com/everettjf/riftvm/issues) for questions and design ideas
 - [Discord](https://discord.gg/eGzEaP6TzR) for informal conversation
 
 ## License
 
-EZVM is available under the [MIT License](LICENSE).
+RiftVM is available under the [MIT License](LICENSE).

@@ -1,10 +1,10 @@
-# EZVM VirGL runtime dependencies
+# RiftVM VirGL runtime dependencies
 
-EZVM does not redistribute the host libraries copied from Try Omarchy. That
+RiftVM does not redistribute the host libraries copied from Try Omarchy. That
 installation is a development oracle only. Release artifacts must come from a
-reproducible EZVM-owned build and be placed in:
+reproducible RiftVM-owned build and be placed in:
 
-`EZVM.app/Contents/Frameworks/VirGLRuntime/`
+`RiftVM.app/Contents/Frameworks/VirGLRuntime/`
 
 The runtime ABI currently requires exactly these arm64 files:
 
@@ -26,9 +26,9 @@ release input because that runtime does not initialize reliably on macOS 27.
 The local source-qualified path is:
 
 ```sh
-scripts/build-virgl-runtime-from-source.sh /tmp/ezvm-source-runtime
-EZVM_VIRGL_RUNTIME_DIRECTORY=/tmp/ezvm-source-runtime \
-  path/to/EZVM.app/Contents/MacOS/EZVM
+scripts/build-virgl-runtime-from-source.sh /tmp/riftvm-source-runtime
+RIFTVM_VIRGL_RUNTIME_DIRECTORY=/tmp/riftvm-source-runtime \
+  path/to/RiftVM.app/Contents/MacOS/RiftVM
 ```
 
 It verifies immutable source and recipe archives, checks out ANGLE and
@@ -44,17 +44,17 @@ This source path was validated locally on macOS 27 by booting the Omarchy guest
 through VirGL contexts and the zero-copy Metal scanout. Any distributed build
 must retain the license texts and notices for virglrenderer, libepoxy, and
 ANGLE. A trusted prebuilt source-qualified directory may be supplied explicitly
-with `EZVM_VIRGL_RUNTIME_SOURCE`; the release script validates it and otherwise
+with `RIFTVM_VIRGL_RUNTIME_SOURCE`; the release script validates it and otherwise
 builds the pinned sources itself.
 
-For local development only, set `EZVM_VIRGL_RUNTIME_DIRECTORY` to a directory
+For local development only, set `RIFTVM_VIRGL_RUNTIME_DIRECTORY` to a directory
 containing all four files. There is deliberately no production fallback to a
 third-party app bundle.
 
 ## Reference oracle captured 2026-08-30
 
 The validated Try Omarchy runtime had these SHA-256 hashes. They identify the
-prototype oracle; they are not approved EZVM release inputs.
+prototype oracle; they are not approved RiftVM release inputs.
 
 | File | SHA-256 |
 | --- | --- |

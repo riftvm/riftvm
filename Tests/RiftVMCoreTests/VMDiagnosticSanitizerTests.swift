@@ -1,0 +1,85 @@
+import XCTest
+@testable import RiftVMCore
+
+final class VMDiagnosticSanitizerTests: XCTestCase {
+    func testConfigurationKeepsNetworkDiagnosticsButRemovesPrivateMetadata() throws {
+        let input = #"""
+        {
+          "name": "Client Project",
+          "remark": "confidential",
+          "storageDevices": [{"type":"Block","imagePath":"/Users/alice/Secret/Disk.asif","format":"asif"}],
+          "directorySharingDevices": [{"tag":"riftvm_shared","items":[{"name":"Taxes","path":"file:///Users/alice/Taxes","readOnly":true}]}],
+          "networkDevices": [{
+            "id":"919D9852-C523-4FA6-A55E-B6C8ADCDFF3A",
+            "type":"VMNetShared",
+            "networkIdentifier":"private-lab",
+            "externalInterface":"en0",
+            "ipv4Subnet":"192.168.73.0",
+            "ipv4SubnetMask":"255.255.255.0",
+            "portForwardingRules":[{"transport":"tcp","externalPort":2222,"internalAddress":"192.168.73.2","internalPort":22}]
+          }]
+        }
+        """#
+        let output = try XCTUnwrap(VMDiagnosticSanitizer.sanitizedConfiguration(data: Data(input.utf8)))
+
+        for privateValue in ["Client Project", "confidential", "alice", "Taxes", "919D9852", "private-lab"] {
+            XCTAssertFalse(output.contains(privateValue))
+        }
+        for diagnosticValue in ["VMNetShared", "en0", "192.168.73.0", "2222", "<configured>"] {
+            XCTAssertTrue(output.contains(diagnosticValue))
+        }
+    }
+
+    func testConfigurationRedactsUnexpectedSecretAndAbsolutePathFields() throws {
+        let input = #"{"futureCredential":"abc","futureURL":"/Users/alice/private","ordinary":"safe"}"#
+        let output = try XCTUnwrap(VMDiagnosticSanitizer.sanitizedConfiguration(data: Data(input.utf8)))
+
+        XCTAssertFalse(output.contains("abc"))
+        XCTAssertFalse(output.contains("alice"))
+        XCTAssertTrue(output.contains("<redacted>"))
+        XCTAssertTrue(output.contains("<redacted-path>"))
+        XCTAssertTrue(output.contains("safe"))
+    }
+
+    func testLogSanitizerReplacesLongestMachinePathBeforeHomeDirectory() {
+        let output = VMDiagnosticSanitizer.sanitizedLogMessage(
+            "Failed /Users/alice/VMs/Test.riftvm/Disk.asif under /Users/alice/Desktop",
+            homeDirectory: "/Users/alice",
+            machinePaths: ["/Users/alice/VMs/Test.riftvm"]
+        )
+
+        XCTAssertEqual(output, "Failed <vm-bundle>/Disk.asif under <home>/Desktop")
+    }
+
+    func testMalformedConfigurationIsNotExported() {
+        XCTAssertNil(VMDiagnosticSanitizer.sanitizedConfiguration(data: Data("not json".utf8)))
+    }
+
+    func testErrorIdentifierDoesNotIncludePotentiallySensitiveDescription() {
+        let error = NSError(
+            domain: "AccessoryError",
+            code: 42,
+            userInfo: [NSLocalizedDescriptionKey: "Serial 1234 at /Users/alice"]
+        )
+
+        XCTAssertEqual(
+            VMDiagnosticSanitizer.errorIdentifier(error),
+            "domain=AccessoryError code=42"
+        )
+    }
+
+    func testCapabilitySummaryDistinguishesEntitlementsFromBundledFeatures() {
+        let summary = VMHostCapability.diagnosticSummary(
+            entitlementLookup: { $0 != "com.apple.developer.networking.vmnet" },
+            diskImageKitIncluded: true,
+            customVirGLIncluded: false
+        )
+
+        XCTAssertEqual(summary.count, 5)
+        XCTAssertTrue(summary.contains("Virtualization: entitlement present"))
+        XCTAssertTrue(summary.contains("VMNet: missing entitlement"))
+        XCTAssertTrue(summary.contains("Accessory Access: entitlement present"))
+        XCTAssertTrue(summary.contains("DiskImageKit / ASIF snapshots: included"))
+        XCTAssertTrue(summary.contains("Custom Virtio GPU / VirGL: unavailable in this build"))
+    }
+}

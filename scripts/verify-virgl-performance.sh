@@ -35,13 +35,13 @@ require_number() {
 [[ "$(metric "$candidate" Format-Version)" == "2" ]] || fail "candidate is not a version 2 capture"
 [[ "$(metric "$candidate" Backend)" == "custom-virgl" ]] || fail "candidate backend must be custom-virgl"
 
-minimum_windows="${EZVM_VIRGL_MIN_WINDOWS:-4}"
-maximum_misses="${EZVM_VIRGL_MAX_DRAWABLE_MISSES:-2}"
-maximum_average_present="${EZVM_VIRGL_MAX_AVERAGE_PRESENT_MS:-2.0}"
-maximum_p95_present="${EZVM_VIRGL_MAX_P95_PRESENT_MS:-8.0}"
-maximum_present="${EZVM_VIRGL_MAX_PRESENT_MS:-50.0}"
-maximum_cpu_delta="${EZVM_VIRGL_MAX_CPU_DELTA_PERCENT:-25.0}"
-maximum_rss_delta="${EZVM_VIRGL_MAX_RSS_DELTA_MIB:-512.0}"
+minimum_windows="${RIFTVM_VIRGL_MIN_WINDOWS:-4}"
+maximum_misses="${RIFTVM_VIRGL_MAX_DRAWABLE_MISSES:-2}"
+maximum_average_present="${RIFTVM_VIRGL_MAX_AVERAGE_PRESENT_MS:-2.0}"
+maximum_p95_present="${RIFTVM_VIRGL_MAX_P95_PRESENT_MS:-8.0}"
+maximum_present="${RIFTVM_VIRGL_MAX_PRESENT_MS:-50.0}"
+maximum_cpu_delta="${RIFTVM_VIRGL_MAX_CPU_DELTA_PERCENT:-25.0}"
+maximum_rss_delta="${RIFTVM_VIRGL_MAX_RSS_DELTA_MIB:-512.0}"
 
 [[ "$minimum_windows" =~ ^[0-9]+$ ]] || fail "minimum window budget must be an integer"
 for budget in "$maximum_misses" "$maximum_average_present" "$maximum_p95_present" "$maximum_present" "$maximum_cpu_delta" "$maximum_rss_delta"; do

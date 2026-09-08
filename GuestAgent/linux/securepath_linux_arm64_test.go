@@ -10,9 +10,9 @@ import (
 
 func TestCreateUploadEntryUsesOpenatWhenSupported(t *testing.T) {
 	pathCalled := false
-	fd, err := createUploadEntry(42, ".ezvm-upload-test",
+	fd, err := createUploadEntry(42, ".riftvm-upload-test",
 		func(parentFD int, name string, flags int, mode uint32) (int, error) {
-			if parentFD != 42 || name != ".ezvm-upload-test" || mode != 0600 {
+			if parentFD != 42 || name != ".riftvm-upload-test" || mode != 0600 {
 				t.Fatalf("unexpected openat arguments: fd=%d name=%q mode=%o", parentFD, name, mode)
 			}
 			return 77, nil
@@ -28,10 +28,10 @@ func TestCreateUploadEntryUsesOpenatWhenSupported(t *testing.T) {
 }
 
 func TestCreateUploadEntryFallsBackThroughBoundProcDescriptor(t *testing.T) {
-	fd, err := createUploadEntry(42, ".ezvm-upload-test",
+	fd, err := createUploadEntry(42, ".riftvm-upload-test",
 		func(int, string, int, uint32) (int, error) { return -1, syscall.EROFS },
 		func(path string, flags int, mode uint32) (int, error) {
-			if path != "/proc/self/fd/42/.ezvm-upload-test" {
+			if path != "/proc/self/fd/42/.riftvm-upload-test" {
 				t.Fatalf("fallback path=%q", path)
 			}
 			if flags&syscall.O_EXCL == 0 || flags&oNoFollow == 0 || mode != 0600 {
@@ -47,7 +47,7 @@ func TestCreateUploadEntryFallsBackThroughBoundProcDescriptor(t *testing.T) {
 
 func TestCreateUploadEntryDoesNotFallbackForOrdinaryErrors(t *testing.T) {
 	wanted := syscall.EACCES
-	_, err := createUploadEntry(42, ".ezvm-upload-test",
+	_, err := createUploadEntry(42, ".riftvm-upload-test",
 		func(int, string, int, uint32) (int, error) { return -1, wanted },
 		func(string, int, uint32) (int, error) {
 			t.Fatal("unexpected fallback")

@@ -13,7 +13,7 @@ import (
 )
 
 func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
-	want := []byte("EZVM clipboard payload\nwith unicode: 你好")
+	want := []byte("RiftVM clipboard payload\nwith unicode: 你好")
 	payload, byteCount, digest, err := readClipboardPayload(bytes.NewReader(want), maximumClipboardBytes)
 	if err != nil {
 		t.Fatal(err)

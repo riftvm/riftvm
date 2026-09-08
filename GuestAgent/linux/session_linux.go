@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	sessionSocketPath       = "/run/ezvm-agent/session.sock"
-	desktopSessionDirectory = "/run/ezvm-agent/sessions"
+	sessionSocketPath       = "/run/rift-agent/session.sock"
+	desktopSessionDirectory = "/run/rift-agent/sessions"
 )
 
 type sessionRegistration struct {
@@ -204,7 +204,7 @@ func runSessionAgent() error {
 			connection.Close()
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ezvm session registration: %v\n", err)
+			fmt.Fprintf(os.Stderr, "riftvm session registration: %v\n", err)
 		}
 		time.Sleep(5 * time.Second)
 	}

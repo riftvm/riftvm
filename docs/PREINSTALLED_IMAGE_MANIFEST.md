@@ -1,15 +1,15 @@
-# EZVM preinstalled-image manifest
+# RiftVM preinstalled-image manifest
 
 The preinstalled-image manifest is the source of truth for importing a decoded,
-bootable ARM64 raw disk into EZVM. Release-specific download metadata may add
-fields of its own, but these fields are the stable EZVM contract:
+bootable ARM64 raw disk into RiftVM. Release-specific download metadata may add
+fields of its own, but these fields are the stable RiftVM contract:
 
 ```json
 {
   "schemaVersion": 1,
-  "kind": "io.github.everettjf.ezvm.preinstalled-image",
+  "kind": "io.github.everettjf.riftvm.preinstalled-image",
   "architecture": "arm64",
-  "minimumEZVMVersion": "1.0.0",
+  "minimumRiftVMVersion": "1.0.0",
   "product": {
     "id": "org.example.linux",
     "name": "Example Linux",
@@ -28,16 +28,16 @@ fields of its own, but these fields are the stable EZVM contract:
 ```
 
 `virtualSize` is the decoded disk's logical byte size, not its allocated or
-compressed size. EZVM accepts only `arm64` and `raw` in schema 1 and requires a
+compressed size. RiftVM accepts only `arm64` and `raw` in schema 1 and requires a
 minimum 10 GiB disk. It verifies the logical size and streams SHA-256 before
 creating any destination bundle.
 
 Install a locally decoded image with the signed CLI:
 
 ```sh
-ezvm install-image preinstalled-image.json \
+riftvm install-image preinstalled-image.json \
   --image disk.raw \
-  --destination "$HOME/EZVM Virtual Machines/Example Linux.ezvm" \
+  --destination "$HOME/RiftVM Virtual Machines/Example Linux.riftvm" \
   --timeout 300
 ```
 
@@ -49,5 +49,5 @@ absent. The decoded source image is never consumed.
 
 Distribution manifests may include an `archive` object containing compression,
 aggregate checksum, compressed size, and ordered parts. Downloaders must verify
-each part and the complete archive before decoding; EZVM still verifies the
+each part and the complete archive before decoding; RiftVM still verifies the
 decoded disk against the stable `disk` object.

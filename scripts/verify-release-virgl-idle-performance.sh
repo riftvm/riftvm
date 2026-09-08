@@ -7,7 +7,7 @@ app_path="${1:-}"
 vm_path="${2:-}"
 enrollment="${3:-}"
 output_directory="${4:-}"
-duration="${EZVM_VIRGL_IDLE_DURATION:-30}"
+duration="${RIFTVM_VIRGL_IDLE_DURATION:-30}"
 
 fail() {
   echo "verify-release-virgl-idle-performance: $*" >&2
@@ -20,10 +20,10 @@ fail() {
 [[ "$output_directory" == /* && -d "$output_directory" && ! -L "$output_directory" ]] || \
   fail "output directory must be an existing, absolute, non-symbolic-link directory"
 if ! [[ "$duration" =~ ^[0-9]+$ ]] || (( duration < 25 || duration > 300 )); then
-  fail "EZVM_VIRGL_IDLE_DURATION must be between 25 and 300 seconds"
+  fail "RIFTVM_VIRGL_IDLE_DURATION must be between 25 and 300 seconds"
 fi
 
-working_directory="$(mktemp -d /tmp/ezvm-virgl-idle-gate.XXXXXX)"
+working_directory="$(mktemp -d /tmp/riftvm-virgl-idle-gate.XXXXXX)"
 gate_pid=""
 cleanup() {
   if [[ -n "$gate_pid" ]] && kill -0 "$gate_pid" 2>/dev/null; then
@@ -44,16 +44,16 @@ run_sample() {
   local gate_log="$working_directory/$backend-gate.log"
   local app_pid=""
 
-  EZVM_VM_SMOKE_TIMEOUT="$((duration + 150))" \
-  EZVM_RELEASE_SMOKE_ENROLLMENT="$enrollment" \
-  EZVM_RELEASE_SMOKE_PID_OUTPUT="$pid_file" \
-  EZVM_RELEASE_HOLD_SECONDS="$((duration + 5))" \
-  EZVM_RELEASE_HOLD_READY="$ready" \
-  EZVM_RELEASE_FORCE_APPLE_GRAPHICS="$force_apple" \
-  EZVM_RELEASE_REQUIRE_VIRGL="$require_virgl" \
-  EZVM_RELEASE_REQUIRE_MEMORY_BALLOON=1 \
-  EZVM_RELEASE_REQUIRE_ENTROPY=1 \
-  EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET=1 \
+  RIFTVM_VM_SMOKE_TIMEOUT="$((duration + 150))" \
+  RIFTVM_RELEASE_SMOKE_ENROLLMENT="$enrollment" \
+  RIFTVM_RELEASE_SMOKE_PID_OUTPUT="$pid_file" \
+  RIFTVM_RELEASE_HOLD_SECONDS="$((duration + 5))" \
+  RIFTVM_RELEASE_HOLD_READY="$ready" \
+  RIFTVM_RELEASE_FORCE_APPLE_GRAPHICS="$force_apple" \
+  RIFTVM_RELEASE_REQUIRE_VIRGL="$require_virgl" \
+  RIFTVM_RELEASE_REQUIRE_MEMORY_BALLOON=1 \
+  RIFTVM_RELEASE_REQUIRE_ENTROPY=1 \
+  RIFTVM_RELEASE_REQUIRE_VIRTIO_SOCKET=1 \
     "$project_root/scripts/verify-release-vm.sh" "$app_path" "$vm_path" >"$gate_log" 2>&1 &
   gate_pid=$!
 
@@ -72,9 +72,9 @@ run_sample() {
   app_pid="$(tr -d '\r\n' < "$pid_file")"
   [[ "$app_pid" =~ ^[1-9][0-9]*$ ]] || fail "$backend VM reported an invalid PID"
 
-  EZVM_VIRGL_PID="$app_pid" \
-  EZVM_VIRGL_BACKEND="$backend" \
-  EZVM_VIRGL_WORKLOAD="hyprland-idle" \
+  RIFTVM_VIRGL_PID="$app_pid" \
+  RIFTVM_VIRGL_BACKEND="$backend" \
+  RIFTVM_VIRGL_WORKLOAD="hyprland-idle" \
     "$project_root/scripts/capture-virgl-performance.sh" "$duration" "$report" >/dev/null
 
   wait "$gate_pid" || {

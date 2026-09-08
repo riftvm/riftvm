@@ -1,0 +1,34 @@
+//
+//  VMOSRunner.swift
+//  RiftVM
+//
+//  Created by everettjf on 2022/10/5.
+//
+
+import Foundation
+import Virtualization
+
+#if arch(arm64)
+protocol VMOSRunner {
+    func createConfiguration(
+        model: VMModel,
+        graphicsBackend: (any VMGraphicsBackend)?
+    ) -> VMOSResult<VZVirtualMachineConfiguration, String>
+}
+
+
+class VMOSRunnerFactory {
+    
+    static func getRunner(_ osType: VMOSType) -> VMOSRunner {
+        switch osType {
+        case .macOS:
+            return VMOSRunnerForMacOS()
+        case .linux:
+            return VMOSRunnerForLinux()
+        }
+    }
+}
+
+
+
+#endif

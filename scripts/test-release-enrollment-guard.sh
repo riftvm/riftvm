@@ -6,12 +6,12 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/release-enrollment-guard.sh
 source "$project_root/scripts/lib/release-enrollment-guard.sh"
 
-test_root="$(mktemp -d /tmp/ezvm-enrollment-guard-test.XXXXXX)"
+test_root="$(mktemp -d /tmp/riftvm-enrollment-guard-test.XXXXXX)"
 cleanup() { rm -rf "$test_root"; }
 trap cleanup EXIT
 
-first_vm="$test_root/First.ezvm"
-second_vm="$test_root/Second.ezvm"
+first_vm="$test_root/First.riftvm"
+second_vm="$test_root/Second.riftvm"
 enrollment="$test_root/enrollment.json"
 mkdir "$first_vm" "$second_vm"
 printf 'first-machine-identifier' >"$first_vm/MachineIdentifier"

@@ -1,0 +1,31 @@
+//
+//  VMOSResult.swift
+//  RiftVM
+//
+//  Created by everettjf on 2022/9/27.
+//
+
+import Foundation
+
+enum VMOSResult<Success, Failure> {
+    case success(Success)
+    case failure(Failure)
+}
+
+
+// simple for void result
+enum VMOSResultVoid {
+    case success
+    case failure(String)
+}
+
+
+enum VMOSError: Error, LocalizedError {
+    case regularFailure(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .regularFailure(let message): message
+        }
+    }
+}

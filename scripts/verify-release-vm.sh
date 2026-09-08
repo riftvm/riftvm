@@ -9,7 +9,7 @@ source "$project_root/scripts/lib/readonly-fixture-guard.sh"
 source "$project_root/scripts/lib/release-enrollment-guard.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
-timeout="${EZVM_VM_SMOKE_TIMEOUT:-90}"
+timeout="${RIFTVM_VM_SMOKE_TIMEOUT:-90}"
 
 fail() {
   echo "verify-release-vm: $*" >&2
@@ -18,24 +18,24 @@ fail() {
 
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
 [[ -d "$vm_path" ]] || fail "virtual machine not found: $vm_path"
-[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "EZVM_VM_SMOKE_TIMEOUT must be a positive integer"
-enrollment_file="${EZVM_RELEASE_SMOKE_ENROLLMENT:-}"
-[[ -n "$enrollment_file" ]] || fail "EZVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
+[[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_VM_SMOKE_TIMEOUT must be a positive integer"
+enrollment_file="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}"
+[[ -n "$enrollment_file" ]] || fail "RIFTVM_RELEASE_SMOKE_ENROLLMENT must name the fixture enrollment file"
 validate_release_enrollment "$vm_path" "$enrollment_file" \
-  || fail "EZVM_RELEASE_SMOKE_ENROLLMENT is not valid for this fixture"
+  || fail "RIFTVM_RELEASE_SMOKE_ENROLLMENT is not valid for this fixture"
 
-executable="$app_path/Contents/MacOS/EZVM"
+executable="$app_path/Contents/MacOS/RiftVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"
 
 smoke_parent="$(dirname "$vm_path")"
-smoke_directory="$(mktemp -d "$smoke_parent/.ezvm-release-smoke.XXXXXX")"
-smoke_vm="$smoke_directory/Smoke.ezvm"
+smoke_directory="$(mktemp -d "$smoke_parent/.riftvm-release-smoke.XXXXXX")"
+smoke_vm="$smoke_directory/Smoke.riftvm"
 result_file="$smoke_directory/result.txt"
-pid_file="${EZVM_RELEASE_SMOKE_PID_OUTPUT:-$smoke_directory/pid.txt}"
-launch_log="$(mktemp "${TMPDIR:-/tmp}/ezvm-vm-smoke-launch.XXXXXX")"
+pid_file="${RIFTVM_RELEASE_SMOKE_PID_OUTPUT:-$smoke_directory/pid.txt}"
+launch_log="$(mktemp "${TMPDIR:-/tmp}/riftvm-vm-smoke-launch.XXXXXX")"
 if [[ "$pid_file" != "$smoke_directory/pid.txt" ]]; then
-  [[ "$pid_file" == /* ]] || fail "EZVM_RELEASE_SMOKE_PID_OUTPUT must be an absolute path"
-  [[ ! -L "$pid_file" ]] || fail "EZVM_RELEASE_SMOKE_PID_OUTPUT must not be a symbolic link"
+  [[ "$pid_file" == /* ]] || fail "RIFTVM_RELEASE_SMOKE_PID_OUTPUT must be an absolute path"
+  [[ ! -L "$pid_file" ]] || fail "RIFTVM_RELEASE_SMOKE_PID_OUTPUT must not be a symbolic link"
 fi
 app_pid=""
 open_pid=""
@@ -48,7 +48,7 @@ cleanup() {
     kill "$open_pid" 2>/dev/null || true
     wait "$open_pid" 2>/dev/null || true
   fi
-  if [[ "${EZVM_KEEP_SMOKE_ARTIFACTS:-0}" == "1" ]]; then
+  if [[ "${RIFTVM_KEEP_SMOKE_ARTIFACTS:-0}" == "1" ]]; then
     echo "verify-release-vm: retained VM clone at $smoke_vm" >&2
     echo "verify-release-vm: retained launch log at $launch_log" >&2
   else
@@ -61,7 +61,7 @@ trap cleanup EXIT
 clone_readonly_fixture "$vm_path" "$smoke_vm"
 rm -f "$smoke_vm/NVRAM" "$smoke_vm/MachineState.vzvmsave"
 
-if [[ "${EZVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
+if [[ "${RIFTVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
   ruby -rjson -e '
     path = ARGV.fetch(0)
     config = JSON.parse(File.read(path))
@@ -73,23 +73,23 @@ if [[ "${EZVM_RELEASE_ENABLE_NESTED:-0}" == "1" ]]; then
 fi
 
 open -n -g -W --stdout "$launch_log" --stderr "$launch_log" \
-  --env "EZVM_RELEASE_SMOKE_VM=$smoke_vm" \
-  --env "EZVM_RELEASE_SMOKE_RESULT=$result_file" \
-  --env "EZVM_RELEASE_SMOKE_PID=$pid_file" \
-  --env "EZVM_RELEASE_REQUIRE_GUEST_AGENT=1" \
-  --env "EZVM_RELEASE_REQUIRE_KVM=${EZVM_RELEASE_REQUIRE_KVM:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_VIRGL=${EZVM_RELEASE_REQUIRE_VIRGL:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_MEMORY_BALLOON=${EZVM_RELEASE_REQUIRE_MEMORY_BALLOON:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_ENTROPY=${EZVM_RELEASE_REQUIRE_ENTROPY:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET=${EZVM_RELEASE_REQUIRE_VIRTIO_SOCKET:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_ASIF_STORAGE=${EZVM_RELEASE_REQUIRE_ASIF_STORAGE:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_VMNET=${EZVM_RELEASE_REQUIRE_VMNET:-0}" \
-  --env "EZVM_RELEASE_REQUIRE_CONFIGURATION_LABEL=1" \
-  --env "EZVM_RELEASE_REQUIRE_GUEST_IPV4=${EZVM_RELEASE_REQUIRE_GUEST_IPV4:-0}" \
-  --env "EZVM_RELEASE_FORCE_APPLE_GRAPHICS=${EZVM_RELEASE_FORCE_APPLE_GRAPHICS:-0}" \
-  --env "EZVM_RELEASE_HOLD_SECONDS=${EZVM_RELEASE_HOLD_SECONDS:-0}" \
-  --env "EZVM_RELEASE_HOLD_READY=${EZVM_RELEASE_HOLD_READY:-}" \
-  --env "EZVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
+  --env "RIFTVM_RELEASE_SMOKE_VM=$smoke_vm" \
+  --env "RIFTVM_RELEASE_SMOKE_RESULT=$result_file" \
+  --env "RIFTVM_RELEASE_SMOKE_PID=$pid_file" \
+  --env "RIFTVM_RELEASE_REQUIRE_GUEST_AGENT=1" \
+  --env "RIFTVM_RELEASE_REQUIRE_KVM=${RIFTVM_RELEASE_REQUIRE_KVM:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_VIRGL=${RIFTVM_RELEASE_REQUIRE_VIRGL:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_MEMORY_BALLOON=${RIFTVM_RELEASE_REQUIRE_MEMORY_BALLOON:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_ENTROPY=${RIFTVM_RELEASE_REQUIRE_ENTROPY:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_VIRTIO_SOCKET=${RIFTVM_RELEASE_REQUIRE_VIRTIO_SOCKET:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_ASIF_STORAGE=${RIFTVM_RELEASE_REQUIRE_ASIF_STORAGE:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_VMNET=${RIFTVM_RELEASE_REQUIRE_VMNET:-0}" \
+  --env "RIFTVM_RELEASE_REQUIRE_CONFIGURATION_LABEL=1" \
+  --env "RIFTVM_RELEASE_REQUIRE_GUEST_IPV4=${RIFTVM_RELEASE_REQUIRE_GUEST_IPV4:-0}" \
+  --env "RIFTVM_RELEASE_FORCE_APPLE_GRAPHICS=${RIFTVM_RELEASE_FORCE_APPLE_GRAPHICS:-0}" \
+  --env "RIFTVM_RELEASE_HOLD_SECONDS=${RIFTVM_RELEASE_HOLD_SECONDS:-0}" \
+  --env "RIFTVM_RELEASE_HOLD_READY=${RIFTVM_RELEASE_HOLD_READY:-}" \
+  --env "RIFTVM_RELEASE_AGENT_ENROLLMENT_FILE=$enrollment_file" \
   "$app_path" &
 open_pid=$!
 

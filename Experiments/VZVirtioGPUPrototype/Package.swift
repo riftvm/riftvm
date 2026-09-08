@@ -4,10 +4,10 @@ import PackageDescription
 
 let package = Package(
     name: "VZVirtioGPUPrototype",
-    // Match EZVM's WWDC26 release baseline and its Custom Virtio APIs.
+    // Match RiftVM's WWDC26 release baseline and its Custom Virtio APIs.
     platforms: [.macOS("27.0")],
     products: [
-        .library(name: "EZVMVirGLRuntime", targets: ["EZVMVirGLRuntime"]),
+        .library(name: "RiftVMVirGLRuntime", targets: ["RiftVMVirGLRuntime"]),
         .executable(name: "vz-virtio-gpu-prototype", targets: ["VZVirtioGPUPrototype"]),
     ],
     targets: [
@@ -16,18 +16,18 @@ let package = Package(
             linkerSettings: [.linkedLibrary("dl")]
         ),
         .target(
-            name: "EZVMVirGLRuntime",
+            name: "RiftVMVirGLRuntime",
             dependencies: ["CVirGLBridge"],
             path: "Sources/VZVirtioGPUPrototype"
         ),
         .executableTarget(
             name: "VZVirtioGPUPrototype",
-            dependencies: ["EZVMVirGLRuntime"],
+            dependencies: ["RiftVMVirGLRuntime"],
             path: "Sources/VZVirtioGPUPrototypeRunner"
         ),
         .testTarget(
             name: "VZVirtioGPUPrototypeTests",
-            dependencies: ["EZVMVirGLRuntime"]
+            dependencies: ["RiftVMVirGLRuntime"]
         ),
     ],
     swiftLanguageModes: [.v5]

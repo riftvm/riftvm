@@ -3,7 +3,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
-work="$(mktemp -d "${TMPDIR:-/tmp}/ezvm-sparse-asif-test.XXXXXX")"
+work="$(mktemp -d "${TMPDIR:-/tmp}/riftvm-sparse-asif-test.XXXXXX")"
 cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
 

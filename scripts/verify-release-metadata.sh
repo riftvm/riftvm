@@ -12,15 +12,15 @@ fail() {
   exit 1
 }
 
-[[ -d "$app_path" ]] || fail "usage: $0 <EZVM.app> [version] [revision] [tree-state]"
+[[ -d "$app_path" ]] || fail "usage: $0 <RiftVM.app> [version] [revision] [tree-state]"
 info_plist="$app_path/Contents/Info.plist"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] || fail "application Info.plist is missing or untrusted"
 
 actual_version="$(plutil -extract CFBundleShortVersionString raw "$info_plist")" \
   || fail "application version is missing"
-actual_revision="$(plutil -extract EZVMSourceRevision raw "$info_plist")" \
+actual_revision="$(plutil -extract RiftVMSourceRevision raw "$info_plist")" \
   || fail "source revision is missing"
-actual_tree_state="$(plutil -extract EZVMSourceTreeState raw "$info_plist")" \
+actual_tree_state="$(plutil -extract RiftVMSourceTreeState raw "$info_plist")" \
   || fail "source tree state is missing"
 
 [[ "$actual_revision" =~ ^[0-9a-f]{40}$ ]] || fail "source revision is not a full Git commit"
@@ -33,4 +33,4 @@ actual_tree_state="$(plutil -extract EZVMSourceTreeState raw "$info_plist")" \
 [[ "$actual_tree_state" == "$expected_tree_state" ]] \
   || fail "source tree state is $actual_tree_state, expected $expected_tree_state"
 
-echo "Verified EZVM $actual_version source revision $actual_revision ($actual_tree_state)."
+echo "Verified RiftVM $actual_version source revision $actual_revision ($actual_tree_state)."
