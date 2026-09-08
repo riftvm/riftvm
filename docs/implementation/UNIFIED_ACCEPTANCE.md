@@ -53,3 +53,14 @@ ruby scripts/verify-unified-acceptance.rb "$archive" "$report" 0.1.0 "$commit"
 
 The publisher validates this record before notarization and before publishing
 refs or assets. It also retains the existing live CLI/VM and distribution checks.
+
+## Owner-approved known issue (2026-09-07)
+
+The owner approved deferring Omarchy ordinary-key input latency and unresponsive
+Return to a separate follow-up for 0.1.0. Record this as an explicit known issue,
+never as a passing input result. The exception is limited to that bug; clipboard
+and notification isolation, all other functional checks and distribution checks
+remain required. The schema-1 verifier still requires passing composite checks;
+an explicit representation of this narrow exception is needed before a release
+report can honestly pass validation. Do not mark a composite check passed merely
+because one of its subrequirements was deferred.
