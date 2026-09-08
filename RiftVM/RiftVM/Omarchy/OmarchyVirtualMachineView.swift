@@ -594,6 +594,7 @@ struct OmarchyVirtualMachineView: View {
     }
 
     private var ownerSetupAvailable: Bool {
+        guard phase == .running else { return false }
         guard case .ready(let status) = integration else { return false }
         return status.provisioningPending && status.capabilities.contains("owner-provisioning-v1")
     }
