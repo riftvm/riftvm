@@ -47,7 +47,7 @@ struct CreatePhaseCompleteView: View {
             HStack(spacing: 16) {
                 Button {
                     let rootPath = URL(filePath: formData.rootPath)
-                    WorkspaceCoordinator.shared.open(rootPath)
+                    openWindow(id: "start-machine", value: rootPath)
                     dismiss()
                 } label: {
                     Image(systemName: "play.fill")

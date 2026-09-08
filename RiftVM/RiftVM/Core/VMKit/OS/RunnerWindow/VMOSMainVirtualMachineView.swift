@@ -40,9 +40,8 @@ struct VMOSMainVirtualMachineView: View {
             // when the same VM URL is opened again. A fresh identity guarantees
             // that a stopped VZVirtualMachine is never presented a second time.
             .id(runtimeState.launchIdentity)
-            // Guest pixels must stay below the window toolbar. Only the black
-            // background extends into the titlebar and full-screen margins.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea()
 
             if let errorMessage = runtimeState.errorMessage {
                 VStack(spacing: 14) {
@@ -84,7 +83,7 @@ struct VMOSMainVirtualMachineView: View {
                         .font(.headline)
                     Text(runtimeState.phase == .saving
                          ? "This window will close automatically when it is safe."
-                         : "If the guest does not respond, you can wait or explicitly choose Force Stop.")
+                         : "If the guest does not respond, RiftVM will force stop it after 20 seconds.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -427,7 +426,19 @@ struct VMOSMainVirtualMachineView: View {
         }
         .onChange(of: runtimeState.phase) { _, phase in
             guard phase.shouldDismissMachineWindow else { return }
-            WorkspaceCoordinator.shared.runtimeDidStop(at: rootPath)
+            dismissWindow(
+                id: recoveryMode ? "start-machine-recovery" : "start-machine",
+                value: rootPath
+            )
+        }
+        .onAppear {
+            // `dismissWindow` hides the scene, but AppKit/SwiftUI can retain its
+            // @State for the next `openWindow` with the same value. Recreate the
+            // runtime and representable so the next Run owns a new controller,
+            // lease, graphics backend, and VZVirtualMachine instance.
+            if runtimeState.phase.shouldDismissMachineWindow {
+                runtimeState = VMRuntimeState()
+            }
         }
     }
 

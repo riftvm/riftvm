@@ -43,7 +43,6 @@ final class OmarchyNotificationController {
 
     private let client: VMOmarchyGuestAgentClient
     private let bootID: String
-    private let workspaceID: UUID?
     private let deliverRequest: Deliver
     private let deliverySucceeded: (VMOmarchyDesktopNotification) -> Void
     private var timer: Timer?
@@ -53,13 +52,11 @@ final class OmarchyNotificationController {
     init(
         client: VMOmarchyGuestAgentClient,
         bootID: String,
-        workspaceID: UUID? = nil,
         center: UNUserNotificationCenter = .current(),
         deliverySucceeded: @escaping (VMOmarchyDesktopNotification) -> Void = { _ in }
     ) {
         self.client = client
         self.bootID = bootID
-        self.workspaceID = workspaceID
         self.deliveryState = OmarchyNotificationDeliveryState(bootID: bootID)
         self.deliverySucceeded = deliverySucceeded
         self.deliverRequest = { request, completion in
@@ -104,9 +101,9 @@ final class OmarchyNotificationController {
         content.body = notification.body ?? ""
         content.subtitle = notification.app.flatMap { $0.isEmpty ? nil : $0 } ?? "Omarchy"
         content.sound = notification.urgency >= 2 ? .default : nil
-        content.userInfo = ["riftvmOmarchyGuestNotification": true, "workspaceID": workspaceID?.uuidString ?? ""]
+        content.userInfo = ["riftvmOmarchyGuestNotification": true]
         let request = UNNotificationRequest(
-            identifier: "riftvm-omarchy-\(workspaceID?.uuidString ?? "unknown")-\(bootID)-\(notification.id)",
+            identifier: "riftvm-omarchy-\(bootID)-\(notification.id)",
             content: content,
             trigger: nil
         )

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>RiftVMOmarchyFactoryPublicKeyBase64</key>
-	<string>FE9lhY+yF68balwNrz847DfIzKwXgbChcqVPPjcsI4A=</string>
+	<string>$(RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RiftVM uses the Mac microphone only when you enable microphone sharing for a workspace.</string>
 	<key>RiftVMSourceRevision</key>
@@ -12,59 +12,5 @@
 	<string>$(RIFTVM_SOURCE_TREE_STATE)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>RiftVM Workspace</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>com.riftvm.workspace</string>
-			</array>
-			<key>LSTypeIsPackage</key>
-			<true/>
-		</dict>
-	</array>
-	<key>UTExportedTypeDeclarations</key>
-	<array>
-		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.riftvm.export</string>
-			<key>UTTypeDescription</key>
-			<string>RiftVM Export</string>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>com.apple.package</string>
-			</array>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>riftvmexport</string>
-				</array>
-			</dict>
-		</dict>
-		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.riftvm.workspace</string>
-			<key>UTTypeDescription</key>
-			<string>RiftVM Workspace</string>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>com.apple.package</string>
-			</array>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>riftvm</string>
-				</array>
-			</dict>
-		</dict>
-	</array>
 </dict>
 </plist>

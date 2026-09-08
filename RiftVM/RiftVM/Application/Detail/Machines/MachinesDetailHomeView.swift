@@ -129,7 +129,7 @@ struct MachinesDetailHomeView: View {
                         // starting a second instance on the same disk is unsafe
                         if item.model?.config.type == .macOS && !isRunning {
                             Button {
-                                WorkspaceCoordinator.shared.open(item.rootPath, recoveryMode: true)
+                                openWindow(id: "start-machine-recovery", value: item.rootPath)
                             } label: {
                                 Image(systemName: "play")
                                 Text("Run into Recovery Mode")
@@ -236,7 +236,7 @@ struct MachinesDetailHomeView: View {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        WorkspaceCoordinator.shared.open(rootPath)
+        openWindow(id: "start-machine", value: rootPath)
     }
     
     func takeQuickSnapshot(item: HomeItemVMModel) {

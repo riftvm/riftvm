@@ -39,7 +39,6 @@ let package = Package(
                 "Common/VMOSHelper.swift",
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
-                "Common/WorkspaceRegistry.swift",
                 "GuestAgent/VMGuestAgentProtocol.swift",
                 "GuestAgent/VMGuestAgentEnrollmentStore.swift",
                 "Model/Fields/VMModelFieldNetworkDevice.swift",
@@ -52,6 +51,7 @@ let package = Package(
                 "Profile/VMOmarchySharedFolderImporter.swift",
                 "Profile/VMOmarchyVirtualMachineBuilder.swift",
                 "Profile/VMOmarchyGuestAgentClient.swift",
+                "Profile/RiftWorkspaceRegistry.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ],
             linkerSettings: [
@@ -63,9 +63,10 @@ let package = Package(
         ),
         .testTarget(
             name: "RiftVMCoreTests",
-            dependencies: ["RiftVMCore"]
+            dependencies: ["RiftVMCore"],
+            path: "Tests/RiftVMCoreTests"
         ),
-        .target(name: "RiftVMCLIKit", dependencies: ["RiftVMCore"], path: "CLI/Kit"),
+        .target(name: "RiftVMCLIKit", path: "CLI/Kit"),
         .executableTarget(
             name: "riftvm",
             dependencies: ["RiftVMCLIKit"],
@@ -87,7 +88,8 @@ let package = Package(
         ),
         .testTarget(
             name: "RiftVMCLIKitTests",
-            dependencies: ["RiftVMCLIKit"]
+            dependencies: ["RiftVMCLIKit"],
+            path: "Tests/RiftVMCLIKitTests"
         ),
     ]
 )

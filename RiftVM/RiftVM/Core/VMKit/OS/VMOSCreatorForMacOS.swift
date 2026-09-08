@@ -38,6 +38,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
             try await VMOSCreatorUtil.createVMBundle(transaction: transaction)
+            try VMManagedSharedFolder.prepare(at: rootPath)
             progress(.info("Succeed create bundle path"))
             
             // write json
@@ -223,12 +224,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             progress(.info("- Pointing Devices OK"))
             
             // audioDevices
-            switch VMModelFieldAudioDevice.createConfigurations(model.config.audioDevices) {
-            case .success(let devices): virtualMachineConfiguration.audioDevices = devices
-            case .failure(let error):
-                continuation.resume(throwing: VMOSError.regularFailure(error))
-                return
-            }
+            virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
             progress(.info("- Audio Devices OK"))
             
             // keyboards

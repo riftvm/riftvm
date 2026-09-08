@@ -17,17 +17,10 @@ mkdir "$fixture/nested"
 printf 'configuration\n' >"$fixture/config.json"
 ln -s config.json "$fixture/config-link"
 
-printf '{"schemaVersion":1,"profile":"linux","id":"F4696BAE-A92B-4115-BEEA-C89F21C4EEB8"}' >"$fixture/Workspace.json"
 fingerprint="$(fixture_metadata_fingerprint "$fixture")"
 assert_fixture_unchanged "$fixture" "$fingerprint"
 
 clone_readonly_fixture "$fixture" "$clone"
-renew_fixture_workspace_identity "$clone"
-ruby -rjson -e '
-  original, copy = ARGV.map { |p| JSON.parse(File.read(File.join(p, "Workspace.json"))) }
-  abort "Clone retained source identity" if original["id"] == copy["id"]
-  abort "Clone altered other identity fields" unless original.reject { |k, _| k == "id" } == copy.reject { |k, _| k == "id" }
-' "$fixture" "$clone"
 printf 'clone only\n' >>"$clone/config.json"
 assert_fixture_unchanged "$fixture" "$fingerprint"
 [[ "$(cat "$fixture/config.json")" == "configuration" ]] || {

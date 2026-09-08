@@ -3,12 +3,12 @@
 _Last validated: September 1, 2026_
 
 This document records the production architecture, invariants, observed
-failure modes, and validation baseline for EZVM's macOS 27 Linux graphics path.
+failure modes, and validation baseline for RiftVM's macOS 27 Linux graphics path.
 It is intentionally more durable than the chronological prototype notes.
 
 ## Scope and compatibility
 
-EZVM requires macOS 27. Graphics selection still fails safely:
+RiftVM requires macOS 27. Graphics selection still fails safely:
 
 | Host / guest | Requested backend | Fallback |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ shows both the requested and active backend so a fallback is diagnosable.
 Hyprland / Wayland / Xwayland
   -> Mesa Gallium + Linux virtio_gpu DRM
   -> VZCustomVirtioDevice queues (virtio device ID 16)
-  -> EZVM VirtioGPUDevice
+  -> RiftVM VirtioGPUDevice
   -> VirGLRenderer
   -> libepoxy + ANGLE EGL/OpenGL ES
   -> Metal texture / CAMetalLayer
@@ -76,15 +76,15 @@ path therefore combines:
 
 Physical keyboards normally deliver modifier changes before the associated
 key-down. Accessibility and remote-control sources may instead attach
-Shift/Control/Option only to the key-down event. EZVM detects that missing
+Shift/Control/Option only to the key-down event. RiftVM detects that missing
 transition and sends a bounded complete modifier chord; it does not synthesize
 a second modifier when the physical transition is already held. This matters
 for uppercase text and symbols such as `:` as well as for automated acceptance.
 
-Agent readiness must mean that the live compositor owns the EZVM input event
+Agent readiness must mean that the live compositor owns the RiftVM input event
 node. A successful `hyprctl` call is insufficient because stale sockets can
 survive a prior session. The current Omarchy integration intersects the
-compositor's open `/proc` input descriptors with the EZVM device event node.
+compositor's open `/proc` input descriptors with the RiftVM device event node.
 
 ## Resource and protocol invariants
 
@@ -126,11 +126,11 @@ them explicitly during reset/stop.
 
 ### Fallback ends before virtual-machine construction
 
-EZVM creates the renderer, Custom Virtio provider, and all
+RiftVM creates the renderer, Custom Virtio provider, and all
 `VZCustomVirtioDeviceConfiguration` instances inside one recoverable backend
 construction boundary. A missing runtime, renderer initialization failure, or
 device-configuration failure therefore selects Apple Virtio before creating a
-`VZVirtualMachine`; EZVM never exposes a partially initialized custom device to
+`VZVirtualMachine`; RiftVM never exposes a partially initialized custom device to
 the guest. Once construction succeeds, configuration application is infallible
 and only installs the already validated device objects.
 
@@ -173,7 +173,7 @@ thousands of individually valid resources could exhaust host memory despite the
 per-resource and resource-count ceilings.
 
 `TRANSFER_TO_HOST_3D` and `TRANSFER_FROM_HOST_3D` are screened again before
-crossing into virglrenderer. EZVM retains each resource's last mip level and
+crossing into virglrenderer. RiftVM retains each resource's last mip level and
 rejects empty regions, unavailable mip levels, X/Y regions outside the selected
 mip, and coordinate additions that exceed the wire integer range. Target-
 specific layer interpretation remains with virglrenderer so this host safety
@@ -232,7 +232,7 @@ host-derived detent count. The current path bounds each emitted wheel amount to
 
 ### Keychain prompts block automated testing
 
-Authentication must not be removed to fix prompting. EZVM retains a random
+Authentication must not be removed to fix prompting. RiftVM retains a random
 per-VM token and mutual HMAC authentication, but stores the host enrollment in
 a private Application Support directory (`0700`) with token files at `0600`.
 This avoids interactive Keychain ACL changes across development signatures.
@@ -251,7 +251,7 @@ versioned and tested together.
 Process launch, a valid Developer ID signature, Gatekeeper acceptance, and a
 responsive SwiftUI event loop are separate release properties. SwiftUI can
 restore the persisted state in which every window was previously closed. A
-GUI smoke test must therefore reject an already-running EZVM instance, launch
+GUI smoke test must therefore reject an already-running RiftVM instance, launch
 the quarantined candidate through Launch Services, send the same
 reopen/activate lifecycle event as a second user click, and require a readiness
 record from a visible window of at least 800x600. Do not weaken this to a PID
@@ -273,7 +273,7 @@ serialization contract; silently attempting native save/restore is unsafe.
 The final validation did not reuse a configured development guest. It rebuilt
 the complete 64 GiB sparse Omarchy disk from the maintained AArch64 image
 repository, ran its Linux/ARM64 validation suite to a fail-closed `PASS`, and
-imported an APFS clone through EZVM. This caught an ordering bug that unit-only
+imported an APFS clone through RiftVM. This caught an ordering bug that unit-only
 testing missed: incompatible services had to be masked after Omarchy's system
 apply step, because that step could restore them.
 
@@ -356,5 +356,5 @@ Before merging changes to the Custom VirGL path:
 - broader Linux desktop and kernel matrix;
 - automated end-to-end input/display state-machine assertions;
 - bidirectional Unicode/large-text and PNG clipboard validation;
-- audio/camera integration parity where it fits EZVM's product scope;
+- audio/camera integration parity where it fits RiftVM's product scope;
 - protocol fuzzing for malformed descriptors, resource sizes, and teardown races.

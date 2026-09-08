@@ -10,7 +10,7 @@ enum OmarchyHostKeyboardTextEncoder {
     /// Matches the 25 ms spacing used for each key-down and key-up event and
     /// leaves a small margin for the final event to reach the virtual keyboard.
     static func deliveryDuration(for text: String) -> Duration {
-        .milliseconds((strokes(for: text) ?? []).reduce(0) { $0 + ($1.shifted ? 100 : 50) } + 250)
+        .milliseconds(text.count * 50 + 250)
     }
 
     static func strokes(for text: String) -> [OmarchyHostKeyboardStroke]? {
@@ -107,7 +107,6 @@ final class OmarchyFocusedCommandBridge {
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
     private let redirectedCommandChord: (CGKeyCode, CGEventFlags) -> Bool
     private let commandSpaceCaptured: () -> Void
-    private var localMonitor: Any?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
@@ -155,12 +154,6 @@ final class OmarchyFocusedCommandBridge {
         guard AXIsProcessTrusted() else {
             stateChanged(.accessibilityRequired)
             return
-        }
-        if localMonitor == nil {
-            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
-                guard let self else { return event }
-                return self.handleLocalEvent(event)
-            }
         }
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: true)
@@ -225,10 +218,6 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func stop() {
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-        localMonitor = nil
-        agentForwardedKeys.removeAll()
-        commandSpaceState = OmarchyCommandSpaceCaptureState()
         permissionTimer?.invalidate()
         permissionTimer = nil
         if let activationObserver {
@@ -286,48 +275,23 @@ final class OmarchyFocusedCommandBridge {
               let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
             return false
         }
-        // IOLLEvent.h NX_DEVICELSHIFTKEYMASK identifies which physical Shift
-        // key is down; VZ needs it in addition to the aggregate Shift flag.
-        let leftShiftFlags = CGEventFlags.maskShift.union(CGEventFlags(rawValue: 0x00000002))
-        var events: [CGEvent] = []
+        var delay = 0.0
         for stroke in strokes {
-            // VZ consumes modifier transitions as well as key events. Flags on
-            // a letter alone do not establish a pressed Shift key in the Guest.
-            if stroke.shifted {
-                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) else { return false }
-                shift.type = .flagsChanged
-                shift.flags = leftShiftFlags
-                events.append(shift)
-            }
             for keyDown in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: keyDown) else { return false }
-                event.flags = stroke.shifted ? leftShiftFlags : []
-                events.append(event)
-            }
-            if stroke.shifted {
-                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: false) else { return false }
-                shift.type = .flagsChanged
-                shift.flags = []
-                events.append(shift)
-            }
-        }
-        for (index, event) in events.enumerated() {
-            event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.025) {
-                event.post(tap: .cghidEventTap)
+                guard let event = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: stroke.keyCode,
+                    keyDown: keyDown
+                ) else { return false }
+                event.flags = stroke.shifted ? .maskShift : []
+                event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    event.post(tap: .cghidEventTap)
+                }
+                delay += 0.025
             }
         }
         return true
-    }
-
-    /// App-targeted accessibility events can bypass the session event tap.
-    /// Physical events redirected by the tap are consumed before this monitor;
-    /// fallback events carry syntheticMarker and therefore never loop.
-    func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
-        let releasesCapturedKey = event.type == .keyUp && agentForwardedKeys.contains(event.keyCode)
-        guard releasesCapturedKey || event.window == nil || event.window === NSApp.keyWindow,
-              let cgEvent = event.cgEvent else { return event }
-        return handle(type: cgEvent.type, event: cgEvent) == nil ? nil : event
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -337,15 +301,6 @@ final class OmarchyFocusedCommandBridge {
         }
         let synthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticMarker
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        // A captured key belongs to this bridge until release, even if Command
-        // was released first or focus moved. Passing its key-up to VZ would
-        // mix an Agent-owned down with an unrelated native-device up.
-        if !synthetic, type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
-            if commandSpaceState.observe(type: type, keyCode: keyCode) {
-                DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
-            }
-            return nil
-        }
         let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
             type: type,
             keyCode: keyCode,
@@ -366,6 +321,9 @@ final class OmarchyFocusedCommandBridge {
             if event.getIntegerValueField(.eventSourceUserData) == Self.acceptanceMarker {
                 NSLog("Omarchy acceptance Command chord forwarded through Guest Agent keyCode=%hu", keyCode)
             }
+            return nil
+        }
+        if type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
             return nil
         }
         if type == .keyDown, isRepeat, agentForwardedKeys.contains(keyCode) {

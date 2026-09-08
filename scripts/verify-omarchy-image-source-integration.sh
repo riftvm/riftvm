@@ -14,8 +14,6 @@ sources="$image_source/sources.env"
 [[ -f $sources && ! -L $sources ]] || fail "image source pin manifest is missing or unsafe"
 agent_ref=$(sed -n 's/^RIFTVM_GUEST_AGENT_REF=//p' "$sources")
 [[ $agent_ref =~ ^[0-9a-f]{40}$ ]] || fail "RiftVM Guest Agent is not pinned to a full Git commit"
-wl_copy_ref=$(sed -n 's/^WL_CLIPBOARD_RS_REF=//p' "$sources")
-[[ $wl_copy_ref =~ ^[0-9a-f]{40}$ ]] || fail "RiftVM wl-copy frontend is not pinned to a full Git commit"
 git -C "$project_root" cat-file -e "$agent_ref^{commit}" 2>/dev/null || \
   fail "pinned RiftVM Guest Agent commit is unavailable in the product repository"
 git -C "$project_root" show "$agent_ref:GuestAgent/linux/session_linux.go" 2>/dev/null | \
@@ -25,33 +23,24 @@ git -C "$project_root" show "$agent_ref:GuestAgent/linux/install.sh" 2>/dev/null
 
 system_unit='etc/systemd/system/mnt-riftvm\x2dshared.mount'
 user_unit='etc/systemd/user/rift-session-agent.service'
-owner_provisioner='usr/local/libexec/riftvm-owner-provisioning'
-cmp -s "$project_root/GuestResources/Omarchy/systemd/mnt-riftvm\x2dshared.mount" \
+cmp -s "$project_root/RiftVM/GuestOverlay/systemd/mnt-riftvm\x2dshared.mount" \
   "$profile/overlay/$system_unit" || fail "shared-folder mount unit is missing or differs from the product contract"
-cmp -s "$project_root/GuestResources/Omarchy/systemd/rift-session-agent.service" \
+cmp -s "$project_root/RiftVM/GuestOverlay/systemd/rift-session-agent.service" \
   "$profile/overlay/$user_unit" || fail "Session Agent unit is missing or differs from the product contract"
 
 grep -Eq '^[[:space:]]*wl-clipboard([[:space:]]*(#.*)?)?$' "$profile/runtime-packages" || \
   fail "wl-clipboard is not an explicit image runtime dependency"
-grep -Fq 'install -m755 "$RIFTVM_WL_COPY_BINARY" "$MOUNT_DIR/usr/local/bin/wl-copy"' "$build" || \
-  fail "verified stdin-safe wl-copy frontend is not installed ahead of /usr/bin"
 grep -Fq "target_chroot systemctl enable 'mnt-riftvm\\x2dshared.mount'" "$build" || \
   fail "shared-folder mount is not enabled during image assembly"
 grep -Fq 'install -d -m755 "$MOUNT_DIR/mnt/riftvm-shared"' "$build" || \
   fail "shared-folder mount point is not created during image assembly"
 grep -Fq 'target_chroot systemctl --global enable rift-session-agent.service' "$build" || \
   fail "Session Agent is not globally enabled for the owner desktop session"
-[[ -f "$profile/overlay/$owner_provisioner" && ! -L "$profile/overlay/$owner_provisioner" ]] || \
-  fail "authenticated owner-provisioning consumer is missing or unsafe"
-grep -Fq 'riftvm-owner-provisioning' "$build" || \
-  fail "image assembly does not integrate authenticated owner provisioning"
 for required in \
   "$system_unit" \
   "$user_unit" \
   'etc/systemd/system/multi-user.target.wants/mnt-riftvm\x2dshared.mount' \
   'mnt/riftvm-shared' \
-  'usr/local/bin/wl-copy' \
-  "$owner_provisioner" \
   'etc/systemd/user/graphical-session.target.wants/rift-session-agent.service'; do
   grep -Fq "$required" "$build" || fail "final image validation does not require /$required"
 done

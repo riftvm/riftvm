@@ -255,9 +255,11 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         func attach(to window: NSWindow?) {
             guard let window else { return }
             window.representedURL = rootPath.standardizedFileURL
-            // Keep window chrome separate from guest pixels. SwiftUI's safe
-            // area follows the toolbar when entering or leaving full screen.
-            window.titlebarAppearsTransparent = false
+            // Let the guest canvas occupy the titlebar-safe-area in full screen.
+            // The toolbar still draws normally in windowed mode, while its
+            // auto-hidden full-screen state no longer leaves white margins.
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
             window.backgroundColor = .black
             guard self.window !== window else { return }
             detach()
@@ -275,7 +277,11 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
-            sender.orderOut(nil)
+            if shouldBlock() { return false }
+            guard shouldConfirm() else {
+                return previousDelegate?.windowShouldClose?(sender) ?? true
+            }
+            onCloseAttempt()
             return false
         }
 
@@ -324,7 +330,6 @@ struct VMOSInternalVirtualMachineView : NSViewControllerRepresentable {
         vc.recoveryMode = recoveryMode
         vc.runtimeState = runtimeState
         runtimeState.controller = vc
-        WorkspaceCoordinator.shared.registerRuntime(runtimeState, at: rootPath)
         return vc
     }
     

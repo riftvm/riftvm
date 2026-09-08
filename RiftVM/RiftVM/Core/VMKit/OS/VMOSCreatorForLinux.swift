@@ -37,6 +37,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
                 transaction: transaction,
                 allowedExistingItemNames: allowedExistingRootItems
             )
+            try VMManagedSharedFolder.prepare(at: rootPath)
             progress(.info("Succeed create bundle path"))
             
             // write json
@@ -156,12 +157,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
             progress(.info("- Pointing Devices OK"))
             
             // audioDevices
-            switch VMModelFieldAudioDevice.createConfigurations(model.config.audioDevices) {
-            case .success(let devices): virtualMachineConfiguration.audioDevices = devices
-            case .failure(let error):
-                continuation.resume(throwing: VMOSError.regularFailure(error))
-                return
-            }
+            virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
             progress(.info("- Audio Devices OK"))
 
             // keyboards

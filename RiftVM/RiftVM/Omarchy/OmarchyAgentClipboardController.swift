@@ -2,25 +2,6 @@ import AppKit
 import CryptoKit
 import Foundation
 
-/// Tracks provenance without retaining clipboard contents. A guest's mirrored
-/// clipboard is not automatically forwarded into a different guest.
-@MainActor
-final class HostClipboardCoordinator {
-    static let shared = HostClipboardCoordinator()
-    private var guestOwner: UUID?
-    private var guestChangeCount: Int?
-
-    func canSend(changeCount: Int, to workspaceID: UUID?) -> Bool {
-        guard guestChangeCount == changeCount, let guestOwner else { return true }
-        return guestOwner == workspaceID
-    }
-
-    func didReceive(changeCount: Int, from workspaceID: UUID?) {
-        guestOwner = workspaceID
-        guestChangeCount = changeCount
-    }
-}
-
 @MainActor
 final class OmarchyAgentClipboardController {
     static let maximumBytes = 100 * 1024 * 1024
@@ -37,8 +18,6 @@ final class OmarchyAgentClipboardController {
         }
     }
 
-    private let workspaceID: UUID?
-    private let isActive: () -> Bool
     private let client: VMOmarchyGuestAgentClient
     private let sharedDirectory: URL
     private let pasteboard: NSPasteboard
@@ -52,12 +31,8 @@ final class OmarchyAgentClipboardController {
     init(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
-        pasteboard: NSPasteboard = .general,
-        workspaceID: UUID? = nil,
-        isActive: @escaping () -> Bool = { true }
+        pasteboard: NSPasteboard = .general
     ) {
-        self.workspaceID = workspaceID
-        self.isActive = isActive
         self.client = client
         self.sharedDirectory = sharedDirectory
         self.pasteboard = pasteboard
@@ -96,17 +71,11 @@ final class OmarchyAgentClipboardController {
     }
 
     private func tick() {
-        guard isActive() else {
-            operationTask?.cancel()
-            pendingHostItem = nil
-            return
-        }
         guard operationTask == nil else { return }
         if pasteboard.changeCount != lastPasteboardChangeCount {
             lastPasteboardChangeCount = pasteboard.changeCount
             pendingHostItem = nil
-            guard HostClipboardCoordinator.shared.canSend(changeCount: pasteboard.changeCount, to: workspaceID),
-                  let item = Self.item(from: pasteboard),
+            guard let item = Self.item(from: pasteboard),
                   item.fingerprint != lastReceivedFromGuest else { return }
             pendingHostItem = item
         }
@@ -131,14 +100,10 @@ final class OmarchyAgentClipboardController {
             guard let self else { return }
             defer { self.operationTask = nil }
             do {
-                let originalChangeCount = self.pasteboard.changeCount
                 if let item = try await self.captureFromGuest(),
-                   !Task.isCancelled, self.isActive(),
-                   self.pasteboard.changeCount == originalChangeCount,
                    item.fingerprint != self.lastSentToGuest,
                    item.fingerprint != self.lastReceivedFromGuest {
                     try Self.publish(item, on: self.pasteboard)
-                    HostClipboardCoordinator.shared.didReceive(changeCount: self.pasteboard.changeCount, from: self.workspaceID)
                     self.lastReceivedFromGuest = item.fingerprint
                     self.lastPasteboardChangeCount = self.pasteboard.changeCount
                 }
@@ -152,8 +117,6 @@ final class OmarchyAgentClipboardController {
     }
 
     private func sendToGuest(_ item: Item) async throws {
-        try Task.checkCancellation()
-        guard isActive(), HostClipboardCoordinator.shared.canSend(changeCount: pasteboard.changeCount, to: workspaceID) else { throw CancellationError() }
         let url = try stagingURL(fileExtension: item.fileExtension)
         defer { try? FileManager.default.removeItem(at: url) }
         try item.data.write(to: url, options: [.atomic])

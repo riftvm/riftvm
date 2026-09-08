@@ -1,113 +1,138 @@
-import AppKit
+//
+//  AppConfig.swift
+//  RiftVM
+//
+//  Created by everettjf on 2022/8/18.
+//
+
 import Foundation
-import Observation
+
 
 #if arch(arm64)
-struct AppConfigModel {
-    var rootPaths: [String]
+struct AppConfigModel: Codable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion = Self.currentSchemaVersion
+    var rootPaths: [String] = []
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case rootPaths
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
+        rootPaths = try container.decodeIfPresent([String].self, forKey: .rootPaths) ?? []
+    }
 }
 
-@MainActor @Observable
-final class AppConfigManager {
-    static let newVMChangedNotification = Notification.Name("RiftVM.workspacesChanged")
-    private var registry: WorkspaceRegistry?
-    private(set) var errorMessage: String?
-    var workspaces: [WorkspaceRecord] { registry?.workspaces ?? [] }
-    var defaultID: UUID? { registry?.defaultID }
-    var launchRoute: WorkspaceLaunchRoute { registry?.launchRoute ?? .choose }
-    var appConfig: AppConfigModel {
-        AppConfigModel(rootPaths: workspaces.filter { $0.profile != .omarchy }.map { $0.location.path })
-    }
+@MainActor
+class AppConfigManager {
+    static let newVMChangedNotification = Notification.Name("NewVMChanged")
 
-    init() { loadConfig() }
+    var appConfig = AppConfigModel()
+    
+    init() {
+
+    }
 
     func getRootPath() -> URL {
-        if let override = ProcessInfo.processInfo.environment["RIFTVM_DATA_ROOT"], !override.isEmpty {
-            return URL(fileURLWithPath: override, isDirectory: true)
-        }
-        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RiftVM", isDirectory: true)
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "RiftVM", directoryHint: .isDirectory)
     }
 
-    func getConfigPath() -> URL { getRootPath().appendingPathComponent("Workspaces.json") }
+    func getConfigPath() -> URL {
+        let rootDir = getRootPath()
+        if !FileManager.default.fileExists(atPath: rootDir.path(percentEncoded: false)) {
+            do {
+                try FileManager.default.createDirectory(at: rootDir, withIntermediateDirectories: true)
+            } catch {
+                assertionFailure("Unable to create RiftVM application support directory: \(error)")
+            }
+        }
+        
+        let configPath = rootDir.appending(path: "config.json")
+        return configPath
+    }
 
     func loadConfig() {
         do {
-            registry = try WorkspaceRegistry(fileURL: getConfigPath())
-            errorMessage = nil
-        } catch {
-            registry = nil
-            errorMessage = "Could not read the workspace library: \(error.localizedDescription)"
-        }
-    }
-
-    @discardableResult
-    func register(url: URL, profile: WorkspaceProfile) throws -> WorkspaceRecord {
-        guard registry != nil else { throw CocoaError(.fileReadCorruptFile) }
-        let record = try registry!.register(url, profile: profile)
-        changed()
-        return record
-    }
-
-    func setDefault(_ id: UUID?) {
-        perform {
-            guard registry != nil else { throw CocoaError(.fileReadCorruptFile) }
-            try registry!.setDefault(id)
-        }
-    }
-
-    func addVMPath(url: URL) {
-        perform {
-            let profile: WorkspaceProfile
-            if FileManager.default.fileExists(atPath: url.appendingPathComponent(WorkspaceIdentity.fileName).path) {
-                profile = try WorkspaceIdentity.load(at: url).profile
-            } else {
-                switch VMModel.loadConfigFromFile(rootPath: url) {
-                case .success(let model): profile = model.config.type == .macOS ? .macOS : .linux
-                case .failure(let message): throw VMOSError.regularFailure(message)
-                }
+            self.appConfig.rootPaths.removeAll()
+            
+            let path = getConfigPath()
+            guard FileManager.default.fileExists(atPath: path.path(percentEncoded: false)) else {
+                return
             }
-            _ = try register(url: url, profile: profile)
+
+            let data = try Data(contentsOf: path, options: .mappedIfSafe)
+            self.appConfig = try JSONDecoder().decode(AppConfigModel.self, from: data)
+            self.appConfig.schemaVersion = AppConfigModel.currentSchemaVersion
+            self.appConfig.rootPaths = Array(NSOrderedSet(array: self.appConfig.rootPaths)) as? [String] ?? self.appConfig.rootPaths
+        } catch {
+            RiftVMLog.error("App config load failed: \(error.localizedDescription)", logger: RiftVMLog.storage)
         }
     }
-
+    
+    func saveConfig() {
+        do {
+            let path = getConfigPath()
+            
+            self.appConfig.schemaVersion = AppConfigModel.currentSchemaVersion
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(self.appConfig)
+            try data.write(to: path, options: .atomic)
+        } catch {
+            RiftVMLog.error("App config write failed: \(error.localizedDescription)", logger: RiftVMLog.storage)
+        }
+    }
+    
+    func addVMPath(url: URL) {
+        let path = url.standardizedFileURL.path(percentEncoded: false)
+        guard !self.appConfig.rootPaths.contains(path) else { return }
+        self.appConfig.rootPaths.append(path)
+        saveConfig()
+    }
+    
     func removeVMPath(url: URL) {
-        perform {
-            guard let record = workspaces.first(where: { WorkspaceRegistry.canonical($0.location) == WorkspaceRegistry.canonical(url) }) else { return }
-            try registry?.remove(record.id)
+        if let firstIndex = self.appConfig.rootPaths.firstIndex(where: { item in
+            return item == url.path(percentEncoded: false)
+        }) {
+            self.appConfig.rootPaths.remove(at: firstIndex)
+            saveConfig()
         }
     }
-
-    func addVMPathWithSelect() {
-        let panel = NSOpenPanel()
-        panel.title = "Open a RiftVM workspace"
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = false
-        panel.treatsFilePackagesAsDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+    
+    public func addVMPathWithSelect() {
+        MacKitUtil.selectDirectory(title: "Select *.riftvm directory") { @MainActor path in
+            guard let path = path else {
+                return
+            }
+            
+            self.addVMPath(url: path)
+            
+            NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
+        }
+    }
+    
+    func addVMPathWithRefresh(url: URL) {
         addVMPath(url: url)
+        
+        NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
     }
-
-    func addVMPathWithRefresh(url: URL) { addVMPath(url: url) }
-    func removeVMPathWithReload(url: URL) { removeVMPath(url: url) }
-
-    private func perform(_ action: () throws -> Void) {
-        do { try action(); changed() }
-        catch {
-            // An operation failure does not invalidate the loaded library.
-            // Only loadConfig owns the persistent library error shown by ContentView.
-            let alert = NSAlert()
-            alert.messageText = "Workspace Library"
-            alert.informativeText = error.localizedDescription
-            alert.runModal()
-        }
-    }
-
-    private func changed() {
+    
+    
+    public func removeVMPathWithReload(url: URL) {
+        removeVMPath(url: url)
         NotificationCenter.default.post(name: Self.newVMChangedNotification, object: nil)
     }
 }
 
 @MainActor let sharedAppConfigManager = AppConfigManager()
+
+
+
 #endif

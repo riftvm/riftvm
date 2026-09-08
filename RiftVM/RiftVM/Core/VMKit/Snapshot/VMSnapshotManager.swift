@@ -444,51 +444,6 @@ class VMSnapshotManager {
         vmRootPath.appending(path: snapshotsDirectoryName)
     }
 
-    /// Called only inside portability's disposable staging directory. Saved
-    /// history carries the old machine identity, but active ASIF layers are
-    /// current disk data and must survive an independent copy.
-    static func resetHistoryForIndependentCopy(vmRootPath: URL) throws {
-        let fm = FileManager.default
-        let root = snapshotsRootURL(vmRootPath: vmRootPath)
-        guard fm.fileExists(atPath: root.path) else { return }
-        guard var state = strictlyDecodedState(vmRootPath: vmRootPath) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        let referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
-        let layersRoot = root.appending(path: "Layers")
-        for (base, layers) in state.activeDiskLayers where !layers.isEmpty {
-            guard base == URL(filePath: base).lastPathComponent,
-                  fm.fileExists(atPath: vmRootPath.appending(path: base).path) else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-        }
-        for relative in referenced {
-            let url = vmRootPath.appending(path: relative).standardizedFileURL
-            guard relative == "Snapshots/Layers/" + url.lastPathComponent,
-                  sameFileSystemLocation(url.deletingLastPathComponent(), layersRoot) else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-            let attributes = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-            guard attributes.isRegularFile == true, attributes.isSymbolicLink != true else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-        }
-        guard !referenced.isEmpty else {
-            try fm.removeItem(at: root)
-            return
-        }
-        for child in try fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
-            where child.lastPathComponent != "Layers" {
-            try fm.removeItem(at: child)
-        }
-        for layer in try fm.contentsOfDirectory(at: layersRoot, includingPropertiesForKeys: nil)
-            where !referenced.contains("Snapshots/Layers/" + layer.lastPathComponent) {
-            try fm.removeItem(at: layer)
-        }
-        state.currentSnapshotID = nil
-        try writeState(state, vmRootPath: vmRootPath)
-    }
-
     private static func snapshotDirURL(vmRootPath: URL, snapshotId: String) -> URL {
         snapshotsRootURL(vmRootPath: vmRootPath).appending(path: snapshotId)
     }
@@ -539,36 +494,6 @@ class VMSnapshotManager {
             snapshots.append(model)
         }
         return snapshots.sorted { $0.createdAt > $1.createdAt }
-    }
-
-    /// Strict enumeration for portability: an unreadable history entry must
-    /// not silently disappear as it may in a best-effort UI listing.
-    static func snapshotFilesForExport(vmRootPath: URL) throws -> [(model: VMSnapshotModel, files: URL)] {
-        let root = snapshotsRootURL(vmRootPath: vmRootPath)
-        guard FileManager.default.fileExists(atPath: root.path) else { return [] }
-        return try FileManager.default.contentsOfDirectory(atPath: root.path).sorted().compactMap { id in
-            guard UUID(uuidString: id) != nil else { return nil }
-            let model = try jsonDecoder().decode(VMSnapshotModel.self,
-                from: Data(contentsOf: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)))
-            guard model.id == id else { throw VMSnapshotError.message("Snapshot metadata identity does not match its directory.") }
-            return (model, snapshotFilesURL(vmRootPath: vmRootPath, snapshotId: id))
-        }
-    }
-
-    /// Only call on the private export staging copy. Validate the original
-    /// manifest before rewriting; never bless pre-existing corruption.
-    static func rewriteSnapshotFilesForExport(vmRootPath: URL, rewrite: (URL) throws -> Bool) throws {
-        for (model, files) in try snapshotFilesForExport(vmRootPath: vmRootPath) {
-            let audit = auditSnapshot(vmRootPath: vmRootPath, snapshot: model)
-            guard audit.errors.isEmpty else { throw VMSnapshotError.message(audit.errors.joined(separator: "\n")) }
-            guard try rewrite(files) else { continue }
-            let updated = VMSnapshotModel(id: model.id, name: model.name, createdAt: model.createdAt,
-                parentSnapshotID: model.parentSnapshotID, totalSize: directoryAllocatedSize(files),
-                backend: model.backend, diskLayers: model.diskLayers,
-                fileManifest: try createFileManifest(rootURL: files), isProtected: model.isProtected)
-            try jsonEncoder().encode(updated).write(
-                to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
-        }
     }
 
     /// Rolls an interrupted restore back to the complete pre-restore bundle.

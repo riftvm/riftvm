@@ -37,7 +37,7 @@ struct CreatePhaseSystemView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                if formData.preferredProfile == .macOS {
+                if showingMacOSVersions {
                     macOSVersionSelection
                 } else {
                     systemSelection
@@ -53,7 +53,7 @@ struct CreatePhaseSystemView: View {
         VStack(alignment: .leading, spacing: 5) {
             Text("Choose a system")
                 .font(.title2.weight(.semibold))
-            Text(formData.preferredProfile == .macOS
+            Text(showingMacOSVersions
                  ? "Choose a compatible restore image. Downloading starts only after you click Create."
                  : "What would you like to run?")
                 .font(.callout)
@@ -63,53 +63,48 @@ struct CreatePhaseSystemView: View {
     }
 
     private var systemSelection: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Install an ARM64 Linux distribution from an ISO image.")
-                .foregroundStyle(.secondary)
-            Button("Choose a local ISO…", systemImage: "opticaldisc") { selectFromFileSystem() }
-                .buttonStyle(.borderedProminent)
-            if formData.hasChosenSystem {
-                Label(formData.systemImageSelection.title, systemImage: "checkmark.circle.fill")
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 2), spacing: 14) {
+            SystemChoiceCard(
+                title: "macOS",
+                detail: "Choose a compatible macOS restore image",
+                systemImage: "apple.logo",
+                accent: .blue,
+                badge: "Choose version",
+                isSelected: configData.osType == .macOS && formData.hasChosenSystem
+            ) {
+                switchOSType(.macOS)
+                showingMacOSVersions = true
             }
-            Divider()
-            Text("Or download a system image").font(.headline)
-            ForEach(VMSystemImageCatalog.linuxItems, id: \.id) { item in
-                Button(item.name) { selectImage(.catalog(item)) }
+
+            SystemChoiceCard(
+                title: "Omarchy",
+                detail: "Preinstalled Arch Linux desktop, ready on first boot",
+                systemImage: "o.circle.fill",
+                accent: .purple,
+                badge: "Recommended",
+                isSelected: formData.systemImageSelection == .preinstalled(.omarchy)
+            ) {
+                switchOSType(.linux)
+                selectImage(.preinstalled(.omarchy))
             }
+
         }
     }
 
     private var macOSVersionSelection: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Button("All systems", systemImage: "chevron.left") {
+                showingMacOSVersions = false
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tint)
+
             MacOSImageSelectionView(
                 selection: formData.systemImageSelection,
                 customURL: $customImageURL,
                 onSelect: selectImage,
                 onChooseLocal: selectFromFileSystem
             )
-        }
-    }
-
-    private func linuxCard(
-        title: String,
-        detail: String,
-        systemImage: String,
-        accent: Color = .accentColor,
-        itemID: String,
-        badge: String? = nil
-    ) -> some View {
-        let item = VMSystemImageCatalog.linuxItems.first { $0.id == itemID }
-        return SystemChoiceCard(
-            title: title,
-            detail: detail,
-            systemImage: systemImage,
-            accent: accent,
-            badge: badge,
-            isSelected: item.map { formData.systemImageSelection == .catalog($0) } ?? false
-        ) {
-            guard let item else { return }
-            switchOSType(.linux)
-            selectImage(.catalog(item))
         }
     }
 
@@ -144,7 +139,7 @@ struct CreatePhaseSystemView: View {
         formData.hasChosenSystem = false
         formData.systemImageSelection = osType == .macOS
             ? .latestMacOS
-            : .catalog(VMSystemImageCatalog.linuxItems[0])
+            : .preinstalled(.omarchy)
     }
 
     private func selectFromFileSystem() {
@@ -351,127 +346,6 @@ private struct MacOSImageSelectionView: View {
     private func cachedBadge(for item: VMSystemImageCatalogItem) -> String? {
         let ext = item.url.pathExtension.isEmpty ? "ipsw" : item.url.pathExtension
         return VMImageStore.exists(fileName: "\(item.id).\(ext)") ? "Downloaded" : nil
-    }
-}
-
-private struct LinuxImageSelectionView: View {
-    let selection: VMCreateViewStateObject.SystemImageSelection
-    @Binding var customURL: String
-    let onSelect: (VMCreateViewStateObject.SystemImageSelection) -> Void
-    let onChooseLocal: () -> Void
-    @State private var catalog = VMLinuxImageCatalogService()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SelectionSectionHeading(
-                title: "Ready-to-run Linux",
-                subtitle: "Verified preinstalled systems that skip the installer."
-            )
-
-            ImageChoiceButton(
-                title: VMPreinstalledImageCatalogItem.omarchy.name,
-                detail: "Omarchy 4 for ARM64 · about 3.15 GB download · 64 GB sparse disk",
-                systemImage: "sparkles.rectangle.stack",
-                accent: .cyan,
-                badge: "Ready to run",
-                isSelected: selection == .preinstalled(.omarchy),
-                identifier: "linux-preinstalled-omarchy"
-            ) {
-                onSelect(.preinstalled(.omarchy))
-            }
-
-            Divider()
-
-            HStack(alignment: .firstTextBaseline) {
-                SelectionSectionHeading(
-                    title: "Install from ISO",
-                    subtitle: "ARM64 installers that run natively on Apple silicon."
-                )
-                Spacer()
-                Button("Refresh", systemImage: "arrow.clockwise") {
-                    Task { await catalog.refresh(force: true) }
-                }
-                .disabled(catalog.isRefreshing)
-            }
-
-            if catalog.isRefreshing {
-                Label("Updating Linux installers…", systemImage: "network")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if let errorMessage = catalog.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            } else {
-                Label("Installer list updates without an RiftVM release", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(spacing: 8) {
-                ForEach(catalog.items) { item in
-                    ImageChoiceButton(
-                        title: item.name,
-                        detail: linuxDetail(for: item),
-                        systemImage: linuxIcon(for: item),
-                        accent: item.id.hasPrefix("ubuntu") ? .orange : .purple,
-                        badge: linuxBadge(for: item),
-                        isSelected: selection == .catalog(item),
-                        identifier: "linux-image-\(item.id)"
-                    ) {
-                        onSelect(.catalog(item))
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                TextField("Direct ARM64 ISO URL", text: $customURL)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("linux-custom-url-field")
-                Button("Use URL") {
-                    guard let url = validatedCustomURL else { return }
-                    onSelect(.remoteURL(url))
-                }
-                .disabled(validatedCustomURL == nil)
-            }
-
-            LocalImageButton(fileType: "ISO", selectedPath: localPath, action: onChooseLocal)
-        }
-        .task { await catalog.refresh() }
-    }
-
-    private var localPath: String {
-        if case .localFile(let url) = selection { return url.path(percentEncoded: false) }
-        return ""
-    }
-
-    private var validatedCustomURL: URL? {
-        guard let url = URL(string: customURL),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "https" || scheme == "http" else { return nil }
-        return url
-    }
-
-    private func linuxDetail(for item: VMSystemImageCatalogItem) -> String {
-        if item.id == "ubuntu-24.04-server" {
-            return "ARM64 · LTS · Lightweight server installer"
-        }
-        if item.id == "ubuntu-24.04-desktop" {
-            return "ARM64 · LTS · Full graphical desktop"
-        }
-        return item.detail
-    }
-
-    private func linuxIcon(for item: VMSystemImageCatalogItem) -> String {
-        item.id.contains("desktop") ? "display" : "terminal"
-    }
-
-    private func linuxBadge(for item: VMSystemImageCatalogItem) -> String? {
-        let ext = item.url.pathExtension.isEmpty ? "iso" : item.url.pathExtension
-        if VMImageStore.exists(fileName: "\(item.id).\(ext)") {
-            return "Downloaded"
-        }
-        return item.id == "ubuntu-24.04-server" ? "Recommended" : nil
     }
 }
 

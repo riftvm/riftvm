@@ -7,7 +7,7 @@ mode=${1:-}
 tag=${2:-}
 asset_dir=${3:-}
 public_key=${4:-}
-repository=${RIFTVM_OMARCHY_IMAGE_REPOSITORY:-riftvm/riftvm-omarchy-aarch64-image}
+repository=${RIFTVM_OMARCHY_IMAGE_REPOSITORY:-everettjf/omarchy-aarch64-image}
 
 fail() { printf 'publish-omarchy-factory-assets: %s\n' "$*" >&2; exit "${2:-1}"; }
 require_command() { command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1" 69; }

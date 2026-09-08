@@ -1,5 +1,4 @@
 import Foundation
-import RiftVMCore
 import CryptoKit
 import Darwin
 
@@ -115,7 +114,7 @@ public struct RiftVMHeadlessRecord: Codable, Equatable, Sendable {
 
 public struct RiftVMPreinstalledImageManifest: Codable, Equatable, Sendable {
     public static let currentSchemaVersion = 1
-    public static let manifestKind = "com.riftvm.preinstalled-image"
+    public static let manifestKind = "io.github.everettjf.riftvm.preinstalled-image"
 
     public struct Product: Codable, Equatable, Sendable {
         public let id: String
@@ -171,13 +170,13 @@ public struct RiftVMPreinstalledImageManifest: Codable, Equatable, Sendable {
     }
 
     public static var runningVersion: String {
-        if let override = ProcessInfo.processInfo.environment["RIFTVM_VERSION"], !override.isEmpty { return override }
+        if let override = ProcessInfo.processInfo.environment["RiftVM_VERSION"], !override.isEmpty { return override }
         if let bundled = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String { return bundled }
         let executable = RiftVMExecutableLocation.resolved(CommandLine.arguments[0])
         let appInfo = executable.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Info.plist")
         if let values = NSDictionary(contentsOf: appInfo),
            let appVersion = values["CFBundleShortVersionString"] as? String { return appVersion }
-        return "0.1.0"
+        return "1.0.0"
     }
 
     private static func isVersion(_ required: String, atMost actual: String) -> Bool {
@@ -222,10 +221,6 @@ public struct RiftVMMachineInspector {
         var machines: [URL] = []
         for root in roots {
             let root = root.standardizedFileURL
-            if root.pathExtension == "riftvm" {
-                if seen.insert(root.path).inserted { machines.append(root) }
-                continue
-            }
             guard let children = try? fileManager.contentsOfDirectory(
                 at: root, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
                 options: [.skipsHiddenFiles]
@@ -233,7 +228,7 @@ public struct RiftVMMachineInspector {
             for child in children {
                 guard let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
                       values.isDirectory == true, values.isSymbolicLink != true,
-                      child.pathExtension == "riftvm" else { continue }
+                      fileManager.fileExists(atPath: child.appendingPathComponent("config.json").path) else { continue }
                 let path = child.standardizedFileURL.path
                 if seen.insert(path).inserted { machines.append(child.standardizedFileURL) }
             }
@@ -245,16 +240,6 @@ public struct RiftVMMachineInspector {
         let url = machineURL.standardizedFileURL
         var problems: [String] = []
         if isSymbolicLink(url) { problems.append("machine path is a symbolic link") }
-        if let identity = try? WorkspaceIdentity.load(at: url), identity.profile == .omarchy {
-            let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: url)
-            if VMOmarchyWorkspaceManager(layout: layout).inspect() != .ready {
-                problems.append("Omarchy is not installed or needs recovery")
-            }
-            let resources = try? WorkspaceResources.load(at: url)
-            return RiftVMMachineSummary(name: url.deletingPathExtension().lastPathComponent, path: url.path,
-                osType: "omarchy", cpuCount: resources?.cpuCount, memoryBytes: resources?.memoryBytes,
-                valid: problems.isEmpty, problems: problems)
-        }
         let configURL = url.appendingPathComponent("config.json")
         guard let data = try? Data(contentsOf: configURL),
               let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -356,11 +341,9 @@ public struct RiftVMMachineInspector {
 public struct RiftVMCLI {
     public let inspector: RiftVMMachineInspector
     private let minimumPreinstalledDiskSize: UInt64
-    private let headlessStateDirectory: URL?
-    public init(inspector: RiftVMMachineInspector = .init(), minimumPreinstalledDiskSize: UInt64 = 10 * 1024 * 1024 * 1024, headlessStateDirectory: URL? = nil) {
+    public init(inspector: RiftVMMachineInspector = .init(), minimumPreinstalledDiskSize: UInt64 = 10 * 1024 * 1024 * 1024) {
         self.inspector = inspector
         self.minimumPreinstalledDiskSize = minimumPreinstalledDiskSize
-        self.headlessStateDirectory = headlessStateDirectory
     }
 
     public func run(arguments: [String], environment: [String: String] = ProcessInfo.processInfo.environment) -> (RiftVMCLIExit, RiftVMCLIResponse) {
@@ -390,13 +373,13 @@ public struct RiftVMCLI {
         case "doctor":
             guard parsed.target == nil else { return unexpectedTarget("doctor") }
             let arm64 = ProcessInfo.processInfo.machineArchitecture == "arm64"
-            let os27 = ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+            let os26 = ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26
             let roots = parsed.roots.map { root in
                 JSONValue.object(["path": .string(root.path), "readable": .bool(FileManager.default.isReadableFile(atPath: root.path))])
             }
-            return (arm64 && os27 ? .success : .unavailable, .init(command: "doctor", result: .object([
+            return (arm64 && os26 ? .success : .unavailable, .init(command: "doctor", result: .object([
                 "architecture": .string(ProcessInfo.processInfo.machineArchitecture),
-                "appleSilicon": .bool(arm64), "macOS27OrLater": .bool(os27), "roots": .array(roots)
+                "appleSilicon": .bool(arm64), "macOS26OrLater": .bool(os26), "roots": .array(roots)
             ])))
         case "start":
             return start(parsed)
@@ -458,13 +441,6 @@ public struct RiftVMCLI {
         if roots.isEmpty {
             let home = environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
             roots = [URL(fileURLWithPath: home).appendingPathComponent("RiftVM Virtual Machines")]
-            let support = environment["RIFTVM_DATA_ROOT"].map { URL(fileURLWithPath: $0) }
-                ?? URL(fileURLWithPath: home).appendingPathComponent("Library/Application Support/RiftVM")
-            let registryURL = support.appendingPathComponent("Workspaces.json")
-            if FileManager.default.fileExists(atPath: registryURL.path) {
-                let registry = try WorkspaceRegistry(fileURL: registryURL)
-                roots.append(contentsOf: registry.workspaces.map(\.location))
-            }
         }
         return Parsed(command: command, target: target, roots: roots, timeout: timeout,
                       image: image, thumbnail: thumbnail, destination: destination, name: name)
@@ -578,9 +554,6 @@ public struct RiftVMCLI {
             if let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) {
                 return (.invalidMachine, .init(command: "start", code: "already_running", message: "The machine already has a headless process."))
             }
-            if hasUnverifiedLiveProcess(at: stateURL, machine: machine) {
-                return unverifiedProcessResponse("start")
-            }
             try? FileManager.default.removeItem(at: stateURL)
             guard let executable = hostAppExecutable() else {
                 return (.unavailable, .init(command: "start", code: "host_app_unavailable", message: "Could not locate the RiftVM application executable."))
@@ -621,9 +594,6 @@ public struct RiftVMCLI {
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
             guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record, machine: machine) else {
-                if hasUnverifiedLiveProcess(at: headlessStateURL(for: machine), machine: machine) {
-                    return unverifiedProcessResponse("status")
-                }
                 if let shared = readActiveSharedRuntime(for: machine) {
                     return (.success, .init(command: "status", result: sharedRuntimeJSON(shared)))
                 }
@@ -645,9 +615,6 @@ public struct RiftVMCLI {
             let machine = try inspector.resolve(target, roots: parsed.roots)
             let stateURL = headlessStateURL(for: machine)
             guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) else {
-                if hasUnverifiedLiveProcess(at: stateURL, machine: machine) {
-                    return unverifiedProcessResponse("stop")
-                }
                 try? FileManager.default.removeItem(at: stateURL)
                 return (.notFound, .init(command: "stop", code: "not_running", message: "The machine has no active headless process."))
             }
@@ -656,13 +623,13 @@ public struct RiftVMCLI {
             }
             let deadline = Date().addingTimeInterval(parsed.timeout)
             while Date() < deadline {
-                // The runtime publishes stopped before its process finishes
-                // exiting. Do not let an immediate next start race that exit
-                // (including the interval where proc_pidpath no longer works).
-                if kill(record.pid, 0) != 0, errno == ESRCH { break }
+                if let updated = readHeadlessState(stateURL), updated.phase == "stopped" {
+                    return (.success, .init(command: "stop", result: headlessJSON(updated)))
+                }
+                if kill(record.pid, 0) != 0 { break }
                 Thread.sleep(forTimeInterval: 0.1)
             }
-            if kill(record.pid, 0) != 0, errno == ESRCH {
+            if kill(record.pid, 0) != 0 {
                 return (.success, .init(command: "stop", result: .object([
                     "machinePath": .string(machine.path), "phase": .string("stopped")
                 ])))
@@ -685,7 +652,7 @@ public struct RiftVMCLI {
 
     private func headlessStateURL(for machine: URL) -> URL {
         let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
-        let base = headlessStateDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("RiftVM/Headless", isDirectory: true)
         return base.appendingPathComponent("\(digest).json")
     }
@@ -695,21 +662,8 @@ public struct RiftVMCLI {
         return try? JSONDecoder().decode(RiftVMHeadlessRecord.self, from: data)
     }
 
-    private func hasUnverifiedLiveProcess(at stateURL: URL, machine: URL) -> Bool {
-        guard let record = readHeadlessState(stateURL), record.pid > 1,
-              !isExpectedHeadlessProcess(record, machine: machine) else { return false }
-        // EPERM also means the PID exists. Never erase its record or signal an
-        // unverified process merely because this CLI belongs to another build.
-        return kill(record.pid, 0) == 0 || errno == EPERM
-    }
-
-    private func unverifiedProcessResponse(_ command: String) -> (RiftVMCLIExit, RiftVMCLIResponse) {
-        (.unavailable, .init(command: command, code: "process_ownership_unverified",
-            message: "The saved runtime record refers to a live process that this RiftVM installation cannot verify. Use the RiftVM installation that started the workspace to stop it. The runtime record has been preserved."))
-    }
-
     private func hostAppExecutable() -> URL? {
-        if let override = ProcessInfo.processInfo.environment["RIFTVM_APP_EXECUTABLE"],
+        if let override = ProcessInfo.processInfo.environment["RiftVM_APP_EXECUTABLE"],
            FileManager.default.isExecutableFile(atPath: override) { return URL(fileURLWithPath: override) }
         return RiftVMExecutableLocation.hostAppExecutable(for: CommandLine.arguments[0])
     }
@@ -733,12 +687,9 @@ public struct RiftVMCLI {
 
     private func readActiveSharedRuntime(for machine: URL) -> RiftVMSharedRuntimeRecord? {
         let key = machine.standardizedFileURL.resolvingSymlinksInPath().path
-        let identity = try? WorkspaceIdentity.load(at: machine)
-        let lockKey = identity.map { "workspace:\($0.id.uuidString)" } ?? key
-        let digest = SHA256.hash(data: Data(lockKey.utf8)).map { String(format: "%02x", $0) }.joined()
-        let support = ProcessInfo.processInfo.environment["RIFTVM_DATA_ROOT"].map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("RiftVM")
-        let base = support.appendingPathComponent("RunLeases", isDirectory: true)
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("RiftVM/RunLeases", isDirectory: true)
         let lockURL = base.appendingPathComponent("\(digest).lock")
         let metadataURL = base.appendingPathComponent("\(digest).json")
         let descriptor = open(lockURL.path, O_RDONLY | O_CLOEXEC)

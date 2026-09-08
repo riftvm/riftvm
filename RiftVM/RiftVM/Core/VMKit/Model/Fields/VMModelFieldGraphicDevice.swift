@@ -95,13 +95,10 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
     let virtualMachineView: VZVirtualMachineView
     var displayView: NSView { virtualMachineView }
 
-    private let automaticallyReconfiguresDisplay: Bool
-
-    init(automaticallyReconfiguresDisplay: Bool = true) {
-        self.automaticallyReconfiguresDisplay = automaticallyReconfiguresDisplay
+    init() {
         virtualMachineView = VZVirtualMachineView()
         if #available(macOS 14.0, *) {
-            virtualMachineView.automaticallyReconfiguresDisplay = automaticallyReconfiguresDisplay
+            virtualMachineView.automaticallyReconfiguresDisplay = true
         }
     }
 
@@ -120,7 +117,7 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
     func refreshDisplayConfiguration() {
         guard #available(macOS 14.0, *) else { return }
         virtualMachineView.automaticallyReconfiguresDisplay = false
-        virtualMachineView.automaticallyReconfiguresDisplay = automaticallyReconfiguresDisplay
+        virtualMachineView.automaticallyReconfiguresDisplay = true
     }
 
     func setDynamicDisplayReady(_ ready: Bool) {}
@@ -1131,12 +1128,9 @@ enum VMGraphicsBackendFactory {
         guestInputReady: Bool = true,
         forceAppleGraphics: Bool = false
     ) -> VMGraphicsBackendCreation {
-        // Linux installers generally lack desktop HiDPI scaling. Keep their
-        // configured display size instead of matching Retina backing pixels.
-        let automaticDisplay = !(forLinux && hasInstallationMedia)
         if forceAppleGraphics {
             return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(automaticallyReconfiguresDisplay: automaticDisplay),
+                backend: VMAppleGraphicsBackend(),
                 detail: "Apple Virtio graphics selected for release comparison."
             )
         }
@@ -1153,7 +1147,7 @@ enum VMGraphicsBackendFactory {
         switch selection.active {
         case .appleVirtio:
             return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(automaticallyReconfiguresDisplay: automaticDisplay), detail: selection.fallbackReason
+                backend: VMAppleGraphicsBackend(), detail: selection.fallbackReason
             )
         case .customVirGL:
             if #available(macOS 27.0, *) {
@@ -1167,12 +1161,12 @@ enum VMGraphicsBackendFactory {
                         "Custom VirGL initialization failed; using Apple Virtio: \(String(reflecting: error))"
                     )
                     return VMGraphicsBackendCreation(
-                        backend: VMAppleGraphicsBackend(automaticallyReconfiguresDisplay: automaticDisplay), detail: detail
+                        backend: VMAppleGraphicsBackend(), detail: detail
                     )
                 }
             }
             return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(automaticallyReconfiguresDisplay: automaticDisplay),
+                backend: VMAppleGraphicsBackend(),
                 detail: "The Custom VirGL backend requires macOS 27 or later."
             )
         }

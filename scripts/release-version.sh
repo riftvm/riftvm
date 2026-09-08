@@ -6,7 +6,7 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 project_file="$project_root/RiftVM/RiftVM.xcodeproj/project.pbxproj"
 version="${1#v}"
 release_branch="${RIFTVM_RELEASE_BRANCH:-main}"
-tag="v$version"
+tag="riftvm-v$version"
 version_reset="${RIFTVM_RELEASE_VERSION_RESET:-0}"
 
 fail() { echo "release-version: $*" >&2; exit 1; }
@@ -39,8 +39,8 @@ else
   [[ -z "$(git -C "$project_root" status --porcelain)" ]] || fail "commit or stash all changes before releasing"
   remote_commit="$(git -C "$project_root" rev-parse "origin/$release_branch")"
   [[ "$head_commit" == "$remote_commit" ]] || fail "HEAD must match origin/$release_branch before preparing a release"
-  latest_tag="$(git -C "$project_root" tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -1)"
-  [[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "could not determine latest semantic version"
+  latest_tag="$(git -C "$project_root" tag --list 'riftvm-v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -1)"
+  [[ "$latest_tag" =~ ^riftvm-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "could not determine latest RiftVM semantic version"
   latest_major="${BASH_REMATCH[1]}"; latest_minor="${BASH_REMATCH[2]}"; latest_patch="${BASH_REMATCH[3]}"
   target_major="${version%%.*}"; remainder="${version#*.}"; target_minor="${remainder%%.*}"; target_patch="${version##*.}"
   if [[ $version_reset == 1 ]]; then
@@ -58,8 +58,8 @@ else
   current_version="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
   current_build="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
   [[ "$current_build" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
-  [[ "$current_version" == "${latest_tag#v}" || "$current_version" == "$version" ]] || \
-    fail "project version is $current_version, expected ${latest_tag#v} or $version"
+  [[ "$current_version" == "${latest_tag#riftvm-v}" || "$current_version" == "$version" ]] || \
+    fail "project version is $current_version, expected ${latest_tag#riftvm-v} or $version"
   if [[ $version_reset == 1 ]]; then next_build=1; else next_build="$((current_build + 1))"; fi
   ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
   git -C "$project_root" add -- RiftVM/RiftVM.xcodeproj/project.pbxproj

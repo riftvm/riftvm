@@ -160,7 +160,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         )
         XCTAssertEqual(manager.inspect(), .migrationRequired(fromVersion: 1))
 
-        try manager.migrateWorkspace()
+        try manager.migrateWorkspace(availableCapacityBytes: Int64.max)
 
         XCTAssertEqual(manager.inspect(), .ready)
         let migrated = try manager.metadata()
@@ -192,7 +192,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
             machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
         )
 
-        XCTAssertThrowsError(try manager.migrateWorkspace(metadataWriter: { _, _ in
+        XCTAssertThrowsError(try manager.migrateWorkspace(availableCapacityBytes: Int64.max, metadataWriter: { _, _ in
             throw CocoaError(.fileWriteNoPermission)
         })) { error in
             guard case .migrationFailed = error as? VMOmarchyWorkspaceError else {
@@ -204,7 +204,7 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: layout.configuration), legacyData)
         let points = VMOmarchyRecoveryManager(workspaceManager: manager).recoveryPoints()
         XCTAssertEqual(points.count, 1)
-        XCTAssertTrue(points[0].isProtected)
+        XCTAssertTrue(try XCTUnwrap(points.first).isProtected)
     }
 
     func testBrokenWorkspaceIsPreservedBeforeReinstall() throws {

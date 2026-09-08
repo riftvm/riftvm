@@ -1,0 +1,24 @@
+# typed: strict
+# frozen_string_literal: true
+
+cask "riftvm" do
+  version "1.0.0"
+  sha256 "e2cb8b0f7890e1e1a9a5fd676acdf2e75cce091eed2f041fda4a1593b95c2c92"
+
+  url "https://github.com/everettjf/riftvm/releases/download/riftvm-v#{version}/RiftVM-#{version}.zip?notarized=1"
+  name "RiftVM"
+  desc "Simple native virtual machines for Apple silicon Macs"
+  homepage "https://riftvm.com"
+
+  depends_on arch: :arm64
+  depends_on macos: :tahoe
+
+  app "RiftVM.app"
+  binary "#{appdir}/RiftVM.app/Contents/Helpers/riftvm"
+
+  zap trash: [
+    "~/Library/Application Support/RiftVM",
+    "~/Library/Preferences/com.riftvm.app.plist",
+    "~/Library/Saved Application State/com.riftvm.app.savedState",
+  ]
+end

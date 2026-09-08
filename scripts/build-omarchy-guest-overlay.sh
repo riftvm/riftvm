@@ -16,7 +16,7 @@ version=${version#v}
   exit 64
 }
 
-source_root="$project_root/GuestResources/Omarchy/systemd"
+source_root="$project_root/RiftVM/GuestOverlay/systemd"
 mount_unit="$source_root/mnt-riftvm\x2dshared.mount"
 session_unit="$source_root/rift-session-agent.service"
 test -f "$mount_unit"
@@ -42,7 +42,7 @@ jq -n \
   --arg session_sha "$(shasum -a 256 "$session_unit" | awk '{print $1}')" \
   '{
     schemaVersion: 1,
-    productID: "com.riftvm.app",
+    productID: "com.riftvm.app.omarchy",
     version: $version,
     files: [
       {path: "etc/systemd/system/mnt-riftvm\\x2dshared.mount", sha256: $mount_sha},

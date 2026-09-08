@@ -2,7 +2,6 @@
 import CryptoKit
 import Foundation
 import XCTest
-import RiftVMCore
 
 final class RiftVMCLIKitTests: XCTestCase {
     private var root: URL!
@@ -13,54 +12,6 @@ final class RiftVMCLIKitTests: XCTestCase {
     }
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
-
-    func testLiveUnverifiedProcessPreservesRecordAndBlocksLifecycleCommands() throws {
-        let machine = try makeMachine("Foreign.riftvm", name: "Foreign")
-        let stateDirectory = root.appendingPathComponent("Headless")
-        try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
-        let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8))
-            .map { String(format: "%02x", $0) }.joined()
-        let stateURL = stateDirectory.appendingPathComponent("\(digest).json")
-        let record = RiftVMHeadlessRecord(schemaVersion: 2,
-            pid: ProcessInfo.processInfo.processIdentifier, machinePath: machine.path,
-            phase: "running", message: nil, updatedAt: Date(), launchToken: UUID().uuidString)
-        let bytes = try JSONEncoder().encode(record)
-        try bytes.write(to: stateURL)
-        let cli = RiftVMCLI(headlessStateDirectory: stateDirectory)
-        for command in ["status", "stop", "start"] {
-            let (exitCode, response) = cli.run(arguments: [command, machine.path])
-            XCTAssertEqual(exitCode, .unavailable, command)
-            XCTAssertEqual(response.error?.code, "process_ownership_unverified", command)
-            XCTAssertEqual(try Data(contentsOf: stateURL), bytes, command)
-        }
-    }
-
-    func testStopWaitsForProcessExitAfterStoppedRecord() throws {
-        let machine = try makeMachine("Exiting.riftvm", name: "Exiting")
-        let directory = root.appendingPathComponent("Headless")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let ready = root.appendingPathComponent("ready")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = ["-c", "trap 'sleep 1; exit 0' TERM; touch \"$1\"; while :; do sleep 0.05; done", "sh", ready.path]
-        try process.run()
-        defer { if process.isRunning { process.terminate() }; process.waitUntilExit() }
-        let deadline = Date().addingTimeInterval(5)
-        while !FileManager.default.fileExists(atPath: ready.path), Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
-        XCTAssertTrue(FileManager.default.fileExists(atPath: ready.path))
-        let digest = SHA256.hash(data: Data(machine.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
-        let record = RiftVMHeadlessRecord(schemaVersion: 2, pid: process.processIdentifier,
-            machinePath: machine.path, phase: "stopped", message: nil, updatedAt: Date(), launchToken: UUID().uuidString)
-        try JSONEncoder().encode(record).write(to: directory.appendingPathComponent("\(digest).json"))
-        let previous = ProcessInfo.processInfo.environment["RIFTVM_APP_EXECUTABLE"]
-        setenv("RIFTVM_APP_EXECUTABLE", "/bin/bash", 1)
-        defer { if let previous { setenv("RIFTVM_APP_EXECUTABLE", previous, 1) } else { unsetenv("RIFTVM_APP_EXECUTABLE") } }
-        let started = Date()
-        let (code, _) = RiftVMCLI(headlessStateDirectory: directory).run(arguments: ["stop", machine.path, "--timeout", "5"])
-        XCTAssertEqual(code, .success)
-        XCTAssertGreaterThanOrEqual(Date().timeIntervalSince(started), 0.9)
-        XCTAssertFalse(process.isRunning)
-    }
 
     func testHostAppLocationResolvesHomebrewStyleCLISymlink() throws {
         let app = root.appendingPathComponent("RiftVM.app/Contents")
@@ -102,17 +53,6 @@ final class RiftVMCLIKitTests: XCTestCase {
         XCTAssertEqual(code, .invalidMachine)
         XCTAssertEqual(response.error?.code, "invalid_machine")
         XCTAssertTrue(response.error?.message.contains("storage file is missing") == true)
-    }
-
-    func testListIncludesRegisteredWorkspaceOutsideDefaultDirectory() throws {
-        let machine = try makeMachine("External/Registered.riftvm", name: "Registered")
-        let support = root.appendingPathComponent("AppData")
-        var registry = try WorkspaceRegistry(fileURL: support.appendingPathComponent("Workspaces.json"))
-        _ = try registry.register(machine, profile: .linux)
-        let (code, response) = RiftVMCLI().run(arguments: ["list"], environment: ["HOME": root.path, "RIFTVM_DATA_ROOT": support.path])
-        XCTAssertEqual(code, .success)
-        let json = String(data: try RiftVMCLI().encode(response), encoding: .utf8)!
-        XCTAssertTrue(json.contains("Registered"))
     }
 
     func testInspectRejectsAmbiguousNamesAndAcceptsExactPath() throws {
@@ -187,8 +127,8 @@ final class RiftVMCLIKitTests: XCTestCase {
         done
         mkdir -p \"$destination\"
         """)
-        setenv("RIFTVM_APP_EXECUTABLE", fakeApp.path, 1)
-        defer { unsetenv("RIFTVM_APP_EXECUTABLE") }
+        setenv("RiftVM_APP_EXECUTABLE", fakeApp.path, 1)
+        defer { unsetenv("RiftVM_APP_EXECUTABLE") }
 
         let result = RiftVMCLI(minimumPreinstalledDiskSize: 1).run(arguments: [
             "install-image", manifestURL.path, "--image", imageURL.path,
@@ -220,8 +160,8 @@ final class RiftVMCLIKitTests: XCTestCase {
         test "$thumbnail" = "\(thumbnailURL.path)"
         mkdir -p "$destination"
         """)
-        setenv("RIFTVM_APP_EXECUTABLE", fakeApp.path, 1)
-        defer { unsetenv("RIFTVM_APP_EXECUTABLE") }
+        setenv("RiftVM_APP_EXECUTABLE", fakeApp.path, 1)
+        defer { unsetenv("RiftVM_APP_EXECUTABLE") }
 
         let result = RiftVMCLI(minimumPreinstalledDiskSize: 1).run(arguments: [
             "install-image", manifestURL.path, "--image", imageURL.path,
@@ -248,8 +188,8 @@ final class RiftVMCLIKitTests: XCTestCase {
         mkdir -p \"$(dirname \"$destination\")/.$(basename \"$destination\").install-$staging_token\"
         sleep 10
         """)
-        setenv("RIFTVM_APP_EXECUTABLE", fakeApp.path, 1)
-        defer { unsetenv("RIFTVM_APP_EXECUTABLE") }
+        setenv("RiftVM_APP_EXECUTABLE", fakeApp.path, 1)
+        defer { unsetenv("RiftVM_APP_EXECUTABLE") }
 
         let result = RiftVMCLI(minimumPreinstalledDiskSize: 1).run(arguments: [
             "install-image", manifestURL.path, "--image", imageURL.path,
@@ -295,7 +235,7 @@ final class RiftVMCLIKitTests: XCTestCase {
         let digest = SHA256.hash(data: disk).map { String(format: "%02x", $0) }.joined()
         let value: [String: Any] = [
             "schemaVersion": 1,
-            "kind": "com.riftvm.preinstalled-image",
+            "kind": "io.github.everettjf.riftvm.preinstalled-image",
             "architecture": "arm64",
             "minimumRiftVMVersion": "1.0.0",
             "product": ["id": "example.image", "name": "Example", "version": "1.0.0"],

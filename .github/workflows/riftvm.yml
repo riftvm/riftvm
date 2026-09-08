@@ -1,0 +1,79 @@
+name: RiftVM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: riftvm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: xcode-27
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test shared core and CLI
+        run: |
+          swift build --build-tests
+          swift test --filter RiftVMCLIKitTests
+      - name: Test VirGL runtime
+        run: swift test --package-path Experiments/VZVirtioGPUPrototype
+      - name: Synchronize unified Xcode target
+        run: ruby scripts/integrate-omarchy-sources.rb
+      - name: Build the only desktop app
+        run: >-
+          xcodebuild
+          -project RiftVM/RiftVM.xcodeproj
+          -scheme RiftVM
+          -configuration Debug
+          -derivedDataPath "$RUNNER_TEMP/riftvm-derived"
+          CODE_SIGNING_ALLOWED=NO
+          build
+      - name: Build migrated Omarchy integration tests
+        run: >-
+          xcodebuild
+          -project RiftVM/RiftVM.xcodeproj
+          -scheme RiftVMIntegrationTests
+          -configuration Debug
+          -derivedDataPath "$RUNNER_TEMP/riftvm-tests-derived"
+          CODE_SIGNING_ALLOWED=NO
+          build-for-testing
+      - name: Validate factory and Overlay pipelines
+        run: |
+          scripts/test-omarchy-factory-tool.sh
+          scripts/test-copy-sparse-raw-to-asif.sh
+          scripts/test-omarchy-guest-overlay.sh
+          scripts/test-omarchy-guest-overlay-package.sh
+          scripts/test-omarchy-image-source-integration.sh
+      - name: Validate release gates
+        run: |
+          scripts/verify-riftvm-identity.sh
+          scripts/test-release-metadata.sh
+          scripts/test-release-signing-preflight.sh
+          scripts/test-omarchy-release-evidence.sh
+          scripts/test-omarchy-integration-observation.sh
+          scripts/test-omarchy-notification-observation.sh
+          scripts/test-omarchy-lifecycle-observation.sh
+
+  guest-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: GuestAgent/linux/go.mod
+          cache: false
+      - name: Test and cross-compile Rift Agent
+        working-directory: GuestAgent/linux
+        run: |
+          go test ./...
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/rift-agent" .
+          file "$RUNNER_TEMP/rift-agent" | grep -q 'ELF 64-bit.*ARM aarch64.*statically linked'

@@ -1,10 +1,8 @@
 import CryptoKit
 import RiftVMCore
 import Foundation
-import Virtualization
 
 private struct RollbackObservation: Codable {
-    let guestDiskVerified: Bool
     let schemaVersion: Int
     let observedAt: Date
     let sourceRevision: String
@@ -20,16 +18,16 @@ private struct RollbackObservation: Codable {
 
 @main
 enum OmarchyRollbackAcceptanceTool {
-    @MainActor static func main() async {
+    static func main() {
         do {
-            try await run()
+            try run()
         } catch {
             FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
             exit(1)
         }
     }
 
-    @MainActor private static func run() async throws {
+    private static func run() throws {
         let arguments = Array(CommandLine.arguments.dropFirst())
         guard arguments.count == 3 else {
             throw CocoaError(.validationMissingMandatoryProperty)
@@ -50,18 +48,25 @@ enum OmarchyRollbackAcceptanceTool {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
         let workspaceManager = VMOmarchyWorkspaceManager(layout: layout)
         guard workspaceManager.inspect() == .ready else { throw CocoaError(.fileReadCorruptFile) }
-        let nonce = UUID()
-        let before = Data("before-update:\(nonce.uuidString)".utf8)
-        let after = Data("after-update:\(nonce.uuidString)".utf8)
-        _ = try await guestPass(layout: layout, nonce: nonce, expected: nil, replacement: before)
+        let marker = layout.workspace.appending(path: ".riftvm-update-rollback-acceptance")
+        guard !FileManager.default.fileExists(atPath: marker.path) else {
+            throw CocoaError(.fileWriteFileExists)
+        }
+        let nonce = UUID().uuidString.lowercased()
+        let before = Data("before-update:\(nonce)".utf8)
+        let after = Data("after-update:\(nonce)".utf8)
+        defer { try? FileManager.default.removeItem(at: marker) }
+        try before.write(to: marker, options: [.atomic])
+
         let recovery = VMOmarchyRecoveryManager(workspaceManager: workspaceManager)
-        let point = try recovery.createProtectedPreUpdatePoint(targetVersion: "guest-disk-\(nonce.uuidString.prefix(8))")
-        _ = try await guestPass(layout: layout, nonce: nonce, expected: before, replacement: after)
+        let point = try recovery.createProtectedPreUpdatePoint(
+            targetVersion: "acceptance-\(nonce.prefix(8))"
+        )
+        try after.write(to: marker, options: [.atomic])
         try recovery.restore(id: point.id)
-        let restored = try await guestPass(layout: layout, nonce: nonce, expected: before, replacement: nil)
+        let restored = try Data(contentsOf: marker)
         let observation = RollbackObservation(
-            guestDiskVerified: true,
-            schemaVersion: 2,
+            schemaVersion: 1,
             observedAt: Date(),
             sourceRevision: revision,
             snapshotID: point.id,
@@ -81,34 +86,6 @@ enum OmarchyRollbackAcceptanceTool {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try encoder.encode(observation).write(to: output, options: [.atomic])
-    }
-
-    @MainActor private static func guestPass(
-        layout: VMOmarchyWorkspaceLayout, nonce: UUID, expected: Data?, replacement: Data?
-    ) async throws -> Data {
-        let vm = VZVirtualMachine(configuration: try VMOmarchyVirtualMachineBuilder.makeConfiguration(layout: layout, profile: .production))
-        try await vm.start()
-        guard let device = vm.socketDevices.first as? VZVirtioSocketDevice else { throw CocoaError(.featureUnsupported) }
-        var ready = false
-        let client = try VMOmarchyGuestAgentClient(device: device, layout: layout) { state in
-            if case .ready = state { ready = true }
-        }
-        client.start()
-        defer { client.stop() }
-        let deadline = Date().addingTimeInterval(180)
-        while !ready && Date() < deadline { try await Task.sleep(for: .seconds(1)) }
-        guard ready else { throw NSError(domain: "GuestRollback", code: 1, userInfo: [NSLocalizedDescriptionKey: "Authenticated Agent readiness timed out"]) }
-        let observation: Result<Data, Error>
-        do {
-            observation = .success(try await client.verifyTemporaryGuestDiskMarker(nonce: nonce, expected: expected, replacement: replacement))
-        } catch {
-            observation = .failure(error)
-        }
-        client.requestShutdown()
-        let stopDeadline = Date().addingTimeInterval(90)
-        while vm.state != .stopped && Date() < stopDeadline { try await Task.sleep(for: .seconds(1)) }
-        guard vm.state == .stopped else { throw NSError(domain: "GuestRollback", code: 2, userInfo: [NSLocalizedDescriptionKey: "Guest shutdown timed out; recovery was not attempted"]) }
-        return try observation.get()
     }
 
     private static func digest(_ data: Data) -> String {

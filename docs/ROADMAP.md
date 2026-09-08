@@ -1,11 +1,11 @@
-# EZVM capability map and roadmap
+# RiftVM capability map and roadmap
 
 _Updated: September 1, 2026_
 
 For the ordered post-1.0 implementation backlog, dependencies, and acceptance
-criteria, see [EZVM post-1.0 execution plan](NEXT_PLAN.md).
+criteria, see [RiftVM post-1.0 execution plan](NEXT_PLAN.md).
 
-EZVM is a native macOS application built on Apple's
+RiftVM is a native macOS application built on Apple's
 [`Virtualization.framework`](https://developer.apple.com/documentation/virtualization).
 Its product boundary is macOS and ARM64 Linux virtualization on Apple silicon.
 It is not intended to become a general CPU emulator or a replacement for QEMU.
@@ -23,7 +23,7 @@ entitlements, and capabilities that the framework does not provide.
 | **Planned** | Fits the product and can be implemented without a restricted entitlement. |
 | **Experimental** | Implemented or prototyped against beta/new system APIs; disabled by default. |
 | **Restricted** | Requires an Apple-approved entitlement or another distribution approval. |
-| **Out of scope** | Unsupported by Virtualization.framework or inconsistent with EZVM's native focus. |
+| **Out of scope** | Unsupported by Virtualization.framework or inconsistent with RiftVM's native focus. |
 
 ## Distribution rule
 
@@ -61,7 +61,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Saved machine state | Stable | Saves and restores runtime state on macOS 14 and later. Each new save records a canonical configuration, hardware identity, active snapshot branch, and disk identity manifest. Startup refuses a known-incompatible state, cold-boots safely, and explains the decision in a dismissible in-window notice; legacy states receive one guarded restore attempt. | Exercise save/restore and divergence fallback in the signed release smoke matrix on a real guest. |
 | Recovery boot for macOS | Stable | Opens a macOS VM using recovery start options. | Add an automated smoke scenario. |
 | Single-owner VM lease | Stable | A kernel-backed cross-process lease prevents the same VM bundle from running in both GUI and headless processes; leases recover automatically when a process exits. | Keep all future launch surfaces on the shared lease. |
-| Headless execution | Stable | The CLI launches a non-activating signed EZVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
+| Headless execution | Stable | The CLI launches a non-activating signed RiftVM process, reports lifecycle state, and supports bounded stop fallback without presenting a VM window. | Share cross-process leases with GUI and add launch-at-login supervision. |
 | Multi-VM resource policy | Stable | Different VM bundles run concurrently. Cross-process records aggregate allocations; launches above 90% of host memory or twice the host logical CPU count are rejected with an actionable error. | Add live memory-pressure recommendations and user-selectable policy profiles. |
 
 ### Virtual devices and interaction
@@ -69,7 +69,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | macOS graphics/display | Stable | Configures native Mac graphics displays and a `VZVirtualMachineView`. | Add display-profile presets. |
-| Linux Virtio graphics | Stable | On macOS 27+, Linux can use EZVM's Custom Virtio GPU with VirGLRenderer and ANGLE/Metal; startup failure falls back to Apple Virtio. | Run a broader distro/GPU workload matrix and same-host comparative benchmarks. |
+| Linux Virtio graphics | Stable | On macOS 27+, Linux can use RiftVM's Custom Virtio GPU with VirGLRenderer and ANGLE/Metal; startup failure falls back to Apple Virtio. | Run a broader distro/GPU workload matrix and same-host comparative benchmarks. |
 | Automatic display resizing | Stable | Apple graphics uses framework reconfiguration. Custom VirGL publishes generation-tagged modes and retains the display event until the guest acknowledges it through `GET_EDID`/`GET_DISPLAY_INFO`. | Add automated window/full-screen transition tests across more compositors. |
 | Keyboard | Stable | Apple graphics uses a virtual USB keyboard. Custom VirGL uses the authenticated Agent/uinput path after desktop ownership is verified, including Command-to-Super chords. | Add keyboard-layout troubleshooting and long-running chord/reconnect tests. |
 | Pointer and absolute pointing | Stable | Apple graphics uses configured native devices. Custom VirGL uses the native USB digitizer when possible and capability-negotiated Agent input for desktop keyboard/wheel delivery. | Improve device descriptions and test more pointing hardware. |
@@ -78,11 +78,11 @@ notarization success alone is not evidence that an entitlement is usable.
 | Audio input | Stable | Provides host microphone input when authorized. | Explain and test macOS privacy permission denial. |
 | Entropy device | Stable | Linux can opt into a Virtio entropy source. | Enable in tested presets. |
 | Memory balloon | Stable | Linux can use a Virtio memory-balloon device; runtime target is adjustable. | Add host-pressure-driven recommendations, not automatic mutation yet. |
-| Virtio socket device | Stable | Linux configurations expose it for the authenticated EZVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
-| Serial port terminal | Planned | Framework support exists; EZVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
+| Virtio socket device | Stable | Linux configurations expose it for the authenticated RiftVM guest agent. | Keep protocol compatibility covered by Swift/Go vectors. |
+| Serial port terminal | Planned | Framework support exists; RiftVM lacks a dedicated terminal UX. | Add logging, reconnect, encoding, and copy support. |
 | Virtio console | Partial | A console and Spice agent port are configured for Linux workflows. | Surface connection and guest-agent health. |
-| Host/guest clipboard | In progress | EZVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
-| Runtime shared folders | Beta | Every VM starts with one stable VirtioFS sharing device. Dropping folders into a running VM persists the configuration and replaces that device's `share`; failures explicitly say whether the saved configuration will apply at next start. macOS uses its automount tag and Linux uses `ezvm_shared`. Duplicate display names are disambiguated without changing paths or access mode. Linux settings provide a selectable, one-click-copy mount command and explain single- versus multiple-folder layout. | Verify add/remove/read-only updates in running macOS, Ubuntu, and Omarchy guest clones. |
+| Host/guest clipboard | In progress | RiftVM explicitly enables the SPICE clipboard channel; the Omarchy image restores `spice-vdagent` and its desktop-session integration. | Verify bidirectional Unicode and large-text copy in a built image. |
+| Runtime shared folders | Beta | Every VM starts with one stable VirtioFS sharing device. Dropping folders into a running VM persists the configuration and replaces that device's `share`; failures explicitly say whether the saved configuration will apply at next start. macOS uses its automount tag and Linux uses `riftvm_shared`. Duplicate display names are disambiguated without changing paths or access mode. Linux settings provide a selectable, one-click-copy mount command and explain single- versus multiple-folder layout. | Verify add/remove/read-only updates in running macOS, Ubuntu, and Omarchy guest clones. |
 | Physical USB passthrough | Beta | macOS 27 Accessory Access explicitly registers devices, claims them only after user selection, and supports connect/disconnect without changing default boot. The device menu uses sanitized manufacturer/product names with VID:PID disambiguation and does not collect serial numbers. Per-device in-flight state prevents duplicate actions and preserves safety state after errors. | Complete the signed Omarchy/Ubuntu release-candidate matrix and wider hardware soak. |
 | USB hot-plug management | Beta | Runtime attach/detach, descriptor parsing, shutdown safety, signed entitlement diagnostics, late-callback rejection, distinct interrupted-attach/explicit-detach/unexpected-disconnect handling, framework-specific recovery guidance, stale `DeviceNotFound` reconciliation, and save-state exclusion throughout in-flight controller operations are integrated. Pending device identities prevent a controller disconnect from being overwritten by a late attach-success continuation. | Complete permission-revocation, sleep/wake, multi-device, and physical-device compatibility testing. |
 | Custom Virtio devices | Beta | macOS 27 Linux VMs have a real virtio-gpu implementation for VirGL acceleration. The backend is availability-gated, falls back safely, disables incompatible machine-state restore, rejects aggregate renderer allocations beyond a conservative 2 GiB per-device budget, and separately caps guest resource backing mappings at 4 GiB before entering C. Terminal shutdown drains the device queue before releasing the process-global renderer lease. | Maintain protocol conformance, fuzz hostile resource requests, and complete wider distro/GPU soak coverage. |
@@ -101,7 +101,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Restore safety snapshot | Stable | Before confirmation, a read-only review audits the target and shows conservative restore-staging, optional safety-snapshot, 1 GiB reserve, total-required, and available bytes. Insufficient space disables Restore, and the complete estimate is rechecked before any mutation. | Validate the estimate against larger guest-written ASIF layers on a genuinely constrained volume. |
 | ASIF layered snapshots | Beta | ASIF disks automatically use DiskImageKit overlay stacks; raw and legacy disks retain the APFS-clone path. Audit asks DiskImageKit to assemble complete stacks read-only, detecting reordered or foreign-parent layers. Startup refuses to recreate a missing dependent base or attach a foreign base/missing active layer. Deterministic and separate-process `_exit` matrices cover all eight restore boundaries. An unreadable restore journal now fails closed without moving the current machine, backup, staging files, or ASIF branch state. Capacity rejection occurs before files, journals, or overlays are created and preserves the active branch exactly. A real 32-layer test and branch cleanup matrix pass, and the UI shows an orange advisory at that depth. DiskImageKit 27 has no public in-place merge/compact API. | Validate larger images on a genuinely nearly-full volume and through a full host restart; design transactional replacement-image consolidation instead of exposing a misleading Compact action. |
 | VM clone | Stable | Stopped VMs clone transactionally with a new hardware identity and name; incompatible saved state and source snapshot history are intentionally reset. | Add progress and cancellation UI. |
-| VM export/import | Stable | Native `.ezvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
+| VM export/import | Stable | Native `.riftvmexport` packages use a versioned manifest, streaming SHA-256 checksums, architecture/OS compatibility checks, free-space forecasts, and transactional import. | Add progress and cancellation UI. |
 | OVF/OVA import | Planned | Not implemented. | Treat as a converter project after native bundle import is stable. |
 | OCI/image workflows | Backlog | Not implemented. | Require a concrete developer workflow before promotion. |
 
@@ -110,11 +110,11 @@ notarization success alone is not evidence that an entitlement is usable.
 | Capability | Status | Current behavior | Next work / constraint |
 | --- | --- | --- | --- |
 | Standard NAT | Stable | Production builds use `VZNATNetworkDeviceAttachment`. | Add connectivity diagnostics and tested DNS behavior. |
-| Bridged networking | Deferred | Not exposed or claimed. Apple documents `VZBridgedNetworkDeviceAttachment` under the same restricted `com.apple.vm.networking` entitlement, but EZVM has not implemented or validated this distinct attachment path. | Reconsider only for a concrete LAN-discovery requirement; then add interface selection and signed physical-network coverage. |
+| Bridged networking | Deferred | Not exposed or claimed. Apple documents `VZBridgedNetworkDeviceAttachment` under the same restricted `com.apple.vm.networking` entitlement, but RiftVM has not implemented or validated this distinct attachment path. | Reconsider only for a concrete LAN-discovery requirement; then add interface selection and signed physical-network coverage. |
 | Host-only networking | Beta | Named logical networks, subnet/mask configuration, process-lifetime reuse, and kernel-backed cross-process ownership are integrated. A crashed owner cannot strand the network name. | Complete signed-fixture runtime recovery coverage. |
-| Custom network topology | Beta | Outcome cards expose NAT, VMNet Shared, and VMNet Host-only with an explicit reachability summary. Advanced disclosure persists subnet, external interface, MTU, topology, and forwarding settings without leaking mode-specific fields. Complete-collection preflight rejects invalid masks/network addresses, unavailable interfaces, conflicting named networks, cross-network forwarding collisions, and currently occupied TCP/UDP host endpoints before any VMNet object is created. Runtime state independently tracks each adapter through preparing, connected, recovering, and disconnected states; an accepted reattachment must remain stable before it is reported as connected or renews the bounded retry budget. Named-network creation is serialized and a kernel lease gives a simultaneous second EZVM process actionable matching-versus-conflicting ownership errors, with automatic crash recovery. | Add DHCP/DNS policy controls and signed-fixture runtime recovery coverage. |
+| Custom network topology | Beta | Outcome cards expose NAT, VMNet Shared, and VMNet Host-only with an explicit reachability summary. Advanced disclosure persists subnet, external interface, MTU, topology, and forwarding settings without leaking mode-specific fields. Complete-collection preflight rejects invalid masks/network addresses, unavailable interfaces, conflicting named networks, cross-network forwarding collisions, and currently occupied TCP/UDP host endpoints before any VMNet object is created. Runtime state independently tracks each adapter through preparing, connected, recovering, and disconnected states; an accepted reattachment must remain stable before it is reported as connected or renews the bounded retry budget. Named-network creation is serialized and a kernel lease gives a simultaneous second RiftVM process actionable matching-versus-conflicting ownership errors, with automatic crash recovery. | Add DHCP/DNS policy controls and signed-fixture runtime recovery coverage. |
 | Shared logical network across processes | Planned | Safety ownership is implemented, but simultaneous sharing is deliberately not claimed. Apple exposes serialization as a live XPC object and requires each attachment's network to be created in its own process. | Design a dedicated authenticated XPC owner/broker before transporting serialized VMNet networks between GUI and headless processes. |
-| vmnet port forwarding | Beta | TCP/UDP rules validate nonzero ports, usable in-subnet destinations, per-network duplicates, cross-network endpoint collisions, and live host-port availability before creation. The bind probe distinguishes occupied from indeterminate endpoints and never reserves the port; VMNet creation remains authoritative. Named-network ownership prevents independent EZVM processes from racing the same rule set. | Add live rule editing and broader reconnect tests. |
+| vmnet port forwarding | Beta | TCP/UDP rules validate nonzero ports, usable in-subnet destinations, per-network duplicates, cross-network endpoint collisions, and live host-port availability before creation. The bind probe distinguishes occupied from indeterminate endpoints and never reserves the port; VMNet creation remains authoritative. Named-network ownership prevents independent RiftVM processes from racing the same rule set. | Add live rule editing and broader reconnect tests. |
 | User-space port forwarding | Planned research | Could avoid vmnet by proxying host sockets to a known guest service. | First solve guest discovery, security, lifecycle, and UDP semantics. |
 | Guest IP discovery | Stable | The authenticated Linux guest agent reports sorted non-loopback addresses over Virtio Socket. | Expand distro and reconnect soak coverage. |
 | One-click SSH | Stable | Capability-gated menu opens validated IPv4/IPv6 `ssh://` URLs without shell interpolation or stored credentials. | Add optional per-VM username preference after credential policy is designed. |
@@ -125,7 +125,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | --- | --- | --- | --- |
 | Single-directory VirtioFS | Stable | Shares selected host directories using a guest mount tag. | Improve guest-specific setup instructions. |
 | Multiple-directory VirtioFS | Stable | Supports named directory collections. | Improve collision validation and editing. |
-| Runtime share updates | Stable | A running VM keeps one stable EZVM VirtioFS device. Adding, removing, or changing read-only access updates that device immediately after Settings is saved; stopped-VM entry points explicitly say the change applies at the next start. | Extend the signed guest matrix with mounted-file read/write and removal checks. |
+| Runtime share updates | Stable | A running VM keeps one stable RiftVM VirtioFS device. Adding, removing, or changing read-only access updates that device immediately after Settings is saved; stopped-VM entry points explicitly say the change applies at the next start. | Extend the signed guest matrix with mounted-file read/write and removal checks. |
 | Linux Rosetta | Stable | Configures a Rosetta directory share when available. | Add guided guest-side `binfmt_misc` setup. |
 | Rosetta translation cache | Stable | Supports caching options on compatible hosts. | Measure impact and document guest requirements. |
 | macOS guest provisioning | Beta | Uses the macOS 27 per-VM opt-in API. The password enters the Keychain only after installation, is device-only, and remains available until the user confirms setup. A stable attempt ID and persisted prepared/applying/awaiting state prevent automatic replay after an ambiguous process interruption; the VM window offers verification or an explicit next-start retry. | Complete the signed macOS release-candidate account-creation, interruption, confirmation, and retry matrix. |
@@ -134,7 +134,7 @@ notarization success alone is not evidence that an entitlement is usable.
 | Graceful guest operations | Partial | The authenticated agent handles explicit UI shutdown and restart commands. | Add command-result visibility and audit history. |
 | Host/guest file transfer | Stable | Capability-negotiated agent transfers use bounded chunks, progress/cancel UI, streaming SHA-256, symlink rejection, and atomic destination replacement. | Add a persistent multi-job queue and drag-and-drop destinations. |
 | Drag and drop | Planned | Not implemented. | Map drops to an explicit transfer destination through the agent. |
-| CLI (`ezvm`) | Stable | Homebrew installs `ezvm` with schema-v1 JSON `list`, `inspect`, `validate`, `doctor`, `start`, `status`, and `stop`; mutations require an exact target and bounded timeout. | Add clone/export commands after cross-process lease enforcement. |
+| CLI (`riftvm`) | Stable | Homebrew installs `riftvm` with schema-v1 JSON `list`, `inspect`, `validate`, `doctor`, `start`, `status`, and `stop`; mutations require an exact target and bounded timeout. | Add clone/export commands after cross-process lease enforcement. |
 | Local API/MCP surface | Backlog | Not implemented. | Only after CLI schemas and authorization are stable. |
 | Shortcuts and URL actions | Backlog | Not implemented. | Add after lifecycle commands are safe and idempotent. |
 
@@ -144,8 +144,8 @@ notarization success alone is not evidence that an entitlement is usable.
 | --- | --- | --- | --- |
 | Nested virtualization | Stable | Linux VMs have a per-machine option guarded by Apple's runtime capability check; unsupported hosts get an actionable compatibility error and old configs default off. Release automation verifies guest `/dev/kvm` with `KVM_GET_API_VERSION=12`. | Add tested distro guidance and a Docker/KVM guest profile. |
 | Docker/KVM inside a Linux guest | Planned research | Depends on nested virtualization and guest configuration. | Validate only after the base nested-virtualization option is stable. |
-| macOS guest iCloud identity | Supported automatically | New VMs created from a supported macOS restore image use the framework-provided Mac hardware identity derived from the host Secure Enclave. EZVM already preserves that hardware model; no additional app entitlement is required. | Document that upgrading an older VM does not retroactively add iCloud identity, and verify sign-in manually in the macOS guest matrix. |
-| macOS guest Metal improvements | Supported automatically | EZVM uses the restore image's supported Mac hardware configuration, so compatible host/guest Metal improvements require no separate application switch or entitlement. | Include a graphics workload in the macOS guest matrix. |
+| macOS guest iCloud identity | Supported automatically | New VMs created from a supported macOS restore image use the framework-provided Mac hardware identity derived from the host Secure Enclave. RiftVM already preserves that hardware model; no additional app entitlement is required. | Document that upgrading an older VM does not retroactively add iCloud identity, and verify sign-in manually in the macOS guest matrix. |
+| macOS guest Metal improvements | Supported automatically | RiftVM uses the restore image's supported Mac hardware configuration, so compatible host/guest Metal improvements require no separate application switch or entitlement. | Include a graphics workload in the macOS guest matrix. |
 | x86 guest execution on Apple silicon | Out of scope | Virtualization.framework virtualizes the host architecture. | Use a separate emulator such as QEMU; do not mix it into the native core. |
 | General GPU passthrough | Out of scope | No general PCIe/GPU passthrough API is exposed. | Do not promise it. |
 | General PCIe passthrough | Out of scope | No general device-passthrough API is exposed. | Do not promise it. |
@@ -183,7 +183,7 @@ bundle surgery.
 Work:
 
 1. Add first-class clone with new machine identifiers and atomic destination creation.
-2. Add native EZVM export/import manifests with checksums and schema versions.
+2. Add native RiftVM export/import manifests with checksums and schema versions.
 3. Add disk-space forecasts to creation, conversion, snapshot, clone, and export.
 4. Add snapshot integrity audit and dry-run orphan cleanup.
 5. Stress-test APFS and ASIF snapshot branches, interrupted restore, and rollback.
@@ -198,7 +198,7 @@ Exit criteria:
 
 ### Milestone C — Guest integration
 
-**Goal:** EZVM knows whether a guest is ready and can provide safe, explicit
+**Goal:** RiftVM knows whether a guest is ready and can provide safe, explicit
 integration features without privileged host networking.
 
 Work:
@@ -259,13 +259,13 @@ story, and automated test before its experimental toggle can be removed.
 Bridged networking, vmnet logical networks, vmnet port forwarding, and physical
 USB passthrough may return only when all of the following are true:
 
-1. Apple has approved the exact entitlement for the EZVM App ID.
+1. Apple has approved the exact entitlement for the RiftVM App ID.
 2. A Developer ID provisioning profile contains that entitlement.
 3. The profile is embedded in the signed application.
 4. `codesign` shows only expected entitlements in the final archive.
 5. Notarization, Gatekeeper, and launch tests pass on a clean Homebrew install.
 6. The feature has a runtime availability check and a safe fallback.
-7. Removing or denying the capability does not prevent EZVM from launching.
+7. Removing or denying the capability does not prevent RiftVM from launching.
 8. Release automation rejects an unauthorized restricted entitlement.
 
 Until then, those features belong in design documents or isolated experimental

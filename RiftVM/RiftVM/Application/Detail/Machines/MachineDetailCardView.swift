@@ -227,7 +227,7 @@ private struct VMAuroraThumbnailIdentity {
             ]
             glow = Color(red: 0.33, green: 0.76, blue: 1.00)
         } else if normalizedTitle.contains("ubuntu") {
-            platform = "Ubuntu"
+            platform = "Omarchy"
             detail = "ARM64 Linux virtual machine"
             smallSymbol = "circle.grid.cross"
             largeSymbol = "circle.grid.cross.fill"

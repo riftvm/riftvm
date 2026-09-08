@@ -1,7 +1,7 @@
 RiftVM/RiftVM.xcodeproj/project.xcworkspace/xcuserdata/
 RiftVM/RiftVM.xcodeproj/xcuserdata/
+RiftVM/RiftVM.xcodeproj/xcshareddata/
 .DS_Store
 .build/
 .swiftpm/
 DerivedData/
-dist/

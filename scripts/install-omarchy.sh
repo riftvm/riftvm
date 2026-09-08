@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cask=${RIFTVM_HOMEBREW_CASK:-riftvm/tap/riftvm}
-release_base_url=${RIFTVM_OMARCHY_RELEASE_BASE_URL:-https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/latest/download}
+release_base_url=${RIFTVM_OMARCHY_RELEASE_BASE_URL:-https://github.com/everettjf/omarchy-aarch64-image/releases/latest/download}
 destination=${1:-}
 
 fail() {

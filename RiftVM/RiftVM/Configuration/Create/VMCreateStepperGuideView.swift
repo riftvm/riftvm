@@ -131,7 +131,7 @@ struct VMCreateStepperGuideView: View {
 
     let steps: [VMCreateStepperGuideItem]
 
-    init(initialProfile: WorkspaceProfile = .macOS) {
+    init(initialKind: RiftWorkspaceKind? = nil) {
         let steps = [
             VMCreateStepperGuideItem(systemImage: "desktopcomputer", name: "System", subtitle: "Choose OS and image", content: AnyView(CreatePhaseSystemView()), handler: CreatePhaseSystemViewHandler()),
             VMCreateStepperGuideItem(systemImage: "tag", name: "Name & Location", subtitle: "Name and save location", content: AnyView(CreatePhaseNameLocationView()), handler: CreatePhaseNameLocationViewHandler()),
@@ -143,10 +143,28 @@ struct VMCreateStepperGuideView: View {
         ]
         self.steps = steps
         _stepperState = State(initialValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
-        let form = VMCreateViewStateObject()
-        form.preferredProfile = initialProfile
-        _formData = State(initialValue: form)
-        _configData = State(initialValue: VMConfigurationViewStateObject(configModel: VMConfigModel.createWithDefaultValues(osType: initialProfile == .macOS ? .macOS : .linux)))
+        let formData = VMCreateViewStateObject()
+        let configData: VMConfigurationViewStateObject
+        switch initialKind {
+        case .omarchy:
+            configData = VMConfigurationViewStateObject(
+                configModel: VMConfigModel.createWithDefaultValues(osType: .linux)
+            )
+            configData.name = VMPreinstalledImageCatalogItem.omarchy.name
+            configData.remark = VMPreinstalledImageCatalogItem.omarchy.detail
+            configData.linuxFeatures = .recommended
+            formData.systemImageSelection = .preinstalled(.omarchy)
+            formData.hasChosenSystem = true
+            formData.hasGeneratedNameSuggestion = true
+        case .macOS:
+            configData = VMConfigurationViewStateObject()
+            formData.systemImageSelection = .latestMacOS
+            formData.hasChosenSystem = true
+        case nil:
+            configData = VMConfigurationViewStateObject()
+        }
+        _formData = State(initialValue: formData)
+        _configData = State(initialValue: configData)
     }
 
     var body: some View {

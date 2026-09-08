@@ -31,7 +31,7 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
     
     /*
      - file name only when .Block
-     - absolute host path or workspace-relative packaged media when .USB
+     - full path when .USB
      */
     let imagePath: String
 
@@ -97,9 +97,7 @@ struct VMModelFieldStorageDevice : Decodable, Encodable, CustomStringConvertible
             // The UI exposes USB-backed storage as ISO installation media.
             // Opening it read-only lets multiple VMs safely share the same ISO
             // and prevents a guest from mutating the host's installer image.
-            let mediaURL = (imagePath as NSString).isAbsolutePath
-                ? URL(fileURLWithPath: imagePath) : rootPath.appendingPathComponent(imagePath)
-            guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: mediaURL, readOnly: true) else {
+            guard let diskImageAttachment = try? VZDiskImageStorageDeviceAttachment(url: URL(fileURLWithPath: imagePath), readOnly: true) else {
                 return .failure("Failed to create Disk image.")
             }
             

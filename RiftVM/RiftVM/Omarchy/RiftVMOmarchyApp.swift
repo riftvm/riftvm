@@ -117,8 +117,6 @@ struct OmarchyRootView: View {
     }
 
     private func preserveAndReinstall() {
-        guard let lease = acquireMaintenanceLease() else { return }
-        defer { VMRunningRegistry.shared.release(lease) }
         do {
             _ = try workspaceManager.quarantineBrokenWorkspace()
             recoveryError = nil
@@ -129,8 +127,6 @@ struct OmarchyRootView: View {
     }
 
     private func repairInterruptedRecovery() {
-        guard let lease = acquireMaintenanceLease() else { return }
-        defer { VMRunningRegistry.shared.release(lease) }
         do {
             try VMOmarchyRecoveryManager(workspaceManager: workspaceManager).recoverInterruptedOperations()
             recoveryError = nil
@@ -140,24 +136,13 @@ struct OmarchyRootView: View {
         }
     }
 
-    private func acquireMaintenanceLease() -> VMRunLease? {
-        guard let lease = VMRunningRegistry.shared.acquire(
-            rootPath: workspaceManager.layout.applicationSupportRoot, phase: .maintaining
-        ) else {
-            recoveryError = "This workspace is busy. Shut it down and wait for other maintenance operations to finish."
-            return nil
-        }
-        return lease
-    }
-
     private func migrateWorkspace() {
-        guard !isMigrating, let lease = acquireMaintenanceLease() else { return }
+        guard !isMigrating else { return }
         isMigrating = true
         let manager = workspaceManager
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Result { try manager.migrateWorkspace() }
             DispatchQueue.main.async {
-                VMRunningRegistry.shared.release(lease)
                 isMigrating = false
                 switch result {
                 case .success:
@@ -176,7 +161,6 @@ private struct OmarchyWelcomeView: View {
     let workspaceManager: VMOmarchyWorkspaceManager
     let workspacePrepared: () -> Void
     @State private var installState: InstallState = .idle
-    @State private var installTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 22) {
@@ -195,9 +179,6 @@ private struct OmarchyWelcomeView: View {
             LabeledContent("Planned disk capacity", value: ByteCountFormatter.string(fromByteCount: Int64(profile.diskCapacityBytes), countStyle: .file))
                 .frame(maxWidth: 420)
             installControls
-            if installTask != nil {
-                Button("Cancel Installation") { installTask?.cancel() }
-            }
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -233,19 +214,8 @@ private struct OmarchyWelcomeView: View {
     }
 
     private func prepare() {
-        guard installTask == nil else { return }
-        guard let lease = VMRunningRegistry.shared.acquire(
-            rootPath: workspaceManager.layout.applicationSupportRoot, phase: .maintaining
-        ) else {
-            installState = .failed("This workspace is busy. Wait for its other operation to finish before installing.")
-            return
-        }
         installState = .checkingSpace
-        installTask = Task {
-            defer {
-                VMRunningRegistry.shared.release(lease)
-                installTask = nil
-            }
+        Task {
             do {
                 let forecast = try VMOmarchyStorageForecast.inspect(
                     volumeContaining: workspaceManager.layout.applicationSupportRoot.deletingLastPathComponent(),
@@ -260,7 +230,7 @@ private struct OmarchyWelcomeView: View {
                 }
                 let installer = VMOmarchyFactoryInstaller(
                     profile: profile,
-                    cacheDirectory: sharedAppConfigManager.getRootPath().appendingPathComponent("FactoryCache"),
+                    cacheDirectory: workspaceManager.layout.cache,
                     publicKey: publicKey,
                     transport: VMOmarchyURLSessionTransport()
                 )
@@ -279,22 +249,14 @@ private struct OmarchyWelcomeView: View {
                     guestAgentVersion: factory.manifest.payload.guestAgentVersion,
                     guestCapabilities: factory.manifest.payload.guestCapabilities.sorted()
                 ))
-                try Task.checkCancellation()
-                let preparation = Task.detached {
-                    try workspaceManager.prepare(
-                        factoryDisk: factory.diskURL,
-                        configuration: metadata,
-                        machineIdentifier: identifier
-                    )
-                }
-                try await withTaskCancellationHandler {
-                    try await preparation.value
-                } onCancel: { preparation.cancel() }
+                try workspaceManager.prepare(
+                    factoryDisk: factory.diskURL,
+                    configuration: metadata,
+                    machineIdentifier: identifier
+                )
                 workspacePrepared()
-            } catch is CancellationError {
-                installState = .idle
             } catch {
-                installState = Task.isCancelled ? .idle : .failed(error.localizedDescription)
+                installState = .failed(error.localizedDescription)
             }
         }
     }

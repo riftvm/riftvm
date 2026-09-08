@@ -1,98 +1,158 @@
 import AppKit
-import Observation
+import UserNotifications
+import Virtualization
 
-/// One quit transaction covers every live workspace. Time passing is never
-/// authorization to force stop a guest.
-@MainActor @Observable
-final class WorkspaceQuitController {
-    enum TimeoutChoice { case wait, cancel, forceStop }
-    struct Participant {
-        let id: String
-        let isStopped: () -> Bool
-        let canSave: () -> Bool
-        let save: () -> Void
-        let shutDown: () -> Void
-        let forceStop: () -> Void
+protocol OmarchyTerminableMachine: AnyObject {
+    var canRequestStop: Bool { get }
+    var canStop: Bool { get }
+    func requestStop() throws
+    func stop(completionHandler: @escaping (Error?) -> Void)
+}
+
+extension VZVirtualMachine: OmarchyTerminableMachine {}
+
+final class OmarchyApplicationDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
     }
 
-    private(set) var isPending = false
-    private var remaining: [Participant] = []
-    private var pollCount = 0
-    private var generation = 0
-    private let participants: () -> [Participant]
-    private let confirmShutdown: () -> Bool
-    private let chooseTimeout: () -> TimeoutChoice
-    private let reply: (Bool) -> Void
-    private let schedulePoll: (@escaping @MainActor () -> Void) -> Void
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard response.notification.request.content.userInfo[
+            "riftvmOmarchyGuestNotification"
+        ] as? Bool == true else { return }
+        await MainActor.run {
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first(where: { $0.canBecomeKey })?.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        OmarchyApplicationTerminationController.shared.requestTermination()
+    }
+}
+
+@MainActor
+final class OmarchyApplicationTerminationController {
+    static let shared = OmarchyApplicationTerminationController()
+
+    private var machine: OmarchyTerminableMachine?
+    private var pending = false
+    private var stopping = false
+    private var timeout: DispatchWorkItem?
+    private let reply: @MainActor (Bool) -> Void
+    private let scheduleTimeout: @MainActor (DispatchWorkItem) -> Void
 
     init(
-        participants: @escaping () -> [Participant],
-        confirmShutdown: @escaping () -> Bool,
-        chooseTimeout: @escaping () -> TimeoutChoice,
-        reply: @escaping (Bool) -> Void = { NSApp.reply(toApplicationShouldTerminate: $0) },
-        schedulePoll: @escaping (@escaping @MainActor () -> Void) -> Void = { action in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: action)
+        reply: @escaping @MainActor (Bool) -> Void = {
+            NSApp.reply(toApplicationShouldTerminate: $0)
+        },
+        scheduleTimeout: @escaping @MainActor (DispatchWorkItem) -> Void = {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: $0)
         }
     ) {
-        self.participants = participants
-        self.confirmShutdown = confirmShutdown
-        self.chooseTimeout = chooseTimeout
         self.reply = reply
-        self.schedulePoll = schedulePoll
+        self.scheduleTimeout = scheduleTimeout
+    }
+
+    func register(_ machine: OmarchyTerminableMachine) {
+        self.machine = machine
+        stopping = false
+    }
+
+    func unregister(_ machine: OmarchyTerminableMachine) {
+        guard self.machine === machine else { return }
+        self.machine = nil
+        stopping = false
+        if pending { finishTermination() }
+    }
+
+    func stopForViewTeardown(_ machine: OmarchyTerminableMachine) {
+        guard self.machine === machine, !stopping else { return }
+        beginStopping(machine)
     }
 
     func requestTermination() -> NSApplication.TerminateReply {
-        guard !isPending else { return .terminateLater }
-        let active = participants().filter { !$0.isStopped() }
-        guard !active.isEmpty else { return .terminateNow }
-        guard !active.contains(where: { !$0.canSave() }) || confirmShutdown() else { return .terminateCancel }
-        remaining = active
-        isPending = true
-        generation += 1
-        pollCount = 0
-        for participant in active {
-            if participant.canSave() { participant.save() }
-            else { participant.shutDown() }
-        }
-        scheduleNextPoll()
+        guard !pending, let machine else { return .terminateNow }
+        pending = true
+        if stopping { return .terminateLater }
+        beginStopping(machine)
         return .terminateLater
     }
 
-    func poll() {
-        guard isPending else { return }
-        remaining.removeAll { $0.isStopped() }
-        guard !remaining.isEmpty else { finish(true); return }
-        pollCount += 1
-        if pollCount >= 20 { handleTimeout() }
-        if isPending { scheduleNextPoll() }
+    private func beginStopping(_ machine: OmarchyTerminableMachine) {
+        stopping = true
+        if machine.canRequestStop {
+            do {
+                try machine.requestStop()
+                scheduleForcedStop(machine)
+                return
+            } catch {
+                NSLog("Could not request graceful Omarchy shutdown while quitting: %@", error.localizedDescription)
+            }
+        }
+        guard machine.canStop else {
+            self.machine = nil
+            stopping = false
+            finishTermination()
+            return
+        }
+        forceStop(machine)
     }
 
-    func handleTimeout() {
-        guard isPending else { return }
-        remaining.removeAll { $0.isStopped() }
-        guard !remaining.isEmpty else { finish(true); return }
-        pollCount = 0
-        switch chooseTimeout() {
-        case .wait: break
-        case .cancel: finish(false)
-        case .forceStop:
-            for participant in remaining where !participant.isStopped() { participant.forceStop() }
-            // Await the actual stop, including a potentially failed force-stop.
+    func machineDidStop(_ machine: OmarchyTerminableMachine) {
+        unregister(machine)
+    }
+
+    private func scheduleForcedStop(_ machine: OmarchyTerminableMachine) {
+        timeout?.cancel()
+        let work = DispatchWorkItem { [weak self, weak machine] in
+            guard let self, let machine, self.pending, self.machine === machine else { return }
+            self.forceStop(machine)
+        }
+        timeout = work
+        scheduleTimeout(work)
+    }
+
+    private func forceStop(_ machine: OmarchyTerminableMachine) {
+        timeout?.cancel()
+        timeout = nil
+        guard machine.canStop else {
+            finishTermination()
+            return
+        }
+        machine.stop { [weak self, weak machine] error in
+            DispatchQueue.main.async {
+                if let error {
+                    NSLog("Could not force-stop Omarchy while quitting: %@", error.localizedDescription)
+                }
+                if let self, let machine, self.machine === machine {
+                    self.machine = nil
+                    self.stopping = false
+                }
+                self?.finishTermination()
+            }
         }
     }
 
-    private func scheduleNextPoll() {
-        let expectedGeneration = generation
-        schedulePoll { [weak self] in
-            guard let self, self.generation == expectedGeneration else { return }
-            self.poll()
-        }
-    }
-
-    private func finish(_ allowed: Bool) {
-        isPending = false
-        generation += 1
-        remaining = []
-        reply(allowed)
+    private func finishTermination() {
+        guard pending else { return }
+        pending = false
+        timeout?.cancel()
+        timeout = nil
+        reply(true)
     }
 }

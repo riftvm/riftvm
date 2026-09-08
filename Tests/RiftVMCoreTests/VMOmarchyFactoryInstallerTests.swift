@@ -160,48 +160,10 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.path))
     }
 
-    func testConcurrentInstallersShareOneVerifiedReadOnlyFactory() async throws {
-        let fixture = try Fixture()
-        defer { try? FileManager.default.removeItem(at: fixture.root) }
-        let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
-        transport.delay = .milliseconds(150)
-        let installer = VMOmarchyFactoryInstaller(profile: fixture.profile, cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation, transport: transport)
-        async let first = installer.install()
-        async let second = installer.install()
-        let (a, b) = try await (first, second)
-        XCTAssertEqual(a, b)
-        XCTAssertEqual(transport.downloadCount, 1)
-        let permissions = try FileManager.default.attributesOfItem(atPath: a.diskURL.path)[.posixPermissions] as? NSNumber
-        XCTAssertEqual(permissions?.intValue, 0o400)
-    }
-
-    func testCancellingCacheWaiterDoesNotCancelOrDeleteAnotherInstallation() async throws {
-        let fixture = try Fixture()
-        defer { try? FileManager.default.removeItem(at: fixture.root) }
-        let started = expectation(description: "first download started")
-        let transport = MockTransport(manifestData: fixture.manifestData, image: fixture.image)
-        transport.delay = .milliseconds(250)
-        transport.onDownload = { started.fulfill() }
-        let installer = VMOmarchyFactoryInstaller(profile: fixture.profile, cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation, transport: transport)
-        let first = Task { try await installer.install() }
-        await fulfillment(of: [started], timeout: 2)
-        let waiting = Task { try await installer.install() }
-        waiting.cancel()
-        do { _ = try await waiting.value; XCTFail("Cancelled waiter installed") }
-        catch { XCTAssertTrue(error is CancellationError) }
-        let completed = try await first.value
-        XCTAssertEqual(try Data(contentsOf: completed.diskURL), fixture.image)
-        XCTAssertEqual(transport.downloadCount, 1)
-    }
-
     private final class MockTransport: VMOmarchyFactoryTransport {
         let manifestData: Data
         let downloads: [URL: Data]
         var downloadCount = 0
-        var delay: Duration?
-        var onDownload: (() -> Void)?
 
         init(manifestData: Data, image: Data) {
             self.manifestData = manifestData
@@ -226,8 +188,6 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             progress: @escaping (Int64, Int64) -> Void
         ) async throws {
             downloadCount += 1
-            onDownload?()
-            if let delay { try await Task.sleep(for: delay) }
             guard let image = downloads[url] ?? fallbackImage else {
                 throw VMOmarchyFactoryInstallError.downloadDidNotPublish
             }
@@ -259,7 +219,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             let signingKeyID = "test-key"
             profile = VMOmarchyProfile(
                 schemaVersion: 1,
-                productID: "com.riftvm.app",
+                productID: "com.riftvm.app.omarchy",
                 minimumHostMajorVersion: 27,
                 diskCapacityBytes: 64 * 1_024 * 1_024 * 1_024,
                 resourceTiers: VMOmarchyProfile.production.resourceTiers,

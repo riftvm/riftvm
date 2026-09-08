@@ -9,19 +9,16 @@ import Foundation
 import Cocoa
 import SwiftUI
 import CryptoKit
-import UserNotifications
 
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate {
     private var releaseSmokeWindow: NSWindow?
-    private var releasePeerWindow: NSWindow?
     private var guiReadyAttempts = 0
     private var guiReadyEventMonitor: Any?
 #if arch(arm64)
     private var headlessController: VMOSInternalVirtualMachineViewController?
     private var headlessState: VMRuntimeState?
-    private var headlessOmarchyPhase: OmarchyVirtualMachineView.Phase?
     private var headlessTimer: Timer?
     private var headlessWindow: NSWindow?
     private var terminationSources: [DispatchSourceSignal] = []
@@ -31,7 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UNUserNotificationCenter.current().delegate = self
 #if arch(arm64)
         if let portabilityTest = VMReleasePortabilityTestConfiguration.configuration() {
             runReleasePortabilityTest(portabilityTest)
@@ -68,52 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         window.title = "RiftVM Release Smoke Test"
         window.makeKeyAndOrderFront(nil)
         releaseSmokeWindow = window
-        if let path = ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PEER_VM"], !path.isEmpty {
-            let peer = URL(fileURLWithPath: path).standardizedFileURL
-            guard VMOmarchyTemporaryPathPolicy.contains(peer),
-                  VMOmarchyTemporaryPathPolicy.contains(smokeTest.vmRootPath),
-                  WorkspaceRegistry.canonical(peer) != WorkspaceRegistry.canonical(smokeTest.vmRootPath) else {
-                VMReleaseSmokeTest.report("failed: peer acceptance requires distinct temporary fixtures", configuration: smokeTest)
-                exit(64)
-            }
-            let peerView: AnyView
-            if (try? WorkspaceIdentity.load(at: peer).profile) == .omarchy {
-                peerView = AnyView(OmarchyVirtualMachineView(layout: .init(applicationSupportRoot: peer), profile: .production))
-            } else {
-                peerView = AnyView(VMOSMainVirtualMachineView(rootPath: peer, recoveryMode: false))
-            }
-            let peerController = NSHostingController(rootView: peerView)
-            let peerWindow = NSWindow(contentViewController: peerController)
-            peerWindow.setContentSize(NSSize(width: 1024, height: 768))
-            peerWindow.title = "RiftVM Peer Acceptance"
-            peerWindow.makeKeyAndOrderFront(nil)
-            releasePeerWindow = peerWindow
-        }
 #endif
-    }
-
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
-    }
-
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let value = response.notification.request.content.userInfo["workspaceID"] as? String,
-              let id = UUID(uuidString: value) else { return }
-        await MainActor.run {
-            if let workspace = sharedAppConfigManager.workspaces.first(where: { $0.id == id }) {
-                WorkspaceCoordinator.shared.open(workspace)
-            }
-        }
-    }
-
-    func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls { WorkspaceCoordinator.shared.open(url) }
-    }
-
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
-
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        WorkspaceCoordinator.shared.requestTermination()
     }
 
     private func scheduleGUIReadyProbe() {
@@ -425,7 +376,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
             linuxFeatures: .recommended
-        )
+        ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(
             rootPath: stagingURL,
             state: VMStateModel(imagePath: diskURL),
@@ -469,6 +420,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         )
         if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
             return .failure("Could not finalize the installed machine state: \(error)")
+        }
+        if case let .failure(error) = config.relocatingManagedSharedFolder(to: install.destinationURL)
+            .writeConfigToFile(path: model.configURL) {
+            return .failure("Could not finalize the managed shared folder: \(error)")
         }
         do {
             try fileManager.moveItem(at: stagingURL, to: install.destinationURL)
@@ -524,17 +479,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } else {
             NSApp.setActivationPolicy(.prohibited)
         }
-        do {
-            if FileManager.default.fileExists(atPath: launch.machineURL.appending(path: "Workspace.json").path),
-               try WorkspaceIdentity.load(at: launch.machineURL).profile == .omarchy {
-                try startHeadlessOmarchy(launch)
-                return
-            }
-        } catch {
-            writeHeadlessState(launch, phase: "failed", message: error.localizedDescription)
-            finishHeadless(exitCode: 70)
-            return
-        }
         let state = VMRuntimeState()
         let controller = VMOSInternalVirtualMachineViewController()
         controller.rootPath = launch.machineURL
@@ -558,7 +502,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             headlessWindow = window
-            WorkspaceCoordinator.shared.retainCommandLineWindow(window, at: launch.machineURL)
             // Loading the controller can enqueue its initial focus request
             // before the view is attached to this window. Retry after the
             // window is key so VZVirtualMachineView can route HID events.
@@ -578,54 +521,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         installTerminationHandlers(launch)
     }
 
-    private func startHeadlessOmarchy(_ launch: HeadlessLaunchConfiguration) throws {
-        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: launch.machineURL)
-        guard VMOmarchyWorkspaceManager(layout: layout).inspect() == .ready else {
-            throw VMOSError.regularFailure("Install or recover this Omarchy workspace in RiftVM before starting it from the CLI.")
-        }
-        headlessOmarchyPhase = .starting
-        let view = OmarchyVirtualMachineView(layout: layout, profile: .production) { [weak self] phase in
-            self?.headlessOmarchyPhase = phase
-        }
-        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-        window.setContentSize(NSSize(width: 1280, height: 800))
-        window.title = launch.machineURL.deletingPathExtension().lastPathComponent
-        headlessWindow = window
-        WorkspaceCoordinator.shared.retainCommandLineWindow(window, at: launch.machineURL)
-        if launch.showsWindow {
-            window.center()
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate()
-        } else { window.orderOut(nil) }
-        writeHeadlessState(launch, phase: "preparing", message: nil)
-        headlessTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.observeHeadless(launch) }
-        }
-        installTerminationHandlers(launch)
-    }
-
     private func observeHeadless(_ launch: HeadlessLaunchConfiguration) {
-        if let phase = headlessOmarchyPhase {
-            switch phase {
-            case .failed(let message):
-                // A failed pause/resume action is not proof that the VM stopped.
-                // Exiting this process would power off a still-live Guest.
-                if WorkspaceCoordinator.shared.hasLiveOmarchy(at: launch.machineURL) {
-                    writeHeadlessState(launch, phase: headlessStopRequested ? "stopping" : "needs-attention", message: message)
-                } else {
-                    writeHeadlessState(launch, phase: "failed", message: message)
-                    finishHeadless(exitCode: 70)
-                }
-            case .stopped:
-                writeHeadlessState(launch, phase: "stopped", message: nil)
-                // App quit owns the complete multi-workspace transaction and
-                // must finish its saved-session commits before process exit.
-                if !WorkspaceCoordinator.shared.isQuitting { finishHeadless(exitCode: 0) }
-            default:
-                writeHeadlessState(launch, phase: headlessStopRequested ? "stopping" : String(describing: phase), message: nil)
-            }
-            return
-        }
         guard let phase = headlessState?.phase else { return }
         switch phase {
         case .failed(let message):
@@ -651,23 +547,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private func requestHeadlessStop(_ launch: HeadlessLaunchConfiguration) {
-        // Standard guests may ignore an early platform shutdown request while
-        // firmware or the kernel is still starting. A later explicit CLI stop
-        // must be allowed to send another request after the first one times out.
-        // Omarchy owns its asynchronous stop transaction and rejects overlap.
-        guard !headlessStopRequested || headlessOmarchyPhase == nil else { return }
+        guard !headlessStopRequested else { return }
         headlessStopRequested = true
         writeHeadlessState(launch, phase: "stopping", message: nil)
-        if headlessOmarchyPhase != nil {
-            WorkspaceCoordinator.shared.requestOmarchyStop(at: launch.machineURL) { [weak self] result in
-                if case .failure(let error) = result {
-                    self?.headlessStopRequested = false
-                    self?.writeHeadlessState(launch, phase: "running", message: error.localizedDescription)
-                }
-            }
-        } else {
-            headlessState?.requestStop()
-        }
+        // The VM controller owns the bounded graceful-shutdown fallback.
+        // Scheduling a second force-stop here at the same 20-second deadline
+        // races VZVirtualMachine.stop() against itself and turns a successful
+        // stopping transition into an invalid stopping -> stopping failure.
+        headlessState?.requestStop()
     }
 
     private func writeHeadlessState(_ launch: HeadlessLaunchConfiguration, phase: String, message: String?) {
@@ -801,7 +688,7 @@ struct PreinstalledImageInstallConfiguration {
 }
 
 struct PreinstalledImageManifest: Decodable {
-    static let kind = "com.riftvm.preinstalled-image"
+    static let kind = "io.github.everettjf.riftvm.preinstalled-image"
     struct Product: Decodable { let id: String; let name: String; let version: String }
     struct Disk: Decodable { let format: String; let virtualSize: UInt64; let sha256: String }
     struct VirtualMachine: Decodable { let name: String; let remark: String? }
@@ -916,7 +803,7 @@ struct VMPreinstalledImageInstaller {
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
             linuxFeatures: defaults.linuxFeatures ?? .recommended
-        )
+        ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(rootPath: stagingURL, state: VMStateModel(imagePath: diskURL), config: config)
         let result = await VMOSCreatorForLinux(allowedExistingRootItems: ["Disk.img"]).create(model: model, progress: progress)
         guard case .success = result else { return result }
@@ -943,6 +830,10 @@ struct VMPreinstalledImageInstaller {
         let committedState = VMStateModel(imagePath: install.destinationURL.appending(path: diskURL.lastPathComponent))
         if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
             return .failure("Could not finalize the installed machine state: \(error)")
+        }
+        if case let .failure(error) = config.relocatingManagedSharedFolder(to: install.destinationURL)
+            .writeConfigToFile(path: model.configURL) {
+            return .failure("Could not finalize the managed shared folder: \(error)")
         }
         do { try fileManager.moveItem(at: stagingURL, to: install.destinationURL) }
         catch { return .failure("Could not commit the installed machine: \(error.localizedDescription)") }

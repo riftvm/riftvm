@@ -15,36 +15,68 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        Window("RiftVM", id: "control-center") {
+        WindowGroup("Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
-                ContentView().frame(minWidth: 800, minHeight: 600)
-            } else { EmptyView() }
+                WorkspaceControlCenterView()
+                    .frame(minWidth: 800, minHeight: 600)
+            } else {
+                EmptyView()
+            }
         }
-        .defaultLaunchBehavior(HeadlessLaunchConfiguration.current == nil ? .automatic : .suppressed)
         .defaultPosition(.center)
         .defaultSize(width: 1080, height: 760)
         .windowResizability(.contentMinSize)
-        .commands { ControlCenterCommands() }
 
-        Window("New Workspace", id: "create-machine-guide") {
-            WorkspaceCreationView(profile: nil)
+        WindowGroup("Workspace", id: "workspace", for: UUID.self) { $workspaceID in
+            if let workspaceID {
+                WorkspaceWindowView(workspaceID: workspaceID)
+            } else {
+                ContentUnavailableView("Workspace unavailable", systemImage: "exclamationmark.triangle")
+            }
         }
         .defaultPosition(.center)
-        .defaultSize(width: 760, height: 540)
-        .defaultLaunchBehavior(.suppressed)
-
-        WindowGroup("Create Workspace", id: "create-workspace", for: WorkspaceProfile.self) { $profile in
-            WorkspaceCreationView(profile: profile)
+        .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
+        
+        WindowGroup("Create Workspace", id: "create-machine-guide", for: RiftWorkspaceKind.self) { $initialKind in
+            VMCreateStepperGuideView(initialKind: initialKind)
         }
         .defaultPosition(.center)
         .defaultSize(width: 960, height: 660)
-        .defaultLaunchBehavior(.suppressed)
         .windowResizability(.contentMinSize)
-
-        MenuBarExtra("RiftVM", systemImage: "square.stack.3d.up") {
-            WorkspaceMenu()
+        
+        WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
+            if let rootPath = modelRootPath {
+                VMOSMainVirtualMachineView(rootPath: rootPath, recoveryMode: false)
+            } else {
+                Text("Invalid , just close")
+            }
         }
-        Settings { VirtualizationFeaturesSettingsView() }
+        .defaultPosition(.center)
+        .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
+        .commands {
+            ControlCenterCommands()
+        }
+        
+        
+        WindowGroup(id: "start-machine-recovery", for: URL.self) { $modelRootPath in
+            if let rootPath = modelRootPath {
+                VMOSMainVirtualMachineView(rootPath: rootPath, recoveryMode: true)
+            } else {
+                Text("Invalid , just close")
+            }
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
+        .commands {
+            ControlCenterCommands()
+        }
+
+        Settings {
+            VirtualizationFeaturesSettingsView()
+        }
     }
 #else
     
@@ -65,13 +97,11 @@ private struct ControlCenterCommands: Commands {
     var body: some Commands {
         if HeadlessLaunchConfiguration.current == nil {
             CommandGroup(before: .windowList) {
-                Button("Workspaces") {
+                Button("Show Control Center") {
                     openWindow(id: "control-center")
                 }
                 .keyboardShortcut("0", modifiers: .command)
 
-                Button("New Workspace…") { openWindow(id: "create-machine-guide") }
-                    .keyboardShortcut("n", modifiers: .command)
                 Divider()
             }
         }

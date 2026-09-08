@@ -1,6 +1,6 @@
 # Third-party notices
 
-EZVM's original code is licensed separately from the runtime components it
+RiftVM's original code is licensed separately from the runtime components it
 redistributes. The Custom VirGL graphics backend bundles the following
 components under their upstream licenses:
 

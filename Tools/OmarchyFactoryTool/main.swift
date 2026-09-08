@@ -16,7 +16,6 @@ enum FactoryToolError: LocalizedError {
         case .usage:
             """
             usage:
-              omarchy-factory-tool download <cache-directory> <public-key>
               omarchy-factory-tool generate-key <private-key> <public-key>
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
               omarchy-factory-tool sign-parts <image.asif> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json> <part-url> <part-file> [<part-url> <part-file> ...]
@@ -35,36 +34,18 @@ enum FactoryToolError: LocalizedError {
 
 @main
 enum OmarchyFactoryTool {
-    static func main() async {
+    static func main() {
         do {
-            try await run(Array(CommandLine.arguments.dropFirst()))
+            try run(Array(CommandLine.arguments.dropFirst()))
         } catch {
             FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
             exit(error is FactoryToolError ? 64 : 1)
         }
     }
 
-    static func run(_ arguments: [String]) async throws {
+    static func run(_ arguments: [String]) throws {
         guard let command = arguments.first else { throw FactoryToolError.usage }
         switch command {
-        case "download":
-            guard arguments.count == 3 else { throw FactoryToolError.usage }
-            let installer = VMOmarchyFactoryInstaller(
-                profile: .production,
-                cacheDirectory: URL(filePath: arguments[1]),
-                publicKey: try Data(contentsOf: URL(filePath: arguments[2])),
-                transport: VMOmarchyURLSessionTransport()
-            )
-            let result = try await installer.install()
-            let output: [String: Any] = [
-                "imageVersion": result.manifest.payload.imageVersion,
-                "imageSHA256": result.manifest.payload.imageSHA256,
-                "imageByteCount": result.manifest.payload.imageByteCount,
-                "diskPath": result.diskURL.path,
-                "signatureAndImageVerified": true
-            ]
-            let data = try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys])
-            FileHandle.standardOutput.write(data)
         case "generate-key":
             guard arguments.count == 3 else { throw FactoryToolError.usage }
             let privateURL = URL(filePath: arguments[1])

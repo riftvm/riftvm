@@ -245,12 +245,11 @@ public final class VMOmarchyGuestAgentClient {
         let timeout: Task<Void, Never>
     }
 
-    private let workspaceRoot: URL
     private let device: VZVirtioSocketDevice
     private let enrollment: VMGuestAgentEnrollment
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
     private let hostPowerChanged: (VMOmarchyHostPowerEvent) -> Void
-    private let ioQueue = DispatchQueue(label: "com.riftvm.app.agent", qos: .utility)
+    private let ioQueue = DispatchQueue(label: "com.riftvm.app.omarchy.agent", qos: .utility)
     private let writeLock = NSLock()
     private var connection: VZVirtioSocketConnection?
     private var generation: UInt64 = 0
@@ -277,7 +276,6 @@ public final class VMOmarchyGuestAgentClient {
         hostPowerChanged: @escaping (VMOmarchyHostPowerEvent) -> Void = { _ in },
         stateChanged: @escaping (VMOmarchyIntegrationState) -> Void
     ) throws {
-        self.workspaceRoot = layout.applicationSupportRoot
         self.device = device
         self.stateChanged = stateChanged
         self.hostPowerChanged = hostPowerChanged
@@ -856,118 +854,6 @@ public final class VMOmarchyGuestAgentClient {
         )
     }
 
-    public struct FolderGrantObservation: Codable, Sendable {
-        public let grantID: UUID
-        public let readOnly: Bool
-        public let hostToGuestReadVerified: Bool
-        public let writeResult: String
-        public let writeDenialReason: String?
-    }
-
-    /// Uses the authenticated transfer service to test the actual VirtioFS
-    /// boundary, including read-only enforcement against the root Guest Agent.
-    /// Only explicitly configured temporary acceptance directories are touched.
-    public func verifyTemporaryFolderGrants(layout: VMOmarchyWorkspaceLayout, removedGuestNames: [String] = []) async throws -> [FolderGrantObservation] {
-        let grants = try VMOmarchyFolderGrant.load(at: layout.applicationSupportRoot)
-        guard VMOmarchyTemporaryPathPolicy.contains(layout.applicationSupportRoot),
-              !grants.isEmpty,
-              removedGuestNames.allSatisfy({ name in
-                  !name.isEmpty && name != "." && name != ".." && !name.contains("/")
-                      && !grants.contains(where: { $0.guestName == name })
-              }),
-              grants.allSatisfy({ VMOmarchyTemporaryPathPolicy.contains($0.directory) }) else {
-            throw CocoaError(.fileWriteNoPermission)
-        }
-        // A removed directory must be absent, not merely unreadable. A later
-        // active-grant roundtrip proves the Agent and VirtioFS remain healthy.
-        for name in removedGuestNames {
-            var absent = false
-            do { _ = try await downloadData(guestPath: "/mnt/riftvm-folders/\(name)/preserve.txt") }
-            catch {
-                let failure = error as NSError
-                absent = failure.domain == "RiftVMOmarchySharedFolderProbe"
-                    && failure.localizedDescription.lowercased().contains("no such file or directory")
-            }
-            guard absent else {
-                throw NSError(domain: "RiftVM.FolderGrantAcceptance", code: 2,
-                              userInfo: [NSLocalizedDescriptionKey: "A removed folder is still reachable or its absence could not be verified."])
-            }
-        }
-        var observations: [FolderGrantObservation] = []
-        for grant in grants {
-            let nonce = UUID().uuidString.lowercased()
-            let sourceName = ".riftvm-read-\(nonce)"
-            let destinationName = ".riftvm-write-\(nonce)"
-            let source = grant.directory.appending(path: sourceName)
-            let destination = grant.directory.appending(path: destinationName)
-            defer {
-                try? FileManager.default.removeItem(at: source)
-                try? FileManager.default.removeItem(at: destination)
-            }
-            let contents = Data("riftvm-folder-grant:\(nonce)".utf8)
-            try contents.write(to: source, options: .atomic)
-            let guestDirectory = "/mnt/riftvm-folders/\(grant.guestName)"
-            guard try await downloadData(guestPath: "\(guestDirectory)/\(sourceName)") == contents else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-            var observedDenial: String?
-            if grant.readOnly {
-                var deniedByFilesystem = false
-                var denialDetail = "The Guest unexpectedly accepted the write."
-                do { try await uploadData(contents, guestPath: "\(guestDirectory)/\(destinationName)") }
-                catch {
-                    let failure = error as NSError
-                    denialDetail = "\(failure.domain): \(failure.localizedDescription)"
-                    observedDenial = failure.localizedDescription
-                    let reason = failure.localizedDescription.lowercased()
-                    // Per-directory VirtioFS read-only grants return EPERM
-                    // on macOS 27 even though the enclosing mount is writable.
-                    deniedByFilesystem = failure.domain == "RiftVMOmarchySharedFolderProbe"
-                        && (reason.contains("read-only file system") || reason.contains("operation not permitted"))
-                }
-                guard deniedByFilesystem, !FileManager.default.fileExists(atPath: destination.path),
-                      try await downloadData(guestPath: "\(guestDirectory)/\(sourceName)") == contents else {
-                    throw NSError(domain: "RiftVM.FolderGrantAcceptance", code: 1,
-                                  userInfo: [NSLocalizedDescriptionKey: "Read-only grant verification failed: \(denialDetail)"])
-                }
-            } else {
-                try await uploadData(contents, guestPath: "\(guestDirectory)/\(destinationName)")
-                guard try Data(contentsOf: destination) == contents else { throw CocoaError(.fileReadCorruptFile) }
-            }
-            observations.append(.init(grantID: grant.id, readOnly: grant.readOnly,
-                                      hostToGuestReadVerified: true,
-                                      writeResult: grant.readOnly ? "denied-read-only" : "guest-to-host-verified",
-                                      writeDenialReason: observedDenial))
-        }
-        return observations
-    }
-
-    /// A bounded disk-resident probe for rollback acceptance on disposable workspaces.
-    /// The fixed /var/lib location is outside all host VirtioFS shares.
-    public func verifyTemporaryGuestDiskMarker(
-        nonce: UUID, expected: Data?, replacement: Data?
-    ) async throws -> Data {
-        guard VMOmarchyTemporaryPathPolicy.contains(workspaceRoot),
-              expected != nil || replacement != nil,
-              (expected?.count ?? 0) <= 4096, (replacement?.count ?? 0) <= 4096 else {
-            throw CocoaError(.fileWriteNoPermission)
-        }
-        let path = "/var/lib/riftvm-rollback-\(nonce.uuidString.lowercased()).marker"
-        var observed = Data()
-        if let expected {
-            observed = try await downloadData(guestPath: path)
-            guard observed == expected else { throw CocoaError(.fileReadCorruptFile) }
-        }
-        if let replacement {
-            try await uploadData(replacement, guestPath: path, overwrite: expected != nil)
-            observed = try await downloadData(guestPath: path)
-            guard observed == replacement else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-        }
-        return observed
-    }
-
     private func downloadData(
         guestPath: String,
         maximumBytes: Int = VMGuestAgentProtocol.fileChunkBytes
@@ -1014,7 +900,7 @@ public final class VMOmarchyGuestAgentClient {
         }
     }
 
-    private func uploadData(_ data: Data, guestPath: String, overwrite: Bool = false) async throws {
+    private func uploadData(_ data: Data, guestPath: String) async throws {
         let transferID = UUID().uuidString
         do {
             var result: VMGuestAgentTransferResult = try await request(
@@ -1024,7 +910,7 @@ public final class VMOmarchyGuestAgentClient {
                     destinationPath: guestPath,
                     totalBytes: UInt64(data.count),
                     sha256: Self.sha256(data),
-                    overwrite: overwrite
+                    overwrite: false
                 )
             )
             try Self.requireSuccess(result)

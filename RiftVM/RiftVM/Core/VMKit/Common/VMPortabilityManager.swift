@@ -56,18 +56,10 @@ enum VMPortabilityManager {
         ".restore-staging", ".restore-backup", ".restore-transaction.json"
     ]
 
-    static func estimate(sourceURL: URL, destinationParent: URL, availableBytes override: Int64? = nil, includeSnapshotHistory: Bool = true) throws -> VMPortabilityEstimate {
+    static func estimate(sourceURL: URL, destinationParent: URL, availableBytes override: Int64? = nil) throws -> VMPortabilityEstimate {
         let files = try regularFiles(in: sourceURL)
-        var media = FileManager.default.fileExists(atPath: sourceURL.appendingPathComponent("config.json").path)
-            ? try externalInstallationMedia(in: sourceURL) : []
-        if includeSnapshotHistory {
-            for (_, files) in try VMSnapshotManager.snapshotFilesForExport(vmRootPath: sourceURL) {
-                media += try externalInstallationMedia(in: files)
-            }
-        }
-        let mediaSizes = try media.map { try $0.url.resourceValues(forKeys: [.fileSizeKey, .fileAllocatedSizeKey]) }
-        let logical = saturatingSum(files.map(\.size) + mediaSizes.map { UInt64($0.fileSize ?? 0) })
-        let allocated = saturatingSum(files.map(\.allocatedSize) + mediaSizes.map { UInt64($0.fileAllocatedSize ?? 0) })
+        let logical = saturatingSum(files.map(\.size))
+        let allocated = saturatingSum(files.map(\.allocatedSize))
         let available = override ?? (try? destinationParent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
             .volumeAvailableCapacityForImportantUsage)
         return VMPortabilityEstimate(logicalBytes: logical, allocatedBytes: allocated, availableBytes: available)
@@ -88,8 +80,7 @@ enum VMPortabilityManager {
             let estimate = try estimate(
                 sourceURL: sourceURL,
                 destinationParent: destinationURL.deletingLastPathComponent(),
-                availableBytes: availableCapacityBytes,
-                includeSnapshotHistory: false
+                availableBytes: availableCapacityBytes
             )
             guard estimate.hasEnoughSpace else {
                 return .failure(insufficientSpaceMessage(operation: "clone", estimate: estimate))
@@ -99,14 +90,13 @@ enum VMPortabilityManager {
             for name in excludedCloneNames {
                 try? FileManager.default.removeItem(at: staging.appendingPathComponent(name))
             }
-            try VMSnapshotManager.resetHistoryForIndependentCopy(vmRootPath: staging)
-            try embedInstallationMedia(from: sourceURL, in: staging)
-            try validateStorageReferences(in: staging)
+            // Snapshot histories contain historical hardware identities. A clone
+            // starts a new history so restoring it can never resurrect the source ID.
+            try? FileManager.default.removeItem(at: staging.appendingPathComponent("Snapshots"))
             try machineIdentifierData.write(
                 to: staging.appendingPathComponent("MachineIdentifier"),
                 options: .atomic
             )
-            try renewWorkspaceIdentity(at: staging)
             try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: newName)
         }
     }
@@ -138,12 +128,6 @@ enum VMPortabilityManager {
         return transactDirectory(destinationURL: destinationURL) { staging in
             let payload = staging.appendingPathComponent(payloadDirectoryName, isDirectory: true)
             try copyTree(from: sourceURL, to: payload)
-            try embedInstallationMedia(from: sourceURL, in: payload)
-            try VMSnapshotManager.rewriteSnapshotFilesForExport(vmRootPath: payload) { files in
-                try embedInstallationMedia(from: files, in: files)
-            }
-            try validateStorageReferences(in: payload)
-            try validateSnapshotStorage(in: payload)
             let files = try portableFiles(in: payload)
             let manifest = VMExportManifest(
                 schemaVersion: VMExportManifest.currentSchemaVersion,
@@ -188,8 +172,6 @@ enum VMPortabilityManager {
             guard FileManager.default.fileExists(atPath: payload.appendingPathComponent("config.json").path) else {
                 return .failure("The exported machine has no config.json.")
             }
-            try validateStorageReferences(in: payload)
-            try validateSnapshotStorage(in: payload)
             return .success(manifest)
         } catch {
             return .failure("The export is unreadable: \(error.localizedDescription)")
@@ -229,81 +211,11 @@ enum VMPortabilityManager {
                 for excludedName in excludedCloneNames {
                     try? FileManager.default.removeItem(at: staging.appendingPathComponent(excludedName))
                 }
-                try VMSnapshotManager.resetHistoryForIndependentCopy(vmRootPath: staging)
+                try? FileManager.default.removeItem(at: staging.appendingPathComponent("Snapshots"))
                 try identifier.write(to: staging.appendingPathComponent("MachineIdentifier"), options: .atomic)
-                try renewWorkspaceIdentity(at: staging)
                 try rewriteMachineName(at: staging.appendingPathComponent("config.json"), name: name)
             }
         )
-    }
-
-    private static func storageDevices(in root: URL) throws -> [[String: Any]] {
-        guard let config = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("config.json"))) as? [String: Any] else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        guard let value = config["storageDevices"] else { return [] }
-        guard let devices = value as? [[String: Any]] else { throw CocoaError(.fileReadCorruptFile) }
-        return devices
-    }
-
-    private static func externalInstallationMedia(in root: URL) throws -> [(index: Int, url: URL)] {
-        try storageDevices(in: root).enumerated().compactMap { index, device in
-            guard let path = device["imagePath"] as? String, !path.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
-            guard (path as NSString).isAbsolutePath else { return nil }
-            guard device["type"] as? String == "USB" else {
-                throw NSError(domain: "RiftVMPortability", code: 1, userInfo: [NSLocalizedDescriptionKey: "Move external writable disks into the workspace before exporting."])
-            }
-            let url = URL(fileURLWithPath: path)
-            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-            guard values.isRegularFile == true, values.isSymbolicLink != true else { throw CocoaError(.fileReadUnsupportedScheme) }
-            return (index, url)
-        }
-    }
-
-    @discardableResult
-    private static func embedInstallationMedia(from source: URL, in payload: URL) throws -> Bool {
-        let media = try externalInstallationMedia(in: source)
-        guard !media.isEmpty else { return false }
-        let directory = "InstallationMedia-" + UUID().uuidString
-        try FileManager.default.createDirectory(at: payload.appendingPathComponent(directory), withIntermediateDirectories: false)
-        let configURL = payload.appendingPathComponent("config.json")
-        guard var config = try JSONSerialization.jsonObject(with: Data(contentsOf: configURL)) as? [String: Any] else { throw CocoaError(.fileReadCorruptFile) }
-        var devices = try storageDevices(in: source)
-        for item in media {
-            let relative = "\(directory)/\(item.index)-\(item.url.lastPathComponent)"
-            try FileManager.default.copyItem(at: item.url, to: payload.appendingPathComponent(relative))
-            devices[item.index]["imagePath"] = relative
-        }
-        config["storageDevices"] = devices
-        try JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted, .sortedKeys]).write(to: configURL, options: .atomic)
-        return true
-    }
-
-    private static func validateSnapshotStorage(in root: URL) throws {
-        for (model, files) in try VMSnapshotManager.snapshotFilesForExport(vmRootPath: root) {
-            let audit = VMSnapshotManager.auditSnapshot(vmRootPath: root, snapshot: model)
-            guard audit.errors.isEmpty else {
-                throw NSError(domain: "RiftVMPortability", code: 4,
-                    userInfo: [NSLocalizedDescriptionKey: audit.errors.joined(separator: "\n")])
-            }
-            try validateStorageReferences(in: files,
-                layeredDiskRoot: model.backend == .diskImageKitLayered ? root : nil)
-        }
-    }
-
-    private static func validateStorageReferences(in root: URL, layeredDiskRoot: URL? = nil) throws {
-        for device in try storageDevices(in: root) {
-            guard let path = device["imagePath"] as? String, !path.isEmpty,
-                  !(path as NSString).isAbsolutePath else {
-                throw NSError(domain: "RiftVMPortability", code: 2, userInfo: [NSLocalizedDescriptionKey: "The export contains an external storage reference."])
-            }
-            let storageRoot = device["type"] as? String == "Block" ? (layeredDiskRoot ?? root) : root
-            let url = storageRoot.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
-            guard isInside(url, parent: storageRoot.resolvingSymlinksInPath()),
-                  try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
-                throw NSError(domain: "RiftVMPortability", code: 3, userInfo: [NSLocalizedDescriptionKey: "The export is missing a referenced disk or installation image."])
-            }
-        }
     }
 
     private static func transactCopy(
@@ -372,16 +284,6 @@ enum VMPortabilityManager {
         for item in try FileManager.default.contentsOfDirectory(at: source, includingPropertiesForKeys: nil) {
             try FileManager.default.copyItem(at: item, to: destination.appendingPathComponent(item.lastPathComponent))
         }
-    }
-
-    private static func renewWorkspaceIdentity(at root: URL) throws {
-        // Runtime hardware identity and library identity are independent. A
-        // copy needs both renewed or the registry rejects it as the original.
-        guard FileManager.default.fileExists(atPath: root.appendingPathComponent(WorkspaceIdentity.fileName).path) else {
-            return // A pre-registry fixture receives its identity on registration.
-        }
-        let original = try WorkspaceIdentity.load(at: root)
-        try WorkspaceIdentity(profile: original.profile).write(to: root)
     }
 
     private static func rewriteMachineName(at configURL: URL, name: String) throws {

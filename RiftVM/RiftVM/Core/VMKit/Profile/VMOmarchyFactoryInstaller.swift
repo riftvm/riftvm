@@ -1,5 +1,4 @@
 import Foundation
-import Darwin
 
 public protocol VMOmarchyFactoryTransport {
     func fetchData(from url: URL) async throws -> Data
@@ -37,12 +36,9 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         resumeDataURL: URL,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws {
-        try Task.checkCancellation()
-        let cancellation = DownloadCancellation()
         try? FileManager.default.removeItem(at: destination)
         let resumeData = try? Data(contentsOf: resumeDataURL)
-        try await withTaskCancellationHandler {
-          try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { continuation in
             let task = resumeData.map(session.downloadTask(withResumeData:))
                 ?? session.downloadTask(with: Self.uncachedRequest(for: url))
             lock.withLock {
@@ -53,25 +49,7 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
                     continuation: continuation
                 )
             }
-            cancellation.attach(task)
             task.resume()
-          }
-        } onCancel: {
-            cancellation.cancel()
-        }
-    }
-
-    private final class DownloadCancellation: @unchecked Sendable {
-        private let lock = NSLock()
-        private var task: URLSessionDownloadTask?
-        private var cancelled = false
-        func attach(_ task: URLSessionDownloadTask) {
-            let shouldCancel = lock.withLock { self.task = task; return cancelled }
-            if shouldCancel { task.cancel() }
-        }
-        func cancel() {
-            let task = lock.withLock { cancelled = true; return self.task }
-            task?.cancel()
         }
     }
 
@@ -228,9 +206,6 @@ public struct VMOmarchyFactoryInstaller {
         progress: @escaping (Int64, Int64) -> Void = { _, _ in }
     ) async throws -> VMOmarchyFactoryInstallResult {
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        let cacheLock = try await acquireCacheLock()
-        defer { flock(cacheLock, LOCK_UN); close(cacheLock) }
-        try Task.checkCancellation()
         let manifest = try await fetchVerifiedManifest()
 
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
@@ -252,33 +227,11 @@ public struct VMOmarchyFactoryInstaller {
             } else {
                 throw VMOmarchyFactoryValidationError.invalidManifest
             }
-            try Task.checkCancellation()
             try VMOmarchyFactoryValidator.validateImage(at: staging, manifest: manifest)
-            try Task.checkCancellation()
-            try FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: staging.path)
             try FileManager.default.moveItem(at: staging, to: published)
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         } catch {
             try? FileManager.default.removeItem(at: staging)
-            throw error
-        }
-    }
-
-    /// Serialize mutations of the shared factory cache across tasks/processes.
-    /// Waiting is cancellable and never blocks the main actor or deletes another
-    /// workspace's download. Kernel ownership ends automatically after a crash.
-    private func acquireCacheLock() async throws -> Int32 {
-        let descriptor = open(cacheDirectory.appendingPathComponent(".install.lock").path, O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else { throw CocoaError(.fileWriteNoPermission) }
-        do {
-            while flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
-                guard errno == EWOULDBLOCK else { throw CocoaError(.fileWriteUnknown) }
-                try await Task.sleep(for: .milliseconds(100))
-            }
-            try Task.checkCancellation()
-            return descriptor
-        } catch {
-            close(descriptor)
             throw error
         }
     }
@@ -298,7 +251,6 @@ public struct VMOmarchyFactoryInstaller {
         defer { localParts.forEach { try? FileManager.default.removeItem(at: $0) } }
 
         for (index, part) in parts.enumerated() {
-            try Task.checkCancellation()
             let local = localParts[index]
             let resume = cacheDirectory.appending(path: "Factory.part-\(index).resume")
             try? FileManager.default.removeItem(at: local)
@@ -321,7 +273,6 @@ public struct VMOmarchyFactoryInstaller {
             let input = try FileHandle(forReadingFrom: local)
             defer { try? input.close() }
             while true {
-                try Task.checkCancellation()
                 let data = try input.read(upToCount: 4 * 1_024 * 1_024) ?? Data()
                 if data.isEmpty { break }
                 try output.write(contentsOf: data)

@@ -1,15 +1,15 @@
-# EZVM troubleshooting and hard-won lessons
+# RiftVM troubleshooting and hard-won lessons
 
 _Updated: September 1, 2026_
 
 This guide records failures found while bringing Omarchy from bootable to
-usable on EZVM. Start with the symptom, preserve the first useful log, and
+usable on RiftVM. Start with the symptom, preserve the first useful log, and
 avoid changing the host, guest image, display backend, and Agent at the same
 time.
 
 ## First identify the active path
 
-Before debugging, record the host macOS version, guest OS/image version, EZVM
+Before debugging, record the host macOS version, guest OS/image version, RiftVM
 version, CPU/memory allocation, and whether the VM is using Custom VirGL or
 Apple graphics.
 
@@ -18,10 +18,10 @@ Apple graphics.
 | macOS 27+, Linux | Custom Virtio GPU with VirGL/ANGLE; Apple Virtio fallback on startup failure |
 | macOS guest | Apple native Mac graphics path |
 
-The EZVM deployment target is macOS 27. A Custom VirGL fix must not silently
+The RiftVM deployment target is macOS 27. A Custom VirGL fix must not silently
 remove the Apple Virtio fallback.
 
-Run `ezvm doctor` and `ezvm validate "/path/to/Machine.ezvm"` before modifying
+Run `riftvm doctor` and `riftvm validate "/path/to/Machine.riftvm"` before modifying
 a machine. Do not attach disks or logs containing credentials to a bug report.
 
 ## App runs but no Control Center appears
@@ -32,7 +32,7 @@ state in which all windows were closed.
 
 - Click the app again or use the normal reopen action; do not assume the first
   process launch created a window.
-- During release testing, reject an already-running EZVM, launch the exact
+- During release testing, reject an already-running RiftVM, launch the exact
   quarantined candidate through Launch Services, send reopen/activate, and
   require a visible window of at least 800x600 with a responsive event loop.
 - A process-only smoke test is insufficient and must not replace GUI readiness.
@@ -67,7 +67,7 @@ before it reaches the guest.
 
 ## Pointer capture or scrolling feels wrong
 
-EZVM prefers the native USB digitizer and uses capability-negotiated Agent
+RiftVM prefers the native USB digitizer and uses capability-negotiated Agent
 input where desktop delivery is required. Pointer release, absolute movement,
 and wheel deltas are separate behaviors.
 
@@ -99,7 +99,7 @@ The Omarchy first-run UI depends on more than key delivery. Time-zone selection
 requires a working desktop D-Bus/session environment, and display/input helpers
 may start before the compositor and devices are truly ready.
 
-- Use the matched EZVM and guest-image/Agent versions.
+- Use the matched RiftVM and guest-image/Agent versions.
 - Retry helpers on real compositor/device readiness instead of using a fixed
   sleep as proof of readiness.
 - Validate the entire flow from keyboard and user name through time zone,
@@ -111,12 +111,12 @@ may start before the compositor and devices are truly ready.
 First distinguish a running guest with a missing frame from a stopped or
 failed VM. Check VM state and logs before force-stopping it.
 
-- A native restore failure preserves the saved session because host locking or another temporary condition can prevent restoration. Unlock the Mac and retry before deciding to discard guest memory. A session proven incompatible with the current configuration is discarded with a visible notice before cold boot.
+- A corrupt or incompatible saved state must fall back to a cold EFI boot.
 - Custom VirGL does not support Virtualization.framework machine-state
   save/restore: restored RAM cannot reconstruct renderer contexts/resources.
   Use stopped-VM file snapshots instead.
-- Test cold boot, clean shutdown, SIGKILL recovery, rejected saved-state
-  preservation and explicit recovery, and a second boot. A one-time successful login is not enough.
+- Test cold boot, clean shutdown, SIGKILL recovery, corrupt saved-state
+  fallback, and a second boot. A one-time successful login is not enough.
 
 ## Repeated Keychain prompts
 

@@ -1,23 +1,47 @@
 # Homebrew distribution
 
-EZVM is a macOS application, so it should be distributed as a **Homebrew Cask**, not a source-building Formula.
+RiftVM is a macOS application, so it should be distributed as a **Homebrew Cask**, not a source-building Formula.
 
-EZVM is published through the project's Homebrew tap:
+RiftVM is published through the project's Homebrew tap:
 
 ```sh
-brew install --cask everettjf/tap/ezvm
+brew install --cask riftvm/tap/riftvm
 ```
 
-## Current release
+## Tap repository setup
 
-The `v1.0.4` release meets the distribution requirements:
+The public tap lives at `riftvm/homebrew-tap`. Homebrew removes the
+`homebrew-` prefix when deriving the short tap name, so this repository is
+installed as `riftvm/tap` and the fully qualified Cask name is
+`riftvm/tap/riftvm`.
+
+Create it once from an account that may create public repositories in the
+`riftvm` GitHub organization:
+
+```sh
+brew tap-new riftvm/homebrew-tap
+gh repo create riftvm/homebrew-tap \
+  --public \
+  --source "$(brew --repository riftvm/homebrew-tap)" \
+  --push
+```
+
+Keep `Casks/riftvm.rb` as the canonical path in the tap. The release account
+or CI identity needs `Write` access to that repository; repository
+administration permission is not required for routine Cask updates. The
+publisher defaults to `git@github.com:riftvm/homebrew-tap.git`, and
+`RIFTVM_HOMEBREW_TAP` can override it for a staging remote.
+
+## RiftVM 1.0.0 candidate
+
+The `riftvm-v1.0.0` candidate uses this release contract:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
-- Apple notarization and Gatekeeper assessment pass.
-- The immutable ZIP SHA-256 is `77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925`.
-- Both a `1.0.3 -> 1.0.4` Homebrew upgrade and the installed `1.0.4` app were
-  tested successfully.
+- Apple notarization and Gatekeeper assessment pass before publication.
+- The immutable ZIP SHA-256 is `e2cb8b0f7890e1e1a9a5fd676acdf2e75cce091eed2f041fda4a1593b95c2c92`.
+- Clean installation and the exact Homebrew-installed app must pass the release
+  smoke gates before the tag is published.
 
 GitHub Releases should remain the source of truth. The Cask is a small installation manifest pointing at the immutable release artifact.
 
@@ -27,25 +51,25 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # typed: strict
 # frozen_string_literal: true
 
-cask "ezvm" do
-  version "1.0.4"
-  sha256 "77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925"
+cask "riftvm" do
+  version "1.0.0"
+  sha256 "e2cb8b0f7890e1e1a9a5fd676acdf2e75cce091eed2f041fda4a1593b95c2c92"
 
-  url "https://github.com/everettjf/ezvm/releases/download/v#{version}/EZVM-#{version}.zip?notarized=1"
-  name "EZVM"
+  url "https://github.com/everettjf/riftvm/releases/download/riftvm-v#{version}/RiftVM-#{version}.zip?notarized=1"
+  name "RiftVM"
   desc "Simple native virtual machines for Apple silicon Macs"
-  homepage "https://xnu.app/ezvm"
+  homepage "https://riftvm.com/"
 
   depends_on arch: :arm64
   depends_on macos: :tahoe
 
-  app "EZVM.app"
-  binary "#{appdir}/EZVM.app/Contents/Helpers/ezvm"
+  app "RiftVM.app"
+  binary "#{appdir}/RiftVM.app/Contents/Helpers/riftvm"
 
   zap trash: [
-    "~/Library/Application Support/EZVM",
-    "~/Library/Preferences/com.everettjf.ezvm.plist",
-    "~/Library/Saved Application State/com.everettjf.ezvm.savedState",
+    "~/Library/Application Support/RiftVM",
+    "~/Library/Preferences/com.riftvm.app.plist",
+    "~/Library/Saved Application State/com.riftvm.app.savedState",
   ]
 end
 ```
@@ -63,29 +87,27 @@ export APPLE_TEAM_ID="YPV49M8592"
 scripts/release-patch.sh
 ```
 
-Set `EZVM_RELEASE_SMOKE_VM` to a prepared ARM64 Linux VM bundle and
-`EZVM_RELEASE_SMOKE_ENROLLMENT` to its mode-`0600` Agent enrollment file.
+Set `RiftVM_RELEASE_SMOKE_VM` to a prepared Omarchy VM bundle and
+`RiftVM_RELEASE_SMOKE_ENROLLMENT` to its mode-`0600` Agent enrollment file.
 Release automation uses isolated APFS clones, tests GUI readiness, two
 concurrent headless VMs, Agent authentication and byte-exact file transfer,
 guest KVM API availability, and clean stop. The source VM is not modified. The
 same gates run against the notarized archive and the published Homebrew Cask.
 
-### macOS 27 three-guest release matrix
+### macOS 27 two-workspace release matrix
 
 Before publishing a macOS 27 candidate, keep stopped, disposable fixtures for
-the three creation choices and run the exact signed app through the matrix:
+the two supported workspace types and run the exact signed app through the matrix:
 
 ```bash
-EZVM_MATRIX_MACOS_VM="$HOME/EZVM Test Fixtures/macOS.ezvm" \
-EZVM_MATRIX_OMARCHY_VM="$HOME/EZVM Test Fixtures/Omarchy.ezvm" \
-EZVM_MATRIX_UBUNTU_VM="$HOME/EZVM Test Fixtures/Ubuntu.ezvm" \
-EZVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/EZVM Test Fixtures/omarchy-enrollment.json" \
-EZVM_MATRIX_UBUNTU_ENROLLMENT="$HOME/EZVM Test Fixtures/ubuntu-enrollment.json" \
-scripts/verify-macos27-guest-matrix.sh /path/to/EZVM.app 2.0.0
+RiftVM_MATRIX_MACOS_VM="$HOME/RiftVM Test Fixtures/macOS.riftvm" \
+RiftVM_MATRIX_OMARCHY_VM="$HOME/RiftVM Test Fixtures/Omarchy.riftvm" \
+RiftVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/RiftVM Test Fixtures/omarchy-enrollment.json" \
+scripts/verify-macos27-guest-matrix.sh /path/to/RiftVM.app 2.0.0
 ```
 
 The script rejects mislabeled fixtures and, before launching anything, verifies
-that each Linux enrollment is a non-symlink mode-`0600` file bound to that
+that the Omarchy enrollment is a non-symlink mode-`0600` file bound to that
 fixture's `MachineIdentifier`. It never prints the enrollment token. It then
 verifies the app signature,
 Gatekeeper, entitlements, GUI readiness, and then exercises CLI lifecycle,
@@ -93,15 +115,15 @@ concurrent ownership, forced-exit recovery, saved-state recovery, Linux EFI
 recovery, Guest Agent authentication, byte-exact transfer, ASIF attachment,
 VMNet Shared guest connectivity, signed macOS machine-state save and cross-process
 restore, and clean shutdown. The VMNet gate creates and
-removes its own clone of the Ubuntu fixture. The ASIF gate separately creates a
+removes its own clone of the Omarchy fixture. The ASIF gate separately creates a
 layered snapshot, audits and restores it from fresh app processes, then boots the
 restored clone. Neither gate changes the source VM. Set
-`EZVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
+`RiftVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
 gate. Fixtures are cloned before destructive recovery checks; the originals
 remain unchanged.
 
 The matrix also requires the candidate's embedded full Git revision to match
-the current checkout (or `EZVM_EXPECTED_SOURCE_REVISION`) and requires its
+the current checkout (or `RiftVM_EXPECTED_SOURCE_REVISION`) and requires its
 embedded source-tree state to be `clean`. The post-publication Homebrew gate
 receives the same revision explicitly, so a same-version archive built from a
 different commit cannot pass.
@@ -111,33 +133,33 @@ calculates the next patch version, updates every Xcode target, runs tests and a
 Release build, commits the version bump when needed, then builds the pinned
 VirGL runtime, signs and notarizes the app locally, and exercises the exact
 candidate before pushing `main` and the tag. Only after those gates pass does
-it create the GitHub Release and update `everettjf/homebrew-tap`. Set
-`EZVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
+it create the GitHub Release and update `riftvm/homebrew-tap`. Set
+`RiftVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
 
 1. Build and sign the application with its virtualization entitlement and hardened runtime.
 2. Notarize the archive, quarantine-extract it, and pass GUI plus real-VM gates.
 3. Push the exact tested commit/tag and upload the immutable archive plus checksums.
-4. Update `everettjf/homebrew-tap` to that exact URL and SHA-256.
+4. Update `riftvm/homebrew-tap` to that exact URL and SHA-256.
 5. Upgrade/install from Homebrew and repeat the GUI plus real-VM gates.
-6. Submit it to `Homebrew/homebrew-cask` once EZVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask ezvm`.
+6. Submit it to `Homebrew/homebrew-cask` once RiftVM meets upstream inclusion requirements; the shorter command will then become `brew install --cask riftvm`.
 7. Publish the working install command in the README and website.
 
 ## Automation boundary
 
-EZVM deliberately performs product compilation and release verification on a
+RiftVM deliberately performs product compilation and release verification on a
 local macOS 27 development machine. The repository currently keeps only the
 GitHub Pages workflow; CI and Release workflows should return when a genuine
 macOS 27 runner can execute the same app, GUI, Virtualization.framework, and
 real-VM gates. GitHub Release and Homebrew publication remain gated on a
 Developer ID certificate, Apple notarization credentials, tap access, a mode
-`0600` Agent enrollment, and a disposable clone of a real ARM64 Linux VM.
+`0600` Agent enrollment, and disposable macOS and Omarchy fixtures.
 
 ## Release traps to keep fixed
 
 - Do not publish a tag before the exact candidate has passed signing,
   notarization, quarantine extraction, GUI readiness, and real-VM gates. A tag
   must identify tested bytes, not merely compilable source.
-- Do not reuse an already-running local EZVM during GUI verification. It can
+- Do not reuse an already-running local RiftVM during GUI verification. It can
   hide launch, persisted-window-state, or bundled-runtime failures in the new
   candidate.
 - Do not treat `codesign`, notarization, Gatekeeper, PID existence, or Homebrew

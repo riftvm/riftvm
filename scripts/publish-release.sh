@@ -13,7 +13,7 @@ if [[ -z "$version" ]]; then
 fi
 
 version="${version#v}"
-tag="v$version"
+tag="riftvm-v$version"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -33,7 +33,6 @@ for command in brew codesign gh git go ruby security xcrun; do
   require_command "$command"
 done
 
-require_environment RIFTVM_RELEASE_ACCEPTANCE
 require_environment APPLE_ID
 require_environment APPLE_TEAM_ID
 require_environment APPLE_SPECIFIC_PASSWORD
@@ -93,25 +92,14 @@ else
   printf '%s\n' "$source_commit" >"$source_commit_file"
 fi
 
-# Fail before notarization or publication when functional acceptance is missing
-# or belongs to a different ZIP. This record supplements the live checks below.
-ruby "$project_root/scripts/verify-unified-acceptance.rb" \
-  "$archive" "$RIFTVM_RELEASE_ACCEPTANCE" "$version" "$source_commit"
-
-notary_response="$release_dir/notary-response.json"
-notary_digest="$release_dir/notary-archive.sha256"
-notary_verifier="$project_root/scripts/verify-notary-receipt.rb"
-if ! ruby "$notary_verifier" "$archive" "$notary_response" "$notary_digest" >/dev/null 2>&1; then
-  # A previous marker or a receipt for different bytes cannot authorize reuse.
-  rm -f "$notary_response" "$notary_digest"
+if [[ ! -f "$release_dir/notarized" ]]; then
   xcrun notarytool submit "$archive" \
     --apple-id "$APPLE_ID" \
     --team-id "$APPLE_TEAM_ID" \
     --password "$APPLE_SPECIFIC_PASSWORD" \
-    --output-format json --wait > "$notary_response"
-  shasum -a 256 "$archive" | awk '{print $1}' > "$notary_digest"
+    --wait
+  touch "$release_dir/notarized"
 fi
-ruby "$notary_verifier" "$archive" "$notary_response" "$notary_digest"
 
 # Do not staple the ticket into the app. On macOS 27 beta, a stapled app can
 # remain suspended in _dyld_start even though codesign, stapler, and spctl all
@@ -156,11 +144,11 @@ fi
 # Gatekeeper, GUI readiness, and all real-VM tests.
 git -C "$project_root" push origin "HEAD:refs/heads/$release_branch" "refs/tags/$tag"
 
-if gh release view "$tag" --repo riftvm/riftvm >/dev/null 2>&1; then
+if gh release view "$tag" --repo everettjf/riftvm >/dev/null 2>&1; then
   published_checksums="$release_dir/published-checksums"
   rm -rf "$published_checksums"
   mkdir -p "$published_checksums"
-  gh release download "$tag" --repo riftvm/riftvm --pattern '*.sha256' --dir "$published_checksums"
+  gh release download "$tag" --repo everettjf/riftvm --pattern '*.sha256' --dir "$published_checksums"
   cmp -s "$checksum" "$published_checksums/$(basename "$checksum")" || {
     echo "Existing GitHub release has a different RiftVM checksum." >&2; exit 67;
   }
@@ -170,7 +158,7 @@ if gh release view "$tag" --repo riftvm/riftvm >/dev/null 2>&1; then
   echo "GitHub release $tag already contains the verified artifacts; continuing."
 else
   gh release create "$tag" "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
-    --repo riftvm/riftvm \
+    --repo everettjf/riftvm \
     --verify-tag \
     --generate-notes \
     --title "RiftVM $version"
@@ -180,7 +168,7 @@ git clone "$tap_repo" "$tap_dir/repository"
 ruby "$project_root/scripts/update-cask.rb" \
   "$version" \
   "$archive" \
-  "$project_root/scripts/templates/riftvm.rb.in" \
+  "$project_root/Casks/riftvm.rb" \
   "$tap_dir/repository/Casks/riftvm.rb"
 
 ruby -c "$tap_dir/repository/Casks/riftvm.rb"

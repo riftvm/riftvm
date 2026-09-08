@@ -478,7 +478,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     return
                 case .legacyUnverified:
                     runtimeState?.updateMachineStateNotice(
-                        "This saved session predates compatibility records. RiftVM will try to resume it; if that fails, the session will be preserved so you can retry."
+                        "This saved session predates compatibility records. RiftVM will try to resume it once; if that fails, it will safely fall back to a normal start."
                     )
                     restoreMachine(from: model.savedMachineStateURL, rootPath: rootPath, model: model)
                     return
@@ -501,19 +501,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         virtualMachine.restoreMachineStateFrom(url: stateURL) { [weak self] error in
             guard let self else { return }
             if let error {
-                if VMOmarchyTemporaryPathPolicy.contains(rootPath),
-                   let acceptance = VMReleaseSmokeTest.configuration(for: rootPath),
-                   VMOmarchyTemporaryPathPolicy.contains(acceptance.resultPath) {
-                    let diagnostic = acceptance.resultPath.appendingPathExtension("restore-error.txt")
-                    try? Data(String(reflecting: error as NSError).utf8).write(to: diagnostic, options: .atomic)
-                }
                 Task { @MainActor in
-                    // A native restore error may be temporary (for example,
-                    // the host cannot use its Secure Enclave key while locked).
-                    // Preserve guest memory so another launch can retry.
-                    self.fail("Could not restore the saved session: \(error.localizedDescription) The saved session has been preserved. Unlock this Mac if needed, then try again.")
+                    self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state restore failed")
                 }
-                RiftVMLog.error("Saved state restore failed; preserving the saved session: \(error.localizedDescription)")
+                RiftVMLog.error("Saved state restore failed; falling back to normal boot: \(error.localizedDescription)")
                 return
             }
             self.virtualMachine.resume { result in
@@ -521,8 +512,11 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     switch result {
                     case .success:
                         VMSavedStateStore.discardCommitted(stateURL: stateURL)
-                        self.didRestoreMachineState = true
-                        self.didStart(rootPath: rootPath, model: model)
+                        self.runtimeState?.update(.running)
+                        self.markNetworkRuntimeStarted()
+                        self.markMachineRunning()
+                        self.startScreenshotTimer()
+                        self.startGuestAgent(model: model)
                     case .failure(let error):
                         RiftVMLog.error("Saved state resume failed; falling back to normal boot: \(error.localizedDescription)")
                         self.retryWithColdBoot(rootPath: rootPath, model: model, reason: "saved-state resume failed")
@@ -533,7 +527,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
     }
 
     private func startNormally(rootPath: URL, model: VMModel) {
-        didRestoreMachineState = false
         runtimeState?.update(.starting)
         if #available(macOS 27.0, *),
            model.config.type == .macOS {
@@ -724,8 +717,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             RiftVMLog.error(error, logger: RiftVMLog.lifecycle)
         }
     }
-
-    private var didRestoreMachineState = false
 
     private func didStart(rootPath: URL, model: VMModel) {
         runtimeState?.update(.running)
@@ -1030,7 +1021,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 }
                 self.runtimeState?.update(.stopped)
                 self.releaseRunLease()
-                VMReleaseSmokeTest.report(self.didRestoreMachineState ? "restored-and-stopped" : "started-and-stopped", configuration: configuration)
+                VMReleaseSmokeTest.report("started-and-stopped", configuration: configuration)
                 NSApplication.shared.terminate(nil)
             }
         }
@@ -1042,54 +1033,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 "machine state is unavailable: \(runtimeState?.machineStateUnavailabilityReason ?? "unknown reason")",
                 configuration
             )
-            return
-        }
-        if ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PAUSE_BEFORE_SAVE"] == "1",
-           runtimeState?.phase == .running {
-            guard VMOmarchyTemporaryPathPolicy.contains(rootPath) else {
-                failReleaseSmokeTest("paused-save acceptance requires a temporary fixture", configuration)
-                return
-            }
-            pauseMachine()
-            let deadline = Date().addingTimeInterval(15)
-            releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
-                guard let self else { timer.invalidate(); return }
-                if self.runtimeState?.phase == .paused {
-                    timer.invalidate()
-                    self.startReleaseMachineStateSave(configuration)
-                } else if Date() >= deadline {
-                    timer.invalidate()
-                    self.failReleaseSmokeTest("timed out pausing before saved-state acceptance", configuration)
-                }
-            }
-            return
-        }
-        if ProcessInfo.processInfo.environment["RIFTVM_RELEASE_QUIT_TO_SAVE"] == "1" {
-            guard VMOmarchyTemporaryPathPolicy.contains(rootPath) else {
-                failReleaseSmokeTest("quit acceptance requires a temporary fixture", configuration)
-                return
-            }
-            if let peerPath = ProcessInfo.processInfo.environment["RIFTVM_RELEASE_PEER_VM"], !peerPath.isEmpty {
-                let peer = URL(fileURLWithPath: peerPath)
-                if !WorkspaceCoordinator.shared.isRuntimeRunning(at: peer) {
-                    let deadline = Date().addingTimeInterval(60)
-                    releaseSmokeTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
-                        guard let self else { timer.invalidate(); return }
-                        if WorkspaceCoordinator.shared.isRuntimeRunning(at: peer) {
-                            timer.invalidate()
-                            self.startReleaseMachineStateSave(configuration)
-                        } else if Date() >= deadline {
-                            timer.invalidate()
-                            self.failReleaseSmokeTest("peer did not reach running state", configuration)
-                        }
-                    }
-                    return
-                }
-            }
-            VMReleaseSmokeTest.report("quit-requested", configuration: configuration)
-            // AppKit termination must enter from its event loop, outside a
-            // main-queue task, so asynchronous quit participants can finish.
-            RunLoop.main.perform { NSApp.terminate(nil) }
             return
         }
         releaseSmokeDeadline = Date().addingTimeInterval(30)
@@ -1137,6 +1080,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.guestAgentClient?.virtualMachineDidPause()
                     self.runtimeState?.update(.paused)
+                    self.markMachinePaused()
                 case .failure(let error):
                     self.recoverFromLifecycleOperationFailure(
                         "Could not pause the virtual machine: \(error.localizedDescription)",
@@ -1147,7 +1091,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    func resumeMachine(afterResume: (() -> Void)? = nil) {
+    func resumeMachine() {
         guard virtualMachine?.canResume == true else { return }
         virtualMachine.resume { [weak self] result in
             Task { @MainActor in
@@ -1156,7 +1100,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.runtimeState?.update(.running)
                     self.guestAgentClient?.virtualMachineDidResume()
-                    afterResume?()
+                    self.markMachineRunning()
                 case .failure(let error):
                     self.recoverFromLifecycleOperationFailure(
                         "Could not resume the virtual machine: \(error.localizedDescription)",
@@ -1332,11 +1276,6 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
 
     func requestStopMachine() {
         guard virtualMachine != nil else { return }
-        // A paused guest cannot process its platform shutdown request.
-        if virtualMachine.state == .paused {
-            resumeMachine { [weak self] in self?.requestStopMachine() }
-            return
-        }
         let fallbackPhase = runtimeState?.phase ?? .running
         usbAccessoryCoordinator?.prepareForMachineStop()
         runtimeState?.update(.stopping)
@@ -1345,7 +1284,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
             // Linux desktops do not consistently implement the platform
             // shutdown request exposed by Virtualization.framework. Prefer
             // the authenticated agent when available, while retaining the
-            // same timeout notice and explicit force-stop choice.
+            // same bounded force-stop fallback.
             guestAgentClient?.send(.shutdown)
             scheduleShutdownFallback()
             return
@@ -1460,7 +1399,20 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                             fallback: .paused
                         )
                     } else {
-                        self.stopThenCommitSavedState(pendingURL: pendingURL, stateURL: stateURL, rootPath: rootPath)
+                        do {
+                            try VMSavedStateStore.commit(
+                                pendingURL: pendingURL,
+                                stateURL: stateURL,
+                                vmRootPath: rootPath
+                            )
+                            self.stopAfterSavedStateCommit(stateURL: stateURL)
+                        } catch {
+                            VMSavedStateStore.discardPending(stateURL: stateURL)
+                            self.recoverFromLifecycleOperationFailure(
+                                "Could not commit the saved machine state: \(error.localizedDescription)",
+                                fallback: .paused
+                            )
+                        }
                     }
                 }
             }
@@ -1491,7 +1443,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
     }
 
-    private func stopThenCommitSavedState(pendingURL: URL, stateURL: URL, rootPath: URL) {
+    private func stopAfterSavedStateCommit(stateURL: URL) {
         runtimeState?.update(.stopping)
         virtualMachine.stop { [weak self] error in
             Task { @MainActor in
@@ -1502,7 +1454,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     // guest resumes or a runtime device changes, so roll it
                     // back instead of leaving a future cold launch to consume
                     // an ambiguous checkpoint.
-                    VMSavedStateStore.discardPending(stateURL: stateURL)
+                    VMSavedStateStore.discardCommitted(stateURL: stateURL)
                     self.recoverFromLifecycleOperationFailure(
                         "The virtual machine state was saved, but the machine could not stop: \(error.localizedDescription)",
                         fallback: .paused
@@ -1513,14 +1465,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                     return
                 }
                 self.releaseVirtualMachineAfterStop()
-                do {
-                    // Stopping releases disk attachments and flushes writes.
-                    // Record compatibility only after those mutations finish.
-                    try VMSavedStateStore.commit(pendingURL: pendingURL, stateURL: stateURL, vmRootPath: rootPath)
-                    self.runtimeState?.update(.stopped)
-                } catch {
-                    self.runtimeState?.update(.failed("The virtual machine stopped, but its saved session could not be committed: \(error.localizedDescription)"))
-                }
+                self.runtimeState?.update(.stopped)
                 self.releaseRunLease()
                 self.shutdownRetainer = nil
             }
@@ -1559,7 +1504,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                   self.shutdownFallbackGeneration == generation,
                   self.runtimeState?.phase == .stopping,
                   self.virtualMachine != nil else { return }
-            self.runtimeState?.updateMachineStateNotice("The guest has not shut down yet. Wait or choose Force Stop from the Power menu.")
+            RiftVMLog.error("Guest did not stop within 20 seconds; forcing the virtual machine to stop.")
+            self.forceStopMachine()
         }
     }
 
@@ -1609,13 +1555,22 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         if recoveredPhase == .running || recoveredPhase == .paused {
             cancelShutdownFallback()
             usbAccessoryCoordinator?.cancelMachineStopPreparation()
-            markMachineRunning()
+            if recoveredPhase == .paused {
+                markMachinePaused()
+            } else {
+                markMachineRunning()
+            }
         }
     }
 
     private func markMachineRunning() {
         guard let runLease else { return }
         VMRunningRegistry.shared.transition(runLease, to: .running)
+    }
+
+    private func markMachinePaused() {
+        guard let runLease else { return }
+        VMRunningRegistry.shared.transition(runLease, to: .paused)
     }
 
     private func markNetworkRuntimeStarted() {

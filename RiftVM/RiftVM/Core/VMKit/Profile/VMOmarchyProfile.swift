@@ -61,7 +61,7 @@ public struct VMOmarchyProfile: Codable, Equatable {
         guard schemaVersion == Self.currentSchemaVersion else {
             throw ValidationError.unsupportedSchema(schemaVersion)
         }
-        guard productID == "com.riftvm.app" else {
+        guard productID == "com.riftvm.app.omarchy" else {
             throw ValidationError.invalidProductID
         }
         guard minimumHostMajorVersion >= 27,
@@ -119,7 +119,7 @@ public struct VMOmarchyProfile: Codable, Equatable {
 extension VMOmarchyProfile {
     public static let production = VMOmarchyProfile(
         schemaVersion: currentSchemaVersion,
-        productID: "com.riftvm.app",
+        productID: "com.riftvm.app.omarchy",
         minimumHostMajorVersion: 27,
         diskCapacityBytes: 64 * 1_024 * 1_024 * 1_024,
         resourceTiers: [
@@ -138,7 +138,7 @@ extension VMOmarchyProfile {
             // A Host build must resolve one immutable Factory channel. GitHub's
             // `releases/latest` excludes prereleases and previously redirected
             // Alpha builds to an older release without a Factory manifest.
-            manifestURL: URL(string: "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v0.1.0-rc.1/riftvm-omarchy-factory-manifest.json")!,
+            manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/download/v4.0.0-alpha-riftvm.32/riftvm-omarchy-factory-manifest.json")!,
             signingKeyID: "riftvm-omarchy-factory-2026",
             architecture: "arm64",
             maximumDownloadBytes: 8 * 1_024 * 1_024 * 1_024

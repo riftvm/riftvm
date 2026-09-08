@@ -79,10 +79,7 @@ class VMOSRunnerForLinux : VMOSRunner {
         virtualMachineConfiguration.pointingDevices = model.config.pointingDevices.map({$0.createConfiguration()})
         
         // audioDevices
-        switch VMModelFieldAudioDevice.createConfigurations(model.config.audioDevices) {
-        case .success(let devices): virtualMachineConfiguration.audioDevices = devices
-        case .failure(let error): return .failure(error)
-        }
+        virtualMachineConfiguration.audioDevices = model.config.audioDevices.map({$0.createConfiguration()})
         
         // keyboards
         virtualMachineConfiguration.keyboards = [VZUSBKeyboardConfiguration()]

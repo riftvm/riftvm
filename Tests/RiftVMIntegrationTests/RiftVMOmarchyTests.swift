@@ -2,8 +2,7 @@ import AVFoundation
 import CoreGraphics
 import UserNotifications
 import XCTest
-import RiftVMCore
-@testable import RIFTVM_Omarchy
+@testable import RiftVM
 
 final class RiftVMOmarchyTests: XCTestCase {
     func testAccessibilityRequestHasVisiblePendingState() {
@@ -188,7 +187,7 @@ final class RiftVMOmarchyTests: XCTestCase {
     func testDedicatedAppUsesOmarchyProductIdentity() throws {
         let profile = VMOmarchyProfile.production
         try profile.validate()
-        XCTAssertEqual(profile.productID, "com.riftvm.app")
+        XCTAssertEqual(profile.productID, "com.riftvm.app.omarchy")
     }
 
     func testMicrophonePermissionPolicyRequiresExplicitAuthorization() {
@@ -322,7 +321,8 @@ final class RiftVMOmarchyTests: XCTestCase {
         let testFile = URL(fileURLWithPath: #filePath)
         let template = testFile.deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appending(path: "Resources/Info.plist")
+            .deletingLastPathComponent()
+            .appending(path: "RiftVM/RiftVM/Info.plist")
         let values = try XCTUnwrap(
             PropertyListSerialization.propertyList(
                 from: Data(contentsOf: template), format: nil
@@ -334,7 +334,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)
         XCTAssertEqual(
             values["NSMicrophoneUsageDescription"] as? String,
-            "RiftVM Omarchy uses the Mac microphone only when you enable microphone sharing for the Omarchy workspace."
+            "RiftVM uses the Mac microphone only when you enable microphone sharing for a workspace."
         )
     }
 

@@ -54,6 +54,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 context.formData.creationStage = "Ready"
                 context.formData.changeProgress(1)
                 context.formData.disablePreviousButton = true
+                registerCreatedWorkspace(kind: .omarchy, context: context)
             }
             return result
         }
@@ -89,7 +90,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         RiftVMLog.info("Creating a \(context.configData.osType.rawValue) VM with image \(imagePath.lastPathComponent)", logger: RiftVMLog.lifecycle)
 
         let stateModel = VMStateModel(imagePath: imagePath)
-        let configModel = context.configData.getConfigModel()
+        let configModel = context.configData.getConfigModel().addingManagedSharedFolder(rootPath: rootPath)
         let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
 
         let provisioningCredential: VMGuestProvisioningCredential? = context.formData.provisionsMacGuest
@@ -146,10 +147,33 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.creationStage = "Ready"
             context.formData.changeProgress(1)
             context.formData.disablePreviousButton = true
-            sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
+            registerCreatedWorkspace(
+                kind: context.configData.osType == .macOS ? .macOS : .omarchy,
+                context: context
+            )
         }
 
         return result
+    }
+
+    private func registerCreatedWorkspace(
+        kind: RiftWorkspaceKind,
+        context: VMCreateStepperGuidePhaseContext
+    ) {
+        let rootPath = URL(filePath: context.formData.rootPath)
+        sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
+        do {
+            _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
+                name: context.configData.name,
+                kind: kind,
+                bundleURL: rootPath
+            )
+            NotificationCenter.default.post(name: .riftWorkspaceRegistryDidChange, object: rootPath)
+        } catch {
+            let message = "Workspace registry update failed: \(error.localizedDescription)"
+            context.formData.addLog("⚠️ \(message)")
+            RiftVMLog.error(message, logger: RiftVMLog.lifecycle)
+        }
     }
 
     private func resolveSystemImage(context: VMCreateStepperGuidePhaseContext) async -> VMOSResult<URL, String> {
@@ -557,7 +581,7 @@ private final class VMPreinstalledImageDownloadCoordinator {
               archive.parts.reduce(Int64(0), { $0 + $1.size }) == archive.compressedSize,
               archive.parts.allSatisfy({ $0.size > 0 && $0.sha256.isSHA256 && $0.name.isSafeAssetName }),
               let release = manifest.release,
-              release.repository == "riftvm/riftvm-omarchy-aarch64-image",
+              release.repository == "everettjf/omarchy-aarch64-image",
               release.tag.isSafeAssetName else {
             throw PreparationError.invalidManifest("The release archive metadata is invalid or unsupported.")
         }

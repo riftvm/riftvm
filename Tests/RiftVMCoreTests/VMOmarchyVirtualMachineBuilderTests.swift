@@ -49,21 +49,18 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.storageDevices.count, 1)
         XCTAssertEqual(configuration.graphicsDevices.count, 1)
         XCTAssertEqual(configuration.socketDevices.count, 1)
-        XCTAssertEqual(configuration.directorySharingDevices.count, 3)
+        XCTAssertEqual(configuration.directorySharingDevices.count, 2)
         XCTAssertEqual(
             (configuration.directorySharingDevices.first as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "rift-agent"
         )
         XCTAssertEqual(
-            (configuration.directorySharingDevices[1] as? VZVirtioFileSystemDeviceConfiguration)?.tag,
+            (configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)?.tag,
             "riftvm_shared"
         )
         let sharedDevice = try XCTUnwrap(
-            configuration.directorySharingDevices[1] as? VZVirtioFileSystemDeviceConfiguration
+            configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration
         )
-        let emptyFolders = try XCTUnwrap(configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration)
-        XCTAssertEqual(emptyFolders.tag, "riftvm_folders")
-        XCTAssertTrue(try XCTUnwrap(emptyFolders.share as? VZMultipleDirectoryShare).directories.isEmpty)
         let sharedShare = try XCTUnwrap(sharedDevice.share as? VZSingleDirectoryShare)
         XCTAssertFalse(sharedShare.directory.isReadOnly)
         XCTAssertTrue(
@@ -131,41 +128,5 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         ) { error in
             XCTAssertEqual(error as? VMOmarchyVirtualMachineBuilderError, .invalidMachineIdentifier)
         }
-    }
-}
-
-
-final class VMOmarchyFolderGrantTests: XCTestCase {
-    func testPermissionsPersistAndRemovalPreservesHostFiles() throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let first = root.appending(path: "first")
-        let second = root.appending(path: "second")
-        try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
-        let source = first.appending(path: "keep.txt")
-        try Data("Keep me".utf8).write(to: source)
-        let readOnly = VMOmarchyFolderGrant(directory: first)
-        let writable = VMOmarchyFolderGrant(directory: second, readOnly: false)
-        try VMOmarchyFolderGrant.save([readOnly, writable], at: root)
-        let device = try XCTUnwrap(VMOmarchyFolderGrant.makeDevice(at: root))
-        let share = try XCTUnwrap(device.share as? VZMultipleDirectoryShare)
-        XCTAssertEqual(share.directories[readOnly.guestName]?.isReadOnly, true)
-        XCTAssertEqual(share.directories[writable.guestName]?.isReadOnly, false)
-        XCTAssertEqual(try VMOmarchyFolderGrant.load(at: root), [readOnly, writable])
-        try VMOmarchyFolderGrant.save([], at: root)
-        XCTAssertTrue(try XCTUnwrap(VMOmarchyFolderGrant.makeDevice(at: root).share as? VZMultipleDirectoryShare).directories.isEmpty)
-        XCTAssertEqual(try Data(contentsOf: source), Data("Keep me".utf8))
-    }
-
-    func testOfflineAndCorruptPermissionsFailClosed() throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        XCTAssertTrue(try XCTUnwrap(VMOmarchyFolderGrant.makeDevice(at: root).share as? VZMultipleDirectoryShare).directories.isEmpty)
-        try VMOmarchyFolderGrant.save([VMOmarchyFolderGrant(directory: root.appending(path: "offline"))], at: root)
-        XCTAssertThrowsError(try VMOmarchyFolderGrant.makeDevice(at: root))
-        try Data("corrupt".utf8).write(to: root.appending(path: "FolderGrants.json"))
-        XCTAssertThrowsError(try VMOmarchyFolderGrant.makeDevice(at: root))
     }
 }

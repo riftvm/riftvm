@@ -4,7 +4,7 @@ For architecture, invariants, known failure modes, and the maintained test
 checklist, read [Custom VirGL architecture and engineering notes](CUSTOM_VIRGL_ARCHITECTURE.md)
 first.
 
-EZVM records two low-overhead graphics streams while a Custom VirGL virtual
+RiftVM records two low-overhead graphics streams while a Custom VirGL virtual
 machine is running on macOS 27:
 
 - `graphics`: five-second FPS, Metal presentation time, missing drawables,
@@ -14,12 +14,12 @@ machine is running on macOS 27:
 
 ## Capture a repeatable sample
 
-Start the same workload in EZVM, leave it visible, and identify the workload in
+Start the same workload in RiftVM, leave it visible, and identify the workload in
 the capture so incompatible samples cannot be compared accidentally:
 
 ```sh
-EZVM_VIRGL_BACKEND=custom-virgl \
-EZVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+RiftVM_VIRGL_BACKEND=custom-virgl \
+RiftVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
 ```
 
@@ -29,25 +29,25 @@ windows, and the graphics logs for that exact interval. Use the same VM CPU,
 memory, window size, display scaling, workload, and capture length when
 comparing runs.
 
-Only one EZVM process may be running by default. When deliberately comparing
+Only one RiftVM process may be running by default. When deliberately comparing
 multiple concurrent VMs, identify the exact app process instead of relying on
 process order:
 
 ```sh
-EZVM_VIRGL_PID=12345 \
-EZVM_VIRGL_BACKEND=custom-virgl \
-EZVM_VIRGL_WORKLOAD=browser-scroll-1920x1080 \
+RiftVM_VIRGL_PID=12345 \
+RiftVM_VIRGL_BACKEND=custom-virgl \
+RiftVM_VIRGL_WORKLOAD=browser-scroll-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
 ```
 
-The capture rejects a missing, exited, non-EZVM, or ambiguous process before
+The capture rejects a missing, exited, non-RiftVM, or ambiguous process before
 collecting metrics.
 
 Capture the same VM and workload after selecting Apple Virtio graphics:
 
 ```sh
-EZVM_VIRGL_BACKEND=apple-virtio \
-EZVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+RiftVM_VIRGL_BACKEND=apple-virtio \
+RiftVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/apple-virtio.txt
 ```
 
@@ -63,7 +63,7 @@ the primary smoothness signal; the absolute maximum remains a wider hard-stop
 guard so one scheduler spike does not misclassify an otherwise stable run.
 It also rejects large host CPU/RSS regressions and refuses to compare reports whose
 duration, workload, hardware, or macOS build differ. Thresholds can be tightened
-for a release matrix through the documented `EZVM_VIRGL_MAX_*` environment
+for a release matrix through the documented `RiftVM_VIRGL_MAX_*` environment
 variables in the verifier; loosening them requires recording the reason with
 the release evidence.
 
@@ -81,10 +81,10 @@ forces the requested graphics backend, and applies the same verifier:
 
 ```sh
 scripts/verify-release-virgl-idle-performance.sh \
-  /path/to/EZVM.app \
-  /path/to/Omarchy.ezvm \
-  /path/to/Omarchy.ezvm/.EZVMAgent/config.json \
-  /tmp/ezvm-virgl-idle
+  /path/to/RiftVM.app \
+  /path/to/Omarchy.riftvm \
+  /path/to/Omarchy.riftvm/.RiftVMAgent/config.json \
+  /tmp/riftvm-virgl-idle
 ```
 
 This closes the repeatability gap for the idle baseline only. Interactive
@@ -93,7 +93,7 @@ workloads and must not be inferred from this result.
 
 Healthy runs should report zero presentation failures, few or no drawable
 misses, bounded frame coalescing, and a stable FPS appropriate for the guest
-workload. Coalescing is intentional: EZVM keeps at most one pending frame so it
+workload. Coalescing is intentional: RiftVM keeps at most one pending frame so it
 can discard stale work instead of increasing visible latency.
 
 ## Validate dynamic resolution
@@ -133,7 +133,7 @@ The final Omarchy/Hyprland validation established a useful local baseline:
 
 ## September 2, 2026 signed idle A/B
 
-The automated COW-clone gate passed with the Developer ID-signed EZVM 2.0.0
+The automated COW-clone gate passed with the Developer ID-signed RiftVM 2.0.0
 candidate on macOS 27.0 (26A5425a), Mac15,6, using the same Omarchy fixture and
 30-second `hyprland-idle` workload for both backends:
 
@@ -164,7 +164,7 @@ CPU/memory allocation, resolution, scale, workload, and capture duration match.
 
 ## September 3, 2026 signed idle A/B
 
-The current EZVM 2.0.0 Developer ID candidate passed two more same-fixture
+The current RiftVM 2.0.0 Developer ID candidate passed two more same-fixture
 `hyprland-idle` comparisons on macOS 27.0 (26A5425a), Mac15,6. The first
 30-second capture reported 15.0% average host CPU and 186.3 MiB average RSS for
 Custom VirGL versus 0.7% and 158.6 MiB for Apple Virtio. Custom VirGL sustained

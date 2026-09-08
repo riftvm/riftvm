@@ -13,13 +13,17 @@ import Darwin
 #if arch(arm64)
 
 /*
- Owns a workspace from startup until its guest stops, independently of window
- visibility. Maintenance uses the same cross-process lock so disk operations
- cannot overlap a running guest or another maintenance operation.
+ Tracks which virtual machines currently have a running window, so
+ destructive file operations (snapshot create/restore) can refuse to touch
+ a machine that is in use.
+
+ Registration is best effort: a machine counts as running from a
+ successful start until its guest stops or its window disappears.
  */
 enum VMRunPhase: String, Codable, Sendable {
     case starting
     case running
+    case paused
     case stopping
     case maintaining
 }
@@ -74,6 +78,7 @@ extension VMRunPhase {
         switch self {
         case .starting: "Starting"
         case .running: "Running"
+        case .paused: "Paused"
         case .stopping: "Saving State"
         case .maintaining: "Maintenance"
         }
@@ -113,9 +118,9 @@ final class VMRunningRegistry {
     private let lockDirectory: URL
 
     init(lockDirectory: URL? = nil) {
-        let support = ProcessInfo.processInfo.environment["RIFTVM_DATA_ROOT"].map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("RiftVM")
-        self.lockDirectory = lockDirectory ?? support.appendingPathComponent("RunLeases", isDirectory: true)
+        self.lockDirectory = lockDirectory ?? FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        )[0].appendingPathComponent("RiftVM/RunLeases", isDirectory: true)
     }
 
     var runningRootPaths: Set<URL> {
@@ -136,6 +141,7 @@ final class VMRunningRegistry {
             try? handle.close()
             return nil
         }
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
         return lease
     }
 
@@ -173,6 +179,7 @@ final class VMRunningRegistry {
         entry.phase = phase
         entries[key] = entry
         writeRecord(key: key, entry: entry)
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
     }
 
     func release(_ lease: VMRunLease) {
@@ -182,6 +189,7 @@ final class VMRunningRegistry {
         try? FileManager.default.removeItem(at: metadataURL(key: key))
         flock(entry.lockHandle.fileDescriptor, LOCK_UN)
         try? entry.lockHandle.close()
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
     }
 
     func phase(rootPath: URL) -> VMRunPhase? {
@@ -232,11 +240,7 @@ final class VMRunningRegistry {
     }
 
     private func lockURL(key: String) -> URL {
-        // Identity-based locking also prevents a copied or moved bundle from
-        // running concurrently under a different filesystem path.
-        let identity = try? WorkspaceIdentity.load(at: URL(fileURLWithPath: key))
-        let lockKey = identity.map { "workspace:\($0.id.uuidString)" } ?? key
-        let digest = SHA256.hash(data: Data(lockKey.utf8)).map { String(format: "%02x", $0) }.joined()
+        let digest = SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
         return lockDirectory.appendingPathComponent("\(digest).lock", isDirectory: false)
     }
 
@@ -290,6 +294,10 @@ final class VMRunningRegistry {
         while path.count > 1, path.hasSuffix("/") { path.removeLast() }
         return path
     }
+}
+
+extension Notification.Name {
+    static let riftVMRunStateDidChange = Notification.Name("com.riftvm.app.run-state-changed")
 }
 
 #endif

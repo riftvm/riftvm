@@ -40,19 +40,19 @@ struct CommunityDetailHomeView: View {
                     image: "plus.bubble",
                     title: "Report a Bug / Request a Feature",
                     subtitle: "Open a new GitHub issue",
-                    urlString: "https://github.com/riftvm/riftvm/issues/new"
+                    urlString: "https://github.com/everettjf/riftvm/issues/new"
                 )
                 DetailLinkCardView(
                     image: "list.bullet.rectangle",
                     title: "Browse Open Issues",
                     subtitle: "See what is already reported",
-                    urlString: "https://github.com/riftvm/riftvm/issues"
+                    urlString: "https://github.com/everettjf/riftvm/issues"
                 )
                 DetailLinkCardView(
                     image: "star",
                     title: "Star the project",
-                    subtitle: "github.com/riftvm/riftvm",
-                    urlString: "https://github.com/riftvm/riftvm"
+                    subtitle: "github.com/everettjf/riftvm",
+                    urlString: "https://github.com/everettjf/riftvm"
                 )
 
                 HStack(spacing: 8) {

@@ -57,14 +57,13 @@ public enum VMOmarchyVirtualMachineBuilder {
             forHostMemory: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount
         )
-        let customResources = try WorkspaceResources.load(at: layout.applicationSupportRoot)
         let configuration = VZVirtualMachineConfiguration()
         configuration.cpuCount = min(
-            max(customResources?.cpuCount ?? resources.cpuCount, VZVirtualMachineConfiguration.minimumAllowedCPUCount),
+            max(resources.cpuCount, VZVirtualMachineConfiguration.minimumAllowedCPUCount),
             VZVirtualMachineConfiguration.maximumAllowedCPUCount
         )
         configuration.memorySize = min(
-            max(customResources?.memoryBytes ?? resources.memoryBytes, VZVirtualMachineConfiguration.minimumAllowedMemorySize),
+            max(resources.memoryBytes, VZVirtualMachineConfiguration.minimumAllowedMemorySize),
             VZVirtualMachineConfiguration.maximumAllowedMemorySize
         )
 
@@ -117,9 +116,6 @@ public enum VMOmarchyVirtualMachineBuilder {
         let sharedDevice = VZVirtioFileSystemDeviceConfiguration(tag: "riftvm_shared")
         sharedDevice.share = VZSingleDirectoryShare(directory: sharedDirectory)
         configuration.directorySharingDevices = [enrollmentDevice, sharedDevice]
-        configuration.directorySharingDevices.append(
-            try VMOmarchyFolderGrant.makeDevice(at: layout.applicationSupportRoot)
-        )
 
         // Omarchy uses the authenticated Guest Agent for text and image
         // clipboard integration. Attaching the SPICE clipboard at the same
@@ -178,61 +174,5 @@ extension VMOmarchyVirtualMachineBuilderError: LocalizedError {
         case .recoveryFailed(let reason):
             "Omarchy cannot start until its interrupted recovery is resolved: \(reason)"
         }
-    }
-}
-
-/// Host folders are opt-in and belong to one workspace. Removing a grant never
-/// removes its host directory. Permissions are applied by VirtioFS itself.
-public struct VMOmarchyFolderGrant: Codable, Equatable, Identifiable, Sendable {
-    public let id: UUID
-    public let name: String
-    public let directory: URL
-    public var readOnly: Bool
-
-    public init(directory: URL, readOnly: Bool = true) {
-        id = UUID()
-        name = directory.lastPathComponent
-        self.directory = directory.standardizedFileURL.resolvingSymlinksInPath()
-        self.readOnly = readOnly
-    }
-
-    public var guestName: String { "\(name)-\(id.uuidString.prefix(8).lowercased())" }
-
-    public static func load(at workspace: URL) throws -> [Self] {
-        let url = workspace.appending(path: "FolderGrants.json")
-        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
-        return try JSONDecoder().decode([Self].self, from: Data(contentsOf: url))
-    }
-
-    public static func save(_ grants: [Self], at workspace: URL) throws {
-        guard Set(grants.map(\.id)).count == grants.count,
-              Set(grants.map(\.directory)).count == grants.count else {
-            throw CocoaError(.fileWriteInvalidFileName)
-        }
-        try JSONEncoder().encode(grants).write(to: workspace.appending(path: "FolderGrants.json"), options: .atomic)
-    }
-
-    public static func makeDevice(at workspace: URL) throws -> VZVirtioFileSystemDeviceConfiguration {
-        let grants = try load(at: workspace)
-        // The guest always exposes ~/Mac. An empty share keeps that mount
-        // usable without granting access to any host directory.
-
-        var directories: [String: VZSharedDirectory] = [:]
-        for grant in grants {
-            var isDirectory: ObjCBool = false
-            guard grant.directory.isFileURL,
-                  FileManager.default.fileExists(atPath: grant.directory.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue else {
-                throw NSError(domain: "RiftVM.FolderSharing", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                    "Shared folder is unavailable: \(grant.directory.path). Reconnect it or remove its sharing permission before starting."])
-            }
-            guard !grant.guestName.contains("/"), directories[grant.guestName] == nil else {
-                throw CocoaError(.fileReadCorruptFile)
-            }
-            directories[grant.guestName] = VZSharedDirectory(url: grant.directory, readOnly: grant.readOnly)
-        }
-        let device = VZVirtioFileSystemDeviceConfiguration(tag: "riftvm_folders")
-        device.share = VZMultipleDirectoryShare(directories: directories)
-        return device
     }
 }

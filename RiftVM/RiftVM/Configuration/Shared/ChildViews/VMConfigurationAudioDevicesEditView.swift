@@ -6,8 +6,6 @@
 //
 
 import SwiftUI
-import AVFoundation
-import AppKit
 
 #if arch(arm64)
 struct VMConfigurationAudioDevicesEditView: View {
@@ -15,11 +13,7 @@ struct VMConfigurationAudioDevicesEditView: View {
     
     @Environment(\.dismiss) private var dismiss
     
-    @State private var inputType: VMModelFieldAudioDevice.DeviceType = .OutputStream
-    @State private var microphoneAuthorization = AVCaptureDevice.authorizationStatus(for: .audio)
-    @State private var isRequestingPermission = false
-    @State private var showsPermissionNotice = false
-    @Environment(\.scenePhase) private var scenePhase
+    @State private var inputType: VMModelFieldAudioDevice.DeviceType = .InputStream
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -30,16 +24,10 @@ struct VMConfigurationAudioDevicesEditView: View {
                             Label(item.displayName, systemImage: item.systemImage).tag(item)
                         }
                     }
-                    Text("Speakers are enabled by default. Adding a microphone requires your permission and takes effect the next time this workspace starts.")
+                    Text("Microphone access still requires permission in System Settings. Speakers do not require additional permission.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button("Add Audio Device", systemImage: "plus") { addDevice() }
-                        .disabled(isRequestingPermission)
-                    if configData.audioDevices.contains(where: { $0.data.type.usesMicrophone }),
-                       microphoneAuthorization != .authorized {
-                        Button("Allow Microphone Access…") { requestMicrophoneAccess {} }
-                            .disabled(isRequestingPermission)
-                    }
                 }
                 Section("Current Devices") {
                     ForEach(configData.audioDevices) { item in
@@ -61,47 +49,13 @@ struct VMConfigurationAudioDevicesEditView: View {
             .padding()
         }
         .frame(minWidth: 500, minHeight: 380)
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { microphoneAuthorization = AVCaptureDevice.authorizationStatus(for: .audio) }
-        }
-        .alert("Microphone Access Required", isPresented: $showsPermissionNotice) {
-            Button("Open System Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Allow RiftVM under Privacy & Security → Microphone, then try again. You can also use speakers without microphone access.")
-        }
     }
     
     
     private func addDevice() {
-        let type = inputType
-        let append = {
-            configData.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: .init(type: type)))
-        }
-        if type.usesMicrophone { requestMicrophoneAccess(then: append) } else { append() }
+        let device = VMModelFieldAudioDevice(type: inputType)
+        configData.audioDevices.append(VMModelFieldAudioDeviceItemModel(data: device))
     }
-    private func requestMicrophoneAccess(then completion: @escaping () -> Void) {
-        guard !isRequestingPermission else { return }
-        microphoneAuthorization = AVCaptureDevice.authorizationStatus(for: .audio)
-        switch microphoneAuthorization {
-        case .authorized: completion()
-        case .notDetermined:
-            isRequestingPermission = true
-            AVCaptureDevice.requestAccess(for: .audio) { granted in
-                Task { @MainActor in
-                    isRequestingPermission = false
-                    microphoneAuthorization = AVCaptureDevice.authorizationStatus(for: .audio)
-                    if granted { completion() } else { showsPermissionNotice = true }
-                }
-            }
-        default: showsPermissionNotice = true
-        }
-    }
-
 }
 
 struct VMConfigurationAudioDevicesEditView_Previews: PreviewProvider {

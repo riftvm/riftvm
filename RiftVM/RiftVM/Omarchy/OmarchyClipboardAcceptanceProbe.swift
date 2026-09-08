@@ -421,7 +421,7 @@ enum OmarchyClipboardAcceptanceProbe {
             // path avoids taking over the developer's physical keyboard.
             try await client.injectKeyChord(modifiers: [29], key: 46)
             try await Task.sleep(for: .milliseconds(500))
-            let command = "{ systemctl --user status rift-session-agent.service --no-pager; journalctl --user -u rift-session-agent.service --no-pager -n 100; systemctl --user show rift-session-agent.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; ps -ef | grep '[e]zvm-agent'; ls -ld /run/rift-agent/sessions; ls -l /run/rift-agent/sessions/session-1000.sock /run/rift-agent/session.sock; } > \(guestDirectory)/session-diagnostics.txt 2>&1\n"
+            let command = "{ systemctl --user status rift-session-agent.service --no-pager; journalctl --user -u rift-session-agent.service --no-pager -n 100; systemctl --user show rift-session-agent.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; ps -ef | grep '[r]ift-agent'; ls -ld /run/rift-agent/sessions; ls -l /run/rift-agent/sessions/session-1000.sock /run/rift-agent/session.sock; } > \(guestDirectory)/session-diagnostics.txt 2>&1\n"
             try await client.typeUSASCII(command)
             try await waitForFile(at: evidenceFile)
             NSLog("Omarchy clipboard probe captured Guest session diagnostics at %@", evidenceFile.path)

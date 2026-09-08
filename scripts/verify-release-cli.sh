@@ -5,7 +5,6 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/readonly-fixture-guard.sh
 source "$project_root/scripts/lib/readonly-fixture-guard.sh"
-source "$project_root/scripts/lib/cli-fixture-cleanup.sh"
 app_path="${1:-}"
 vm_path="${2:-}"
 timeout="${RIFTVM_VM_SMOKE_TIMEOUT:-90}"
@@ -29,14 +28,14 @@ smoke_directory="$(mktemp -d "$smoke_parent/.riftvm-cli-smoke.XXXXXX")"
 smoke_vm="$smoke_directory/CLI-Smoke.riftvm"
 second_vm="$smoke_directory/CLI-Smoke-Second.riftvm"
 cleanup() {
-  cleanup_cli_fixtures "$cli" "$smoke_directory" "$smoke_vm" "$second_vm"
+  "$cli" stop "$smoke_vm" --timeout 25 >/dev/null 2>&1 || true
+  "$cli" stop "$second_vm" --timeout 25 >/dev/null 2>&1 || true
+  rm -rf "$smoke_directory"
 }
 trap cleanup EXIT
 
 clone_readonly_fixture "$vm_path" "$smoke_vm"
 clone_readonly_fixture "$vm_path" "$second_vm"
-renew_fixture_workspace_identity "$smoke_vm"
-renew_fixture_workspace_identity "$second_vm"
 rm -f "$smoke_vm/MachineState.vzvmsave"
 rm -f "$second_vm/MachineState.vzvmsave"
 
@@ -44,22 +43,6 @@ rm -f "$second_vm/MachineState.vzvmsave"
 "$cli" inspect "$smoke_vm" | ruby -rjson -e 'JSON.parse(STDIN.read)'
 "$cli" validate "$smoke_vm" | ruby -rjson -e 'JSON.parse(STDIN.read)'
 "$cli" list --root "$smoke_directory" | ruby -rjson -e 'JSON.parse(STDIN.read)'
-
-# Framework running does not mean the guest OS has finished booting. Exercise
-# the user's explicit retry path if an early graceful shutdown goes unanswered.
-stop_guest() {
-  local response
-  if response="$("$cli" stop "$1" --timeout 30)"; then
-    printf '%s\n' "$response"
-    return 0
-  fi
-  if ! ruby -rjson -e 'exit(JSON.parse(STDIN.read).dig("error", "code") == "stop_timeout" ? 0 : 1)' <<<"$response"; then
-    printf '%s\n' "$response"
-    return 1
-  fi
-  echo "Retrying unanswered guest shutdown without force stop: $1" >&2
-  "$cli" stop "$1" --timeout 30
-}
 
 start_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "headless start failed: $start_json"
 [[ "$start_json" == *'"phase":"running"'* ]] || fail "start did not report running: $start_json"
@@ -79,9 +62,9 @@ second_start_json="$("$cli" start "$second_vm" --timeout "$timeout")" || fail "s
 second_status_json="$("$cli" status "$second_vm")"
 [[ "$second_status_json" == *'"phase":"running"'* ]] || fail "second status did not report running: $second_status_json"
 
-second_stop_json="$(stop_guest "$second_vm")" || fail "second headless stop failed: $second_stop_json"
+second_stop_json="$("$cli" stop "$second_vm" --timeout 30)" || fail "second headless stop failed: $second_stop_json"
 [[ "$second_stop_json" == *'"phase":"stopped"'* ]] || fail "second stop did not report stopped: $second_stop_json"
-stop_json="$(stop_guest "$smoke_vm")" || fail "headless stop failed: $stop_json"
+stop_json="$("$cli" stop "$smoke_vm" --timeout 30)" || fail "headless stop failed: $stop_json"
 [[ "$stop_json" == *'"phase":"stopped"'* ]] || fail "stop did not report stopped: $stop_json"
 
 # Abrupt host termination must never strand a lease or make the next boot
@@ -97,38 +80,30 @@ done
 kill -0 "$crash_pid" >/dev/null 2>&1 && fail "SIGKILL did not terminate runtime PID $crash_pid"
 restart_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "restart after SIGKILL failed: $restart_json"
 [[ "$restart_json" == *'"phase":"running"'* ]] || fail "restart after SIGKILL did not report running: $restart_json"
-stop_guest "$smoke_vm" >/dev/null || fail "stop after SIGKILL restart failed"
+"$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after SIGKILL restart failed"
 
-# A native restore error can be transient. Preserve the rejected state rather
-# than silently losing the user's memory, then explicitly remove this synthetic
-# corrupt fixture to exercise the subsequent cold-start recovery path.
+# A corrupt saved state is disposable. RiftVM must rebuild its VZVirtualMachine
+# instance and cold boot rather than present a persistent restore error.
 cp "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave"
-if saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")"; then
-  fail "corrupt saved state unexpectedly restored: $saved_state_json"
-fi
-ruby -rjson -e 'exit(JSON.parse(STDIN.read).dig("error", "code") == "start_failed" ? 0 : 1)' <<<"$saved_state_json" \
-  || fail "unexpected corrupt-state failure: $saved_state_json"
-cmp -s "$smoke_vm/config.json" "$smoke_vm/MachineState.vzvmsave" \
-  || fail "rejected saved state was changed or discarded"
-rm "$smoke_vm/MachineState.vzvmsave"
-saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after explicit state removal failed: $saved_state_json"
-[[ "$saved_state_json" == *'"phase":"running"'* ]] || fail "explicit saved-state recovery did not report running: $saved_state_json"
-stop_guest "$smoke_vm" >/dev/null || fail "stop after explicit saved-state recovery failed"
+saved_state_json="$("$cli" start "$smoke_vm" --timeout "$timeout")" || fail "cold boot after corrupt saved state failed: $saved_state_json"
+[[ "$saved_state_json" == *'"phase":"running"'* ]] || fail "saved-state fallback did not report running: $saved_state_json"
+[[ ! -e "$smoke_vm/MachineState.vzvmsave" ]] || fail "corrupt saved state was not discarded"
+"$cli" stop "$smoke_vm" --timeout 30 >/dev/null || fail "stop after saved-state fallback failed"
 
 # Reproduce the exact Virtualization.framework EFI failure seen in Linux
 # guests. macOS guests use VZMacAuxiliaryStorage rather than an EFI variable
 # store, so creating a synthetic NVRAM file there would test nothing and make
-# the three-guest matrix fail for the wrong reason.
+# the two-workspace matrix fail for the wrong reason.
 if [[ "$guest_type" == "linux" ]]; then
   truncate -s 0 "$second_vm/NVRAM"
   efi_recovery_json="$("$cli" start "$second_vm" --timeout "$timeout")" || fail "EFI recovery start failed: $efi_recovery_json"
   [[ "$efi_recovery_json" == *'"phase":"running"'* ]] || fail "EFI recovery did not report running: $efi_recovery_json"
   [[ -s "$second_vm/NVRAM" && -e "$second_vm/NVRAM.invalid-backup" ]] || fail "EFI recovery did not replace and back up NVRAM"
-  stop_guest "$second_vm" >/dev/null || fail "stop after EFI recovery failed"
+  "$cli" stop "$second_vm" --timeout 30 >/dev/null || fail "stop after EFI recovery failed"
 fi
 
 if [[ "$guest_type" == "linux" ]]; then
-  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state preservation and explicit recovery, and EFI boot recovery."
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, saved-state fallback, and EFI boot recovery."
 else
-  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, and saved-state preservation and explicit recovery."
+  echo "Verified CLI JSON, concurrent VMs, SIGKILL restart, and saved-state fallback."
 fi

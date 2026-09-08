@@ -49,14 +49,14 @@ head_commit="$(git -C "$project_root" rev-parse HEAD)"
 remote_commit="$(git -C "$project_root" rev-parse "origin/$release_branch")"
 [[ "$head_commit" == "$remote_commit" ]] || fail "HEAD must match origin/$release_branch before a release"
 
-latest_tag="$(git -C "$project_root" tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -1)"
-[[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "could not determine the latest semantic version tag"
+latest_tag="$(git -C "$project_root" tag --list 'riftvm-v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -1)"
+[[ "$latest_tag" =~ ^riftvm-v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]] || fail "could not determine the latest RiftVM semantic version tag"
 
 major="${BASH_REMATCH[1]}"
 minor="${BASH_REMATCH[2]}"
 patch="${BASH_REMATCH[3]}"
 version="$major.$minor.$((patch + 1))"
-tag="v$version"
+tag="riftvm-v$version"
 
 configured_versions="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
 configured_version_count="$(printf '%s\n' "$configured_versions" | sed '/^$/d' | wc -l | tr -d ' ')"
@@ -65,7 +65,7 @@ current_version="$configured_versions"
 if [[ "$current_version" =~ ^$major\.$minor\.([0-9]+)$ ]] && \
    (( BASH_REMATCH[1] > patch + 1 )); then
   version="$current_version"
-  tag="v$version"
+  tag="riftvm-v$version"
 fi
 if git -C "$project_root" rev-parse "$tag" >/dev/null 2>&1 || \
    git -C "$project_root" ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
@@ -76,13 +76,13 @@ configured_build_count="$(printf '%s\n' "$configured_builds" | sed '/^$/d' | wc 
 [[ "$configured_build_count" -eq 1 && "$configured_builds" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
 next_build="$configured_builds"
 
-if [[ "$current_version" == "${latest_tag#v}" ]]; then
+if [[ "$current_version" == "${latest_tag#riftvm-v}" ]]; then
   next_build="$((configured_builds + 1))"
   ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
   git -C "$project_root" add -- RiftVM/RiftVM.xcodeproj/project.pbxproj
   git -C "$project_root" commit -m "Prepare RiftVM $version (build $next_build)"
 elif [[ "$current_version" != "$version" ]]; then
-  fail "project version is $current_version, expected ${latest_tag#v} or $version"
+  fail "project version is $current_version, expected ${latest_tag#riftvm-v} or $version"
 fi
 
 echo "Running RiftVM $version release checks…"

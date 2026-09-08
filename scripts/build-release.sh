@@ -6,17 +6,11 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 output_dir="${2:-$project_root/dist}"
 derived_data="${RIFTVM_DERIVED_DATA:-}"
-build_number="${RIFTVM_BUILD_NUMBER:-1}"
 archive_name="RiftVM-${version}.zip"
 source_revision="$(git -C "$project_root" rev-parse HEAD)"
 source_tree_state="clean"
 if [[ -n "$(git -C "$project_root" status --porcelain)" ]]; then
   source_tree_state="dirty"
-fi
-
-if [[ -n "${EASYVM_SIGNING_IDENTITY:-}" ]]; then
-  echo "EASYVM_SIGNING_IDENTITY is obsolete and is not used for signing. Set RIFTVM_SIGNING_IDENTITY instead." >&2
-  exit 64
 fi
 
 if [[ -z "$version" ]]; then
@@ -28,11 +22,6 @@ if [[ "$version" == v* ]]; then
   version="${version#v}"
   archive_name="RiftVM-${version}.zip"
 fi
-
-[[ "$build_number" =~ ^[1-9][0-9]*$ ]] || {
-  echo "RIFTVM_BUILD_NUMBER must be a positive integer" >&2
-  exit 64
-}
 
 mkdir -p "$output_dir"
 
@@ -65,42 +54,18 @@ else
   virgl_runtime_source="$project_root/.build/virgl-runtime-source"
 fi
 
-if [[ -n "${RIFTVM_SIGNING_IDENTITY:-}" ]]; then
-  archive_path="$derived_data/RiftVM.xcarchive"
-  export_path="$derived_data/DeveloperIDExport"
-  xcodebuild archive \
-    -project "$project_root/RiftVM/RiftVM.xcodeproj" \
-    -scheme RiftVM \
-    -configuration Release \
-    -destination 'generic/platform=macOS' \
-    -archivePath "$archive_path" \
-    -derivedDataPath "$derived_data" \
-    -allowProvisioningUpdates \
-    RIFTVM_SOURCE_REVISION="$source_revision" \
-    RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
-    CURRENT_PROJECT_VERSION="$build_number" \
-    MARKETING_VERSION="$version"
-  xcodebuild -exportArchive \
-    -archivePath "$archive_path" \
-    -exportPath "$export_path" \
-    -exportOptionsPlist "$project_root/scripts/developer-id-export-options.plist" \
-    -allowProvisioningUpdates
-  app_path="$export_path/RiftVM.app"
-else
-  xcodebuild \
-    -project "$project_root/RiftVM/RiftVM.xcodeproj" \
-    -scheme RiftVM \
-    -configuration Release \
-    -destination 'platform=macOS,arch=arm64' \
-    -derivedDataPath "$derived_data" \
-    CODE_SIGNING_ALLOWED=NO \
-    RIFTVM_SOURCE_REVISION="$source_revision" \
-    RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
-    CURRENT_PROJECT_VERSION="$build_number" \
-    MARKETING_VERSION="$version" \
-    build
-  app_path="$derived_data/Build/Products/Release/RiftVM.app"
-fi
+xcodebuild \
+  -project "$project_root/RiftVM/RiftVM.xcodeproj" \
+  -scheme RiftVM \
+  -configuration Release \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath "$derived_data" \
+  CODE_SIGNING_ALLOWED=NO \
+  RIFTVM_SOURCE_REVISION="$source_revision" \
+  RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
+  MARKETING_VERSION="$version" \
+  build
+app_path="$derived_data/Build/Products/Release/RiftVM.app"
 if [[ -z "${RIFTVM_VIRGL_RUNTIME_SOURCE:-}" ]]; then
   (cd "$project_root" && \
     "$project_root/scripts/build-virgl-runtime-from-source.sh" "$virgl_runtime_source")
@@ -127,14 +92,12 @@ else
 fi
 entitlements_path="$project_root/RiftVM/RiftVM/RiftVM.entitlements"
 
-signing_options=(--force --deep --sign "$signing_identity")
+signing_options=(--force --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   signing_options+=(--entitlements "$entitlements_path")
   signing_options+=(--timestamp=none)
 else
-  # Preserve the application/team identifiers and capability entitlements
-  # authorized by Xcode's Developer ID export and embedded profile.
-  signing_options+=(--preserve-metadata=entitlements)
+  signing_options+=(--entitlements "$entitlements_path")
   signing_options+=(--options runtime --timestamp)
 fi
 
@@ -147,12 +110,13 @@ fi
 for library in "$virgl_runtime_destination"/*.dylib; do
   codesign "${virgl_signing_options[@]}" "$library"
 done
+codesign "${virgl_signing_options[@]}" "$app_path/Contents/Helpers/riftvm"
 "$project_root/scripts/verify-virgl-runtime.sh" "$virgl_runtime_destination"
 codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
 codesign --display --entitlements :- "$app_path"
 "$project_root/scripts/verify-release-metadata.sh" \
-  "$app_path" "$version" "$source_revision" "$source_tree_state" "$build_number"
+  "$app_path" "$version" "$source_revision" "$source_tree_state"
 
 if [[ "$signing_identity" != "-" ]]; then
   app_team_id="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
@@ -173,7 +137,12 @@ fi
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
 "$project_root/scripts/verify-production-entitlements.sh" "$app_path"
-"$project_root/scripts/verify-omarchy-release-app.sh" "$app_path" "$version" "$source_revision" "$source_tree_state"
+cli_entitlements="$(codesign --display --entitlements - "$app_path/Contents/Helpers/riftvm" 2>/dev/null || true)"
+[[ -z "$cli_entitlements" || "$cli_entitlements" == "[Dict]" ]] || {
+  echo "RiftVM CLI must not inherit the app's restricted entitlements." >&2
+  printf '%s\n' "$cli_entitlements" >&2
+  exit 68
+}
 "$project_root/scripts/verify-virgl-runtime.sh" "$app_path"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
