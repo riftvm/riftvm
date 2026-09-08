@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"time"
 )
 
 const maxInputEvents = 64
@@ -14,12 +15,17 @@ type inputEvent struct {
 }
 
 type inputBatch struct {
-	Events []inputEvent `json:"events"`
+	Events                    []inputEvent `json:"events"`
+	TraceID                   string       `json:"traceID,omitempty"`
+	HostSentAtUnixNanoseconds uint64       `json:"hostSentAtUnixNanoseconds,omitempty"`
 }
 
 type inputResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+	Success                          bool   `json:"success"`
+	Message                          string `json:"message"`
+	TraceID                          string `json:"traceID,omitempty"`
+	GuestReceivedAtUnixNanoseconds   uint64 `json:"guestReceivedAtUnixNanoseconds,omitempty"`
+	UinputCompletedAtUnixNanoseconds uint64 `json:"uinputCompletedAtUnixNanoseconds,omitempty"`
 }
 
 type guestInput interface {
@@ -66,15 +72,27 @@ func decodeInputBatch(payload []byte) ([]inputEvent, error) {
 }
 
 func handleInput(device guestInput, payload []byte) inputResult {
+	receivedAt := uint64(time.Now().UnixNano())
+	var traced inputBatch
+	_ = json.Unmarshal(payload, &traced)
+	result := inputResult{
+		TraceID:                        traced.TraceID,
+		GuestReceivedAtUnixNanoseconds: receivedAt,
+	}
 	if device == nil || !device.Available() {
-		return inputResult{Message: "uinput is unavailable"}
+		result.Message = "uinput is unavailable"
+		return result
 	}
 	events, err := decodeInputBatch(payload)
 	if err != nil {
-		return inputResult{Message: err.Error()}
+		result.Message = err.Error()
+		return result
 	}
 	if err := device.Write(events); err != nil {
-		return inputResult{Message: "could not inject input"}
+		result.Message = "could not inject input"
+		return result
 	}
-	return inputResult{Success: true}
+	result.Success = true
+	result.UinputCompletedAtUnixNanoseconds = uint64(time.Now().UnixNano())
+	return result
 }

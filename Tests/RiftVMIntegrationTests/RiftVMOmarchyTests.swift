@@ -482,6 +482,77 @@ final class RiftVMOmarchyTests: XCTestCase {
         bridge.stop()
     }
 
+    func testDesktopInputBackendUsesOnePathOnlyAfterDesktopReadiness() {
+        func status(
+            capabilities: Set<String> = ["input-uinput-v1", "desktop-input-v1"],
+            active: Bool = true,
+            provisioning: Bool = false
+        ) -> VMOmarchyGuestStatus {
+            VMOmarchyGuestStatus(
+                agentVersion: "test", hostName: "omarchy", addresses: [],
+                capabilities: capabilities, desktopSessionActive: active,
+                provisioningPending: provisioning
+            )
+        }
+
+        XCTAssertTrue(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status()))
+        XCTAssertTrue(OmarchyDesktopInputBackend.guestAgent.usesGuestAgent(status: status()))
+        XCTAssertFalse(OmarchyDesktopInputBackend.appleUSB.usesGuestAgent(status: status()))
+        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status(active: false)))
+        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(status: status(provisioning: true)))
+        XCTAssertFalse(OmarchyDesktopInputBackend.automatic.usesGuestAgent(
+            status: status(capabilities: ["input-uinput-v1"])
+        ))
+        XCTAssertEqual(
+            OmarchyDesktopInputBackend.configured(in: ["RIFTVM_OMARCHY_INPUT_BACKEND": "usb"]),
+            .appleUSB
+        )
+        XCTAssertEqual(
+            OmarchyDesktopInputBackend.configured(in: ["RIFTVM_OMARCHY_INPUT_BACKEND": "uinput"]),
+            .guestAgent
+        )
+    }
+
+    @MainActor
+    func testDesktopUinputForwardsDownRepeatUpWithoutNativeDuplication() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        func event(_ type: NSEvent.EventType, repeat isRepeat: Bool = false) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: 0, context: nil, characters: "a",
+                charactersIgnoringModifiers: "a", isARepeat: isRepeat, keyCode: 0
+            ))
+        }
+
+        view.keyDown(with: try event(.keyDown))
+        view.keyDown(with: try event(.keyDown, repeat: true))
+        view.keyUp(with: try event(.keyUp))
+        XCTAssertEqual(batches.count, 3)
+        XCTAssertEqual(batches[0], VMGuestAgentInputBatch.key(code: 30, pressed: true).events)
+        XCTAssertEqual(batches[1], [
+            VMGuestAgentInputEvent(type: 1, code: 30, value: 2),
+            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+        ])
+        XCTAssertEqual(batches[2], VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
+    }
+
+    @MainActor
+    func testDisablingDesktopUinputReleasesHeldKeys() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        let down = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: 0, context: nil, characters: "a",
+            charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0
+        ))
+        view.keyDown(with: down)
+        view.setGuestInputEventHandler(nil)
+        XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
+    }
+
     @MainActor
     func testDirectViewCommandDeliveryRoutesBalancedChordWithoutLocalMonitor() throws {
         var forwarded: [CGKeyCode] = []

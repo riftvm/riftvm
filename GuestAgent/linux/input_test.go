@@ -76,3 +76,24 @@ func TestInputReportsUnavailableAndWriteFailure(t *testing.T) {
 		t.Fatal("reported failed uinput write as successful")
 	}
 }
+
+func TestInputTraceReportsGuestReceiveAndUinputCompletion(t *testing.T) {
+	payload, err := json.Marshal(inputBatch{
+		Events:                    []inputEvent{{Type: 1, Code: 30, Value: 1}, {Type: 0}},
+		TraceID:                   "trace-1",
+		HostSentAtUnixNanoseconds: 42,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := handleInput(&recordingInput{available: true}, payload)
+	if !result.Success || result.TraceID != "trace-1" {
+		t.Fatalf("trace identity was not preserved: %#v", result)
+	}
+	if result.GuestReceivedAtUnixNanoseconds == 0 || result.UinputCompletedAtUnixNanoseconds == 0 {
+		t.Fatalf("trace timestamps were not populated: %#v", result)
+	}
+	if result.UinputCompletedAtUnixNanoseconds < result.GuestReceivedAtUnixNanoseconds {
+		t.Fatalf("uinput completion preceded receipt: %#v", result)
+	}
+}

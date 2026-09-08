@@ -213,6 +213,14 @@ public struct VMOmarchyDesktopNotificationBatch: Codable, Equatable, Sendable {
     public let notifications: [VMOmarchyDesktopNotification]?
 }
 
+struct VMOmarchyInputTraceResult: Equatable, Sendable {
+    let traceID: String
+    let hostSentAtUnixNanoseconds: UInt64
+    let guestReceivedAtUnixNanoseconds: UInt64
+    let uinputCompletedAtUnixNanoseconds: UInt64
+    let hostAcknowledgedAtUnixNanoseconds: UInt64
+}
+
 enum VMOmarchyConnectionSuspensionReason: Hashable {
     case hostSleeping
     case virtualMachinePaused
@@ -264,6 +272,8 @@ public final class VMOmarchyGuestAgentClient {
     private var stopped = false
     private var capabilities: Set<String> = []
     private var pendingRequests: [String: PendingRequest] = [:]
+    private var pendingInputBatches: [[VMGuestAgentInputEvent]] = []
+    private var inputTask: Task<Void, Never>?
 
     /// Latest capabilities advertised by the authenticated Guest session.
     /// Session-scoped capabilities can appear after the system Agent is ready
@@ -304,6 +314,9 @@ public final class VMOmarchyGuestAgentClient {
         connection = nil
         sessionID = nil
         capabilities.removeAll()
+        inputTask?.cancel()
+        inputTask = nil
+        pendingInputBatches.removeAll()
         failPendingRequests(CancellationError())
     }
 
@@ -317,6 +330,109 @@ public final class VMOmarchyGuestAgentClient {
 
     public func requestShutdown() { send(.shutdown) }
     public func requestRestart() { send(.restart) }
+
+    func sendInputEvents(_ events: [VMGuestAgentInputEvent]) {
+        guard !events.isEmpty,
+              events.count <= VMGuestAgentInputBatch.maximumEventCount,
+              events.last == VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
+              capabilities.contains("input-uinput-v1"), sessionID != nil else { return }
+        pendingInputBatches.append(events)
+        guard inputTask == nil else { return }
+        inputTask = Task { [weak self] in await self?.drainInputQueue() }
+    }
+
+    private func drainInputQueue() async {
+        defer { inputTask = nil }
+        while !Task.isCancelled, !pendingInputBatches.isEmpty {
+            await Task.yield()
+            var events: [VMGuestAgentInputEvent] = []
+            while let next = pendingInputBatches.first,
+                  events.count + next.count <= VMGuestAgentInputBatch.maximumEventCount {
+                events.append(contentsOf: next)
+                pendingInputBatches.removeFirst()
+            }
+            let traceEnabled = ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
+            let traceID = traceEnabled ? UUID().uuidString.lowercased() : nil
+            let sentAt = traceEnabled ? Self.unixNanoseconds() : nil
+            let hostStarted = DispatchTime.now().uptimeNanoseconds
+            do {
+                let result: VMGuestAgentInputResult = try await request(
+                    .input,
+                    payload: VMGuestAgentInputBatch(
+                        events: events,
+                        traceID: traceID,
+                        hostSentAtUnixNanoseconds: sentAt
+                    )
+                )
+                guard result.success else {
+                    throw NSError(
+                        domain: "RiftVMOmarchyInput", code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: result.message]
+                    )
+                }
+                if traceEnabled {
+                    let ackAt = Self.unixNanoseconds()
+                    let roundTrip = Double(DispatchTime.now().uptimeNanoseconds - hostStarted) / 1_000_000
+                    let guestWrite = result.guestReceivedAtUnixNanoseconds.flatMap { received in
+                        result.uinputCompletedAtUnixNanoseconds.map { Double($0 - received) / 1_000_000 }
+                    }
+                    NSLog(
+                        "RiftVM input trace id=%@ events=%d hostSentNs=%llu guestReceivedNs=%llu uinputCompletedNs=%llu hostAckNs=%llu roundTripMs=%.3f guestWriteMs=%.3f",
+                        result.traceID ?? traceID ?? "missing", events.count, sentAt ?? 0,
+                        result.guestReceivedAtUnixNanoseconds ?? 0,
+                        result.uinputCompletedAtUnixNanoseconds ?? 0,
+                        ackAt, roundTrip, guestWrite ?? -1
+                    )
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                pendingInputBatches.removeAll()
+                NSLog("Omarchy desktop input forwarding failed: %@", error.localizedDescription)
+                return
+            }
+        }
+    }
+
+    func injectTracedInputEvents(
+        _ events: [VMGuestAgentInputEvent],
+        traceID: String = UUID().uuidString.lowercased()
+    ) async throws -> VMOmarchyInputTraceResult {
+        guard capabilities.contains("input-uinput-v1") else {
+            throw CocoaError(.featureUnsupported)
+        }
+        let hostSentAt = Self.unixNanoseconds()
+        let result: VMGuestAgentInputResult = try await request(
+            .input,
+            payload: VMGuestAgentInputBatch(
+                events: events,
+                traceID: traceID,
+                hostSentAtUnixNanoseconds: hostSentAt
+            )
+        )
+        guard result.success else {
+            throw NSError(
+                domain: "RiftVMOmarchyInput", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: result.message]
+            )
+        }
+        guard result.traceID == traceID,
+              let guestReceivedAt = result.guestReceivedAtUnixNanoseconds,
+              let completedAt = result.uinputCompletedAtUnixNanoseconds else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return VMOmarchyInputTraceResult(
+            traceID: traceID,
+            hostSentAtUnixNanoseconds: hostSentAt,
+            guestReceivedAtUnixNanoseconds: guestReceivedAt,
+            uinputCompletedAtUnixNanoseconds: completedAt,
+            hostAcknowledgedAtUnixNanoseconds: Self.unixNanoseconds()
+        )
+    }
+
+    private nonisolated static func unixNanoseconds() -> UInt64 {
+        UInt64(Date().timeIntervalSince1970 * 1_000_000_000)
+    }
 
     public func provisionOwner(_ request: VMOmarchyOwnerProvisioningRequest) async throws {
         guard capabilities.contains("owner-provisioning-v1") else {

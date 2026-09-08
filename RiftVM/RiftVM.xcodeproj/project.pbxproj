@@ -12,6 +12,7 @@
 		306AEB3B497B8DD9772B2124 /* VMOmarchyFactoryManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 516FD555DC04ABE24EC74623 /* VMOmarchyFactoryManifest.swift */; };
 		3B3DE7B5220BD32916EAF208 /* VMOmarchyGuestAgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1471ED4B2D5A3896B2C74FDA /* VMOmarchyGuestAgentClient.swift */; };
 		5553AC94B3D5830E818ADB3C /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
+		58A4E3E513A14D628BF10B71 /* OmarchyInputLatencyAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30A9FD15C25C47C4A0E7524D /* OmarchyInputLatencyAcceptanceProbe.swift */; };
 		655C4B3505B05EAD27789719 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */; };
 		7A211B906FEAE84F4B02A237 /* VMOmarchySharedFolderImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699062CED4109B9C80794E8C /* VMOmarchySharedFolderImporter.swift */; };
 		848576FDFEBEF449A8B21DCD /* OmarchyAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93144A0A4F0503875A3CC2B /* OmarchyAccessibilityTests.swift */; };
@@ -134,6 +135,7 @@
 		208963952AC64CED33E914A7 /* OmarchyFullScreenAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyFullScreenAcceptanceProbe.swift; sourceTree = "<group>"; };
 		22E705174EF14A3A0A0D9069 /* OmarchyFocusedCommandBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyFocusedCommandBridge.swift; sourceTree = "<group>"; };
 		23CF9B9EFF2DA5783381E6D3 /* OmarchyApplicationTermination.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyApplicationTermination.swift; sourceTree = "<group>"; };
+		30A9FD15C25C47C4A0E7524D /* OmarchyInputLatencyAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyInputLatencyAcceptanceProbe.swift; sourceTree = "<group>"; };
 		3854C40D734F709F87949946 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyInputDiagnosticsAcceptanceProbe.swift; sourceTree = "<group>"; };
 		4323918A072349A10EE035FA /* OmarchyClipboardAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyClipboardAcceptanceProbe.swift; sourceTree = "<group>"; };
 		4FDCE5EF0F509F3741AC3ADA /* OmarchyNotificationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyNotificationController.swift; sourceTree = "<group>"; };
@@ -649,6 +651,7 @@
 				22E705174EF14A3A0A0D9069 /* OmarchyFocusedCommandBridge.swift */,
 				208963952AC64CED33E914A7 /* OmarchyFullScreenAcceptanceProbe.swift */,
 				3854C40D734F709F87949946 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */,
+				30A9FD15C25C47C4A0E7524D /* OmarchyInputLatencyAcceptanceProbe.swift */,
 				1AE7BCFDA03496FF1C1E01F3 /* OmarchyLockAcceptanceState.swift */,
 				4FDCE5EF0F509F3741AC3ADA /* OmarchyNotificationController.swift */,
 				8F1EA7AC1E7A4230AF03C587 /* OmarchyOwnerSetupView.swift */,
@@ -854,6 +857,7 @@
 				EEAFD1ADA4E64380D73A13A2 /* OmarchyFocusedCommandBridge.swift in Sources */,
 				B06147D7D3226273A3AD73C6 /* OmarchyFullScreenAcceptanceProbe.swift in Sources */,
 				D81A83AE99AF9FEF06BDB513 /* OmarchyInputDiagnosticsAcceptanceProbe.swift in Sources */,
+				58A4E3E513A14D628BF10B71 /* OmarchyInputLatencyAcceptanceProbe.swift in Sources */,
 				BF5CB62F598B961145851456 /* OmarchyLockAcceptanceState.swift in Sources */,
 				99D707A75AFAD189109A2B46 /* OmarchyNotificationController.swift in Sources */,
 				851CC8624BD0392211035418 /* OmarchyOwnerSetupView.swift in Sources */,

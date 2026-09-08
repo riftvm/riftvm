@@ -178,6 +178,18 @@ struct VMGuestAgentInputEvent: Codable, Equatable {
 struct VMGuestAgentInputBatch: Codable, Equatable {
     static let maximumEventCount = 64
     let events: [VMGuestAgentInputEvent]
+    let traceID: String?
+    let hostSentAtUnixNanoseconds: UInt64?
+
+    init(
+        events: [VMGuestAgentInputEvent],
+        traceID: String? = nil,
+        hostSentAtUnixNanoseconds: UInt64? = nil
+    ) {
+        self.events = events
+        self.traceID = traceID
+        self.hostSentAtUnixNanoseconds = hostSentAtUnixNanoseconds
+    }
 
     static func key(code: UInt16, pressed: Bool) -> Self {
         VMGuestAgentInputBatch(events: [
@@ -190,6 +202,23 @@ struct VMGuestAgentInputBatch: Codable, Equatable {
 struct VMGuestAgentInputResult: Codable, Equatable {
     let success: Bool
     let message: String
+    let traceID: String?
+    let guestReceivedAtUnixNanoseconds: UInt64?
+    let uinputCompletedAtUnixNanoseconds: UInt64?
+
+    init(
+        success: Bool,
+        message: String,
+        traceID: String? = nil,
+        guestReceivedAtUnixNanoseconds: UInt64? = nil,
+        uinputCompletedAtUnixNanoseconds: UInt64? = nil
+    ) {
+        self.success = success
+        self.message = message
+        self.traceID = traceID
+        self.guestReceivedAtUnixNanoseconds = guestReceivedAtUnixNanoseconds
+        self.uinputCompletedAtUnixNanoseconds = uinputCompletedAtUnixNanoseconds
+    }
 }
 
 /// Encodes the deliberately small US-ASCII subset used by automated guest
