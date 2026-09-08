@@ -92,7 +92,7 @@ else
 fi
 entitlements_path="$project_root/RiftVM/RiftVM/RiftVM.entitlements"
 
-signing_options=(--force --deep --sign "$signing_identity")
+signing_options=(--force --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   signing_options+=(--entitlements "$entitlements_path")
   signing_options+=(--timestamp=none)
@@ -110,6 +110,7 @@ fi
 for library in "$virgl_runtime_destination"/*.dylib; do
   codesign "${virgl_signing_options[@]}" "$library"
 done
+codesign "${virgl_signing_options[@]}" "$app_path/Contents/Helpers/riftvm"
 "$project_root/scripts/verify-virgl-runtime.sh" "$virgl_runtime_destination"
 codesign "${signing_options[@]}" "$app_path"
 codesign --verify --deep --strict --verbose=2 "$app_path"
@@ -136,6 +137,12 @@ fi
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
 "$project_root/scripts/verify-production-entitlements.sh" "$app_path"
+cli_entitlements="$(codesign --display --entitlements - "$app_path/Contents/Helpers/riftvm" 2>/dev/null || true)"
+[[ -z "$cli_entitlements" || "$cli_entitlements" == "[Dict]" ]] || {
+  echo "RiftVM CLI must not inherit the app's restricted entitlements." >&2
+  printf '%s\n' "$cli_entitlements" >&2
+  exit 68
+}
 "$project_root/scripts/verify-virgl-runtime.sh" "$app_path"
 
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$output_dir/$archive_name"
