@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "RiftVMCLIKit", targets: ["RiftVMCLIKit"]),
         .executable(name: "riftvm", targets: ["riftvm"]),
         .executable(name: "omarchy-factory-tool", targets: ["OmarchyFactoryTool"]),
+        .executable(name: "omarchy-workspace-acceptance-tool", targets: ["OmarchyWorkspaceAcceptanceTool"]),
         .executable(name: "omarchy-rollback-acceptance-tool", targets: ["OmarchyRollbackAcceptanceTool"]),
         .executable(name: "omarchy-soak-acceptance-tool", targets: ["OmarchySoakAcceptanceTool"]),
     ],
@@ -76,6 +77,11 @@ let package = Package(
             name: "OmarchyFactoryTool",
             dependencies: ["RiftVMCore"],
             path: "Tools/OmarchyFactoryTool"
+        ),
+        .executableTarget(
+            name: "OmarchyWorkspaceAcceptanceTool",
+            dependencies: ["RiftVMCore"],
+            path: "Tools/OmarchyWorkspaceAcceptanceTool"
         ),
         .executableTarget(
             name: "OmarchyRollbackAcceptanceTool",
