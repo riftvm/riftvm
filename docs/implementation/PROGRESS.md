@@ -543,3 +543,9 @@ Long soak and sleep/wake certification remain explicitly deferred. All other req
 
 - Built signed build 25 from 0ba6023568f1f8c75f85a6f090b957896c74f622; ZIP SHA-256 6cfecc3951625f9d5b92f0dcaab24f3db5e77ebf0a09699db3572439f6d70fd2. Installed after the previous App and guest processes exited; strict installed signature passed. Omarchy New cold login reached its desktop and later stopped normally. This single login does not clear the deferred intermittent input issue.
 - Repeated the temporary read-only folder grant/removal GUI test. AX labels now name the folder but controls still appear as one List row: the accessibility fix is not verified. Replaced this nonselectable form's List with ScrollView/VStack to avoid list-row semantics; unsigned native build passed. Further runtime verification remains required. Removed the temporary grant and closed the stopped workspace window.
+
+### 2026-09-07 — Build 26 CLI acceptance
+
+- Signed build 26 was built from ca18a58 (full revision available in Git), with ZIP SHA-256 9fe7862c87c53fbd04cfc3dd7744b6a2fde4bc13719e14a015c140d12d21741e. Build/resource/signature round-trip completed successfully. It has not replaced installed build 25.
+- Its exported signed App passed the full CLI verifier using independent Debian-DiskOnly copies: JSON, concurrent guests, duplicate-start ownership, SIGKILL restart, rejected-state preservation/explicit recovery and EFI recovery. Exit status 0, four graceful shutdown retries. Log: /private/tmp/riftvm-candidate26/cli-acceptance.log. Temporary .riftvm-cli-smoke.OXOCa1 was confirmed removed.
+- Installed build 25 AX observation repeatedly timed out. A three-second process sample showed 2448 of 2449 main-thread samples waiting in the normal event run loop, not a sustained main-thread block. Sample: /private/tmp/riftvm-build25-ax-timeout.sample.txt. This does not identify the cause or prove UI responsiveness; runtime folder-control verification is still pending.
