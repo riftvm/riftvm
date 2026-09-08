@@ -81,4 +81,47 @@ class UnifiedAcceptanceTest < Minitest::Test
     @report.delete("factoryManifestSHA256")
     assert_raises(RuntimeError) { verify }
   end
+  def enable_input_deferral
+    @report["schemaVersion"] = 2
+    @report["checks"]["omarchy_keyboard_responsiveness"] =
+      @report["checks"].values.first.merge(
+        "status" => "deferred", "issue" => UnifiedAcceptance::DEFERRED_INPUT_ISSUE,
+        "ownerApproval" => "2026-09-07")
+  end
+
+  def test_explicit_input_deferral_retains_evidence_requirements
+    enable_input_deferral
+    assert verify
+    @report["checks"]["omarchy_keyboard_responsiveness"]["evidence"] = []
+    assert_raises(RuntimeError) { verify }
+  end
+
+  def test_deferral_cannot_waive_other_checks
+    enable_input_deferral
+    UnifiedAcceptance::REQUIRED.each do |name|
+      check = @report["checks"][name]
+      @report["checks"][name] = @report["checks"]["omarchy_keyboard_responsiveness"]
+      assert_raises(RuntimeError, name) { verify }
+      @report["checks"][name] = check
+    end
+  end
+
+  def test_deferral_requires_exact_issue_and_approval
+    enable_input_deferral
+    check = @report["checks"]["omarchy_keyboard_responsiveness"]
+    %w[issue ownerApproval].each do |key|
+      value = check.delete(key)
+      assert_raises(RuntimeError) { verify }
+      check[key] = value
+    end
+    @report["schemaVersion"] = 1
+    @report["checks"]["focused_input_clipboard_isolation"] = check
+    assert_raises(RuntimeError) { verify }
+  end
+
+  def test_schema_two_requires_keyboard_result
+    @report["schemaVersion"] = 2
+    assert_raises(RuntimeError) { verify }
+  end
+
 end

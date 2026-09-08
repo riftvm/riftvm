@@ -12,12 +12,14 @@ module UnifiedAcceptance
     windowed_fullscreen_display
   ].freeze
 
+  DEFERRED_INPUT_ISSUE = "omarchy-keyboard-latency-return".freeze
+
   def self.verify(archive, report_path, version, commit)
     [archive, report_path].each do |path|
       raise "missing or unsafe acceptance input" unless File.file?(path) && !File.symlink?(path)
     end
     report = JSON.parse(File.read(report_path))
-    raise "unsupported acceptance schema" unless report.is_a?(Hash) && report["schemaVersion"] == 1
+    raise "unsupported acceptance schema" unless report.is_a?(Hash) && [1, 2].include?(report["schemaVersion"])
     raise "candidate version mismatch" unless report["version"] == version
     raise "candidate source mismatch" unless commit.match?(/\A[0-9a-f]{40}\z/) && report["sourceCommit"] == commit
     raise "candidate archive mismatch" unless report["archiveSHA256"] == Digest::SHA256.file(archive).hexdigest
@@ -29,9 +31,20 @@ module UnifiedAcceptance
     checks = report["checks"]
     raise "missing acceptance checks" unless checks.is_a?(Hash)
     base = File.realpath(File.dirname(report_path)) + File::SEPARATOR
-    REQUIRED.each do |name|
+    required = REQUIRED + (report["schemaVersion"] == 2 ? ["omarchy_keyboard_responsiveness"] : [])
+    required.each do |name|
       check = checks[name]
-      raise "acceptance check not passed: #{name}" unless check.is_a?(Hash) && check["status"] == "passed"
+      raise "missing acceptance check: #{name}" unless check.is_a?(Hash)
+      if check["status"] == "deferred"
+        unless report["schemaVersion"] == 2 && version == "0.1.0" &&
+               name == "omarchy_keyboard_responsiveness" &&
+               check["issue"] == DEFERRED_INPUT_ISSUE &&
+               check["ownerApproval"] == "2026-09-07"
+          raise "unapproved acceptance deferral: #{name}"
+        end
+      elsif check["status"] != "passed"
+        raise "acceptance check not passed: #{name}"
+      end
       raise "missing observed result: #{name}" unless check["observation"].is_a?(String) && !check["observation"].strip.empty?
       files = check["evidence"]
       raise "missing evidence: #{name}" unless files.is_a?(Array) && !files.empty?
@@ -51,7 +64,7 @@ if $PROGRAM_NAME == __FILE__
   abort "usage: verify-unified-acceptance.rb <archive> <report.json> <version> <source-commit>" unless ARGV.length == 4
   begin
     UnifiedAcceptance.verify(*ARGV)
-    puts "Verified complete, artifact-bound unified acceptance record; observations require human review."
+    puts "Verified artifact-bound unified acceptance record; review observations and any explicit input deferral."
   rescue StandardError => error
     warn "Unified acceptance rejected: #{error.message}"
     exit 1

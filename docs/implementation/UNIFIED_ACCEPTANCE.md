@@ -8,9 +8,9 @@ older candidate. `scripts/verify-unified-acceptance.rb` checks completeness and
 hash binding; it cannot establish that a human observation is true or that its
 coverage is sufficient. Review each attachment before recording a pass.
 
-Schema version 1 has these top-level fields:
+Schema versions 1 and 2 have these top-level fields:
 
-- `schemaVersion`: 1
+- `schemaVersion`: 1 or 2
 - `version`, `sourceCommit`, `archiveSHA256`: exact candidate identity
 - `tester`, `testedAt`, `hostModel`, `hostOS`, `toolchain`: actual test context
 - `factoryManifestSHA256`, `agentRevision`: factory and Agent provenance
@@ -60,7 +60,17 @@ The owner approved deferring Omarchy ordinary-key input latency and unresponsive
 Return to a separate follow-up for 0.1.0. Record this as an explicit known issue,
 never as a passing input result. The exception is limited to that bug; clipboard
 and notification isolation, all other functional checks and distribution checks
-remain required. The schema-1 verifier still requires passing composite checks;
-an explicit representation of this narrow exception is needed before a release
-report can honestly pass validation. Do not mark a composite check passed merely
-because one of its subrequirements was deferred.
+remain required. Use schema 2 to record the exception: it adds the required
+`omarchy_keyboard_responsiveness` check. That check may have `status: deferred`
+only for version `0.1.0`, with `issue: omarchy-keyboard-latency-return` and
+`ownerApproval: 2026-09-07`. Its observation and hash-bound evidence are still
+required and must describe the actual failure and approval scope. A fixed input
+path can instead be recorded as `passed` after verification.
+
+In schema 2, `focused_input_clipboard_isolation` still requires correct target
+routing, modifier release, clipboard and notification isolation; ordinary-key
+response latency and unresponsive Return are assessed separately by the new
+check. `windowed_fullscreen_display` still requires geometry, pointer alignment
+and no toolbar overlap. No other check accepts `deferred`. Schema 1 retains its
+original all-passing behavior. Neither schema establishes the truth of submitted
+observations; review evidence before publishing.
