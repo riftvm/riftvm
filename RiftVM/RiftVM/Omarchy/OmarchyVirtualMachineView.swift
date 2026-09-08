@@ -2618,32 +2618,35 @@ private struct OmarchyFolderPermissionsView: View {
             if !canEdit {
                 Text("Shut down this workspace to change permissions.").foregroundStyle(.secondary)
             }
-            List {
-                if grants.isEmpty { Text("No host folders shared").foregroundStyle(.secondary) }
-                ForEach(grants) { grant in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(grant.directory.path).textSelection(.enabled)
-                        Text("~/Mac/\(grant.guestName)").font(.caption).foregroundStyle(.secondary)
-                        HStack {
-                            Picker("Access", selection: Binding(get: { grant.readOnly }, set: { value in
-                                var changed = grants
-                                if let index = changed.firstIndex(where: { $0.id == grant.id }) {
-                                    changed[index].readOnly = value
-                                    save(changed)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if grants.isEmpty { Text("No host folders shared").foregroundStyle(.secondary) }
+                    ForEach(grants) { grant in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(grant.directory.path).textSelection(.enabled)
+                            Text("~/Mac/\(grant.guestName)").font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                Picker("Access", selection: Binding(get: { grant.readOnly }, set: { value in
+                                    var changed = grants
+                                    if let index = changed.firstIndex(where: { $0.id == grant.id }) {
+                                        changed[index].readOnly = value
+                                        save(changed)
+                                    }
+                                })) {
+                                    Text("Read Only").tag(true)
+                                    Text("Read & Write").tag(false)
                                 }
-                            })) {
-                                Text("Read Only").tag(true)
-                                Text("Read & Write").tag(false)
-                            }
-                            .accessibilityLabel("Access for \(grant.directory.lastPathComponent)")
-                            Button("Remove", role: .destructive) { save(grants.filter { $0.id != grant.id }) }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Remove shared folder \(grant.directory.lastPathComponent)")
-                        }.disabled(!canEdit || !loaded)
+                                .accessibilityLabel("Access for \(grant.directory.lastPathComponent)")
+                                Button("Remove", role: .destructive) { save(grants.filter { $0.id != grant.id }) }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Remove shared folder \(grant.directory.lastPathComponent)")
+                            }.disabled(!canEdit || !loaded)
+                        }
+                        .accessibilityElement(children: .contain)
+                        .padding(.vertical, 6)
                     }
-                    .accessibilityElement(children: .contain)
-                    .padding(.vertical, 6)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }.frame(minHeight: 220)
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
             HStack {
