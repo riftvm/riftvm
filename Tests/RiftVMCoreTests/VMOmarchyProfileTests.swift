@@ -11,7 +11,7 @@ final class VMOmarchyProfileTests: XCTestCase {
         XCTAssertTrue(profile.factoryGuestCapabilities.contains("owner-provisioning-v1"))
         XCTAssertFalse(profile.requiredGuestCapabilities.contains("owner-provisioning-v1"))
         XCTAssertFalse(profile.factoryImage.manifestURL.path.contains("/latest/"))
-        XCTAssertTrue(profile.factoryImage.manifestURL.path.contains("/v4.0.0-alpha-riftvm.1/"))
+        XCTAssertTrue(profile.factoryImage.manifestURL.path.contains("/v4.0.2-riftvm.2/"))
         XCTAssertEqual(profile.factoryImage.manifestURL.lastPathComponent, "riftvm-omarchy-factory-manifest.json")
         XCTAssertEqual(profile.factoryImage.signingKeyID, "riftvm-omarchy-factory-2026")
     }
