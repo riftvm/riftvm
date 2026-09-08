@@ -2635,9 +2635,14 @@ private struct OmarchyFolderPermissionsView: View {
                                 Text("Read Only").tag(true)
                                 Text("Read & Write").tag(false)
                             }
+                            .accessibilityLabel("Access for \(grant.directory.lastPathComponent)")
                             Button("Remove", role: .destructive) { save(grants.filter { $0.id != grant.id }) }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Remove shared folder \(grant.directory.lastPathComponent)")
                         }.disabled(!canEdit || !loaded)
-                    }.padding(.vertical, 6)
+                    }
+                    .accessibilityElement(children: .contain)
+                    .padding(.vertical, 6)
                 }
             }.frame(minHeight: 220)
             if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
