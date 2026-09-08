@@ -61,6 +61,8 @@ xcodebuild \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$derived_data" \
   CODE_SIGNING_ALLOWED=NO \
+  CLANG_ENABLE_CODE_COVERAGE=NO \
+  ENABLE_CODE_COVERAGE=NO \
   RIFTVM_SOURCE_REVISION="$source_revision" \
   RIFTVM_SOURCE_TREE_STATE="$source_tree_state" \
   MARKETING_VERSION="$version" \
@@ -92,6 +94,40 @@ else
 fi
 entitlements_path="$project_root/RiftVM/RiftVM/RiftVM.entitlements"
 
+find_direct_provisioning_profile() {
+  local newest=""
+  local candidate
+  for candidate in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/"*.provisionprofile; do
+    [[ -f "$candidate" ]] || continue
+    if strings "$candidate" | grep -Fqx '<string>Mac Team Direct Provisioning Profile: com.riftvm.app</string>' &&
+       strings "$candidate" | grep -Fqx '<string>YPV49M8592.com.riftvm.app</string>' &&
+       strings "$candidate" | grep -Fqx '<key>ProvisionsAllDevices</key>'; then
+      if [[ -z "$newest" || "$candidate" -nt "$newest" ]]; then
+        newest="$candidate"
+      fi
+    fi
+  done
+  printf '%s\n' "$newest"
+}
+
+if [[ "$signing_identity" != "-" ]]; then
+  provisioning_profile="${RIFTVM_PROVISIONING_PROFILE:-$(find_direct_provisioning_profile)}"
+  [[ -f "$provisioning_profile" ]] || {
+    echo "RiftVM Developer ID provisioning profile was not found." >&2
+    echo "Export a Developer ID archive in Xcode or set RIFTVM_PROVISIONING_PROFILE." >&2
+    exit 68
+  }
+  strings "$provisioning_profile" | grep -Fqx '<string>YPV49M8592.com.riftvm.app</string>' || {
+    echo "Provisioning profile does not match YPV49M8592.com.riftvm.app: $provisioning_profile" >&2
+    exit 68
+  }
+  strings "$provisioning_profile" | grep -Fqx '<key>ProvisionsAllDevices</key>' || {
+    echo "Provisioning profile is not a Developer ID distribution profile: $provisioning_profile" >&2
+    exit 68
+  }
+  ditto "$provisioning_profile" "$app_path/Contents/embedded.provisionprofile"
+fi
+
 signing_options=(--force --sign "$signing_identity")
 if [[ "$signing_identity" == "-" ]]; then
   signing_options+=(--entitlements "$entitlements_path")
@@ -119,6 +155,10 @@ codesign --display --entitlements :- "$app_path"
   "$app_path" "$version" "$source_revision" "$source_tree_state"
 
 if [[ "$signing_identity" != "-" ]]; then
+  [[ -f "$app_path/Contents/embedded.provisionprofile" ]] || {
+    echo "Developer ID build is missing its embedded provisioning profile." >&2
+    exit 68
+  }
   app_team_id="$(codesign --display --verbose=4 "$app_path" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
   [[ -n "$app_team_id" ]] || {
     echo "Developer ID build has no TeamIdentifier: $app_path" >&2
@@ -137,6 +177,10 @@ fi
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
 "$project_root/scripts/verify-production-entitlements.sh" "$app_path"
+if otool -l "$app_path/Contents/MacOS/RiftVM" | grep -Eq '__llvm_prf|__llvm_cov'; then
+  echo "RiftVM release executable contains coverage instrumentation." >&2
+  exit 68
+fi
 cli_entitlements="$(codesign --display --entitlements - "$app_path/Contents/Helpers/riftvm" 2>/dev/null || true)"
 [[ -z "$cli_entitlements" || "$cli_entitlements" == "[Dict]" ]] || {
   echo "RiftVM CLI must not inherit the app's restricted entitlements." >&2

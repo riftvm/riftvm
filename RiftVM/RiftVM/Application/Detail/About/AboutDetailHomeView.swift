@@ -106,14 +106,14 @@ struct AboutDetailHomeView: View {
             DetailLinkCardView(
                 image: "chevron.left.forwardslash.chevron.right",
                 title: "Source Code",
-                subtitle: "github.com/everettjf/riftvm",
-                urlString: "https://github.com/everettjf/riftvm"
+                subtitle: "github.com/riftvm/riftvm",
+                urlString: "https://github.com/riftvm/riftvm"
             )
             DetailLinkCardView(
                 image: "shippingbox",
                 title: "Releases",
                 subtitle: "Download the latest version",
-                urlString: "https://github.com/everettjf/riftvm/releases"
+                urlString: "https://github.com/riftvm/riftvm/releases"
             )
 
             Spacer()

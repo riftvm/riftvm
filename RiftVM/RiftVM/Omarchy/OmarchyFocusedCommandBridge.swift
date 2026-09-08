@@ -10,7 +10,7 @@ enum OmarchyHostKeyboardTextEncoder {
     /// Matches the 25 ms spacing used for each key-down and key-up event and
     /// leaves a small margin for the final event to reach the virtual keyboard.
     static func deliveryDuration(for text: String) -> Duration {
-        .milliseconds(text.count * 50 + 250)
+        .milliseconds((strokes(for: text) ?? []).reduce(0) { $0 + ($1.shifted ? 100 : 50) } + 250)
     }
 
     static func strokes(for text: String) -> [OmarchyHostKeyboardStroke]? {
@@ -107,12 +107,14 @@ final class OmarchyFocusedCommandBridge {
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
     private let redirectedCommandChord: (CGKeyCode, CGEventFlags) -> Bool
     private let commandSpaceCaptured: () -> Void
+    private var localMonitor: Any?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
     private var activationObserver: NSObjectProtocol?
     private var commandSpaceState = OmarchyCommandSpaceCaptureState()
     private var agentForwardedKeys = Set<CGKeyCode>()
+    private var virtualKeyboardForwardedKeys = Set<CGKeyCode>()
 
     static let accessibilitySettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
@@ -154,6 +156,12 @@ final class OmarchyFocusedCommandBridge {
         guard AXIsProcessTrusted() else {
             stateChanged(.accessibilityRequired)
             return
+        }
+        if localMonitor == nil {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+                guard let self else { return event }
+                return self.handleLocalEvent(event)
+            }
         }
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: true)
@@ -218,6 +226,11 @@ final class OmarchyFocusedCommandBridge {
     }
 
     func stop() {
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        localMonitor = nil
+        agentForwardedKeys.removeAll()
+        virtualKeyboardForwardedKeys.removeAll()
+        commandSpaceState = OmarchyCommandSpaceCaptureState()
         permissionTimer?.invalidate()
         permissionTimer = nil
         if let activationObserver {
@@ -275,23 +288,46 @@ final class OmarchyFocusedCommandBridge {
               let strokes = OmarchyHostKeyboardTextEncoder.strokes(for: text) else {
             return false
         }
-        var delay = 0.0
+        // VZ consumes explicit modifier transitions. Merely attaching Shift to
+        // the printable key does not establish a pressed modifier in the guest.
+        let leftShiftFlags = CGEventFlags.maskShift.union(CGEventFlags(rawValue: 0x00000002))
+        var events: [CGEvent] = []
         for stroke in strokes {
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: true) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = leftShiftFlags
+                events.append(shift)
+            }
             for keyDown in [true, false] {
-                guard let event = CGEvent(
-                    keyboardEventSource: source,
-                    virtualKey: stroke.keyCode,
-                    keyDown: keyDown
-                ) else { return false }
-                event.flags = stroke.shifted ? .maskShift : []
-                event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    event.post(tap: .cghidEventTap)
-                }
-                delay += 0.025
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.keyCode, keyDown: keyDown) else { return false }
+                event.flags = stroke.shifted ? leftShiftFlags : []
+                events.append(event)
+            }
+            if stroke.shifted {
+                guard let shift = CGEvent(keyboardEventSource: source, virtualKey: 56, keyDown: false) else { return false }
+                shift.type = .flagsChanged
+                shift.flags = []
+                events.append(shift)
+            }
+        }
+        for (index, event) in events.enumerated() {
+            event.setIntegerValueField(.eventSourceUserData, value: Self.acceptanceMarker)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.025) {
+                event.post(tap: .cghidEventTap)
             }
         }
         return true
+    }
+
+    /// App-targeted accessibility events can bypass the session event tap.
+    /// Physical events redirected by the tap are consumed before this monitor;
+    /// fallback events carry syntheticMarker and therefore never loop.
+    func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
+        let releasesCapturedKey = event.type == .keyUp && agentForwardedKeys.contains(event.keyCode)
+        guard releasesCapturedKey || event.window == nil || event.window === NSApp.keyWindow,
+              let cgEvent = event.cgEvent else { return event }
+        return handle(type: cgEvent.type, event: cgEvent) == nil ? nil : event
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -301,6 +337,14 @@ final class OmarchyFocusedCommandBridge {
         }
         let synthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticMarker
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        // A redirected key remains owned by the Agent path until its release,
+        // even when Command or focus changes first.
+        if !synthetic, type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
+            if commandSpaceState.observe(type: type, keyCode: keyCode) {
+                DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
+            }
+            return nil
+        }
         let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
             type: type,
             keyCode: keyCode,
@@ -323,15 +367,57 @@ final class OmarchyFocusedCommandBridge {
             }
             return nil
         }
-        if type == .keyUp, agentForwardedKeys.remove(keyCode) != nil {
-            return nil
-        }
         if type == .keyDown, isRepeat, agentForwardedKeys.contains(keyCode) {
             return nil
         }
-        guard let localEvent = event.copy() else { return nil }
-        localEvent.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
-        localEvent.postToPid(ProcessInfo.processInfo.processIdentifier)
+        forwardThroughVirtualKeyboard(type: type, keyCode: keyCode, event: event)
         return nil
+    }
+
+    /// VZ's USB keyboard needs an explicit Command modifier transition to
+    /// produce Linux Super. A key event carrying only `.maskCommand` is not
+    /// sufficient, and macOS does not deliver its physical Command transition
+    /// to the virtual-machine view after the session tap owns the chord.
+    private func forwardThroughVirtualKeyboard(
+        type: CGEventType,
+        keyCode: CGKeyCode,
+        event: CGEvent
+    ) {
+        guard type == .keyDown || type == .keyUp else { return }
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let leftCommandDeviceFlag = CGEventFlags(rawValue: 0x0000_0008)
+        let commandFlags = event.flags.union(.maskCommand).union(leftCommandDeviceFlag)
+
+        if type == .keyDown, virtualKeyboardForwardedKeys.insert(keyCode).inserted,
+           let commandDown = CGEvent(
+               keyboardEventSource: nil,
+               virtualKey: 55,
+               keyDown: true
+           ) {
+            commandDown.type = .flagsChanged
+            commandDown.flags = commandFlags
+            commandDown.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
+            commandDown.postToPid(pid)
+        }
+
+        if let localEvent = event.copy() {
+            localEvent.flags = commandFlags
+            localEvent.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
+            localEvent.postToPid(pid)
+        }
+
+        if type == .keyUp, virtualKeyboardForwardedKeys.remove(keyCode) != nil,
+           let commandUp = CGEvent(
+               keyboardEventSource: nil,
+               virtualKey: 55,
+               keyDown: false
+           ) {
+            commandUp.type = .flagsChanged
+            commandUp.flags = event.flags
+                .subtracting(.maskCommand)
+                .subtracting(leftCommandDeviceFlag)
+            commandUp.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
+            commandUp.postToPid(pid)
+        }
     }
 }

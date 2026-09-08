@@ -328,7 +328,8 @@ final class RiftVMOmarchyTests: XCTestCase {
                 from: Data(contentsOf: template), format: nil
             ) as? [String: Any]
         )
-        XCTAssertEqual(values["RiftVMOmarchyFactoryPublicKeyBase64"] as? String, "$(RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)")
+        let factoryPublicKey = try XCTUnwrap(values["RiftVMOmarchyFactoryPublicKeyBase64"] as? String)
+        XCTAssertEqual(Data(base64Encoded: factoryPublicKey)?.count, 32)
         XCTAssertEqual(values["RiftVMSourceRevision"] as? String, "$(RIFTVM_SOURCE_REVISION)")
         XCTAssertEqual(values["RiftVMSourceTreeState"] as? String, "$(RIFTVM_SOURCE_TREE_STATE)")
         XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)
@@ -336,6 +337,35 @@ final class RiftVMOmarchyTests: XCTestCase {
             values["NSMicrophoneUsageDescription"] as? String,
             "RiftVM uses the Mac microphone only when you enable microphone sharing for a workspace."
         )
+    }
+
+    func testReleaseBuildDisablesCoverageInstrumentation() throws {
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let project = try String(
+            contentsOf: repository.appending(path: "RiftVM/RiftVM.xcodeproj/project.pbxproj"),
+            encoding: .utf8
+        )
+        let releaseSections = project.components(separatedBy: "/* Release */")
+        XCTAssertGreaterThanOrEqual(releaseSections.count, 3)
+        XCTAssertGreaterThanOrEqual(
+            project.components(separatedBy: "CLANG_ENABLE_CODE_COVERAGE = NO;").count - 1,
+            2
+        )
+        XCTAssertGreaterThanOrEqual(
+            project.components(separatedBy: "ENABLE_CODE_COVERAGE = NO;").count - 1,
+            2
+        )
+
+        let releaseScript = try String(
+            contentsOf: repository.appending(path: "scripts/build-release.sh"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(releaseScript.contains("CLANG_ENABLE_CODE_COVERAGE=NO"))
+        XCTAssertTrue(releaseScript.contains("ENABLE_CODE_COVERAGE=NO"))
+        XCTAssertTrue(releaseScript.contains("__llvm_prf|__llvm_cov"))
     }
 
     func testStopRequestsGracefulStopAndWaitsForGuest() {
@@ -419,6 +449,98 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertEqual(lifecycle.phase, .stopping)
         XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
         XCTAssertEqual(lifecycle.handle(.stopTimedOut), [])
+    }
+
+    @MainActor
+    func testAppTargetedCommandRoutesOnceAndIgnoresOrdinaryOrUnfocusedInput() throws {
+        var focused = true
+        var forwarded: [CGKeyCode] = []
+        let bridge = OmarchyFocusedCommandBridge(
+            focusProbe: { focused },
+            stateChanged: { _ in },
+            redirectedCommandChord: { code, _ in forwarded.append(code); return true }
+        )
+        func event(_ down: Bool, command: Bool = true, synthetic: Bool = false) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = command ? .maskCommand : []
+            if synthetic {
+                value.setIntegerValueField(
+                    .eventSourceUserData,
+                    value: OmarchyFocusedCommandBridge.syntheticMarker
+                )
+            }
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        XCTAssertNil(bridge.handleLocalEvent(try event(true)))
+        XCTAssertNil(bridge.handleLocalEvent(try event(false)))
+        XCTAssertEqual(forwarded, [36])
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true, command: false)))
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true, synthetic: true)))
+        focused = false
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(true)))
+        XCTAssertEqual(forwarded, [36])
+        bridge.stop()
+    }
+
+    @MainActor
+    func testDirectViewCommandDeliveryRoutesBalancedChordWithoutLocalMonitor() throws {
+        var forwarded: [CGKeyCode] = []
+        let bridge = OmarchyFocusedCommandBridge(
+            focusProbe: { true },
+            stateChanged: { _ in },
+            redirectedCommandChord: { code, _ in forwarded.append(code); return true }
+        )
+        let view = OmarchyVirtualMachineInputView()
+        view.commandEventHandler = { bridge.handleLocalEvent($0) == nil }
+        func event(_ down: Bool) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = .maskCommand
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        view.keyDown(with: try event(true))
+        view.keyUp(with: try event(false))
+        XCTAssertEqual(forwarded, [36])
+        XCTAssertTrue(view.performKeyEquivalent(with: try event(true)))
+        view.keyUp(with: try event(false))
+        XCTAssertEqual(forwarded, [36, 36])
+        bridge.stop()
+    }
+
+    @MainActor
+    func testCapturedKeyReleaseKeepsOwnershipAfterCommandAndFocusRelease() throws {
+        var focused = true
+        let previousWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        previousWindow.isReleasedWhenClosed = false
+        defer { previousWindow.close() }
+        var forwarded = 0
+        let bridge = OmarchyFocusedCommandBridge(
+            focusProbe: { focused },
+            stateChanged: { _ in },
+            redirectedCommandChord: { _, _ in forwarded += 1; return true }
+        )
+        func event(_ down: Bool, command: Bool) throws -> NSEvent {
+            let value = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: down))
+            value.flags = command ? .maskCommand : []
+            return try XCTUnwrap(NSEvent(cgEvent: value))
+        }
+        XCTAssertNil(bridge.handleLocalEvent(try event(true, command: true)))
+        focused = false
+        let releaseInPreviousWindow = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyUp, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: previousWindow.windowNumber, context: nil,
+            characters: "\r", charactersIgnoringModifiers: "\r",
+            isARepeat: false, keyCode: 36
+        ))
+        XCTAssertNil(bridge.handleLocalEvent(releaseInPreviousWindow))
+        XCTAssertNotNil(bridge.handleLocalEvent(try event(false, command: false)))
+        focused = true
+        XCTAssertNil(bridge.handleLocalEvent(try event(true, command: true)))
+        XCTAssertNil(bridge.handleLocalEvent(try event(false, command: false)))
+        XCTAssertEqual(forwarded, 2)
+        bridge.stop()
     }
 
     func testCommandChordRedirectsOnlyWhileOmarchyIsFocused() {

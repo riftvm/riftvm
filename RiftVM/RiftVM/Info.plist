@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>RiftVMOmarchyFactoryPublicKeyBase64</key>
-	<string>$(RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY_BASE64)</string>
+	<string>/jefvy681EgwtdDZLGZYVetdu24jCfzmRIdWZ6Y7mbU=</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RiftVM uses the Mac microphone only when you enable microphone sharing for a workspace.</string>
 	<key>RiftVMSourceRevision</key>

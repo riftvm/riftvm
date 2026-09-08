@@ -11,6 +11,8 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
     public let omarchyRevision: String?
     public let guestAgentVersion: String?
     public let guestCapabilities: [String]?
+    public let cpuCount: Int?
+    public let memoryBytes: UInt64?
 
     public init(
         schemaVersion: Int = currentSchemaVersion,
@@ -19,7 +21,9 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
         factoryImageVersion: String? = nil,
         omarchyRevision: String? = nil,
         guestAgentVersion: String? = nil,
-        guestCapabilities: [String]? = nil
+        guestCapabilities: [String]? = nil,
+        cpuCount: Int? = nil,
+        memoryBytes: UInt64? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.productID = productID
@@ -28,6 +32,8 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
         self.omarchyRevision = omarchyRevision
         self.guestAgentVersion = guestAgentVersion
         self.guestCapabilities = guestCapabilities
+        self.cpuCount = cpuCount
+        self.memoryBytes = memoryBytes
     }
 }
 
@@ -236,7 +242,9 @@ public struct VMOmarchyWorkspaceManager {
             factoryImageVersion: old.factoryImageVersion,
             omarchyRevision: revision,
             guestAgentVersion: agentVersion,
-            guestCapabilities: sortedCapabilities
+            guestCapabilities: sortedCapabilities,
+            cpuCount: old.cpuCount,
+            memoryBytes: old.memoryBytes
         )
         do {
             try JSONEncoder().encode(updated).write(to: layout.configuration, options: .atomic)
@@ -271,7 +279,9 @@ public struct VMOmarchyWorkspaceManager {
             factoryImageVersion: old.factoryImageVersion,
             omarchyRevision: old.omarchyRevision,
             guestAgentVersion: old.guestAgentVersion,
-            guestCapabilities: old.guestCapabilities
+            guestCapabilities: old.guestCapabilities,
+            cpuCount: old.cpuCount,
+            memoryBytes: old.memoryBytes
         )
         do {
             try metadataWriter(try JSONEncoder().encode(migrated), layout.configuration)

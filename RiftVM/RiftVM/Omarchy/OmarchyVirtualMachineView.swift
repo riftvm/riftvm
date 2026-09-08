@@ -7,6 +7,109 @@ import Virtualization
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.omarchy.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    // App-targeted events may reach the responder without traversing the
+    // session event tap, so Command routing also has a direct-view seam.
+    var commandEventHandler: ((NSEvent) -> Bool)?
+    private var diagnosticMonitor: Any?
+    private var diagnosticViewEvents = 0
+    private var diagnosticWindowEvents = 0
+    private let inputDiagnosticsEnabled = UserDefaults.standard.bool(forKey: "RiftVMInputDiagnosticsEnabled")
+    private var displayObservers: [NSObjectProtocol] = []
+    private var pendingDisplayRefresh: DispatchWorkItem?
+    private var displayRefreshGeneration: UInt64 = 0
+
+    private func recordInputDelivery(_ event: NSEvent, route: String) {
+        guard inputDiagnosticsEnabled else { return }
+        if route == "window" { diagnosticWindowEvents += 1 } else { diagnosticViewEvents += 1 }
+        // Content-free diagnostics: never record characters, key codes, or flags.
+        let ageMS = max(0, (ProcessInfo.processInfo.systemUptime - event.timestamp) * 1000)
+        NSLog(
+            "RiftVM input timing route=%@ windowEvents=%d viewEvents=%d ageMS=%.1f eventType=%lu appActive=%d keyWindow=%d firstResponder=%d",
+            route, diagnosticWindowEvents, diagnosticViewEvents, ageMS, event.type.rawValue,
+            NSApp.isActive ? 1 : 0, window?.isKeyWindow == true ? 1 : 0,
+            window?.firstResponder === self ? 1 : 0
+        )
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        removeDisplayObservers()
+        guard let window else { return }
+        if inputDiagnosticsEnabled {
+            diagnosticMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] event in
+                if let self, event.window === self.window { self.recordInputDelivery(event, route: "window") }
+                return event
+            }
+        }
+        for name in [
+            NSWindow.didEnterFullScreenNotification,
+            NSWindow.didExitFullScreenNotification,
+            NSWindow.didEndLiveResizeNotification,
+            NSWindow.didChangeBackingPropertiesNotification,
+        ] {
+            displayObservers.append(NotificationCenter.default.addObserver(
+                forName: name, object: window, queue: .main
+            ) { [weak self] _ in self?.refreshDisplayAfterTransition() })
+        }
+        displayObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: window, queue: .main
+        ) { [weak self] _ in self?.scheduleDisplayRefresh() })
+        refreshDisplayAfterTransition()
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, self.window === window,
+                  window.isKeyWindow, window.attachedSheet == nil,
+                  window.firstResponder === window else { return }
+            window.makeFirstResponder(self)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
+
+    private func scheduleDisplayRefresh() {
+        pendingDisplayRefresh?.cancel()
+        displayRefreshGeneration &+= 1
+        let work = DispatchWorkItem { [weak self] in self?.refreshDisplayAfterTransition() }
+        pendingDisplayRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: work)
+    }
+
+    private func refreshDisplayAfterTransition() {
+        pendingDisplayRefresh?.cancel()
+        pendingDisplayRefresh = nil
+        displayRefreshGeneration &+= 1
+        let generation = displayRefreshGeneration
+        guard let targetWindow = window else { return }
+        for delay in [0.0, 0.35, 1.25] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak targetWindow] in
+                guard let self, let targetWindow, self.window === targetWindow,
+                      self.displayRefreshGeneration == generation,
+                      self.virtualMachine != nil else { return }
+                targetWindow.contentView?.layoutSubtreeIfNeeded()
+                self.automaticallyReconfiguresDisplay = false
+                self.automaticallyReconfiguresDisplay = true
+            }
+        }
+    }
+
+    private func removeDisplayObservers() {
+        if let diagnosticMonitor { NSEvent.removeMonitor(diagnosticMonitor) }
+        diagnosticMonitor = nil
+        displayRefreshGeneration &+= 1
+        pendingDisplayRefresh?.cancel()
+        pendingDisplayRefresh = nil
+        displayObservers.forEach(NotificationCenter.default.removeObserver)
+        displayObservers.removeAll()
+    }
+
+    deinit {
+        if let diagnosticMonitor { NSEvent.removeMonitor(diagnosticMonitor) }
+        pendingDisplayRefresh?.cancel()
+        displayObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
     private func recordAcceptanceRoute(_ route: String, event: NSEvent) {
         guard ProcessInfo.processInfo.environment[
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey
@@ -21,22 +124,28 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     }
 
     override func keyDown(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyDown", event: event)
+        if commandEventHandler?(event) == true { return }
         super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyUp", event: event)
+        if commandEventHandler?(event) == true { return }
         super.keyUp(with: event)
     }
 
     override func flagsChanged(with event: NSEvent) {
+        recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("flagsChanged", event: event)
         super.flagsChanged(with: event)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         recordAcceptanceRoute("performKeyEquivalent", event: event)
+        if commandEventHandler?(event) == true { return true }
         return super.performKeyEquivalent(with: event)
     }
 }
@@ -108,6 +217,11 @@ struct OmarchyVirtualMachineView: View {
             }
         }
         .background(.black)
+        .onAppear {
+            OmarchyReleaseReadinessReporter.reportWhenReady(
+                workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+            )
+        }
         .dropDestination(for: URL.self) { urls, _ in
             importFiles(urls)
             return !urls.isEmpty
@@ -1038,16 +1152,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             context.coordinator.beginObservingCommands()
             view.virtualMachine = machine
             context.coordinator.installKeyboardBridge(for: view)
-            machine.start { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        context.coordinator.startIntegration(layout: layout)
-                        context.coordinator.phaseChanged(.running)
-                    case .failure(let error): context.coordinator.phaseChanged(.failed(error.localizedDescription))
-                    }
-                }
-            }
+            context.coordinator.start(
+                machine,
+                in: view,
+                profile: profile,
+                microphoneEnabled: microphoneEnabled,
+                permitsEFIVariableStoreRecovery: true
+            )
         } catch {
             DispatchQueue.main.async {
                 context.coordinator.phaseChanged(.failed(error.localizedDescription))
@@ -1084,6 +1195,59 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let ownerProvisioningCompleted: (UUID, String?) -> Void
         let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+
+        func start(
+            _ machine: VZVirtualMachine,
+            in view: VZVirtualMachineView,
+            profile: VMOmarchyProfile,
+            microphoneEnabled: Bool,
+            permitsEFIVariableStoreRecovery: Bool
+        ) {
+            machine.start { [weak self, weak view] result in
+                DispatchQueue.main.async {
+                    guard let self, let view else { return }
+                    switch result {
+                    case .success:
+                        self.startIntegration(layout: self.layout)
+                        self.phaseChanged(.running)
+                    case .failure(let error):
+                        guard permitsEFIVariableStoreRecovery,
+                              VMEFIVariableStoreRecovery.isInvalidBootLoaderError(error.localizedDescription) else {
+                            self.phaseChanged(.failed(error.localizedDescription))
+                            return
+                        }
+                        do {
+                            let backup = try VMEFIVariableStoreRecovery.replaceRejectedStore(
+                                at: self.layout.efiVariableStore
+                            )
+                            RiftVMLog.info(
+                                "Rejected Omarchy EFI variable store was replaced; backup: \(backup?.path ?? "none")"
+                            )
+                            OmarchyApplicationTerminationController.shared.unregister(machine)
+                            let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
+                                layout: self.layout,
+                                profile: profile,
+                                microphoneEnabled: microphoneEnabled
+                            )
+                            let replacement = VZVirtualMachine(configuration: configuration)
+                            replacement.delegate = self
+                            self.machine = replacement
+                            view.virtualMachine = replacement
+                            OmarchyApplicationTerminationController.shared.register(replacement)
+                            self.start(
+                                replacement,
+                                in: view,
+                                profile: profile,
+                                microphoneEnabled: microphoneEnabled,
+                                permitsEFIVariableStoreRecovery: false
+                            )
+                        } catch {
+                            self.phaseChanged(.failed(error.localizedDescription))
+                        }
+                    }
+                }
+            }
+        }
         private var stopObserver: NSObjectProtocol?
         private var pauseObserver: NSObjectProtocol?
         private var resumeObserver: NSObjectProtocol?
@@ -1258,21 +1422,31 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 },
                 stateChanged: keyboardIntegrationChanged,
                 redirectedCommandChord: { [weak self] keyCode, flags in
-                    guard let client = self?.integrationClient else { return false }
-                    Task { @MainActor in
-                        do {
-                            try await client.injectMacCommandChord(
-                                keyCode: UInt16(keyCode),
-                                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-                            )
-                        } catch {
-                            NSLog(
-                                "Omarchy Command chord Agent forwarding failed: %@",
-                                error.localizedDescription
-                            )
+                    // Only consume the physical Command chord when the
+                    // authenticated Agent can actually deliver it. Keeping a
+                    // disconnected client object must not turn every Command
+                    // shortcut into a dropped key.
+                    guard Thread.isMainThread else { return false }
+                    return MainActor.assumeIsolated {
+                        guard let client = self?.integrationClient,
+                              client.currentCapabilities.contains("input-uinput-v1") else {
+                            return false
                         }
+                        Task { @MainActor in
+                            do {
+                                try await client.injectMacCommandChord(
+                                    keyCode: UInt16(keyCode),
+                                    modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+                                )
+                            } catch {
+                                NSLog(
+                                    "Omarchy Command chord Agent forwarding failed: %@",
+                                    error.localizedDescription
+                                )
+                            }
+                        }
+                        return true
                     }
-                    return true
                 },
                 commandSpaceCaptured: { [weak self, weak view] in
                     guard let self else { return }
@@ -1286,6 +1460,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 }
             )
             keyboardBridge = bridge
+            (view as? OmarchyVirtualMachineInputView)?.commandEventHandler = { [weak bridge] event in
+                guard let bridge else { return false }
+                return bridge.handleLocalEvent(event) == nil
+            }
             bridge.start()
         }
 

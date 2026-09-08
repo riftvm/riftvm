@@ -19,16 +19,69 @@ enum VMSharedFolderDrop {
 
 final class CreatePhaseSharingViewHandler: VMCreateStepperGuidePhaseHandler {
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid { .success }
-    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid { .success }
+    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
+        if context.formData.systemImageSelection == .preinstalled(.omarchy) {
+            // Omarchy exposes only its workspace-owned exchange folder. A
+            // selected host directory would otherwise be shown in Review but
+            // silently ignored by the dedicated Factory builder.
+            context.configData.directorySharingDevices.removeAll()
+        }
+        return .success
+    }
 }
 
 struct CreatePhaseSharingView: View {
+    @Environment(VMCreateViewStateObject.self) private var formData
     @Environment(VMConfigurationViewStateObject.self) private var configData
     @State private var isDropTargeted = false
     @State private var feedbackMessage: String?
 
     var body: some View {
         ScrollView {
+            if formData.systemImageSelection == .preinstalled(.omarchy) {
+                omarchySharing
+            } else {
+                configurableSharing
+            }
+        }
+    }
+
+    private var omarchySharing: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("RiftVM Shared")
+                    .font(.title2.weight(.semibold))
+                Text("Every Omarchy workspace gets a private exchange folder on this Mac.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            GroupBox {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "folder.fill.badge.person.crop")
+                        .font(.system(size: 30))
+                        .foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Available at /mnt/riftvm-shared")
+                            .font(.headline)
+                        Text("Drag files onto the workspace or use Import Files. RiftVM copies them into this managed folder; it never exposes Home, Desktop, Documents, or Downloads automatically.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(8)
+            }
+
+            Label("You can open RiftVM Shared from the workspace toolbar or its card on the home screen.", systemImage: "lock.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: 720, alignment: .leading)
+        .padding(.bottom, 12)
+    }
+
+    private var configurableSharing: some View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Share folders")
@@ -68,7 +121,6 @@ struct CreatePhaseSharingView: View {
             }
             .frame(maxWidth: 720, alignment: .leading)
             .padding(.bottom, 12)
-        }
     }
 
     private var dropArea: some View {

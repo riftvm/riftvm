@@ -57,14 +57,28 @@ public enum VMOmarchyVirtualMachineBuilder {
             forHostMemory: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount
         )
+        let metadata = try? VMOmarchyWorkspaceManager(layout: layout).metadata()
+        let requestedCPUCount = metadata?.cpuCount ?? resources.cpuCount
+        let requestedMemoryBytes = metadata?.memoryBytes ?? resources.memoryBytes
+        let maximumCPUCount = min(
+            VZVirtualMachineConfiguration.maximumAllowedCPUCount,
+            max(VZVirtualMachineConfiguration.minimumAllowedCPUCount, activeProcessorCount - 2)
+        )
+        let hostMemoryReserve = UInt64(2 * 1_024 * 1_024 * 1_024)
+        let maximumMemorySize = min(
+            VZVirtualMachineConfiguration.maximumAllowedMemorySize,
+            hostMemoryBytes > hostMemoryReserve
+                ? hostMemoryBytes - hostMemoryReserve
+                : VZVirtualMachineConfiguration.minimumAllowedMemorySize
+        )
         let configuration = VZVirtualMachineConfiguration()
         configuration.cpuCount = min(
-            max(resources.cpuCount, VZVirtualMachineConfiguration.minimumAllowedCPUCount),
-            VZVirtualMachineConfiguration.maximumAllowedCPUCount
+            max(requestedCPUCount, VZVirtualMachineConfiguration.minimumAllowedCPUCount),
+            maximumCPUCount
         )
         configuration.memorySize = min(
-            max(resources.memoryBytes, VZVirtualMachineConfiguration.minimumAllowedMemorySize),
-            VZVirtualMachineConfiguration.maximumAllowedMemorySize
+            max(requestedMemoryBytes, VZVirtualMachineConfiguration.minimumAllowedMemorySize),
+            maximumMemorySize
         )
 
         let bootLoader = VZEFIBootLoader()

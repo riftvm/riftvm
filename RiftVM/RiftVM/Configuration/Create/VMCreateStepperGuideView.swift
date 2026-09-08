@@ -153,6 +153,12 @@ struct VMCreateStepperGuideView: View {
             configData.name = VMPreinstalledImageCatalogItem.omarchy.name
             configData.remark = VMPreinstalledImageCatalogItem.omarchy.detail
             configData.linuxFeatures = .recommended
+            let resources = VMOmarchyProfile.production.resources(
+                forHostMemory: ProcessInfo.processInfo.physicalMemory,
+                activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+            )
+            configData.cpuCount = resources.cpuCount
+            configData.memorySize = resources.memoryBytes
             formData.systemImageSelection = .preinstalled(.omarchy)
             formData.hasChosenSystem = true
             formData.hasGeneratedNameSuggestion = true

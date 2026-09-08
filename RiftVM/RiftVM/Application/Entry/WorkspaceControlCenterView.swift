@@ -201,13 +201,19 @@ struct WorkspaceControlCenterView: View {
 
     private func open(_ workspace: RiftWorkspaceRecord) {
         do {
-            try WorkspaceSharing.prepareManagedFolder(for: workspace)
+            if workspace.kind == .macOS {
+                try WorkspaceSharing.prepareManagedFolder(for: workspace)
+            }
             snapshot = try registry.markOpened(workspace.id)
             openWindow(id: "workspace", value: workspace.id)
         } catch { errorMessage = error.localizedDescription }
     }
 
     private func showSettings(for workspace: RiftWorkspaceRecord) {
+        guard workspace.kind == .macOS else {
+            errorMessage = "Omarchy hardware and integration settings are managed by RiftVM for the best supported experience."
+            return
+        }
         switch VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) {
         case .success(let model): settingsModel = model
         case .failure:
@@ -254,6 +260,10 @@ struct WorkspaceControlCenterView: View {
         let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
         let files = urls.filter { !folders.contains($0) }
         do {
+            if workspace.kind == .omarchy {
+                try WorkspaceSharing.copy(files + folders, into: workspace)
+                return !files.isEmpty || !folders.isEmpty
+            }
             if !files.isEmpty { try WorkspaceSharing.copy(files, into: workspace) }
             if !folders.isEmpty { pendingFolderDrop = WorkspaceFolderDrop(workspace: workspace, urls: folders) }
             return !files.isEmpty || !folders.isEmpty
@@ -326,7 +336,17 @@ private struct WorkspaceRuntimeView: View {
     let workspace: RiftWorkspaceRecord
 
     var body: some View {
-        VMOSMainVirtualMachineView(rootPath: workspace.bundleURL, recoveryMode: false)
+        switch workspace.kind {
+        case .omarchy:
+            OmarchyRootView(
+                profile: .production,
+                workspaceManager: VMOmarchyWorkspaceManager(
+                    layout: VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
+                )
+            )
+        case .macOS:
+            VMOSMainVirtualMachineView(rootPath: workspace.bundleURL, recoveryMode: false)
+        }
     }
 }
 
@@ -594,6 +614,19 @@ private struct WorkspaceSummary {
     let needsAttention: Bool
 
     init(workspace: RiftWorkspaceRecord) {
+        if workspace.kind == .omarchy {
+            let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
+            let profile = VMOmarchyProfile.production
+            let resources = profile.resources(
+                forHostMemory: ProcessInfo.processInfo.physicalMemory,
+                activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+            )
+            let metadata = try? VMOmarchyWorkspaceManager(layout: layout).metadata()
+            hardware = "\(metadata?.cpuCount ?? resources.cpuCount) CPU · \(Self.bytes(metadata?.memoryBytes ?? resources.memoryBytes)) memory · \(Self.bytes(profile.diskCapacityBytes)) disk"
+            sharing = "RiftVM Shared · No host folders shared"
+            needsAttention = VMOmarchyWorkspaceManager(layout: layout).inspect() != .ready
+            return
+        }
         switch VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) {
         case .success(let model):
             let disk = model.config.storageDevices.first(where: { $0.type == .Block })?.size ?? 0
@@ -637,10 +670,19 @@ private enum WorkspaceSharingError: LocalizedError {
 @MainActor
 private enum WorkspaceSharing {
     static func managedFolderURL(for workspace: RiftWorkspaceRecord) -> URL {
-        VMManagedSharedFolder.url(for: workspace.bundleURL)
+        workspace.kind == .omarchy
+            ? VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL).shared
+            : VMManagedSharedFolder.url(for: workspace.bundleURL)
     }
 
     static func prepareManagedFolder(for workspace: RiftWorkspaceRecord) throws {
+        if workspace.kind == .omarchy {
+            try FileManager.default.createDirectory(
+                at: managedFolderURL(for: workspace),
+                withIntermediateDirectories: true
+            )
+            return
+        }
         try VMManagedSharedFolder.prepare(at: workspace.bundleURL)
         guard case .success(let model) = VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) else { return }
         let managedURL = managedFolderURL(for: workspace)

@@ -64,8 +64,8 @@ struct VMPreinstalledImageCatalogItem: Identifiable, Hashable {
         id: "omarchy-aarch64",
         name: "Omarchy",
         detail: "Preinstalled Arch Linux desktop · ready on first boot",
-        manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/latest/download/riftvm-release-manifest.json")!,
-        downloadSize: 3_145_017_877
+        manifestURL: URL(string: "https://github.com/everettjf/omarchy-aarch64-image/releases/download/v4.0.0-alpha-riftvm.1/riftvm-omarchy-factory-manifest.json")!,
+        downloadSize: 5_292_163_072
     )
 }
 

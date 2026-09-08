@@ -13,7 +13,6 @@
 		3B3DE7B5220BD32916EAF208 /* VMOmarchyGuestAgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1471ED4B2D5A3896B2C74FDA /* VMOmarchyGuestAgentClient.swift */; };
 		5553AC94B3D5830E818ADB3C /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
 		655C4B3505B05EAD27789719 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */; };
-		727D51954AF95BBD948F1BFB /* RiftVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8A279941E6FCFA9BA49DE4 /* RiftVMOmarchyTests.swift */; };
 		7A211B906FEAE84F4B02A237 /* VMOmarchySharedFolderImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699062CED4109B9C80794E8C /* VMOmarchySharedFolderImporter.swift */; };
 		848576FDFEBEF449A8B21DCD /* OmarchyAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93144A0A4F0503875A3CC2B /* OmarchyAccessibilityTests.swift */; };
 		851CC8624BD0392211035418 /* OmarchyOwnerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1EA7AC1E7A4230AF03C587 /* OmarchyOwnerSetupView.swift */; };
@@ -139,7 +138,6 @@
 		4323918A072349A10EE035FA /* OmarchyClipboardAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyClipboardAcceptanceProbe.swift; sourceTree = "<group>"; };
 		4FDCE5EF0F509F3741AC3ADA /* OmarchyNotificationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyNotificationController.swift; sourceTree = "<group>"; };
 		516FD555DC04ABE24EC74623 /* VMOmarchyFactoryManifest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyFactoryManifest.swift; path = Profile/VMOmarchyFactoryManifest.swift; sourceTree = "<group>"; };
-		5D8A279941E6FCFA9BA49DE4 /* RiftVMOmarchyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RiftVMOmarchyTests.swift; sourceTree = "<group>"; };
 		5DAEE05441C401F70527456E /* VMOmarchyFactoryInstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyFactoryInstaller.swift; path = Profile/VMOmarchyFactoryInstaller.swift; sourceTree = "<group>"; };
 		699062CED4109B9C80794E8C /* VMOmarchySharedFolderImporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchySharedFolderImporter.swift; path = Profile/VMOmarchySharedFolderImporter.swift; sourceTree = "<group>"; };
 		6DCEA76CE6ACA967DD643BE8 /* VMOmarchyWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyWorkspace.swift; path = Profile/VMOmarchyWorkspace.swift; sourceTree = "<group>"; };
@@ -261,7 +259,6 @@
 			children = (
 				EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */,
 				C93144A0A4F0503875A3CC2B /* OmarchyAccessibilityTests.swift */,
-				5D8A279941E6FCFA9BA49DE4 /* RiftVMOmarchyTests.swift */,
 			);
 			name = "RiftVM Integration Tests";
 			path = ../Tests/RiftVMIntegrationTests;
@@ -768,7 +765,6 @@
 			files = (
 				9432AA110B0CD575C9658558 /* RiftVMOmarchyTests.swift in Sources */,
 				848576FDFEBEF449A8B21DCD /* OmarchyAccessibilityTests.swift in Sources */,
-				727D51954AF95BBD948F1BFB /* RiftVMOmarchyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -988,6 +984,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_CODE_COVERAGE = NO;
+				ENABLE_CODE_COVERAGE = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -1059,7 +1057,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1071,6 +1069,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_CODE_COVERAGE = NO;
+				ENABLE_CODE_COVERAGE = NO;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1089,7 +1089,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

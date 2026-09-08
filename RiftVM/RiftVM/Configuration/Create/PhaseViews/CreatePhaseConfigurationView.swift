@@ -140,6 +140,7 @@ struct CreatePhaseConfigurationView: View {
 }
 
 private struct CreateResourceControlsView: View {
+    @Environment(VMCreateViewStateObject.self) private var formData
     @Environment(VMConfigurationViewStateObject.self) private var configData
 
     private let gibibyte = UInt64(1024 * 1024 * 1024)
@@ -172,12 +173,15 @@ private struct CreateResourceControlsView: View {
 
             resourceRow(
                 title: "Storage",
-                detail: "\(primaryDiskFormat) · grows as needed",
+                detail: isOmarchy
+                    ? "Factory disk · fixed for this release"
+                    : "\(primaryDiskFormat) · grows as needed",
                 value: "\(storageGiB) GB"
             ) {
                 Slider(value: storageBinding, in: minimumStorageGiB...maximumStorageGiB, step: 8)
                     .accessibilityLabel("Storage")
                     .accessibilityValue("\(storageGiB) gigabytes")
+                    .disabled(isOmarchy)
             }
         }
         .padding(.horizontal, 18)
@@ -258,6 +262,9 @@ private struct CreateResourceControlsView: View {
     private var memoryGiB: UInt64 { configData.memorySize / gibibyte }
     private var storageGiB: UInt64 { primaryStorage.size / gibibyte }
     private var primaryDiskFormat: String { primaryStorage.format.rawValue.uppercased() }
+    private var isOmarchy: Bool {
+        formData.systemImageSelection == .preinstalled(.omarchy)
+    }
 
     private var hostMemoryDescription: String {
         ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory)
@@ -401,6 +408,9 @@ struct CreatePhaseReviewView: View {
     }
 
     private var sharingSummary: String {
+        if formData.systemImageSelection == .preinstalled(.omarchy) {
+            return "RiftVM Shared · no host folders exposed"
+        }
         let count = configData.directorySharingDevices.reduce(0) { $0 + $1.data.items.count }
         return count == 0 ? "None · can be added later" : "\(count) folder\(count == 1 ? "" : "s")"
     }

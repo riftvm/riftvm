@@ -109,7 +109,7 @@ confirmation locally and transmits the password once; confirmation is not a
 wire field. The agent independently validates all bounds and formats, rejects
 Omarchy's reserved system usernames, verifies the timezone resolves to a
 regular file inside `/usr/share/zoneinfo`, and atomically stages a mode-`0600`
-one-shot file at `/run/ezvm-owner-provisioning.json`. It never overwrites an
+one-shot file at `/run/riftvm-owner-provisioning.json`. It never overwrites an
 existing request and never logs the payload. A factory-image provisioning
 consumer must remove the staged file after loading it and feed the values into
 the same provisioning functions used by Omarchy's interactive first-boot form.

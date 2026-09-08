@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CryptoKit
+import Virtualization
 
 #if arch(arm64)
 
@@ -48,7 +49,9 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context.formData.creationCancellationKind = nil
 
         if case .preinstalled(let item) = context.formData.systemImageSelection {
-            let result = await createPreinstalledImage(item, context: context)
+            let result = item.id == VMPreinstalledImageCatalogItem.omarchy.id
+                ? await createOmarchyWorkspace(context: context)
+                : await createPreinstalledImage(item, context: context)
             context.formData.isCreating = false
             if case .success = result {
                 context.formData.creationStage = "Ready"
@@ -154,6 +157,91 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         }
 
         return result
+    }
+
+    private func createOmarchyWorkspace(
+        context: VMCreateStepperGuidePhaseContext
+    ) async -> VMOSResultVoid {
+        let profile = VMOmarchyProfile.production
+        let layout = VMOmarchyWorkspaceLayout(
+            applicationSupportRoot: URL(filePath: context.formData.rootPath, directoryHint: .isDirectory)
+        )
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+
+        do {
+            let forecast = try VMOmarchyStorageForecast.inspect(
+                volumeContaining: layout.applicationSupportRoot.deletingLastPathComponent(),
+                downloadBytes: profile.factoryImage.maximumDownloadBytes,
+                workspaceBytes: profile.factoryImage.maximumDownloadBytes
+            )
+            guard forecast.hasEnoughSpace else {
+                throw OmarchyCreationError.insufficientSpace(
+                    required: forecast.requiredBytes,
+                    available: forecast.availableBytes
+                )
+            }
+            guard let publicKey = FactoryTrustConfiguration.publicKey() else {
+                throw OmarchyCreationError.releaseChannelNotConfigured
+            }
+            let supportRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appending(path: "RiftVM", directoryHint: .isDirectory)
+            let installer = VMOmarchyFactoryInstaller(
+                profile: profile,
+                cacheDirectory: supportRoot.appending(path: "FactoryCache", directoryHint: .isDirectory),
+                publicKey: publicKey,
+                transport: VMOmarchyURLSessionTransport()
+            )
+            context.formData.creationStage = "Downloading and verifying Omarchy"
+            context.formData.addLog("Fetching the signed Omarchy Factory manifest")
+            let factory = try await installer.install { received, expected in
+                let fraction = Double(received) / Double(max(expected, 1))
+                Task { @MainActor in
+                    context.formData.changeProgress(min(max(fraction, 0), 1) * 0.82)
+                }
+            }
+            context.formData.creationStage = "Creating Omarchy workspace"
+            context.formData.addLog("Factory image verified; creating the workspace and integration identity")
+            let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
+                productID: profile.productID,
+                createdAt: Date(),
+                factoryImageVersion: factory.manifest.payload.imageVersion,
+                omarchyRevision: factory.manifest.payload.omarchyRevision,
+                guestAgentVersion: factory.manifest.payload.guestAgentVersion,
+                guestCapabilities: factory.manifest.payload.guestCapabilities.sorted(),
+                cpuCount: context.configData.cpuCount,
+                memoryBytes: context.configData.memorySize
+            ))
+            try manager.prepare(
+                factoryDisk: factory.diskURL,
+                configuration: metadata,
+                machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+            )
+            context.formData.changeProgress(1)
+            context.formData.addLog("Omarchy is ready")
+            return .success
+        } catch {
+            context.formData.creationStage = "Couldn’t prepare Omarchy"
+            context.formData.addLog("❌ \(error.localizedDescription)")
+            return .failure(error.localizedDescription)
+        }
+    }
+
+    private enum OmarchyCreationError: LocalizedError {
+        case releaseChannelNotConfigured
+        case insufficientSpace(required: UInt64, available: UInt64)
+
+        var errorDescription: String? {
+            switch self {
+            case .releaseChannelNotConfigured:
+                "This build has no trusted Omarchy Factory signing key."
+            case .insufficientSpace(let required, let available):
+                "Omarchy needs \(Self.bytes(required)) free; this volume currently has \(Self.bytes(available))."
+            }
+        }
+
+        private static func bytes(_ value: UInt64) -> String {
+            ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .file)
+        }
     }
 
     private func registerCreatedWorkspace(

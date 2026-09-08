@@ -5,6 +5,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 version="${1:-}"
 tap_repo="${RIFTVM_HOMEBREW_TAP:-git@github.com:riftvm/homebrew-tap.git}"
+release_repo="${RIFTVM_RELEASE_REPOSITORY:-riftvm/riftvm}"
 release_branch="${RIFTVM_RELEASE_BRANCH:-main}"
 
 if [[ -z "$version" ]]; then
@@ -144,11 +145,11 @@ fi
 # Gatekeeper, GUI readiness, and all real-VM tests.
 git -C "$project_root" push origin "HEAD:refs/heads/$release_branch" "refs/tags/$tag"
 
-if gh release view "$tag" --repo everettjf/riftvm >/dev/null 2>&1; then
+if gh release view "$tag" --repo "$release_repo" >/dev/null 2>&1; then
   published_checksums="$release_dir/published-checksums"
   rm -rf "$published_checksums"
   mkdir -p "$published_checksums"
-  gh release download "$tag" --repo everettjf/riftvm --pattern '*.sha256' --dir "$published_checksums"
+  gh release download "$tag" --repo "$release_repo" --pattern '*.sha256' --dir "$published_checksums"
   cmp -s "$checksum" "$published_checksums/$(basename "$checksum")" || {
     echo "Existing GitHub release has a different RiftVM checksum." >&2; exit 67;
   }
@@ -158,7 +159,7 @@ if gh release view "$tag" --repo everettjf/riftvm >/dev/null 2>&1; then
   echo "GitHub release $tag already contains the verified artifacts; continuing."
 else
   gh release create "$tag" "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
-    --repo everettjf/riftvm \
+    --repo "$release_repo" \
     --verify-tag \
     --generate-notes \
     --title "RiftVM $version"

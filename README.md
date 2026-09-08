@@ -8,8 +8,8 @@
 
 [![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
-[![License](https://img.shields.io/github/license/everettjf/riftvm)](LICENSE)
-[![Pages](https://github.com/everettjf/riftvm/actions/workflows/pages.yml/badge.svg)](https://everettjf.github.io/riftvm/)
+[![License](https://img.shields.io/github/license/riftvm/riftvm)](LICENSE)
+[![Pages](https://github.com/riftvm/riftvm/actions/workflows/pages.yml/badge.svg)](https://riftvm.github.io/)
 
 ![RiftVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
 
@@ -71,7 +71,7 @@ Install the signed and notarized release from the RiftVM Homebrew tap:
 brew install --cask riftvm/tap/riftvm
 ```
 
-Or download the archive from [GitHub Releases](https://github.com/everettjf/riftvm/releases/latest).
+Or download the archive from [GitHub Releases](https://github.com/riftvm/riftvm/releases/latest).
 
 Open RiftVM and choose **Create Omarchy Workspace** or **Create macOS
 Workspace**. Both journeys are part of the same signed application and release
@@ -186,8 +186,8 @@ When reporting a VM problem, include the host macOS version, Mac model/chip, gue
 
 ## Community
 
-- [GitHub Issues](https://github.com/everettjf/riftvm/issues) for bugs and focused feature requests
-- [GitHub Issues](https://github.com/everettjf/riftvm/issues) for questions and design ideas
+- [GitHub Issues](https://github.com/riftvm/riftvm/issues) for bugs and focused feature requests
+- [GitHub Issues](https://github.com/riftvm/riftvm/issues) for questions and design ideas
 - [Discord](https://discord.gg/eGzEaP6TzR) for informal conversation
 
 ## License
