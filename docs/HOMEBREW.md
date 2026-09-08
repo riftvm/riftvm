@@ -32,16 +32,16 @@ administration permission is not required for routine Cask updates. The
 publisher defaults to `git@github.com:riftvm/homebrew-tap.git`, and
 `RIFTVM_HOMEBREW_TAP` can override it for a staging remote.
 
-## Current release
+## RiftVM 1.0.0 candidate
 
-The `v1.0.4` release meets the distribution requirements:
+The `riftvm-v1.0.0` candidate uses this release contract:
 
 - The release is tagged and hosted by GitHub Releases.
 - The app is signed with Developer ID Application team `YPV49M8592`.
-- Apple notarization and Gatekeeper assessment pass.
-- The immutable ZIP SHA-256 is `77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925`.
-- Both a `1.0.3 -> 1.0.4` Homebrew upgrade and the installed `1.0.4` app were
-  tested successfully.
+- Apple notarization and Gatekeeper assessment pass before publication.
+- The immutable ZIP SHA-256 is `e2cb8b0f7890e1e1a9a5fd676acdf2e75cce091eed2f041fda4a1593b95c2c92`.
+- Clean installation and the exact Homebrew-installed app must pass the release
+  smoke gates before the tag is published.
 
 GitHub Releases should remain the source of truth. The Cask is a small installation manifest pointing at the immutable release artifact.
 
@@ -52,10 +52,10 @@ GitHub Releases should remain the source of truth. The Cask is a small installat
 # frozen_string_literal: true
 
 cask "riftvm" do
-  version "1.0.4"
-  sha256 "77bff3203756aab11aa512715a53839036360f40c420f328d7b435857a749925"
+  version "1.0.0"
+  sha256 "e2cb8b0f7890e1e1a9a5fd676acdf2e75cce091eed2f041fda4a1593b95c2c92"
 
-  url "https://github.com/everettjf/riftvm/releases/download/v#{version}/RiftVM-#{version}.zip?notarized=1"
+  url "https://github.com/everettjf/riftvm/releases/download/riftvm-v#{version}/RiftVM-#{version}.zip?notarized=1"
   name "RiftVM"
   desc "Simple native virtual machines for Apple silicon Macs"
   homepage "https://riftvm.com/"
