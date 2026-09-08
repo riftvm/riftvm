@@ -7,7 +7,7 @@ fields of its own, but these fields are the stable RiftVM contract:
 ```json
 {
   "schemaVersion": 1,
-  "kind": "io.github.everettjf.riftvm.preinstalled-image",
+  "kind": "com.riftvm.preinstalled-image",
   "architecture": "arm64",
   "minimumRiftVMVersion": "1.0.0",
   "product": {

@@ -114,7 +114,7 @@ public struct RiftVMHeadlessRecord: Codable, Equatable, Sendable {
 
 public struct RiftVMPreinstalledImageManifest: Codable, Equatable, Sendable {
     public static let currentSchemaVersion = 1
-    public static let manifestKind = "io.github.everettjf.riftvm.preinstalled-image"
+    public static let manifestKind = "com.riftvm.preinstalled-image"
 
     public struct Product: Codable, Equatable, Sendable {
         public let id: String

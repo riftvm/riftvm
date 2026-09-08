@@ -235,7 +235,7 @@ final class RiftVMCLIKitTests: XCTestCase {
         let digest = SHA256.hash(data: disk).map { String(format: "%02x", $0) }.joined()
         let value: [String: Any] = [
             "schemaVersion": 1,
-            "kind": "io.github.everettjf.riftvm.preinstalled-image",
+            "kind": "com.riftvm.preinstalled-image",
             "architecture": "arm64",
             "minimumRiftVMVersion": "1.0.0",
             "product": ["id": "example.image", "name": "Example", "version": "1.0.0"],

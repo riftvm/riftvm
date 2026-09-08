@@ -688,7 +688,7 @@ struct PreinstalledImageInstallConfiguration {
 }
 
 struct PreinstalledImageManifest: Decodable {
-    static let kind = "io.github.everettjf.riftvm.preinstalled-image"
+    static let kind = "com.riftvm.preinstalled-image"
     struct Product: Decodable { let id: String; let name: String; let version: String }
     struct Disk: Decodable { let format: String; let virtualSize: UInt64; let sha256: String }
     struct VirtualMachine: Decodable { let name: String; let remark: String? }
