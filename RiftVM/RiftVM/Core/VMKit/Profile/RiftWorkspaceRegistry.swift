@@ -11,13 +11,17 @@ public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {
     public let kind: RiftWorkspaceKind
     public var bundleURL: URL
     public let createdAt: Date
+    public var pinnedAt: Date?
+    public var lastOpenedAt: Date?
 
     public init(
         id: UUID = UUID(),
         name: String,
         kind: RiftWorkspaceKind,
         bundleURL: URL,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        pinnedAt: Date? = nil,
+        lastOpenedAt: Date? = nil
     ) throws {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty, trimmedName.utf8.count <= 128 else {
@@ -31,46 +35,30 @@ public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {
         self.kind = kind
         self.bundleURL = bundleURL.standardizedFileURL
         self.createdAt = createdAt
+        self.pinnedAt = pinnedAt
+        self.lastOpenedAt = lastOpenedAt
     }
 }
 
 public struct RiftWorkspaceRegistrySnapshot: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public let schemaVersion: Int
     public var workspaces: [RiftWorkspaceRecord]
-    public var defaultWorkspaceID: UUID?
 
     public init(
         schemaVersion: Int = currentSchemaVersion,
-        workspaces: [RiftWorkspaceRecord] = [],
-        defaultWorkspaceID: UUID? = nil
+        workspaces: [RiftWorkspaceRecord] = []
     ) throws {
         guard schemaVersion == Self.currentSchemaVersion else {
             throw RiftWorkspaceRegistryError.unsupportedSchema
         }
-        try Self.validate(workspaces: workspaces, defaultWorkspaceID: defaultWorkspaceID)
+        try Self.validate(workspaces: workspaces)
         self.schemaVersion = schemaVersion
         self.workspaces = workspaces
-        self.defaultWorkspaceID = defaultWorkspaceID
     }
 
-    public func launchSelection() -> RiftWorkspaceLaunchSelection {
-        guard !workspaces.isEmpty else { return .createWorkspace }
-        if let defaultWorkspaceID,
-           let workspace = workspaces.first(where: { $0.id == defaultWorkspaceID }) {
-            return .open(workspace)
-        }
-        if workspaces.count == 1, let workspace = workspaces.first {
-            return .open(workspace)
-        }
-        return .chooseWorkspace
-    }
-
-    fileprivate static func validate(
-        workspaces: [RiftWorkspaceRecord],
-        defaultWorkspaceID: UUID?
-    ) throws {
+    fileprivate static func validate(workspaces: [RiftWorkspaceRecord]) throws {
         guard Set(workspaces.map(\.id)).count == workspaces.count else {
             throw RiftWorkspaceRegistryError.duplicateIdentifier
         }
@@ -78,17 +66,7 @@ public struct RiftWorkspaceRegistrySnapshot: Codable, Equatable, Sendable {
         guard Set(canonicalPaths).count == canonicalPaths.count else {
             throw RiftWorkspaceRegistryError.duplicateBundleURL
         }
-        if let defaultWorkspaceID,
-           !workspaces.contains(where: { $0.id == defaultWorkspaceID }) {
-            throw RiftWorkspaceRegistryError.missingDefaultWorkspace
-        }
     }
-}
-
-public enum RiftWorkspaceLaunchSelection: Equatable, Sendable {
-    case createWorkspace
-    case open(RiftWorkspaceRecord)
-    case chooseWorkspace
 }
 
 public enum RiftWorkspaceRegistryError: Error, Equatable {
@@ -96,7 +74,6 @@ public enum RiftWorkspaceRegistryError: Error, Equatable {
     case invalidBundleURL
     case duplicateIdentifier
     case duplicateBundleURL
-    case missingDefaultWorkspace
     case unsupportedSchema
     case invalidRegistry
     case workspaceNotFound
@@ -114,8 +91,6 @@ extension RiftWorkspaceRegistryError: LocalizedError {
             "The workspace registry contains a duplicate identifier."
         case .duplicateBundleURL:
             "The workspace registry contains the same bundle more than once."
-        case .missingDefaultWorkspace:
-            "The default workspace is not present in the registry."
         case .unsupportedSchema:
             "The workspace registry schema is unsupported."
         case .invalidRegistry:
@@ -157,10 +132,7 @@ public struct RiftWorkspaceRegistryStore {
             guard snapshot.schemaVersion == RiftWorkspaceRegistrySnapshot.currentSchemaVersion else {
                 throw RiftWorkspaceRegistryError.unsupportedSchema
             }
-            try RiftWorkspaceRegistrySnapshot.validate(
-                workspaces: snapshot.workspaces,
-                defaultWorkspaceID: snapshot.defaultWorkspaceID
-            )
+            try RiftWorkspaceRegistrySnapshot.validate(workspaces: snapshot.workspaces)
             return snapshot
         } catch let error as RiftWorkspaceRegistryError {
             throw error
@@ -170,10 +142,7 @@ public struct RiftWorkspaceRegistryStore {
     }
 
     public func save(_ snapshot: RiftWorkspaceRegistrySnapshot) throws {
-        try RiftWorkspaceRegistrySnapshot.validate(
-            workspaces: snapshot.workspaces,
-            defaultWorkspaceID: snapshot.defaultWorkspaceID
-        )
+        try RiftWorkspaceRegistrySnapshot.validate(workspaces: snapshot.workspaces)
         do {
             try fileManager.createDirectory(
                 at: registryURL.deletingLastPathComponent(),
@@ -187,10 +156,7 @@ public struct RiftWorkspaceRegistryStore {
         }
     }
 
-    public func register(
-        _ workspace: RiftWorkspaceRecord,
-        makeDefault: Bool = false
-    ) throws -> RiftWorkspaceRegistrySnapshot {
+    public func register(_ workspace: RiftWorkspaceRecord) throws -> RiftWorkspaceRegistrySnapshot {
         var snapshot = try load()
         guard !snapshot.workspaces.contains(where: { $0.id == workspace.id }) else {
             throw RiftWorkspaceRegistryError.duplicateIdentifier
@@ -201,7 +167,6 @@ public struct RiftWorkspaceRegistryStore {
             throw RiftWorkspaceRegistryError.duplicateBundleURL
         }
         snapshot.workspaces.append(workspace)
-        if makeDefault { snapshot.defaultWorkspaceID = workspace.id }
         try save(snapshot)
         return snapshot
     }
@@ -209,27 +174,46 @@ public struct RiftWorkspaceRegistryStore {
     public func registerIfNeeded(
         name: String,
         kind: RiftWorkspaceKind,
-        bundleURL: URL,
-        makeDefaultWhenFirst: Bool = true
+        bundleURL: URL
     ) throws -> RiftWorkspaceRegistrySnapshot {
         let canonicalURL = bundleURL.standardizedFileURL
         let current = try load()
         if current.workspaces.contains(where: { $0.bundleURL.standardizedFileURL == canonicalURL }) {
             return current
         }
-        return try register(
-            RiftWorkspaceRecord(name: name, kind: kind, bundleURL: canonicalURL),
-            makeDefault: makeDefaultWhenFirst && current.workspaces.isEmpty
-        )
+        return try register(RiftWorkspaceRecord(name: name, kind: kind, bundleURL: canonicalURL))
     }
 
-    public func setDefault(_ workspaceID: UUID?) throws -> RiftWorkspaceRegistrySnapshot {
+    public func rename(_ workspaceID: UUID, to name: String) throws -> RiftWorkspaceRegistrySnapshot {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, trimmedName.utf8.count <= 128 else {
+            throw RiftWorkspaceRegistryError.invalidName
+        }
         var snapshot = try load()
-        if let workspaceID,
-           !snapshot.workspaces.contains(where: { $0.id == workspaceID }) {
+        guard let index = snapshot.workspaces.firstIndex(where: { $0.id == workspaceID }) else {
             throw RiftWorkspaceRegistryError.workspaceNotFound
         }
-        snapshot.defaultWorkspaceID = workspaceID
+        snapshot.workspaces[index].name = trimmedName
+        try save(snapshot)
+        return snapshot
+    }
+
+    public func setPinned(_ workspaceID: UUID, pinned: Bool) throws -> RiftWorkspaceRegistrySnapshot {
+        var snapshot = try load()
+        guard let index = snapshot.workspaces.firstIndex(where: { $0.id == workspaceID }) else {
+            throw RiftWorkspaceRegistryError.workspaceNotFound
+        }
+        snapshot.workspaces[index].pinnedAt = pinned ? Date() : nil
+        try save(snapshot)
+        return snapshot
+    }
+
+    public func markOpened(_ workspaceID: UUID, at date: Date = Date()) throws -> RiftWorkspaceRegistrySnapshot {
+        var snapshot = try load()
+        guard let index = snapshot.workspaces.firstIndex(where: { $0.id == workspaceID }) else {
+            throw RiftWorkspaceRegistryError.workspaceNotFound
+        }
+        snapshot.workspaces[index].lastOpenedAt = date
         try save(snapshot)
         return snapshot
     }
@@ -240,9 +224,6 @@ public struct RiftWorkspaceRegistryStore {
             throw RiftWorkspaceRegistryError.workspaceNotFound
         }
         snapshot.workspaces.removeAll(where: { $0.id == workspaceID })
-        if snapshot.defaultWorkspaceID == workspaceID {
-            snapshot.defaultWorkspaceID = nil
-        }
         try save(snapshot)
         return snapshot
     }

@@ -58,6 +58,78 @@ struct VMConfigModel : Decodable, Encodable {
             )
         }
     }
+
+    func addingManagedSharedFolder(rootPath: URL) -> VMConfigModel {
+        let sharedURL = VMManagedSharedFolder.url(for: rootPath)
+        guard !directorySharingDevices.contains(where: { device in
+            device.items.contains { $0.path.standardizedFileURL == sharedURL }
+        }) else { return self }
+
+        var sharingDevices = directorySharingDevices
+        let item = VMModelFieldDirectorySharingDevice.SharingItem(
+            name: VMManagedSharedFolder.displayName,
+            path: sharedURL,
+            readOnly: false
+        )
+        if type == .macOS,
+           let index = sharingDevices.firstIndex(where: { $0.tag == VMModelFieldDirectorySharingDevice.autoMoundTag }) {
+            let existing = sharingDevices[index]
+            sharingDevices[index] = VMModelFieldDirectorySharingDevice(
+                tag: existing.tag,
+                items: existing.items + [item]
+            )
+        } else {
+            let tag = type == .macOS
+                ? VMModelFieldDirectorySharingDevice.autoMoundTag
+                : VMModelFieldDirectorySharingDevice.runtimeLinuxTag
+            sharingDevices.append(VMModelFieldDirectorySharingDevice(tag: tag, items: [item]))
+        }
+        return VMConfigModel(
+            type: type,
+            name: name,
+            remark: remark,
+            cpu: cpu,
+            memory: memory,
+            graphicsDevices: graphicsDevices,
+            storageDevices: storageDevices,
+            networkDevices: networkDevices,
+            pointingDevices: pointingDevices,
+            audioDevices: audioDevices,
+            directorySharingDevices: sharingDevices,
+            linuxFeatures: linuxFeatures
+        )
+    }
+
+    func relocatingManagedSharedFolder(to rootPath: URL) -> VMConfigModel {
+        let destination = VMManagedSharedFolder.url(for: rootPath)
+        let sharingDevices = directorySharingDevices.map { device in
+            VMModelFieldDirectorySharingDevice(
+                tag: device.tag,
+                items: device.items.map { item in
+                    guard item.name == VMManagedSharedFolder.displayName else { return item }
+                    return VMModelFieldDirectorySharingDevice.SharingItem(
+                        name: item.name,
+                        path: destination,
+                        readOnly: false
+                    )
+                }
+            )
+        }
+        return VMConfigModel(
+            type: type,
+            name: name,
+            remark: remark,
+            cpu: cpu,
+            memory: memory,
+            graphicsDevices: graphicsDevices,
+            storageDevices: storageDevices,
+            networkDevices: networkDevices,
+            pointingDevices: pointingDevices,
+            audioDevices: audioDevices,
+            directorySharingDevices: sharingDevices,
+            linuxFeatures: linuxFeatures
+        )
+    }
     
     
     func writeConfigToFile(path: URL) -> VMOSResultVoid {
@@ -84,6 +156,23 @@ struct VMConfigModel : Decodable, Encodable {
             }
             continuation.resume(returning: ())
         })
+    }
+}
+
+enum VMManagedSharedFolder {
+    static let directoryName = "Shared"
+    static let displayName = "RiftVM Shared"
+
+    static func url(for rootPath: URL) -> URL {
+        rootPath.standardizedFileURL.appending(path: directoryName, directoryHint: .isDirectory)
+    }
+
+    static func prepare(at rootPath: URL, fileManager: FileManager = .default) throws {
+        try fileManager.createDirectory(
+            at: url(for: rootPath),
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
     }
 }
 

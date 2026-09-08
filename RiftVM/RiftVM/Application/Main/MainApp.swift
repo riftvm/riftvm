@@ -17,7 +17,7 @@ struct MainApp: App {
     var body: some Scene {
         WindowGroup("Control Center", id: "control-center") {
             if HeadlessLaunchConfiguration.current == nil {
-                ContentView()
+                WorkspaceControlCenterView()
                     .frame(minWidth: 800, minHeight: 600)
             } else {
                 EmptyView()
@@ -26,6 +26,17 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1080, height: 760)
         .windowResizability(.contentMinSize)
+
+        WindowGroup("Workspace", id: "workspace", for: UUID.self) { $workspaceID in
+            if let workspaceID {
+                WorkspaceWindowView(workspaceID: workspaceID)
+            } else {
+                ContentUnavailableView("Workspace unavailable", systemImage: "exclamationmark.triangle")
+            }
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 1024, height: 768)
+        .windowToolbarStyle(.unifiedCompact)
         
         WindowGroup("Create Workspace", id: "create-machine-guide", for: RiftWorkspaceKind.self) { $initialKind in
             VMCreateStepperGuideView(initialKind: initialKind)

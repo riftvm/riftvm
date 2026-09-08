@@ -124,7 +124,7 @@ class VMConfigurationViewStateObject {
     }
 
     @discardableResult
-    func addSharedDirectory(_ url: URL, readOnly: Bool = false) -> Bool {
+    func addSharedDirectory(_ url: URL, readOnly: Bool = true) -> Bool {
         let normalizedURL = url.standardizedFileURL
         guard VMSharedFolderPathValidator.status(for: normalizedURL) == .available else { return false }
         guard !directorySharingDevices.contains(where: { device in

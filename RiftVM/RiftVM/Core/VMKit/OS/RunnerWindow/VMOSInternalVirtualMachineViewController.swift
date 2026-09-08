@@ -1080,6 +1080,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.guestAgentClient?.virtualMachineDidPause()
                     self.runtimeState?.update(.paused)
+                    self.markMachinePaused()
                 case .failure(let error):
                     self.recoverFromLifecycleOperationFailure(
                         "Could not pause the virtual machine: \(error.localizedDescription)",
@@ -1099,6 +1100,7 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
                 case .success:
                     self.runtimeState?.update(.running)
                     self.guestAgentClient?.virtualMachineDidResume()
+                    self.markMachineRunning()
                 case .failure(let error):
                     self.recoverFromLifecycleOperationFailure(
                         "Could not resume the virtual machine: \(error.localizedDescription)",
@@ -1553,13 +1555,22 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         if recoveredPhase == .running || recoveredPhase == .paused {
             cancelShutdownFallback()
             usbAccessoryCoordinator?.cancelMachineStopPreparation()
-            markMachineRunning()
+            if recoveredPhase == .paused {
+                markMachinePaused()
+            } else {
+                markMachineRunning()
+            }
         }
     }
 
     private func markMachineRunning() {
         guard let runLease else { return }
         VMRunningRegistry.shared.transition(runLease, to: .running)
+    }
+
+    private func markMachinePaused() {
+        guard let runLease else { return }
+        VMRunningRegistry.shared.transition(runLease, to: .paused)
     }
 
     private func markNetworkRuntimeStarted() {

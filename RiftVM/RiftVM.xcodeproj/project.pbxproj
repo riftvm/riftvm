@@ -108,7 +108,7 @@
 		EEAFD1ADA4E64380D73A13A2 /* OmarchyFocusedCommandBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E705174EF14A3A0A0D9069 /* OmarchyFocusedCommandBridge.swift */; };
 		F2705284286C93EE0008DCD1 /* MachinesDetailHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */; };
 		F2C5DCA22866F7C800B2F41F /* MainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA12866F7C800B2F41F /* MainApp.swift */; };
-		F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCA32866F7C800B2F41F /* ContentView.swift */; };
+		A11C0C010000000000000001 /* WorkspaceControlCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0C020000000000000002 /* WorkspaceControlCenterView.swift */; };
 		F2C5DCA62866F7C900B2F41F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA52866F7C900B2F41F /* Assets.xcassets */; };
 		F2C5DCA92866F7C900B2F41F /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */; };
 		F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */; };
@@ -228,7 +228,7 @@
 		F2705283286C93EE0008DCD1 /* MachinesDetailHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesDetailHomeView.swift; sourceTree = "<group>"; };
 		F2C5DC9E2866F7C800B2F41F /* RiftVM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RiftVM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2C5DCA12866F7C800B2F41F /* MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainApp.swift; sourceTree = "<group>"; };
-		F2C5DCA32866F7C800B2F41F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A11C0C020000000000000002 /* WorkspaceControlCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceControlCenterView.swift; sourceTree = "<group>"; };
 		F2C5DCA52866F7C900B2F41F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		F2C5DCAA2866F7C900B2F41F /* RiftVM.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiftVM.entitlements; sourceTree = "<group>"; };
@@ -541,7 +541,7 @@
 		D1CCB223290DBB4200B1F563 /* Entry */ = {
 			isa = PBXGroup;
 			children = (
-				F2C5DCA32866F7C800B2F41F /* ContentView.swift */,
+				A11C0C020000000000000002 /* WorkspaceControlCenterView.swift */,
 			);
 			path = Entry;
 			sourceTree = "<group>";
@@ -785,7 +785,7 @@
 				F2C5DCBD2866F7F700B2F41F /* AppDelegate.swift in Sources */,
 				D18AE4DD28D2B67F00B5C3E2 /* SystemImageDownloadView.swift in Sources */,
 				D132337028E27C6B002C26A2 /* VMOSType.swift in Sources */,
-				F2C5DCA42866F7C800B2F41F /* ContentView.swift in Sources */,
+				A11C0C010000000000000001 /* WorkspaceControlCenterView.swift in Sources */,
 				D1E19A05289E99AD00CF27D3 /* VMModel.swift in Sources */,
 				D184CB1A28ED21F2001E3664 /* VMOSRunner.swift in Sources */,
 				D132337328E282AF002C26A2 /* VMOSDownloaderForMacOS.swift in Sources */,

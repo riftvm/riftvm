@@ -38,6 +38,7 @@ final class VMOSCreatorForMacOS: VMOSCreator {
             let rootPath = model.getRootPath()
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
             try await VMOSCreatorUtil.createVMBundle(transaction: transaction)
+            try VMManagedSharedFolder.prepare(at: rootPath)
             progress(.info("Succeed create bundle path"))
             
             // write json

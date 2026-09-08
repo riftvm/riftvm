@@ -3,29 +3,7 @@ import XCTest
 @testable import RiftVMCore
 
 final class RiftWorkspaceRegistryTests: XCTestCase {
-    func testLaunchSelectionMatchesEmptySingleDefaultAndMultipleRules() throws {
-        let first = try workspace(name: "Omarchy", kind: .omarchy)
-        let second = try workspace(name: "macOS", kind: .macOS)
-
-        XCTAssertEqual(try RiftWorkspaceRegistrySnapshot().launchSelection(), .createWorkspace)
-        XCTAssertEqual(
-            try RiftWorkspaceRegistrySnapshot(workspaces: [first]).launchSelection(),
-            .open(first)
-        )
-        XCTAssertEqual(
-            try RiftWorkspaceRegistrySnapshot(workspaces: [first, second]).launchSelection(),
-            .chooseWorkspace
-        )
-        XCTAssertEqual(
-            try RiftWorkspaceRegistrySnapshot(
-                workspaces: [first, second],
-                defaultWorkspaceID: second.id
-            ).launchSelection(),
-            .open(second)
-        )
-    }
-
-    func testRegistryPersistsDistinctOmarchyWorkspacesAndDefault() throws {
+    func testRegistryPersistsDistinctOmarchyWorkspaces() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
@@ -33,12 +11,10 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let second = try workspace(name: "Personal", kind: .omarchy)
 
         _ = try store.register(first)
-        _ = try store.register(second, makeDefault: true)
+        _ = try store.register(second)
 
         let loaded = try store.load()
         XCTAssertEqual(loaded.workspaces, [first, second])
-        XCTAssertEqual(loaded.defaultWorkspaceID, second.id)
-        XCTAssertEqual(loaded.launchSelection(), .open(second))
     }
 
     func testRegistryRejectsDuplicateIdentityAndBundleWithoutChangingDisk() throws {
@@ -46,7 +22,7 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
         let first = try workspace(name: "Work", kind: .omarchy)
-        _ = try store.register(first, makeDefault: true)
+        _ = try store.register(first)
         let original = try Data(contentsOf: store.registryURL)
 
         let duplicateIdentity = try RiftWorkspaceRecord(
@@ -70,7 +46,7 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: store.registryURL), original)
     }
 
-    func testUnregisterDoesNotDeleteWorkspaceBundleAndClearsDefault() throws {
+    func testUnregisterDoesNotDeleteWorkspaceBundle() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let bundle = root.appending(path: "Keep.riftvm", directoryHint: .isDirectory)
@@ -79,16 +55,15 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         try Data("kept".utf8).write(to: marker)
         let record = try RiftWorkspaceRecord(name: "Keep", kind: .omarchy, bundleURL: bundle)
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root.appending(path: "Support"))
-        _ = try store.register(record, makeDefault: true)
+        _ = try store.register(record)
 
         let snapshot = try store.unregister(record.id)
 
         XCTAssertTrue(snapshot.workspaces.isEmpty)
-        XCTAssertNil(snapshot.defaultWorkspaceID)
         XCTAssertEqual(try Data(contentsOf: marker), Data("kept".utf8))
     }
 
-    func testRegisterIfNeededIsIdempotentAndMakesFirstWorkspaceDefault() throws {
+    func testRegisterIfNeededIsIdempotent() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
@@ -99,7 +74,23 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
 
         XCTAssertEqual(first.workspaces.count, 1)
         XCTAssertEqual(second.workspaces, first.workspaces)
-        XCTAssertEqual(first.defaultWorkspaceID, first.workspaces.first?.id)
+    }
+
+    func testRenamePinAndLastOpenedPersist() throws {
+        let root = temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
+        let record = try workspace(name: "Original", kind: .macOS)
+        _ = try store.register(record)
+        let openedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        _ = try store.rename(record.id, to: "  Daily Driver  ")
+        _ = try store.setPinned(record.id, pinned: true)
+        let updated = try store.markOpened(record.id, at: openedAt)
+
+        XCTAssertEqual(updated.workspaces[0].name, "Daily Driver")
+        XCTAssertNotNil(updated.workspaces[0].pinnedAt)
+        XCTAssertEqual(updated.workspaces[0].lastOpenedAt, openedAt)
     }
 
     private func workspace(name: String, kind: RiftWorkspaceKind) throws -> RiftWorkspaceRecord {

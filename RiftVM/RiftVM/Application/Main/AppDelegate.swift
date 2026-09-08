@@ -376,7 +376,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
             linuxFeatures: .recommended
-        )
+        ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(
             rootPath: stagingURL,
             state: VMStateModel(imagePath: diskURL),
@@ -420,6 +420,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
             return .failure("Could not finalize the installed machine state: \(error)")
+        }
+        if case let .failure(error) = config.relocatingManagedSharedFolder(to: install.destinationURL)
+            .writeConfigToFile(path: model.configURL) {
+            return .failure("Could not finalize the managed shared folder: \(error)")
         }
         do {
             try fileManager.moveItem(at: stagingURL, to: install.destinationURL)
@@ -799,7 +803,7 @@ struct VMPreinstalledImageInstaller {
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
             linuxFeatures: defaults.linuxFeatures ?? .recommended
-        )
+        ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(rootPath: stagingURL, state: VMStateModel(imagePath: diskURL), config: config)
         let result = await VMOSCreatorForLinux(allowedExistingRootItems: ["Disk.img"]).create(model: model, progress: progress)
         guard case .success = result else { return result }
@@ -826,6 +830,10 @@ struct VMPreinstalledImageInstaller {
         let committedState = VMStateModel(imagePath: install.destinationURL.appending(path: diskURL.lastPathComponent))
         if case let .failure(error) = committedState.writeStateToFile(path: model.stateURL) {
             return .failure("Could not finalize the installed machine state: \(error)")
+        }
+        if case let .failure(error) = config.relocatingManagedSharedFolder(to: install.destinationURL)
+            .writeConfigToFile(path: model.configURL) {
+            return .failure("Could not finalize the managed shared folder: \(error)")
         }
         do { try fileManager.moveItem(at: stagingURL, to: install.destinationURL) }
         catch { return .failure("Could not commit the installed machine: \(error.localizedDescription)") }

@@ -90,7 +90,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         RiftVMLog.info("Creating a \(context.configData.osType.rawValue) VM with image \(imagePath.lastPathComponent)", logger: RiftVMLog.lifecycle)
 
         let stateModel = VMStateModel(imagePath: imagePath)
-        let configModel = context.configData.getConfigModel()
+        let configModel = context.configData.getConfigModel().addingManagedSharedFolder(rootPath: rootPath)
         let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
 
         let provisioningCredential: VMGuestProvisioningCredential? = context.formData.provisionsMacGuest

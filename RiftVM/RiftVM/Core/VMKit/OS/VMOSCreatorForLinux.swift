@@ -37,6 +37,7 @@ final class VMOSCreatorForLinux: VMOSCreator {
                 transaction: transaction,
                 allowedExistingItemNames: allowedExistingRootItems
             )
+            try VMManagedSharedFolder.prepare(at: rootPath)
             progress(.info("Succeed create bundle path"))
             
             // write json

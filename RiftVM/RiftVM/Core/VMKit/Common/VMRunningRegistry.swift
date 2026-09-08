@@ -23,6 +23,7 @@ import Darwin
 enum VMRunPhase: String, Codable, Sendable {
     case starting
     case running
+    case paused
     case stopping
     case maintaining
 }
@@ -77,6 +78,7 @@ extension VMRunPhase {
         switch self {
         case .starting: "Starting"
         case .running: "Running"
+        case .paused: "Paused"
         case .stopping: "Saving State"
         case .maintaining: "Maintenance"
         }
@@ -139,6 +141,7 @@ final class VMRunningRegistry {
             try? handle.close()
             return nil
         }
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
         return lease
     }
 
@@ -176,6 +179,7 @@ final class VMRunningRegistry {
         entry.phase = phase
         entries[key] = entry
         writeRecord(key: key, entry: entry)
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
     }
 
     func release(_ lease: VMRunLease) {
@@ -185,6 +189,7 @@ final class VMRunningRegistry {
         try? FileManager.default.removeItem(at: metadataURL(key: key))
         flock(entry.lockHandle.fileDescriptor, LOCK_UN)
         try? entry.lockHandle.close()
+        NotificationCenter.default.post(name: .riftVMRunStateDidChange, object: lease.rootPath)
     }
 
     func phase(rootPath: URL) -> VMRunPhase? {
@@ -289,6 +294,10 @@ final class VMRunningRegistry {
         while path.count > 1, path.hasSuffix("/") { path.removeLast() }
         return path
     }
+}
+
+extension Notification.Name {
+    static let riftVMRunStateDidChange = Notification.Name("com.riftvm.app.run-state-changed")
 }
 
 #endif

@@ -37,6 +37,8 @@ final class VMRunningRegistryTests: XCTestCase {
 
         registry.transition(lease, to: .running)
         XCTAssertEqual(registry.phase(rootPath: root), .running)
+        registry.transition(lease, to: .paused)
+        XCTAssertEqual(registry.phase(rootPath: root), .paused)
         registry.transition(lease, to: .stopping)
         XCTAssertEqual(registry.phase(rootPath: root), .stopping)
         registry.release(lease)
