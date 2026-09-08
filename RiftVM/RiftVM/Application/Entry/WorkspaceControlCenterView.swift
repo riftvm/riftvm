@@ -92,6 +92,8 @@ struct WorkspaceControlCenterView: View {
                             }
                         } icon: {
                             Image(systemName: item.systemImage)
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(item.accent)
                         }
                         .tag(item)
                     }
@@ -132,40 +134,52 @@ struct WorkspaceControlCenterView: View {
                 description: Text("Choose another category or create a new workspace.")
             )
         } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(filter == .all ? "Your Workspaces" : filter.title)
-                            .font(.largeTitle.bold())
-                        Text("Each workspace is an independent virtual machine.")
-                            .foregroundStyle(.secondary)
-                    }
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 18)],
-                        alignment: .leading,
-                        spacing: 18
-                    ) {
-                        ForEach(workspaces) { workspace in
-                            WorkspaceCardView(
-                                workspace: workspace,
-                                summary: WorkspaceSummary(workspace: workspace),
-                                runPhase: VMRunningRegistry.shared.phase(rootPath: workspace.bundleURL),
-                                isRunning: VMRunningRegistry.shared.isRunning(rootPath: workspace.bundleURL),
-                                open: { open(workspace) },
-                                manageSharing: { showSettings(for: workspace) },
-                                togglePinned: { setPinned(workspace, pinned: workspace.pinnedAt == nil) },
-                                showSettings: { showSettings(for: workspace) },
-                                showSnapshots: { snapshotWorkspace = workspace },
-                                reveal: { NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL]) },
-                                rename: { beginRename(workspace) },
-                                delete: { requestDelete(workspace) },
-                                receiveDrop: { receiveDrop($0, on: workspace) }
-                            )
+            ZStack {
+                WorkspaceWorldBackdrop()
+                    .accessibilityHidden(true)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(filter == .all ? "Your Workspaces" : filter.title)
+                                .font(.largeTitle.bold())
+                                .foregroundStyle(
+                                    .linearGradient(
+                                        colors: [.primary, .primary, filter.accent],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                            Text("Two worlds, one Mac. Each workspace is an independent virtual machine.")
+                                .foregroundStyle(.secondary)
+                        }
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 18)],
+                            alignment: .leading,
+                            spacing: 18
+                        ) {
+                            ForEach(workspaces) { workspace in
+                                WorkspaceCardView(
+                                    workspace: workspace,
+                                    summary: WorkspaceSummary(workspace: workspace),
+                                    runPhase: VMRunningRegistry.shared.phase(rootPath: workspace.bundleURL),
+                                    isRunning: VMRunningRegistry.shared.isRunning(rootPath: workspace.bundleURL),
+                                    open: { open(workspace) },
+                                    manageSharing: { showSettings(for: workspace) },
+                                    togglePinned: { setPinned(workspace, pinned: workspace.pinnedAt == nil) },
+                                    showSettings: { showSettings(for: workspace) },
+                                    showSnapshots: { snapshotWorkspace = workspace },
+                                    reveal: { NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL]) },
+                                    rename: { beginRename(workspace) },
+                                    delete: { requestDelete(workspace) },
+                                    receiveDrop: { receiveDrop($0, on: workspace) }
+                                )
+                            }
                         }
                     }
+                    .frame(maxWidth: 1120, alignment: .leading)
+                    .padding(32)
                 }
-                .frame(maxWidth: 1120, alignment: .leading)
-                .padding(32)
             }
         }
     }
@@ -359,6 +373,79 @@ private enum WorkspaceFilter: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self { case .all: "square.grid.2x2"; case .running: "play.circle"; case .omarchy: "sparkles.rectangle.stack"; case .macOS: "macwindow" }
     }
+    var accent: Color {
+        switch self {
+        case .all: .purple
+        case .running: .green
+        case .omarchy: WorkspaceWorldTheme.fire.accent
+        case .macOS: WorkspaceWorldTheme.ice.accent
+        }
+    }
+}
+
+private struct WorkspaceWorldTheme {
+    let accent: Color
+    let bright: Color
+    let deep: Color
+    let eyebrow: String
+    let symbol: String
+
+    static let fire = WorkspaceWorldTheme(
+        accent: Color(red: 1, green: 0.34, blue: 0.12),
+        bright: Color(red: 1, green: 0.68, blue: 0.12),
+        deep: Color(red: 0.32, green: 0.025, blue: 0.015),
+        eyebrow: "FIRE WORLD",
+        symbol: "flame.fill"
+    )
+    static let ice = WorkspaceWorldTheme(
+        accent: Color(red: 0.14, green: 0.72, blue: 1),
+        bright: Color(red: 0.64, green: 0.94, blue: 1),
+        deep: Color(red: 0.015, green: 0.10, blue: 0.28),
+        eyebrow: "ICE WORLD",
+        symbol: "snowflake"
+    )
+
+    static func theme(for kind: RiftWorkspaceKind) -> WorkspaceWorldTheme {
+        kind == .omarchy ? .fire : .ice
+    }
+}
+
+private struct WorkspaceWorldBackdrop: View {
+    var body: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            HStack(spacing: 0) {
+                LinearGradient(
+                    colors: [WorkspaceWorldTheme.fire.deep.opacity(0.48), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                LinearGradient(
+                    colors: [.clear, WorkspaceWorldTheme.ice.deep.opacity(0.52)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            }
+            RadialGradient(
+                colors: [WorkspaceWorldTheme.fire.accent.opacity(0.13), .clear],
+                center: .bottomLeading,
+                startRadius: 12,
+                endRadius: 430
+            )
+            RadialGradient(
+                colors: [WorkspaceWorldTheme.ice.accent.opacity(0.14), .clear],
+                center: .topTrailing,
+                startRadius: 12,
+                endRadius: 460
+            )
+            LinearGradient(
+                colors: [.clear, Color.primary.opacity(0.045), .clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .ignoresSafeArea()
+    }
 }
 
 private struct WorkspaceControlCenterWelcomeView: View {
@@ -533,18 +620,30 @@ private struct WorkspaceCardView: View {
     let receiveDrop: ([URL]) -> Bool
     @State private var isDropTargeted = false
 
+    private var theme: WorkspaceWorldTheme { .theme(for: workspace.kind) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
-                Image(systemName: workspace.kind == .omarchy ? "sparkles.rectangle.stack" : "macwindow")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                    .frame(width: 34, height: 34)
+                Image(systemName: workspace.kind == .omarchy ? "sparkles.rectangle.stack.fill" : "macwindow")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        LinearGradient(
+                            colors: [theme.bright, theme.accent, theme.deep],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: .rect(cornerRadius: 13)
+                    )
+                    .shadow(color: theme.accent.opacity(0.42), radius: 16, y: 5)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(workspace.name).font(.title3.weight(.semibold)).lineLimit(1)
-                    Text(workspace.kind == .omarchy ? "Omarchy Workspace" : "macOS Workspace")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Label(theme.eyebrow, systemImage: theme.symbol)
+                        .font(.caption2.monospaced().weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(theme.accent)
                 }
                 Spacer()
                 if workspace.pinnedAt != nil { Image(systemName: "pin.fill").foregroundStyle(.secondary) }
@@ -571,14 +670,29 @@ private struct WorkspaceCardView: View {
                 Spacer()
                 Button(isRunning ? "Open" : "Start", systemImage: isRunning ? "macwindow.on.rectangle" : "play.fill", action: open)
                     .buttonStyle(.borderedProminent)
+                    .tint(theme.accent)
             }
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 260, alignment: .topLeading)
-        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+        .background {
+            ZStack {
+                Rectangle().fill(.regularMaterial)
+                LinearGradient(
+                    colors: [theme.deep.opacity(0.72), theme.accent.opacity(0.13), .clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                WorkspaceCardAtmosphere(kind: workspace.kind, accent: theme.accent)
+            }
+            .clipShape(.rect(cornerRadius: 18))
+        }
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: isDropTargeted ? 2 : 1)
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(
+                    isDropTargeted ? theme.bright : theme.accent.opacity(0.56),
+                    lineWidth: isDropTargeted ? 2 : 1
+                )
         }
         .overlay {
             if isDropTargeted {
@@ -606,6 +720,40 @@ private struct WorkspaceCardView: View {
     private var statusTitle: String { runPhase?.cardLabel ?? (isRunning ? "Running" : summary.needsAttention ? "Needs Attention" : "Stopped") }
     private var statusImage: String { isRunning ? "circle.fill" : summary.needsAttention ? "exclamationmark.triangle.fill" : "circle" }
     private var statusColor: Color { isRunning ? .green : summary.needsAttention ? .orange : .secondary }
+}
+
+private struct WorkspaceCardAtmosphere: View {
+    let kind: RiftWorkspaceKind
+    let accent: Color
+
+    var body: some View {
+        Canvas { context, size in
+            if kind == .omarchy {
+                for index in 0..<7 {
+                    let x = size.width * (0.58 + CGFloat(index) * 0.065)
+                    let height = size.height * (0.18 + CGFloat(index % 3) * 0.07)
+                    var ember = Path()
+                    ember.move(to: CGPoint(x: x, y: size.height))
+                    ember.addCurve(
+                        to: CGPoint(x: x + 12, y: size.height - height),
+                        control1: CGPoint(x: x - 22, y: size.height - height * 0.35),
+                        control2: CGPoint(x: x + 28, y: size.height - height * 0.7)
+                    )
+                    context.stroke(ember, with: .color(accent.opacity(0.13)), lineWidth: 2)
+                }
+            } else {
+                for index in 0..<6 {
+                    let inset = CGFloat(index) * 22
+                    var shard = Path()
+                    shard.move(to: CGPoint(x: size.width - inset, y: 0))
+                    shard.addLine(to: CGPoint(x: size.width * 0.55 - inset * 0.25, y: size.height))
+                    context.stroke(shard, with: .color(accent.opacity(0.11)), lineWidth: index == 0 ? 2 : 1)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 private struct WorkspaceSummary {
