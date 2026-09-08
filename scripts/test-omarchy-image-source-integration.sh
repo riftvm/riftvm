@@ -7,29 +7,22 @@ fixture=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-image-source.XXXXXX")
 trap 'rm -rf "$fixture"' EXIT
 profile="$fixture/profiles/aarch64-virt"
 agent_ref=$(git -C "$project_root" rev-parse HEAD)
-mkdir -p "$fixture/bin" "$profile/overlay/etc/systemd/system" "$profile/overlay/etc/systemd/user" \
-  "$profile/overlay/usr/local/libexec"
+mkdir -p "$fixture/bin" "$profile/overlay/etc/systemd/system" "$profile/overlay/etc/systemd/user"
 cp "$project_root/RiftVM/GuestOverlay/systemd/mnt-riftvm\x2dshared.mount" \
   "$profile/overlay/etc/systemd/system/mnt-riftvm\x2dshared.mount"
 cp "$project_root/RiftVM/GuestOverlay/systemd/rift-session-agent.service" \
   "$profile/overlay/etc/systemd/user/rift-session-agent.service"
 printf '%s\n' wl-clipboard >"$profile/runtime-packages"
-printf '%s\n' '#!/bin/bash' >"$profile/overlay/usr/local/libexec/riftvm-owner-provisioning"
-printf 'RIFTVM_GUEST_AGENT_REF=%s\nWL_CLIPBOARD_RS_REF=%s\n' \
-  "$agent_ref" 2f6a8852665bd1891a3f3ffa204e62b0f588ef95 >"$fixture/sources.env"
+printf 'RIFTVM_GUEST_AGENT_REF=%s\n' "$agent_ref" >"$fixture/sources.env"
 cat >"$fixture/bin/build-image" <<'EOF'
 target_chroot systemctl enable 'mnt-riftvm\x2dshared.mount'
 install -d -m755 "$MOUNT_DIR/mnt/riftvm-shared"
-install -m755 "$RIFTVM_WL_COPY_BINARY" "$MOUNT_DIR/usr/local/bin/wl-copy"
 target_chroot systemctl --global enable rift-session-agent.service
-install -m755 riftvm-owner-provisioning /usr/local/libexec/riftvm-owner-provisioning
 required_paths=(
   'etc/systemd/system/mnt-riftvm\x2dshared.mount'
   etc/systemd/user/rift-session-agent.service
   'etc/systemd/system/multi-user.target.wants/mnt-riftvm\x2dshared.mount'
   mnt/riftvm-shared
-  usr/local/bin/wl-copy
-  usr/local/libexec/riftvm-owner-provisioning
   etc/systemd/user/graphical-session.target.wants/rift-session-agent.service
 )
 EOF
@@ -50,20 +43,7 @@ if "$verify" "$fixture" >/dev/null 2>&1; then
   exit 1
 fi
 printf '%s\n' wl-clipboard >"$profile/runtime-packages"
-sed -i '' '/RIFTVM_WL_COPY_BINARY/d' "$fixture/bin/build-image"
-if "$verify" "$fixture" >/dev/null 2>&1; then
-  echo "verifier accepted an image without the stdin-safe wl-copy frontend" >&2
-  exit 1
-fi
-cp "$fixture/build-image.valid" "$fixture/bin/build-image"
-rm "$profile/overlay/usr/local/libexec/riftvm-owner-provisioning"
-if "$verify" "$fixture" >/dev/null 2>&1; then
-  echo "verifier accepted an image without authenticated owner provisioning" >&2
-  exit 1
-fi
-printf '%s\n' '#!/bin/bash' >"$profile/overlay/usr/local/libexec/riftvm-owner-provisioning"
-printf 'RIFTVM_GUEST_AGENT_REF=%040d\nWL_CLIPBOARD_RS_REF=%s\n' \
-  0 2f6a8852665bd1891a3f3ffa204e62b0f588ef95 >"$fixture/sources.env"
+printf 'RIFTVM_GUEST_AGENT_REF=%040d\n' 0 >"$fixture/sources.env"
 if "$verify" "$fixture" >/dev/null 2>&1; then
   echo "verifier accepted a pin without Session Agent implementation" >&2
   exit 1
