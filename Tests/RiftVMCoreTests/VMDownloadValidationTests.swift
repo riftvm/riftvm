@@ -48,4 +48,31 @@ final class VMDownloadValidationTests: XCTestCase {
             )
         }
     }
+
+    func testMacOSInstallationForecastRejectsLateRestoreFailureRisk() {
+        let gib = UInt64(1_024 * 1_024 * 1_024)
+        XCTAssertThrowsError(
+            try VMMacOSInstallationStorageForecast.validate(
+                virtualDiskBytes: 64 * gib,
+                at: FileManager.default.temporaryDirectory,
+                availableBytesOverride: Int64(40 * gib) - 1
+            )
+        )
+        XCTAssertNoThrow(
+            try VMMacOSInstallationStorageForecast.validate(
+                virtualDiskBytes: 64 * gib,
+                at: FileManager.default.temporaryDirectory,
+                availableBytesOverride: Int64(40 * gib)
+            )
+        )
+    }
+
+    func testMacOSInstallationForecastUsesWholeSmallDisk() throws {
+        let gib = UInt64(1_024 * 1_024 * 1_024)
+        try VMMacOSInstallationStorageForecast.validate(
+            virtualDiskBytes: 16 * gib,
+            at: FileManager.default.temporaryDirectory,
+            availableBytesOverride: Int64(24 * gib)
+        )
+    }
 }

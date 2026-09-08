@@ -2350,8 +2350,12 @@ enum VMDownloadValidationError: LocalizedError, Equatable {
         case .emptyFile: "The server returned an empty file."
         case let .sizeMismatch(expected, actual): "Expected \(expected) bytes but downloaded \(actual) bytes."
         case let .insufficientDiskSpace(required, available):
-            "The operation needs \(required) bytes, but only \(available) bytes are available."
+            "The operation needs at least \(Self.bytes(required)) free, but only \(Self.bytes(available)) is available."
         }
+    }
+
+    private static func bytes(_ value: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
     }
 }
 
@@ -2376,6 +2380,31 @@ enum VMStorageCapacity {
         let requiredWithReserve = overflow ? Int64.max : sum
         guard available < requiredWithReserve else { return }
         throw VMDownloadValidationError.insufficientDiskSpace(required: requiredWithReserve, available: available)
+    }
+}
+
+/// Conservative physical-space gate for a fresh macOS restore. ASIF is sparse,
+/// but VZMacOSInstaller expands a substantial data template before the guest is
+/// bootable. Virtualization.framework does not expose that physical write
+/// estimate, so reserve the smaller of the whole virtual disk and 32 GiB, plus
+/// 8 GiB for APFS/host working space. This prevents a late, destructive-looking
+/// AMRestoreErrorDomain 81 after the installer has already done most of its work.
+enum VMMacOSInstallationStorageForecast {
+    static let maximumInitialWriteBytes: UInt64 = 32 * 1_024 * 1_024 * 1_024
+    static let hostReserveBytes: Int64 = 8 * 1_024 * 1_024 * 1_024
+
+    static func validate(
+        virtualDiskBytes: UInt64,
+        at destination: URL,
+        availableBytesOverride: Int64? = nil
+    ) throws {
+        let physicalWriteBytes = min(virtualDiskBytes, maximumInitialWriteBytes)
+        try VMStorageCapacity.validate(
+            requiredBytes: Int64(clamping: physicalWriteBytes),
+            at: destination,
+            reserveBytes: hostReserveBytes,
+            availableBytesOverride: availableBytesOverride
+        )
     }
 }
 

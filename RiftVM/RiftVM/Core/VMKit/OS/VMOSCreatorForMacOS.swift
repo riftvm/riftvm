@@ -36,6 +36,15 @@ final class VMOSCreatorForMacOS: VMOSCreator {
         do {
             // create bundle
             let rootPath = model.getRootPath()
+            let virtualDiskBytes = model.config.storageDevices
+                .filter { $0.type == .Block }
+                .map(\.size)
+                .max() ?? VMModelFieldStorageDevice.defaultDiskSize()
+            try VMMacOSInstallationStorageForecast.validate(
+                virtualDiskBytes: virtualDiskBytes,
+                at: rootPath.deletingLastPathComponent()
+            )
+            progress(.info("Succeed checked macOS installation disk space"))
             progress(.info("Begin create bundle path : \(rootPath.path(percentEncoded: false))"))
             try await VMOSCreatorUtil.createVMBundle(transaction: transaction)
             try VMManagedSharedFolder.prepare(at: rootPath)
