@@ -26,6 +26,9 @@ struct MainApp: App {
         .defaultPosition(.center)
         .defaultSize(width: 1080, height: 760)
         .windowResizability(.contentMinSize)
+        .commands {
+            CommunityCommands()
+        }
 
         WindowGroup("Workspace", id: "workspace", for: UUID.self) { $workspaceID in
             if let workspaceID {
@@ -93,6 +96,26 @@ struct MainApp: App {
     
 #endif
 }
+
+#if arch(arm64)
+private struct CommunityCommands: Commands {
+    @Environment(\.openURL) private var openURL
+
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Star RiftVM on GitHub") {
+                openURL(URL(string: "https://github.com/riftvm/riftvm")!)
+            }
+            Button("Send Feedback…") {
+                openURL(URL(string: "https://github.com/riftvm/riftvm/issues")!)
+            }
+            Button("Follow @everettjf on X") {
+                openURL(URL(string: "https://x.com/everettjf")!)
+            }
+        }
+    }
+}
+#endif
 
 #if arch(arm64)
 private struct ControlCenterCommands: Commands {
