@@ -7,6 +7,27 @@ import Virtualization
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.omarchy.metadata")
 
 final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+    private(set) var hostOverlayVisible = false
+
+    override var acceptsFirstResponder: Bool {
+        !hostOverlayVisible && super.acceptsFirstResponder
+    }
+
+    func setHostOverlayVisible(_ visible: Bool) {
+        guard hostOverlayVisible != visible else { return }
+        hostOverlayVisible = visible
+        if visible { releaseGuestKeys() }
+        capturesSystemKeys = !visible
+        if visible, let responder = window?.firstResponder as? NSView,
+           responder === self || responder.isDescendant(of: self) {
+            window?.makeFirstResponder(nil)
+        }
+        // SwiftUI overlays do not remove the VZ view's native cursor tracking.
+        // Hide only the display view; keep the machine and Agent running.
+        isHidden = visible
+        window?.invalidateCursorRects(for: self)
+    }
+
     // App-targeted events may reach the responder without traversing the
     // session event tap, so Command routing also has a direct-view seam.
     var commandEventHandler: ((NSEvent) -> Bool)?
@@ -60,18 +81,23 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
         ) { [weak self, weak window] _ in
             guard let self, let window, self.window === window,
-                  window.attachedSheet == nil else { return }
+                  window.attachedSheet == nil, !self.hostOverlayVisible else { return }
             window.makeFirstResponder(self)
         })
         refreshDisplayAfterTransition()
         DispatchQueue.main.async { [weak self, weak window] in
             guard let self, let window, self.window === window,
-                  window.isKeyWindow, window.attachedSheet == nil else { return }
+                  window.isKeyWindow, window.attachedSheet == nil,
+                  !self.hostOverlayVisible else { return }
             window.makeFirstResponder(self)
         }
+        displayObservers.append(NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: window, queue: .main
+        ) { [weak self] _ in self?.releaseGuestKeys() })
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard !hostOverlayVisible else { return }
         window?.makeFirstResponder(self)
         super.mouseDown(with: event)
     }
@@ -82,6 +108,20 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         let work = DispatchWorkItem { [weak self] in self?.refreshDisplayAfterTransition() }
         pendingDisplayRefresh = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: work)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { releaseGuestKeys() }
+        return resigned
+    }
+
+    private func releaseGuestKeys() {
+        let keys = guestPressedKeys.sorted()
+        guestPressedKeys.removeAll()
+        for code in keys {
+            guestInputEventHandler?(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
+        }
     }
 
     private func refreshDisplayAfterTransition() {
@@ -408,6 +448,7 @@ struct OmarchyVirtualMachineView: View {
                 clipboardEnabled: clipboardEnabled,
                 notificationsEnabled: notificationsEnabled,
                 microphoneEnabled: microphoneEnabled,
+                hostOverlayVisible: ownerSetupAvailable || phase != .running,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 integrationChanged: handleIntegrationChange,
@@ -1327,6 +1368,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let clipboardEnabled: Bool
     let notificationsEnabled: Bool
     let microphoneEnabled: Bool
+    let hostOverlayVisible: Bool
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
@@ -1359,6 +1401,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> VZVirtualMachineView {
         let view = OmarchyVirtualMachineInputView()
         view.capturesSystemKeys = true
+        view.setHostOverlayVisible(hostOverlayVisible)
         view.automaticallyReconfiguresDisplay = true
         do {
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
@@ -1390,6 +1433,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {
+        (nsView as? OmarchyVirtualMachineInputView)?.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.setClipboardEnabled(clipboardEnabled)
         context.coordinator.setNotificationsEnabled(notificationsEnabled)
         if let ownerProvisioningSubmission {
@@ -1643,6 +1687,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             let bridge = OmarchyFocusedCommandBridge(
                 focusProbe: { [weak view] in
                     guard let view, let window = view.window else { return false }
+                    guard !view.isHidden else { return false }
                     guard window.isKeyWindow, NSApp.keyWindow === window, NSApp.modalWindow == nil,
                           window.attachedSheet == nil else { return false }
                     guard let responder = window.firstResponder as? NSView else { return false }

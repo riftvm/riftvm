@@ -206,6 +206,7 @@ struct OmarchyOwnerSetupView: View {
                 }
             }
             .formStyle(.grouped)
+            .disabled(phase == .submitting || phase == .finishing)
             .frame(width: 600, height: 365)
 
             if case .failed(let message) = phase {
@@ -218,7 +219,7 @@ struct OmarchyOwnerSetupView: View {
 
             switch phase {
             case .editing, .failed:
-                Button("Create Omarchy Owner", action: submit)
+                Button("Create Omarchy Owner", systemImage: "person.badge.plus", action: submit)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .keyboardShortcut(.defaultAction)

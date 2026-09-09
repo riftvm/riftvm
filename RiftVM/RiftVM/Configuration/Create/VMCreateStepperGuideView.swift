@@ -136,6 +136,7 @@ struct WorkspaceCreationView: View {
             footer
         }
         .background(.background)
+        .disclosureGroupStyle(WorkspaceCreationDisclosureStyle())
         .environment(session.form)
         .environment(session.config)
         .frame(minWidth: 680, idealWidth: 760, minHeight: 590, idealHeight: 650)
@@ -196,7 +197,7 @@ struct WorkspaceCreationView: View {
                 }
             } label: {
                 HStack {
-                    Text("Resources")
+                    Label("Resources", systemImage: "cpu")
                     Spacer()
                     Text("\(session.config.cpuCount) CPU · \(session.config.memorySize / (1024 * 1024 * 1024)) GB memory")
                         .font(.caption).foregroundStyle(.secondary)
@@ -204,13 +205,17 @@ struct WorkspaceCreationView: View {
             }
             Divider()
             if session.isOmarchy {
-                DisclosureGroup("File exchange with your Mac · Ready to use", isExpanded: $showSharing) {
+                DisclosureGroup(isExpanded: $showSharing) {
                     Text("After creation, open RiftVM Shared on your Mac to add files. In Omarchy, open /mnt/riftvm-shared to use those same files. Your other Mac folders stay private.")
                         .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                } label: {
+                    Label("File exchange with your Mac · Ready to use", systemImage: "folder.badge.arrow.up")
                 }
             } else {
-                DisclosureGroup("Share folders with your Mac", isExpanded: $showSharing) {
+                DisclosureGroup(isExpanded: $showSharing) {
                     CreatePhaseSharingView().padding(.top, 8)
+                } label: {
+                    Label("Share folders with your Mac", systemImage: "folder")
                 }
             }
             if let error = session.errorMessage { errorView(error) }
@@ -247,12 +252,14 @@ struct WorkspaceCreationView: View {
                     .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             }
             if !session.form.logs.isEmpty {
-                DisclosureGroup("Details", isExpanded: $showDetails) {
+                DisclosureGroup(isExpanded: $showDetails) {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(session.form.logs) { entry in
                             Text("\(entry.time)  \(entry.log)").font(.caption).textSelection(.enabled)
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                } label: {
+                    Label("Details", systemImage: "text.alignleft")
                 }.padding(.top, 12)
             }
         }
@@ -320,11 +327,54 @@ struct WorkspaceCreationView: View {
             .accessibilityIdentifier("workspace-create-error")
     }
     private func workspaceIcon(size: CGFloat) -> some View {
-        Image(systemName: session.isOmarchy ? "sparkles.rectangle.stack" : "apple.logo")
-            .font(.system(size: size * 0.45)).foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .background(LinearGradient(colors: [.red, .purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 18))
+        WorkspaceSystemIcon(isOmarchy: session.isOmarchy, size: size)
             .accessibilityHidden(true)
+    }
+}
+
+private struct WorkspaceCreationDisclosureStyle: DisclosureGroupStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    configuration.isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "chevron.right")
+                        .font(.callout.weight(.semibold))
+                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                        .frame(width: 16)
+                        .accessibilityHidden(true)
+                    configuration.label
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 10)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(WorkspaceCreationDisclosureButtonStyle())
+            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityHint(configuration.isExpanded ? "Collapse section" : "Expand section")
+
+            if configuration.isExpanded {
+                configuration.content
+                    .padding(.horizontal, 10)
+            }
+        }
+    }
+}
+
+private struct WorkspaceCreationDisclosureButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(.primary.opacity(configuration.isPressed ? 0.10 : isHovered ? 0.05 : 0),
+                        in: .rect(cornerRadius: 8))
+            .onHover { isHovered = $0 }
     }
 }
 
@@ -367,10 +417,7 @@ struct RiftCreationEffect: View {
                         .opacity(isReady ? 0.3 : 0.65 + breath * 0.35)
                 }
                 if isReady {
-                    Image(systemName: isOmarchy ? "sparkles.rectangle.stack" : "apple.logo")
-                        .font(.system(size: 42)).foregroundStyle(.white)
-                        .frame(width: 112, height: 112)
-                        .background(LinearGradient(colors: [.red, .purple, .blue], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 28))
+                    WorkspaceSystemIcon(isOmarchy: isOmarchy, size: 112)
                         .transition(reduceMotion ? .opacity : .scale(scale: 0.8).combined(with: .opacity))
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -380,3 +427,34 @@ struct RiftCreationEffect: View {
     }
 }
 #endif
+
+/// Omarchy artwork: https://omarchy.org/brand/ (Omarchy trademark).
+struct WorkspaceSystemIcon: View {
+    let isOmarchy: Bool
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.24)
+                .fill(LinearGradient(
+                    colors: isOmarchy ? [Color(white: 0.19), Color(white: 0.10)] : [Color(white: 0.98), Color(white: 0.78)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+            if isOmarchy {
+                Image("OmarchyLogo")
+                    .resizable().scaledToFit()
+                    .frame(width: size * 0.60, height: size * 0.60)
+            } else {
+                Image(systemName: "apple.logo")
+                    .font(.system(size: size * 0.48, weight: .regular))
+                    .foregroundStyle(Color(white: 0.20))
+            }
+        }
+        .frame(width: size, height: size)
+        .overlay {
+            RoundedRectangle(cornerRadius: size * 0.24)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
+        }
+        .accessibilityHidden(true)
+    }
+}

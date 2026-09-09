@@ -516,7 +516,7 @@ private struct WorkspaceControlCenterWelcomeView: View {
                         title: "Omarchy",
                         description: "A focused Arch Linux desktop, ready on first boot.",
                         badge: "RECOMMENDED",
-                        systemImage: "sparkles.rectangle.stack",
+                        isOmarchy: true,
                         accent: .orange,
                         action: createOmarchy
                     )
@@ -524,7 +524,7 @@ private struct WorkspaceControlCenterWelcomeView: View {
                         title: "macOS",
                         description: "Create a clean Mac from a supported restore image.",
                         badge: "CHOOSE VERSION",
-                        systemImage: "macwindow",
+                        isOmarchy: false,
                         accent: .cyan,
                         action: createMacOS
                     )
@@ -543,19 +543,14 @@ private struct WorkspaceControlCenterCreationCard: View {
     let title: String
     let description: String
     let badge: String
-    let systemImage: String
+    let isOmarchy: Bool
     let accent: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 25, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(accent.gradient, in: .rect(cornerRadius: 15))
-                    .shadow(color: accent.opacity(0.45), radius: 18)
+                WorkspaceSystemIcon(isOmarchy: isOmarchy, size: 54)
                 Text(title)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
@@ -655,19 +650,7 @@ private struct WorkspaceCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
-                Image(systemName: workspace.kind == .omarchy ? "sparkles.rectangle.stack.fill" : "macwindow")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        LinearGradient(
-                            colors: [theme.bright, theme.accent, theme.deep],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        in: .rect(cornerRadius: 13)
-                    )
-                    .shadow(color: theme.accent.opacity(0.42), radius: 16, y: 5)
+                WorkspaceSystemIcon(isOmarchy: workspace.kind == .omarchy, size: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(workspace.name).font(.title3.weight(.semibold)).lineLimit(1)
                     Label(theme.eyebrow, systemImage: theme.symbol)
