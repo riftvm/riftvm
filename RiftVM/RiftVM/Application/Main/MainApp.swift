@@ -158,17 +158,17 @@ private struct VirtualizationFeaturesSettingsView: View {
             Section {
                 ForEach(VirtualizationCapability.allCases) { capability in
                     HStack {
-                        Label(capability.title, systemImage: capability.isAvailable ? "checkmark.circle.fill" : "xmark.circle")
+                        Label(capability.title, systemImage: "info.circle")
                         Spacer()
-                        Text("macOS \(capability.minimumMajorVersion)+")
+                        Text(capability.isAvailable ? "Host OS eligible" : "Requires macOS \(capability.minimumMajorVersion)+")
                             .foregroundStyle(.secondary)
                     }
                     .foregroundStyle(capability.isAvailable ? .primary : .secondary)
                 }
             } header: {
-                Text("Virtualization capabilities")
+                Text("Host OS requirements")
             } footer: {
-                Text("macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional RiftVM entitlement.")
+                Text("These rows check the host OS version only. They do not show whether a feature is enabled or verified in a particular VM. Hardware, guest OS, disk format, and VM configuration may impose additional requirements. Check the workspace configuration and runtime status for the active VM.")
             }
 
             Section {
@@ -182,21 +182,21 @@ private struct VirtualizationFeaturesSettingsView: View {
             } header: {
                 Text("Signed capabilities")
             } footer: {
-                Text("These values come from the macOS 27 entitlements in the running RiftVM process.")
+                Text("These values come from the entitlements in the running RiftVM process. A granted entitlement does not mean a device is connected or a network mode is active. USB access also requires your authorization.")
             }
 
             Section {
-                Label("DiskImageKit snapshots for ASIF disks", systemImage: "checkmark.circle.fill")
-                Label("Per-VM EFI Secure Boot", systemImage: "checkmark.shield.fill")
+                LabeledContent("DiskImageKit snapshots", value: "Eligible ASIF configurations")
+                LabeledContent("EFI Secure Boot", value: "Configured per Linux VM")
                 featureToggle(
-                    "High-performance VirGL graphics for Linux",
+                    "Prefer Custom VirGL for Linux",
                     isOn: $customVirGLGraphics,
                     capability: .customVirtio
                 )
             } header: {
-                Text("macOS 27 features")
+                Text("Feature configuration")
             } footer: {
-                Text("ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack.")
+                Text("Snapshot storage depends on the machine configuration; an ASIF file alone does not establish that layered snapshots are active. The graphics preference applies on the next start and may fall back to Apple graphics if initialization fails. macOS guests use Apple's graphics stack; graphics support depends on the host, guest, and hardware. This page does not verify guest Metal support or iCloud sign-in eligibility.")
             }
 
             Section {

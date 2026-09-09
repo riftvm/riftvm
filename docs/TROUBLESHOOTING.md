@@ -1,6 +1,6 @@
 # RiftVM troubleshooting and hard-won lessons
 
-_Updated: September 1, 2026_
+_Updated: September 9, 2026_
 
 This guide records failures found while bringing Omarchy from bootable to
 usable on RiftVM. Start with the symptom, preserve the first useful log, and
@@ -154,8 +154,30 @@ path is Virtualization.framework NAT.
   alone is not sufficient.
 - Record whether failure is name resolution, routing, certificate/time, or the
   upstream repository.
-- Bridged and custom vmnet modes are not a fallback in the normal Developer ID
-  release because their entitlement/distribution constraints differ.
+- RiftVM 0.1.9 includes the USB Accessory Access and vmnet entitlements in its
+  signed release. Custom builds can differ: check Settings → Signed capabilities
+  for the running app. An entitlement does not prove that a network is active.
+- NAT remains the default. Select bridged or custom vmnet networking deliberately
+  for the required topology; changing modes is not a general fix for DNS or
+  guest package-manager failures. Advanced network configuration belongs to the
+  general VM configuration flow; the dedicated Omarchy flow uses NAT.
+
+## Host capability is available, but the VM feature is not active
+
+Settings reports host OS eligibility separately from signed entitlements.
+Neither is an end-to-end validation of a particular VM. Check the guest OS,
+hardware, VM configuration, and runtime status as well.
+
+- Custom VirGL is a Linux graphics preference applied at startup. Initialization
+  failure can select Apple graphics instead; inspect the active backend.
+- DiskImageKit layering requires a supported ASIF machine configuration. Do not
+  infer the snapshot backend from a `.asif` extension alone.
+- EFI Secure Boot is an explicit per-VM setting, not a global enabled state.
+- USB passthrough requires the signed entitlement, user authorization, and a VM
+  USB controller. Its controls are in the general VM window; the dedicated
+  Omarchy window does not currently expose the same accessory controls.
+- macOS guest graphics and iCloud eligibility depend on the supported guest and
+  hardware configuration. Host OS version alone does not verify either feature.
 
 ## Definition of fixed
 
