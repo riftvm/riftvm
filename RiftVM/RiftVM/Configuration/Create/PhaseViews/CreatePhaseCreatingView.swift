@@ -14,6 +14,8 @@ import Virtualization
 class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     private var downloader: (any VMOSDownloader)?
     private var preinstalledDownloader: VMPreinstalledImageDownloadCoordinator?
+    private var factoryCancellationRequested = false
+    private var factoryTransport: VMOmarchyURLSessionTransport?
     private var activeCreator: (any VMOSCreator)?
 
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
@@ -27,6 +29,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context.formData.creationCancellationKind = nil
         switch cancellationKind {
         case .download:
+            if factoryTransport != nil { factoryCancellationRequested = true }
+            factoryTransport?.cancel()
             downloader?.cancelDownload()
             downloader = nil
             preinstalledDownloader?.cancel()
@@ -42,6 +46,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
 
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         context.formData.logs = []
+        context.formData.downloadBytesReceived = nil
+        context.formData.downloadBytesExpected = nil
         context.formData.installingProgress = 0
         context.formData.creationStage = "Preparing"
         context.formData.isCreating = true
@@ -185,20 +191,46 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             }
             let supportRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appending(path: "RiftVM", directoryHint: .isDirectory)
+            let transport = VMOmarchyURLSessionTransport()
+            factoryCancellationRequested = false
+            factoryTransport = transport
+            context.formData.canCancelCreation = true
+            context.formData.creationCancellationKind = .download
+            defer {
+                transport.cancel()
+                factoryTransport = nil
+                context.formData.canCancelCreation = false
+                context.formData.creationCancellationKind = nil
+            }
             let installer = VMOmarchyFactoryInstaller(
                 profile: profile,
                 cacheDirectory: supportRoot.appending(path: "FactoryCache", directoryHint: .isDirectory),
                 publicKey: publicKey,
-                transport: VMOmarchyURLSessionTransport()
+                transport: transport
             )
             context.formData.creationStage = "Downloading and verifying Omarchy"
             context.formData.addLog("Fetching the signed Omarchy Factory manifest")
-            let factory = try await installer.install { received, expected in
+            let factory = try await installer.install(stage: { stage in
+                Task { @MainActor in
+                    context.formData.creationStage = stage
+                    if !stage.hasPrefix("Downloading") {
+                        context.formData.downloadBytesReceived = nil
+                        context.formData.downloadBytesExpected = nil
+                    }
+                }
+            }) { received, expected in
                 let fraction = Double(received) / Double(max(expected, 1))
                 Task { @MainActor in
+                    context.formData.downloadBytesReceived = received
+                    context.formData.downloadBytesExpected = expected
                     context.formData.changeProgress(min(max(fraction, 0), 1) * 0.82)
                 }
             }
+            if factoryCancellationRequested { throw CancellationError() }
+            context.formData.canCancelCreation = false
+            context.formData.creationCancellationKind = nil
+            context.formData.downloadBytesReceived = nil
+            context.formData.downloadBytesExpected = nil
             context.formData.creationStage = "Creating Omarchy workspace"
             context.formData.addLog("Factory image verified; creating the workspace and integration identity")
             let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
@@ -220,6 +252,10 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.addLog("Omarchy is ready")
             return .success
         } catch {
+            if factoryCancellationRequested {
+                context.formData.creationStage = "Creation cancelled"
+                return .failure("Creation was cancelled. You can retry when you’re ready.")
+            }
             context.formData.creationStage = "Couldn’t prepare Omarchy"
             context.formData.addLog("❌ \(error.localizedDescription)")
             return .failure(error.localizedDescription)

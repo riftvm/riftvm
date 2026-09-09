@@ -102,8 +102,38 @@ struct WorkspaceControlCenterView: View {
             .navigationTitle("RiftVM")
             .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
         } detail: {
-            dashboard(snapshot)
-                .id(runStateRevision)
+            VStack(spacing: 0) {
+                if !WorkspaceCreationStore.shared.sessions.isEmpty {
+                    VStack(spacing: 10) {
+                        ForEach(WorkspaceCreationStore.shared.sessions) { session in
+                            HStack(spacing: 14) {
+                                Image(systemName: session.phase == .ready ? "checkmark.circle" : session.phase == .failed ? "exclamationmark.triangle" : "arrow.down.circle")
+                                    .foregroundStyle(session.phase == .failed ? Color.orange : Color.accentColor)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(session.config.name).font(.headline)
+                                    Text(session.phase == .failed ? "Creation needs attention" : session.form.creationStage)
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    if session.phase == .creating,
+                                       let received = session.form.downloadBytesReceived,
+                                       let expected = session.form.downloadBytesExpected, received < expected {
+                                        ProgressView(value: Double(received), total: Double(max(expected, 1)))
+                                            .frame(maxWidth: 300)
+                                        Text("\(ByteCountFormatter.string(fromByteCount: received, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: expected, countStyle: .file))")
+                                            .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                                    }
+                                }
+                                Spacer()
+                                Button(session.phase == .ready ? "Open" : "View Progress") {
+                                    openWindow(id: "workspace-creation", value: session.id)
+                                }
+                            }
+                            .padding(14)
+                            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }.padding(20)
+                }
+                dashboard(snapshot).id(runStateRevision)
+            }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

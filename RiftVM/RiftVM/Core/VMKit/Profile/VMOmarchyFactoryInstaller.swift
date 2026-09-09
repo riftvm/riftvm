@@ -24,8 +24,12 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
 
     public override init() {}
 
+    public func cancel() {
+        session.invalidateAndCancel()
+    }
+
     public func fetchData(from url: URL) async throws -> Data {
-        let (data, response) = try await URLSession.shared.data(for: Self.uncachedRequest(for: url))
+        let (data, response) = try await session.data(for: Self.uncachedRequest(for: url))
         try Self.validateHTTPResponse(response)
         return data
     }
@@ -205,16 +209,26 @@ public struct VMOmarchyFactoryInstaller {
     public func install(
         progress: @escaping (Int64, Int64) -> Void = { _, _ in }
     ) async throws -> VMOmarchyFactoryInstallResult {
+        try await install(stage: { _ in }, progress: progress)
+    }
+
+    public func install(
+        stage: @escaping (String) -> Void,
+        progress: @escaping (Int64, Int64) -> Void = { _, _ in }
+    ) async throws -> VMOmarchyFactoryInstallResult {
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        stage("Checking the image manifest")
         let manifest = try await fetchVerifiedManifest()
 
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
         guard !FileManager.default.fileExists(atPath: published.path) else {
+            stage("Verifying the cached image")
             try VMOmarchyFactoryValidator.validateImage(at: published, manifest: manifest)
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         }
         let staging = cacheDirectory.appending(path: ".Factory-\(UUID().uuidString).download")
         do {
+            stage("Downloading Omarchy")
             if let imageURL = manifest.payload.imageURL {
                 try await transport.downloadFile(
                     from: imageURL,
@@ -227,6 +241,7 @@ public struct VMOmarchyFactoryInstaller {
             } else {
                 throw VMOmarchyFactoryValidationError.invalidManifest
             }
+            stage("Verifying the downloaded image")
             try VMOmarchyFactoryValidator.validateImage(at: staging, manifest: manifest)
             try FileManager.default.moveItem(at: staging, to: published)
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)

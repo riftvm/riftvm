@@ -23,7 +23,9 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             publicKey: fixture.key.publicKey.rawRepresentation,
             transport: transport
         )
-        let installed = try await installer.install()
+        var stages: [String] = []
+        let installed = try await installer.install(stage: { stages.append($0) })
+        XCTAssertEqual(stages, ["Checking the image manifest", "Downloading Omarchy", "Verifying the downloaded image"])
         XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
         XCTAssertEqual(installed.manifest.payload.imageVersion, "test")
         XCTAssertEqual(installed.manifest.payload.omarchyRevision, "revision")
@@ -32,7 +34,9 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: fixture.cache.path)
             .contains(where: { $0.hasPrefix(".Factory-") }))
 
-        let reused = try await installer.install()
+        stages.removeAll()
+        let reused = try await installer.install(stage: { stages.append($0) })
+        XCTAssertEqual(stages, ["Checking the image manifest", "Verifying the cached image"])
         XCTAssertEqual(reused, installed)
         XCTAssertEqual(transport.downloadCount, 1)
     }

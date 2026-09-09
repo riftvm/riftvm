@@ -27,6 +27,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var imageInstallTerminationSources: [DispatchSourceSignal] = []
 #endif
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+#if arch(arm64)
+        if WorkspaceCreationStore.shared.isCreating {
+            let alert = NSAlert()
+            alert.messageText = "A workspace is still being created"
+            alert.informativeText = "Keep RiftVM open until creation finishes. You can close the creation window and follow progress in the control center."
+            alert.addButton(withTitle: "Keep Creating")
+            alert.runModal()
+            return .terminateCancel
+        }
+#endif
+        return .terminateNow
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
         if let portabilityTest = VMReleasePortabilityTestConfiguration.configuration() {

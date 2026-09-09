@@ -37,7 +37,7 @@ struct CreatePhaseSharingView: View {
     @State private var feedbackMessage: String?
 
     var body: some View {
-        ScrollView {
+        Group {
             if formData.systemImageSelection == .preinstalled(.omarchy) {
                 omarchySharing
             } else {

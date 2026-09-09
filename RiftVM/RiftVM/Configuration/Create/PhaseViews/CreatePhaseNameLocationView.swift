@@ -80,6 +80,10 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
         if name.isEmpty {
             return .failure("Name is empty")
         }
+        guard name.utf8.count <= 128, name != ".", name != "..",
+              !name.contains("/"), !name.contains(":"), !name.contains("\0") else {
+            return .failure("Use a name up to 128 bytes without slashes or colons.")
+        }
         context.configData.name = name
 
         if context.formData.baseDirectory.isEmpty {

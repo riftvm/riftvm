@@ -102,6 +102,8 @@ class VMCreateViewStateObject {
     var logs: [LogModel] = []
 
     var installingProgress: Double = 0.0
+    var downloadBytesReceived: Int64?
+    var downloadBytesExpected: Int64?
 
     var disablePreviousButton = false
 

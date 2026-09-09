@@ -57,16 +57,8 @@ struct CreatePhaseConfigurationView: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
 
     var body: some View {
-        ScrollView {
+        Group {
             VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Choose resources")
-                        .font(.title2.weight(.semibold))
-                    Text("Recommended values are already selected for this Mac.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
                 CreateResourceControlsView()
 
                 DisclosureGroup("Advanced hardware") {
@@ -139,7 +131,7 @@ struct CreatePhaseConfigurationView: View {
     }
 }
 
-private struct CreateResourceControlsView: View {
+struct CreateResourceControlsView: View {
     @Environment(VMCreateViewStateObject.self) private var formData
     @Environment(VMConfigurationViewStateObject.self) private var configData
 

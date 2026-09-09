@@ -46,10 +46,20 @@ struct MainApp: App {
             VMCreateStepperGuideView(initialKind: initialKind)
         }
         .defaultPosition(.center)
-        .defaultSize(width: 960, height: 660)
+        .defaultSize(width: 760, height: 650)
         .windowResizability(.contentMinSize)
         .restorationBehavior(.disabled)
         
+        WindowGroup("Creating Workspace", id: "workspace-creation", for: UUID.self) { $sessionID in
+            if let session = WorkspaceCreationStore.shared.sessions.first(where: { $0.id == sessionID }) {
+                WorkspaceCreationView(session: session)
+            } else {
+                ContentUnavailableView("Creation Finished", systemImage: "checkmark.circle", description: Text("Find your workspace in the control center."))
+            }
+        }
+        .defaultSize(width: 760, height: 650)
+        .restorationBehavior(.disabled)
+
         WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
             if let rootPath = modelRootPath {
                 VMOSMainVirtualMachineView(rootPath: rootPath, recoveryMode: false)
