@@ -6,11 +6,11 @@ Phase A 的基线、迁移边界和逐阶段证据记录在
 
 ## 1. 产品决策
 
-- 只发布一个 **RiftVM 1.0.0**，合并现有 EZVM 与 EZVM Omarchy。
+- 只发布一个 **RiftVM 1.0.0**，合并现有 RiftVM 与 RiftVM Omarchy。
 - 只支持 Omarchy 和 macOS 两种工作空间，把两条体验做深、做稳。
 - 一个 App、Bundle ID、CLI、Homebrew Cask、权限身份和应用发行包。
 - Omarchy 专用安装器和集成模块保留，独立 App target 和发行入口取消。
-- 不考虑 EZVM 旧数据、格式、命令、环境变量和 Agent 兼容；不自动删除旧数据。
+- 不考虑 RiftVM 旧数据、格式、命令、环境变量和 Agent 兼容；不自动删除旧数据。
 
 产品定义：**RiftVM brings another world to your Mac.**
 
@@ -67,10 +67,10 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 
 | 现有位置 | 迁入内容 |
 |---|---|
-| EZVM/EZVM/Application | App shell、工作空间列表、创建入口、菜单、退出处理 |
-| EZVM/EZVM/Core/VMKit | VM 模型、runner、快照、导入导出、机器锁 |
-| EZVMOmarchy/Sources | factory 安装、owner setup、显示、输入、剪贴板、通知 |
-| EZVMOmarchy/GuestOverlay | 迁入 Guest 资源目录，保留 Overlay 工具 |
+| RiftVM/RiftVM/Application | App shell、工作空间列表、创建入口、菜单、退出处理 |
+| RiftVM/RiftVM/Core/VMKit | VM 模型、runner、快照、导入导出、机器锁 |
+| RiftVMOmarchy/Sources | factory 安装、owner setup、显示、输入、剪贴板、通知 |
+| RiftVMOmarchy/GuestOverlay | 迁入 Guest 资源目录，保留 Overlay 工具 |
 | GuestAgent/linux | Rift Agent 系统与用户会话服务 |
 | CLI、Tools、scripts | 一个 CLI 和应用发行链，保留资源工具 |
 
@@ -160,7 +160,7 @@ factory、Overlay、Agent 保留资源构建流水线；它们不是第二个桌
 | Agent 未就绪 | 功能降级明确，基础 VM 可运行 |
 | 发布包 | 签名、公证、Gatekeeper、版本和镜像信任通过 |
 
-测试使用全新工作区，不测试旧 EZVM 升级。遵循此前暂缓决定，首发不新增强制合盖睡眠测试，也不宣传已全面验证睡眠恢复。
+测试使用全新工作区，不测试旧 RiftVM 升级。遵循此前暂缓决定，首发不新增强制合盖睡眠测试，也不宣传已全面验证睡眠恢复。
 
 只发布 riftvm Cask 和 CLI；Omarchy factory/Overlay 独立资源脚本继续运行。合并原发布脚本的签名、公证、制品复验和发布前检查，保留有效发布门槛。
 

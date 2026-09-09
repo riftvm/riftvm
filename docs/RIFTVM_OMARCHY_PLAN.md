@@ -1,40 +1,42 @@
-# EZVM Omarchy product and integration plan
+# RiftVM Omarchy product and integration plan
+
+> Historical planning record, with product names normalized to RiftVM. Historical tag and path examples are not current download instructions. See the [current README](../README.md) and [unified product plan](RIFTVM_UNIFIED_PRODUCT_PLAN.md) for the supported product.
 
 _Planning baseline: September 3, 2026_
 
 ## 1. Decision
 
-EZVM Omarchy will be a new, independently installed macOS application whose
+RiftVM Omarchy will be a new, independently installed macOS application whose
 only guest product is Omarchy. It will launch directly into one persistent
 Omarchy workspace and provide defaults and host integration suitable for daily
-work. It is not a mode, screen, or preset inside the regular EZVM application.
+work. It is not a mode, screen, or preset inside the regular RiftVM application.
 
 The two products have separate applications, repositories, product UX, release
 artifacts, and support promises:
 
 | Product | Purpose | Primary audience |
 | --- | --- | --- |
-| **EZVM** | General-purpose macOS virtual machine manager for macOS and ARM64 Linux guests. | Users who need multiple configurable virtual machines. |
-| **EZVM Omarchy** | Dedicated Omarchy workspace for Apple silicon Macs. | Users who want to open Omarchy and work without learning VM concepts. |
+| **RiftVM** | General-purpose macOS virtual machine manager for macOS and ARM64 Linux guests. | Users who need multiple configurable virtual machines. |
+| **RiftVM Omarchy** | Dedicated Omarchy workspace for Apple silicon Macs. | Users who want to open Omarchy and work without learning VM concepts. |
 
 They must not develop independent copies of the virtualization, graphics,
 storage, or Guest Agent implementations. Shared platform work is delivered by
-EZVM Core and EZVM Integration Service; EZVM Omarchy supplies the focused
+RiftVM Core and RiftVM Integration Service; RiftVM Omarchy supplies the focused
 product shell, Omarchy profile, guest image policy, onboarding, and recovery
 experience.
 
 The proposed public positioning is:
 
-> **EZVM Omarchy**  
+> **RiftVM Omarchy**  
 > The Omarchy workspace for Apple silicon Macs.
 
 The technical description is:
 
-> Powered by Apple Virtualization.framework and EZVM Guest Integration.
+> Powered by Apple Virtualization.framework and RiftVM Guest Integration.
 
 Public material must make the project's independent status clear:
 
-> EZVM Omarchy is an independent community project and is not affiliated with
+> RiftVM Omarchy is an independent community project and is not affiliated with
 > or endorsed by the Omarchy project.
 
 The name, logo, screenshots, themes, wallpapers, and other Omarchy assets need
@@ -47,7 +49,7 @@ open-source code license does not grant trademark or branding rights.
    Omarchy workspace. VM implementation terminology is kept out of the normal
    workflow.
 2. **One workspace.** The application manages one primary persistent Omarchy
-   environment. General multi-VM management remains in EZVM.
+   environment. General multi-VM management remains in RiftVM.
 3. **Opinionated safe defaults.** CPU, memory, storage, graphics, input, audio,
    and sharing are selected by a versioned Omarchy profile.
 4. **Mac and Omarchy muscle memory coexist.** When the VM display has keyboard
@@ -66,7 +68,7 @@ open-source code license does not grant trademark or branding rights.
 
 ### 3.1 Normal user surface
 
-EZVM Omarchy presents only the controls needed to use and maintain Omarchy:
+RiftVM Omarchy presents only the controls needed to use and maintain Omarchy:
 
 - Start, continue, stop, and restart Omarchy;
 - windowed and immersive full-screen modes;
@@ -96,10 +98,10 @@ forwarding. Every value remains constrained by the Omarchy profile.
 
 ## 4. Repository and shared-code strategy
 
-Create a separate repository named `ezvm-omarchy` for the product application:
+Create a separate repository named `riftvm-omarchy` for the product application:
 
 ```text
-ezvm-omarchy/
+riftvm-omarchy/
 ├── App/
 │   ├── Application/
 │   ├── Onboarding/
@@ -123,28 +125,28 @@ Proposed product identifiers:
 
 | Item | Value |
 | --- | --- |
-| Application | `EZVM Omarchy.app` |
-| Repository | `ezvm-omarchy` |
-| Bundle identifier | `com.everettjf.ezvm.omarchy` |
+| Application | `RiftVM Omarchy.app` |
+| Repository | `riftvm-omarchy` |
+| Bundle identifier | `com.riftvm.app` |
 | Internal product identifier | `omarchy` |
-| Optional CLI | `ezvm-omarchy` |
-| Application Support directory | `~/Library/Application Support/EZVM Omarchy` |
+| Optional CLI | `riftvm-omarchy` |
+| Application Support directory | `~/Library/Application Support/RiftVM Omarchy` |
 
 Before building substantial product UI, extract the smallest reusable seams
-from EZVM. The intended package boundaries are:
+from RiftVM. The intended package boundaries are:
 
 ```text
-EZVMVirtualizationCore
-EZVMGraphics
-EZVMGuestIntegration
-EZVMStorage
-EZVMNetworking
-EZVMDevices
+RiftVMVirtualizationCore
+RiftVMGraphics
+RiftVMGuestIntegration
+RiftVMStorage
+RiftVMNetworking
+RiftVMDevices
 ```
 
-Initially these packages should remain in the EZVM repository. EZVM Omarchy
+Initially these packages should remain in the RiftVM repository. RiftVM Omarchy
 can use local path dependencies during coordinated development and immutable
-commit or tag dependencies in CI and releases. A separate `ezvm-core`
+commit or tag dependencies in CI and releases. A separate `riftvm-core`
 repository should be considered only after both applications consume stable
 package APIs. Do not begin with a broad repository extraction.
 
@@ -162,15 +164,15 @@ The following code must never be copied into a divergent Omarchy-only version:
 
 The program consists of two plans with different ownership and deliverables.
 
-### 5.1 Workstream A: EZVM Integration Service
+### 5.1 Workstream A: RiftVM Integration Service
 
-This is product-neutral platform work shared by EZVM and EZVM Omarchy. Its goal
+This is product-neutral platform work shared by RiftVM and RiftVM Omarchy. Its goal
 is a VMware Tools/Parallels Tools-style host/guest integration layer for Linux
 desktops.
 
 The current baseline already includes:
 
-- a macOS host client and a Linux `ezvm-agent`;
+- a macOS host client and a Linux `rift-agent`;
 - authenticated AF_VSOCK communication without a guest network port;
 - per-VM enrollment, mutual authentication, replay protection, and bounded
   frames;
@@ -183,7 +185,7 @@ The target architecture separates privileged system operations from desktop
 session operations:
 
 ```text
-EZVM macOS host
+RiftVM macOS host
 ├── Integration Controller
 ├── Permission and Focus Controller
 └── Host adapters
@@ -198,12 +200,12 @@ EZVM macOS host
 Authenticated AF_VSOCK
 
 Linux guest
-├── ezvm-agent                 root system service
+├── rift-agent                 root system service
 │   ├── authentication and capabilities
 │   ├── system status and power
 │   ├── bounded file transfer
 │   └── input-device management
-└── ezvm-session-agent         unprivileged user service
+└── rift-session-agent         unprivileged user service
     ├── Wayland clipboard
     ├── desktop session state
     ├── notifications and URLs
@@ -211,7 +213,7 @@ Linux guest
 ```
 
 The root service must not impersonate the desktop user or directly own a
-Wayland session. `ezvm-session-agent` communicates with the system service over
+Wayland session. `rift-session-agent` communicates with the system service over
 a narrowly scoped local IPC contract.
 
 Candidate additive capabilities include:
@@ -231,7 +233,7 @@ Candidate additive capabilities include:
 Capability names and payloads are not final until their threat model, limits,
 ownership, cancellation, and compatibility behavior are documented.
 
-### 5.2 Workstream B: EZVM Omarchy product
+### 5.2 Workstream B: RiftVM Omarchy product
 
 This workstream builds the separate application using Workstream A. It owns:
 
@@ -244,7 +246,7 @@ This workstream builds the separate application using Workstream A. It owns:
 - update, backup, repair, restore, and reset UX;
 - branding, signing, notarization, packaging, and release communication.
 
-It may add an unprivileged `ezvm-omarchy-adapter` for Omarchy Shell and
+It may add an unprivileged `riftvm-omarchy-adapter` for Omarchy Shell and
 Hyprland integration, but it does not fork the general Guest Agent.
 
 ## 6. First vertical slice: focused Command-to-Super
@@ -270,14 +272,14 @@ macOS keyboard event
              └── send through authenticated Agent/uinput input
 ```
 
-EZVM should borrow the state-machine lessons from Try Omarchy's focused event
+RiftVM should borrow the state-machine lessons from Try Omarchy's focused event
 tap, but use the existing authenticated Agent input channel rather than QMP.
 Any copied or substantially derived MIT-licensed implementation must retain
 the required copyright and license notice.
 
 Capture is active only when all of these conditions are true:
 
-- EZVM Omarchy is the active application;
+- RiftVM Omarchy is the active application;
 - its VM window is the key window;
 - the VM display is the first responder;
 - no alert, sheet, file picker, or modal window is active;
@@ -311,7 +313,7 @@ Acceptance requires:
 
 ## 7. Omarchy profile and resource policy
 
-EZVM Omarchy uses a versioned profile instead of exposing arbitrary hardware:
+RiftVM Omarchy uses a versioned profile instead of exposing arbitrary hardware:
 
 ```text
 OmarchyProfile
@@ -342,7 +344,7 @@ profiles for common 16 GB, 24/32 GB, and larger Macs.
 The application manages a versioned state directory similar to:
 
 ```text
-~/Library/Application Support/EZVM Omarchy/
+~/Library/Application Support/RiftVM Omarchy/
 ├── Workspace/
 │   ├── Disk.asif
 │   ├── Configuration.json
@@ -400,7 +402,7 @@ The production path is automated by three narrow tools:
 1. `build-omarchy-factory.sh` converts and byte-verifies the sparse raw disk;
 2. `sign-omarchy-factory-parts.sh` splits the ASIF, proves that concatenation
    reproduces the complete image, and emits the signed schema-2 manifest plus
-   `EZVM_FACTORY_SHA256SUMS`; and
+   `RIFTVM_FACTORY_SHA256SUMS`; and
 3. `publish-omarchy-factory-assets.sh` locally verifies the public key, image,
    manifest, part set, checksums, names, order, and immutable release URLs. Its
    retry-safe `publish` mode only accepts an existing draft, reuses only assets
@@ -414,8 +416,8 @@ asset preparation cannot accidentally publish an unaccepted image.
 
 The product must distinguish:
 
-1. EZVM Omarchy application updates;
-2. shared EZVM Core updates;
+1. RiftVM Omarchy application updates;
+2. shared RiftVM Core updates;
 3. Guest Agent protocol and package updates;
 4. Session Agent and Omarchy Adapter updates;
 5. Omarchy and ordinary Arch package updates;
@@ -511,7 +513,7 @@ The user sees download size, required space, recoverable progress, and clear
 permission consequences. Camera and USB can remain post-MVP options and should
 not block setup.
 
-Owner creation is a native EZVM Omarchy form rather than simulated typing into
+Owner creation is a native RiftVM Omarchy form rather than simulated typing into
 the Guest console. The app keeps both password fields only in its live SwiftUI
 state, validates the same username, keyboard, hostname, time-zone, and length
 constraints as the image, then sends one authenticated `ownerProvisioning`
@@ -575,15 +577,15 @@ never included in diagnostic bundles.
 
 Deliverables:
 
-- create the `ezvm-omarchy` repository and signed macOS application target;
+- create the `riftvm-omarchy` repository and signed macOS application target;
 - establish the identifiers and independent data directory;
-- define the first shared EZVM package seam;
+- define the first shared RiftVM package seam;
 - launch a minimal fixed Linux configuration through shared code;
 - establish CI, test, notices, and artifact provenance scaffolding;
 - complete the preliminary brand and redistribution review.
 
-Exit gate: the new application launches through shared EZVM code without a
-copied virtualization implementation or changes to a user's normal EZVM data.
+Exit gate: the new application launches through shared RiftVM code without a
+copied virtualization implementation or changes to a user's normal RiftVM data.
 
 ### M1 — Omarchy workspace bootstrap
 
@@ -723,7 +725,7 @@ altered, unfocused, or source-revision-mismatched observation.
 The lock transition is actively exercised in an isolated acceptance launch.
 After display integration passes, the Host injects Super+Control+L through the
 authenticated input channel, waits for the Agent to report an inactive desktop,
-submits the ephemeral `EZVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD` without logging
+submits the ephemeral `RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD` without logging
 or persisting it, waits for the desktop to become active again, and only then
 continues to pause/resume and restart recovery. Production launches never read
 or use this acceptance-only secret. Acceptance fails closed before later
@@ -775,9 +777,9 @@ The shared-folder scenario is likewise proven by the integration observation's
 bidirectional content-digest round trip and is therefore not duplicated as a
 manually asserted release-evidence boolean.
 Omarchy Edition tags use the separate
-`ezvm-omarchy-v<version>` namespace.
+`riftvm-omarchy-v<version>` namespace.
 
-Acceptance-mode launches (`EZVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
+Acceptance-mode launches (`RIFTVM_OMARCHY_ACCEPTANCE=1`) also write an atomic
 schema-5 `Diagnostics/integration-readiness.json` observation after the authenticated
 Guest Agent reports an active desktop, completed provisioning, and every
 profile-required capability. Capability booleans explicitly mean “advertised,”
@@ -811,14 +813,14 @@ record.
 
 ### 11.1 Shared-folder real-guest checkpoint (2026-09-03)
 
-The draft `ezvm-omarchy-integration-20260903.5` image exposed two defects that
+The draft `riftvm-omarchy-integration-20260903.5` image exposed two defects that
 unit and image-assembly tests had not caught: the Agent reported the placeholder
-version `image`, and `ProtectSystem=strict` made `/mnt/ezvm-shared` read-only in
+version `image`, and `ProtectSystem=strict` made `/mnt/riftvm-shared` read-only in
 the system Agent's mount namespace. The acceptance probe correctly rejected the
 candidate with `sharedFolderRoundTripPassed=false` and the strict validator
 rejected the wrong Agent version.
 
-The corrected draft `ezvm-omarchy-integration-20260903.6` completed the full
+The corrected draft `riftvm-omarchy-integration-20260903.6` completed the full
 image CI, release-asset digest verification, 64 GiB raw reconstruction, signed
 factory conversion, clean-workspace preparation, first-owner provisioning, and
 Hyprland startup. Its live schema-2 observation passed the strict validator with:
@@ -941,7 +943,7 @@ compatible Hyprland and Aquamarine packages.
 
 The repository-graph blockage described in checkpoint 11.5 is no longer
 current. Image workflow `33887520897` completed successfully and published the
-draft `v4.0.0-alpha-ezvm.28` assets. Every asset matched the release
+draft `v4.0.0-alpha-riftvm.28` assets. Every asset matched the release
 `SHA256SUMS`; reconstructing the split raw image produced SHA-256
 `83b92ceb2398acbf3c6b199204e1815ce474bf9f6f7736972733fb1b0c52a2f2`.
 The factory conversion then passed manifest signature verification and an exact
@@ -962,7 +964,7 @@ Hyprland desktop and produced fresh live evidence for:
 
 This checkpoint does **not** close keyboard or lifecycle acceptance. Guest
 diagnostics prove Hyprland 0.56.1 exposes the expected `SUPER+CTRL+L` lock bind
-and recognizes `EZVM Keyboard`, but two attempted lock probes reached their
+and recognizes `RiftVM Keyboard`, but two attempted lock probes reached their
 ready marker without observing a `hyprlock` process. The first probe used the
 authenticated uinput endpoint; the second posted a key carrying modifier flags
 through the Host event tap. The acceptance implementation at Host revision
@@ -977,7 +979,7 @@ be considered complete.
 ### 11.7 `.31.2` release-candidate checkpoint (2026-09-04)
 
 Image workflow `33901210922` completed successfully and published the draft
-`v4.0.0-alpha-ezvm.31` image assets. Every downloaded part matched the signed
+`v4.0.0-alpha-riftvm.31` image assets. Every downloaded part matched the signed
 `SHA256SUMS`; reconstructing the split raw image produced SHA-256
 `05001d32709b0c1b295ff18ecf1f9e256dbddbc830afb4eb70f3b1a41deadbc5`.
 The signed Factory passed manifest verification and an exact raw-to-ASIF byte
@@ -1024,7 +1026,7 @@ by a synthetic notification or shortened timer.
 
 Cold-start testing of the signed `1.0.0-alpha.35` App exposed a release-channel
 failure before any workspace mutation: GitHub's `releases/latest` resolved to
-the older stable `v4.0.1-ezvm.200` release, which has no EZVM Omarchy Factory
+the older stable `v4.0.1-riftvm.200` release, which has no RiftVM Omarchy Factory
 manifest. The intended `.32` Factory ASIF is 5,282,725,888 bytes and therefore
 cannot be uploaded as one GitHub Release asset.
 
@@ -1041,7 +1043,7 @@ and oversized parts.
 The Factory signing tool independently hashes the ordered local parts and
 refuses to sign unless their concatenation exactly reproduces the source ASIF.
 The production profile pins the immutable
-`v4.0.0-alpha-ezvm.32/ezvm-omarchy-factory-manifest.json` path. Promotion remains
+`v4.0.0-alpha-riftvm.32/riftvm-omarchy-factory-manifest.json` path. Promotion remains
 open until a new signed Host candidate completes a genuinely empty-workspace
 installation from that public endpoint.
 
@@ -1049,7 +1051,7 @@ The three real Factory parts, schema-2 manifest, and dedicated checksum file are
 published in the `.32` prerelease. The retry-safe publisher verified each GitHub
 asset digest against the local bytes after upload, and an anonymous public probe
 returned HTTP 200 with the exact declared size for the manifest and every image
-part. Publishing the prerelease left stable `latest` at `v4.0.1-ezvm.200`. Host revision
+part. Publishing the prerelease left stable `latest` at `v4.0.1-riftvm.200`. Host revision
 `c6bb70fda2f32acbc1e300f2664b106a7071ff83` passed CI run `33917511580`; image
 revision `6aa7490b3cafa417dbb269e524d886fc4bfca29d` passed contract run
 `33918297602` and ensures Alpha, Beta, and RC tags publish as prereleases rather
@@ -1230,9 +1232,9 @@ the product:
 The first engineering proof is intentionally small:
 
 ```text
-Open EZVM Omarchy
+Open RiftVM Omarchy
   -> prepare or locate the workspace
-  -> start through shared EZVM Core
+  -> start through shared RiftVM Core
   -> reach the Omarchy desktop
   -> Command-Space opens the Omarchy menu
   -> stop cleanly with the workspace preserved
@@ -1240,13 +1242,13 @@ Open EZVM Omarchy
 
 ## 14. Definition of success
 
-EZVM Omarchy succeeds when a user can install one application, complete the
+RiftVM Omarchy succeeds when a user can install one application, complete the
 Omarchy owner flow, and use Omarchy for sustained daily work without learning
 virtual machine concepts. Keyboard, clipboard, files, display, audio, network,
 updates, sleep/wake, and recovery must behave as coherent product features, not
 as unrelated VM devices.
 
 The program succeeds architecturally when the same integration improvements
-also strengthen regular EZVM, and neither application maintains a divergent
+also strengthen regular RiftVM, and neither application maintains a divergent
 copy of the shared virtualization, graphics, Guest Agent, storage, or device
 code.

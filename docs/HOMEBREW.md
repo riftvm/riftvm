@@ -87,8 +87,8 @@ export APPLE_TEAM_ID="YPV49M8592"
 scripts/release-patch.sh
 ```
 
-Set `RiftVM_RELEASE_SMOKE_VM` to a prepared Omarchy VM bundle and
-`RiftVM_RELEASE_SMOKE_ENROLLMENT` to its mode-`0600` Agent enrollment file.
+Set `RIFTVM_RELEASE_SMOKE_VM` to a prepared Omarchy VM bundle and
+`RIFTVM_RELEASE_SMOKE_ENROLLMENT` to its mode-`0600` Agent enrollment file.
 Release automation uses isolated APFS clones, tests GUI readiness, two
 concurrent headless VMs, Agent authentication and byte-exact file transfer,
 guest KVM API availability, and clean stop. The source VM is not modified. The
@@ -100,9 +100,9 @@ Before publishing a macOS 27 candidate, keep stopped, disposable fixtures for
 the two supported workspace types and run the exact signed app through the matrix:
 
 ```bash
-RiftVM_MATRIX_MACOS_VM="$HOME/RiftVM Test Fixtures/macOS.riftvm" \
-RiftVM_MATRIX_OMARCHY_VM="$HOME/RiftVM Test Fixtures/Omarchy.riftvm" \
-RiftVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/RiftVM Test Fixtures/omarchy-enrollment.json" \
+RIFTVM_MATRIX_MACOS_VM="$HOME/RiftVM Test Fixtures/macOS.riftvm" \
+RIFTVM_MATRIX_OMARCHY_VM="$HOME/RiftVM Test Fixtures/Omarchy.riftvm" \
+RIFTVM_MATRIX_OMARCHY_ENROLLMENT="$HOME/RiftVM Test Fixtures/omarchy-enrollment.json" \
 scripts/verify-macos27-guest-matrix.sh /path/to/RiftVM.app 2.0.0
 ```
 
@@ -118,12 +118,12 @@ restore, and clean shutdown. The VMNet gate creates and
 removes its own clone of the Omarchy fixture. The ASIF gate separately creates a
 layered snapshot, audits and restores it from fresh app processes, then boots the
 restored clone. Neither gate changes the source VM. Set
-`RiftVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
+`RIFTVM_MATRIX_REQUIRE_NESTED=1` only on a supported host to add the guest KVM
 gate. Fixtures are cloned before destructive recovery checks; the originals
 remain unchanged.
 
 The matrix also requires the candidate's embedded full Git revision to match
-the current checkout (or `RiftVM_EXPECTED_SOURCE_REVISION`) and requires its
+the current checkout (or `RIFTVM_EXPECTED_SOURCE_REVISION`) and requires its
 embedded source-tree state to be `clean`. The post-publication Homebrew gate
 receives the same revision explicitly, so a same-version archive built from a
 different commit cannot pass.
@@ -134,7 +134,7 @@ Release build, commits the version bump when needed, then builds the pinned
 VirGL runtime, signs and notarizes the app locally, and exercises the exact
 candidate before pushing `main` and the tag. Only after those gates pass does
 it create the GitHub Release and update `riftvm/homebrew-tap`. Set
-`RiftVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
+`RIFTVM_HOMEBREW_TAP` only when publishing to a different tap checkout URL.
 
 1. Build and sign the application with its virtualization entitlement and hardened runtime.
 2. Notarize the archive, quarantine-extract it, and pass GUI plus real-VM gates.

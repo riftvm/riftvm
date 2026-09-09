@@ -1,6 +1,6 @@
-# EZVM Guest Agent Protocol v1
+# RiftVM Guest Agent Protocol v1
 
-EZVM's Linux guest agent uses AF_VSOCK through Virtualization.framework's
+RiftVM's Linux guest agent uses AF_VSOCK through Virtualization.framework's
 Virtio Socket device. The fixed service port is `10240`. The transport never
 requires privileged host networking.
 
@@ -11,9 +11,9 @@ outside the VM bundle under the user's Application Support directory. The
 enrollment directory is mode `0700` and each token file is mode `0600`, so
 normal VM launches do not trigger an interactive Keychain prompt. Installation
 places the guest copy in a root-readable file. The token is never stored in the
-EZVM bundle's `config.json`, included in diagnostics, or logged. It is present
+RiftVM bundle's `config.json`, included in diagnostics, or logged. It is present
 in the separately exported enrollment file and in the guest's root-only
-`/etc/ezvm-agent/config.json`.
+`/etc/rift-agent/config.json`.
 
 This storage choice preserves per-VM mutual authentication while allowing
 unattended VM launches and release smoke tests. Treat the host account and its
@@ -53,16 +53,16 @@ transfer UI. `ssh-addresses-v1` enables validated `ssh://` links and is advertis
 only while the Guest Agent observes a listening SSH socket; IP addresses remain
 available as diagnostic status even when SSH is not running.
 `input-uinput-v1` is advertised only when the agent successfully creates its
-root-owned `/dev/uinput` device; EZVM then forwards keyboard, relative pointer,
+root-owned `/dev/uinput` device; RiftVM then forwards keyboard, relative pointer,
 button, and wheel events from the Custom VirGL display. The Apple graphics
 backend continues to use Virtualization.framework's native USB input path.
 `input-uinput-desktop-v1` means the agent has verified that the active desktop
-compositor actually owns the EZVM input device. The host must not infer this
+compositor actually owns the RiftVM input device. The host must not infer this
 only from `hyprctl` or a compositor socket: stale runtime sockets can produce a
 false positive or false negative after login/restart.
 `shared-folders-v1` is advertised only while the agent can verify an active
-VirtioFS mount whose tag is exactly `ezvm_shared` and whose guest mount point is
-exactly `/mnt/ezvm-shared`. The existence of the host device or a guest mount
+VirtioFS mount whose tag is exactly `riftvm_shared` and whose guest mount point is
+exactly `/mnt/riftvm-shared`. The existence of the host device or a guest mount
 unit is not sufficient. Hosts should present shared-folder workflows as
 degraded whenever this capability is absent and must not infer readiness from
 the configured VM model alone.
@@ -137,12 +137,12 @@ input messages are not sent.
 
 ## Install in a Linux guest
 
-EZVM ships a separate ARM64 Linux archive with each GitHub release. It is not
+RiftVM ships a separate ARM64 Linux archive with each GitHub release. It is not
 silently installed into a VM and does not need a privileged host entitlement.
 
-1. Download and verify `EZVM-GuestAgent-<version>-linux-arm64.tar.gz` and its
+1. Download and verify `RiftVM-GuestAgent-<version>-linux-arm64.tar.gz` and its
    `.sha256` file from the same release as the app.
-2. In EZVM, right-click the stopped Linux VM and select **Export Guest Agent
+2. In RiftVM, right-click the stopped Linux VM and select **Export Guest Agent
    Enrollment...**. This creates or retrieves that VM's protected host-side
    token and writes a mode-`0600` enrollment file.
 3. Copy the archive and enrollment file into that same VM. Extract the archive,
@@ -151,11 +151,11 @@ silently installed into a VM and does not need a privileged host entitlement.
    the configuration as root-readable mode `0600`, enables the service, and
    starts it.
 5. Delete the copied enrollment file and any other unneeded copy. Restart the
-   VM window if it was already running. EZVM's **Guest Agent** toolbar menu
+   VM window if it was already running. RiftVM's **Guest Agent** toolbar menu
    will show authentication, readiness, guest metadata, IP addresses, and the
    explicit shutdown/restart actions. Current agents also expose validated SSH
    links and explicit upload/download actions with progress and cancellation.
 
 If the agent is absent or misconfigured, the VM continues to boot normally and
-EZVM retries the connection. A connection that stops responding is discarded
+RiftVM retries the connection. A connection that stops responding is discarded
 and retried; it is not left displayed as ready.

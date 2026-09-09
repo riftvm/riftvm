@@ -1,8 +1,10 @@
-# EZVM macOS 27 productization plan
+# RiftVM macOS 27 productization plan
 
-_Baseline: EZVM 2.0.0 development branch — September 2, 2026_
+> Historical planning record, with product names normalized to RiftVM. Historical tag and path examples are not current download instructions. See the [current README](../README.md) and [unified product plan](RIFTVM_UNIFIED_PRODUCT_PLAN.md) for the supported product.
 
-EZVM is no longer optimizing for the number of Virtualization.framework APIs
+_Baseline: RiftVM 2.0.0 development branch — September 2, 2026_
+
+RiftVM is no longer optimizing for the number of Virtualization.framework APIs
 it uses. The next release line optimizes five complete user journeys: they must
 be reliable, understandable, recoverable, and polished in the signed Homebrew
 artifact. A new Apple API is adopted only when it removes a real limitation or
@@ -29,7 +31,7 @@ Every core journey must meet the same release bar:
 
 ## 1. macOS guest provisioning
 
-**Current implementation:** EZVM now retains the ThisDeviceOnly Keychain
+**Current implementation:** RiftVM now retains the ThisDeviceOnly Keychain
 credential after `VZVirtualMachine.start` succeeds because the framework does
 not expose a guest-provisioning completion callback. The VM window reports
 that setup is being applied and asks the user to confirm only after they can
@@ -41,7 +43,7 @@ credential. The creation review now previews the account identity, automatic log
 Remote Login, and temporary Keychain lifetime without rendering the password;
 opting out explicitly states that macOS Setup Assistant remains manual. Each
 Keychain payload now carries a stable attempt identifier and a
-persisted `prepared`, `applying`, or `awaitingConfirmation` state. EZVM writes
+persisted `prepared`, `applying`, or `awaitingConfirmation` state. RiftVM writes
 `applying` before calling the framework, so a process interruption never causes
 an ambiguous attempt to be submitted again automatically. On the next launch,
 the user can verify the account and remove the credential or explicitly prepare
@@ -77,12 +79,12 @@ account reached its desktop without putting the password in process arguments,
 environment variables, terminal output, or test reports.
 The host and guest requirements are checked independently. Provisioning needs a
 macOS 27 host *and* a macOS 27-or-later restore image; older guests silently
-ignore Apple's options. EZVM rejects a known older catalog entry immediately
+ignore Apple's options. RiftVM rejects a known older catalog entry immediately
 and inspects latest, local, and direct-URL IPSWs before beginning installation.
 The signed-artifact fixture exposed this requirement in practice: the cached
 `macos-latest.ipsw` was macOS 26.6.2 (25G83), accepted the start options, and
 still presented the manual account page exactly as Apple's SDK says an older
-guest will. After the guard was added, the signed EZVM 2.0.0 build rejected that
+guest will. After the guard was added, the signed RiftVM 2.0.0 build rejected that
 same image before creating a destination bundle. A macOS 27 IPSW is still
 required to complete the positive first-boot and interruption matrix.
 
@@ -99,12 +101,12 @@ its own staging directory only when its contents exactly match the declared
 verified image workflow.
 
 Automatic-provisioning credentials now join that same creation transaction at
-the correct ownership boundary. EZVM first claims the new bundle and writes its
+the correct ownership boundary. RiftVM first claims the new bundle and writes its
 stable `MachineIdentifier`, then stores the ThisDeviceOnly Keychain item before
 starting `VZMacOSInstaller`. A Keychain failure therefore aborts before the long
 installation and rolls back only the newly owned bundle. If installation fails,
 the credential is removed before filesystem rollback. If Keychain cleanup itself
-fails, EZVM retains the identifier-bearing incomplete bundle and reports both
+fails, RiftVM retains the identifier-bearing incomplete bundle and reports both
 failures, rather than leaving an unreachable secret or presenting an installed
 VM as a failed, unregistered result.
 
@@ -131,16 +133,16 @@ Assistant rather than encouraging an identical invalid submission.
 ### Product outcome
 
 A user can create a macOS 27 VM, choose whether to automate the initial account
-setup, understand exactly what EZVM will configure, and recover safely if first
+setup, understand exactly what RiftVM will configure, and recover safely if first
 boot is interrupted.
 
 ### Work plan
 
 | Area | Required refinement | Acceptance evidence |
 | --- | --- | --- |
-| Wizard | Keep provisioning behind an explicit choice; preview account identity, auto-login, SSH, and secret lifetime before Create. The macOS 27 API has no computer-name field, so EZVM must not imply that it controls one. | A new user can explain the result from the review page; opting out creates an ordinary Setup Assistant flow. |
+| Wizard | Keep provisioning behind an explicit choice; preview account identity, auto-login, SSH, and secret lifetime before Create. The macOS 27 API has no computer-name field, so RiftVM must not imply that it controls one. | A new user can explain the result from the review page; opting out creates an ordinary Setup Assistant flow. |
 | Secrets | Keep passwords in a ThisDeviceOnly Keychain item, never in the VM bundle, model JSON, logs, crash metadata, or export. Delete only after provisioning completion is confirmed—not merely after the VM starts. | Log/export scans contain no secret; interrupted first boot can retry; successful provisioning removes the temporary item. |
-| State model | Persist the attempt identifier and `prepared / applying / awaiting confirmation` alongside the ThisDeviceOnly credential; represent unavailable, retry-prepared, completed, and failed states explicitly in runtime UI. Claim the installation destination atomically and roll back only files owned by that attempt. | Only `prepared` is submitted. An interrupted or accepted attempt requires verification or an explicit next-start retry, so EZVM cannot silently report success or create duplicate accounts. Concurrent destination creation is rejected without deleting the other owner's files. |
+| State model | Persist the attempt identifier and `prepared / applying / awaiting confirmation` alongside the ThisDeviceOnly credential; represent unavailable, retry-prepared, completed, and failed states explicitly in runtime UI. Claim the installation destination atomically and roll back only files owned by that attempt. | Only `prepared` is submitted. An interrupted or accepted attempt requires verification or an explicit next-start retry, so RiftVM cannot silently report success or create duplicate accounts. Concurrent destination creation is rejected without deleting the other owner's files. |
 | Feedback | Show first-boot status and an actionable failure card; explain when manual Setup Assistant is the safe fallback. | Permission denial, invalid account data, guest rejection, reboot, and timeout each produce a distinct next action. |
 | Validation | Inspect the resulting guest for expected account, login, SSH, hostname, and absence of temporary credentials. | Signed-artifact tests pass for automated and manual provisioning, including cancel and retry. |
 
@@ -196,7 +198,7 @@ disconnection rather than incorrectly claiming a device is already attached.
 
 After the initial system selection, users can reopen Accessory Access to choose
 additional devices. Because Apple rejects registering the same listener twice,
-EZVM unregisters and registers it again only when no device is attached and no
+RiftVM unregisters and registers it again only when no device is attached and no
 attach/detach operation is active. A generation token prevents an asynchronous
 re-registration from reviving a coordinator after VM teardown; the menu asks
 the user to disconnect attached devices before changing the approved set.
@@ -223,7 +225,7 @@ still completes after that boundary, its continuation immediately detaches the
 device instead of publishing a late Attached state into a stopping VM.
 
 That fence is also reversible when the framework rejects pause, stop, force
-stop, or saved-state work while the VM remains alive. EZVM no longer releases
+stop, or saved-state work while the VM remains alive. RiftVM no longer releases
 its last `VZVirtualMachine` reference on a recoverable lifecycle error. It maps
 the framework's authoritative state back to Running or Paused, retains the VM
 window and run lease, shows a dismissible failure notice, and reconciles both
@@ -233,7 +235,7 @@ therefore either reflected from controller truth or detached, never promoted
 from stale UI state.
 
 Saved-state completion follows Apple's actual lifecycle contract: a successful
-`saveMachineStateTo` leaves the VM paused. EZVM commits the pending state file
+`saveMachineStateTo` leaves the VM paused. RiftVM commits the pending state file
 atomically, then explicitly calls `VZVirtualMachine.stop`, and releases the VM
 and run lease only after that stop succeeds. If it fails, the committed state
 is rolled back because it would become stale as soon as the still-live guest
@@ -271,14 +273,14 @@ permission problems explain how to recover.
 
 ## 3. VMNet advanced networking
 
-**Current implementation:** EZVM now preflights the complete network-device
+**Current implementation:** RiftVM now preflights the complete network-device
 collection before creating any VMNet object. Validation rejects unavailable
 external interfaces, non-contiguous masks, host addresses used as subnets,
 overlapping explicitly configured logical-network subnets, zero ports,
 forwarding destinations outside the configured subnet, conflicting
 definitions of one logical-network name, and duplicate external endpoints
 across distinct networks. Identical reuse of a named logical network remains
-valid. After structural validation succeeds, EZVM bind-probes each unique TCP
+valid. After structural validation succeeds, RiftVM bind-probes each unique TCP
 or UDP external endpoint on all host interfaces before creating any VMNet
 object. It reports occupied and indeterminate endpoints separately, releases
 every probe immediately, and skips matching named networks already owned by
@@ -296,12 +298,12 @@ advanced disclosure; the saved adapter list shows both its outcome and the
 effective configuration. NAT deliberately discards hidden VMNet-only fields,
 and Host-only discards Shared-only interface and forwarding fields. Bridged
 networking is not presented as a fourth choice. Apple documents it under the
-same restricted `com.apple.vm.networking` entitlement, but EZVM has not built
+same restricted `com.apple.vm.networking` entitlement, but RiftVM has not built
 or validated that distinct attachment path and does not claim it as part of
 the current Homebrew product surface.
 
 The signed release gate now runs the same VMNet Shared Ubuntu fixture through
-two successive, independent EZVM processes. Both runs must authenticate the
+two successive, independent RiftVM processes. Both runs must authenticate the
 Guest Agent, round-trip file bytes, and stop cleanly. This proves that app
 teardown releases the reservation and a fresh process can recreate the same
 topology without manual cleanup. Simultaneous sharing between independent app
@@ -311,7 +313,7 @@ an explicit lifecycle protocol.
 
 Named logical networks now also have a kernel-backed cross-process ownership
 lease. Lookup, ownership acquisition, and VMNet creation are serialized inside
-each process; a second GUI or headless EZVM process therefore cannot silently
+each process; a second GUI or headless RiftVM process therefore cannot silently
 reserve a separate network with the same product-level name. Matching and
 conflicting configurations receive distinct recovery guidance. The lease is
 released normally with its process and automatically by the kernel after a
@@ -328,7 +330,7 @@ remain separate real-environment gates.
 
 At runtime, every configured adapter now has an explicit preparing, connected,
 reconnecting, or disconnected state. The framework disconnect callback is no
-longer log-only: EZVM keeps failures independent for multi-adapter VMs, shows
+longer log-only: RiftVM keeps failures independent for multi-adapter VMs, shows
 the affected adapter and framework reason in the VM window, and offers a
 bounded reattach of the original configuration. Reconnect attempts use
 per-adapter operation identities so an old callback cannot clear a newer
@@ -343,7 +345,7 @@ action. The toolbar remains a compact summary, but no second failure is hidden
 behind it while the first adapter occupies the banner.
 
 Runtime reconnection no longer treats a non-`nil` replacement attachment as
-immediate proof of restored connectivity. EZVM keeps the adapter in a recovering
+immediate proof of restored connectivity. RiftVM keeps the adapter in a recovering
 state after Virtualization.framework accepts the request, observes a
 stabilization window, and lets any late framework disconnect callback win. The
 automatic retry budget resets only after that window succeeds, preventing a
@@ -369,7 +371,7 @@ gates additionally require the guest to report a valid IPv4 address after the
 transition. The existing 15-second post-hold deadline bounds recovery instead
 of allowing an indefinitely reconnecting release candidate to pass.
 
-Disconnect UI no longer displays an unbounded framework string by itself. EZVM
+Disconnect UI no longer displays an unbounded framework string by itself. RiftVM
 adds a stable recovery action covering interface changes, VPNs, and host access,
 then appends at most 160 sanitized characters of framework detail. Full raw
 errors remain in the network log for support without allowing control characters
@@ -441,7 +443,7 @@ entirely in the test target.
 
 Startup recovery also fails closed when a restore journal exists but cannot be
 decoded. It preserves the current machine, backup, staging directory, and the
-damaged journal without moving any file. In particular, EZVM never infers an
+damaged journal without moving any file. In particular, RiftVM never infers an
 ASIF branch from the backup configuration when the journal's previous
 `activeDiskLayers` state is unavailable; guessing there could pair a restored
 configuration with the wrong writable overlay while reporting success.
@@ -499,7 +501,7 @@ sub-file copy progress here, so a single very large disk can still advance in
 one truthful jump rather than showing a synthetic percentage.
 
 Restore now begins with a read-only storage review instead of a blind
-destructive confirmation. EZVM audits the selected snapshot and calculates the
+destructive confirmation. RiftVM audits the selected snapshot and calculates the
 conservative allocated-byte peak for restore staging, the optional safety
 snapshot, and the existing 1 GiB reserve. The review shows each component,
 current available capacity, and whether Restore is allowed; it also explains
@@ -512,7 +514,7 @@ recovery snapshot is created.
 Snapshot storage maintenance now starts with a read-only reference-map preview.
 Cleanup is offered only when both the complete snapshot metadata index and the
 active ASIF state decode successfully, no restore is pending, and an
-unreferenced file belongs to EZVM's UUID-named layer namespace. Unknown files,
+unreferenced file belongs to RiftVM's UUID-named layer namespace. Unknown files,
 directories, symbolic links, referenced layers, and all candidates encountered
 while metadata is damaged remain untouched. Confirmed cleanup atomically moves
 candidates into a private quarantine and journals the commit: startup restores
@@ -538,7 +540,7 @@ stack read-only, which rejects reordered layers and broken parent relationships.
 Branch restore and leaf deletion tests also prove that cleanup removes an
 abandoned active head while retaining every layer referenced by another branch.
 The snapshot UI reports the maximum active/saved depth and turns the depth
-advisory orange at 32 layers. This is an EZVM maintenance threshold, not an
+advisory orange at 32 layers. This is an RiftVM maintenance threshold, not an
 Apple framework limit.
 
 A separate 64 GiB sparse-ASIF gate opens the production writable stack, creates
@@ -549,14 +551,14 @@ allocating 64 GiB of host storage; guest-written data pressure remains part of
 the signed Ubuntu fixture rather than being inferred from sparse metadata.
 
 VM startup now checks an existing layered chain before the normal idempotent disk
-creation path. If the ASIF base is missing or damaged, EZVM refuses to create a
+creation path. If the ASIF base is missing or damaged, RiftVM refuses to create a
 blank file at the same path and tells the user to restore the original base. A
 valid ASIF from another chain is also rejected by DiskImageKit parent validation,
 as is a missing active overlay. Tests prove all three failures preserve the base
 path, remaining layers, and snapshot metadata for diagnosis and recovery.
 
 The macOS 27 DiskImageKit SDK exposes image creation, opening, stacking, and
-truncation, but no public merge, flatten, or compaction operation. EZVM therefore
+truncation, but no public merge, flatten, or compaction operation. RiftVM therefore
 does not present an unsafe in-place Compact action. A future consolidation
 workflow must create a replacement image transactionally, verify it, preserve
 the source until commit, and explicitly define how snapshot branches are
@@ -565,7 +567,7 @@ exported or retired.
 The 32-layer advisory follows the same rule: it no longer tells users to invoke
 an unavailable “Consolidate” command. It recommends an integrity audit, an
 exported backup, and removal of genuinely unneeded leaf branches, while stating
-that EZVM cannot compact a layered ASIF disk in place.
+that RiftVM cannot compact a layered ASIF disk in place.
 
 ### Work plan
 
@@ -589,7 +591,7 @@ divergence, legacy RAW migration, cloning, and import/export round trips.
 
 Supported Linux guests receive visibly better graphics with deterministic
 fallback. Experimental acceleration must never make an otherwise bootable VM
-unusable or weaken EZVM's input/security boundary.
+unusable or weaken RiftVM's input/security boundary.
 
 ### Work plan
 
@@ -677,7 +679,7 @@ demos:
 - Shared folders use one stable runtime VirtioFS device per VM. A folder dropped
   on a running VM is persisted and published immediately through
   `VZVirtioFileSystemDevice.share`; macOS uses the system automount tag and Linux
-  uses `ezvm_shared`. Removing a folder or changing read-only access in the
+  uses `riftvm_shared`. Removing a folder or changing read-only access in the
   running VM's Settings sheet updates the same live share.
 
 - Use the same `Ready / Needs attention / Working / Restart required /
@@ -725,7 +727,7 @@ interactive VirGL A/B, and the final notarized Homebrew candidate.
 
 ### Latest signed-artifact evidence
 
-On September 3, 2026, commit `0b848f5` was rebuilt as EZVM 2.0.0 through the
+On September 3, 2026, commit `0b848f5` was rebuilt as RiftVM 2.0.0 through the
 Developer ID archive/export path after the login keychain identity became
 available again. The production entitlement allowlist contained
 Virtualization, VMNet, and Accessory Access; the app, CLI helper, and all four
@@ -753,7 +755,7 @@ budgets with no drawable misses or presentation failures. They establish a
 repeatable idle regression baseline but deliberately do not close the
 interactive-workload gate.
 
-On September 2, 2026, commit `929dd38` was built as EZVM 2.0.0 through the
+On September 2, 2026, commit `929dd38` was built as RiftVM 2.0.0 through the
 Developer ID archive/export path. The app, CLI helper, and bundled VirGL
 libraries shared TeamIdentifier `YPV49M8592`; Gatekeeper accepted the app and
 the production entitlement allowlist contained Virtualization, VMNet, and
@@ -775,7 +777,7 @@ The same path passed on September 2 using a disposable virtualization-only
 ad-hoc test signature, proving the application behavior independently of that
 remaining release-signing gate.
 
-Release runs can set an absolute `EZVM_MATRIX_REPORT` path to atomically retain
+Release runs can set an absolute `RIFTVM_MATRIX_REPORT` path to atomically retain
 a versioned JSON result containing duration, executable SHA-256, guest set, and
 the exact automated checks that passed. The report is written mode `0600` and
 contains no fixture or user paths. This makes repeated notarized/Homebrew runs
@@ -784,7 +786,7 @@ comparable without treating terminal scrollback as release evidence.
 This is signed development evidence, not release promotion. Physical USB,
 fresh macOS provisioning, real host sleep/network transitions, representative
 VirGL A/B workloads, notarization, and Homebrew installation remain required.
-The release build environment variable is `EZVM_SIGNING_IDENTITY`; similarly
+The release build environment variable is `RIFTVM_SIGNING_IDENTITY`; similarly
 named legacy variables do not select the Developer ID archive/export path.
 The build now rejects the obsolete `EASYVM_SIGNING_IDENTITY` spelling before
 creating an output directory, preventing a release operator from silently

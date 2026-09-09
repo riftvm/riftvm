@@ -1,8 +1,8 @@
-# EZVM Omarchy follow-up TODO
+# RiftVM Omarchy follow-up TODO
 
 Last updated: 2026-09-04
 
-This file records work intentionally deferred after the first signed EZVM
+This file records work intentionally deferred after the first signed RiftVM
 Omarchy Alpha. It is not a list of regressions hidden from the release: the
 Alpha is a preview, and stable/Daily Driver promotion remains gated by the
 items identified below.
@@ -69,8 +69,8 @@ a heartbeat left by the preceding Guest boot as its new identity baseline.
 
 ## Distribution and maintenance
 
-- [ ] Create a dedicated update channel and optional Homebrew cask for EZVM
-  Omarchy without changing the regular EZVM release channel.
+- [ ] Create a dedicated update channel and optional Homebrew cask for RiftVM
+  Omarchy without changing the regular RiftVM release channel.
 - [ ] Automate notarized Alpha/Beta/RC publication while keeping stable
   promotion blocked on real sleep/wake and 24-hour evidence.
 - [ ] Define and publish the Host, Guest Agent, Factory image, and Omarchy
@@ -87,6 +87,6 @@ a heartbeat left by the preceding Guest boot as its new identity baseline.
 The current local acceptance workspace under `/private/tmp` is approximately
 16 GiB because it contains the active Guest and protected rollback state. It
 may be deleted when no further Alpha 44 evidence is needed. Test-created
-`/tmp/ezvm-*` directories must continue to be removed by their owning scripts
+`/tmp/riftvm-*` directories must continue to be removed by their owning scripts
 or manually after confirming that no running VM or acceptance process uses
 them.

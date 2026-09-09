@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./Assets/RiftVM-mark.png" width="160" height="160" alt="RiftVM blue and orange interlocking hexagon icon">
+  <img src="./Assets/RiftVM-mark.png" width="160" height="160" alt="RiftVM red and blue rift R icon">
 </p>
 
 # RiftVM
@@ -9,8 +9,6 @@
 [![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
 [![License](https://img.shields.io/github/license/riftvm/riftvm)](LICENSE)
-
-![RiftVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
 
 ## Install RiftVM
 
@@ -37,13 +35,6 @@ Prefer a direct download? Get the signed and notarized app from
 Each workspace has its own writable disk and machine identity. Downloaded
 images are cached for reuse; Omarchy still needs a connection to verify its
 release manifest when creating a workspace, even with a cached image.
-
-## Screenshots
-
-<p align="center">
-  <img src="./Assets/screenshot2.png" width="58%" alt="RiftVM randomly naming a virtual machine Saturn and saving it under RiftVM Virtual Machines">
-  <img src="./Assets/screenshot3.png" width="39%" alt="RiftVM snapshot history tree with restore and protection controls">
-</p>
 
 ## What it does
 

@@ -1,6 +1,8 @@
-# EZVM macOS 27 field acceptance checklist
+# RiftVM macOS 27 field acceptance checklist
 
-Use this checklist only with a Developer ID-signed EZVM 2.0.0 candidate built
+> Historical planning record, with product names normalized to RiftVM. Historical tag and path examples are not current download instructions. See the [current README](../README.md) and [unified product plan](RIFTVM_UNIFIED_PRODUCT_PLAN.md) for the supported product.
+
+Use this checklist only with a Developer ID-signed RiftVM 2.0.0 candidate built
 from `codex/wwdc26-virtualization`. It covers the release evidence that cannot
 be replaced by unit tests, unsigned builds, synthetic callbacks, or an idle VM.
 
@@ -15,7 +17,7 @@ cannot be cleanly stopped.
 Record this once for every complete run:
 
 - [ ] Date, tester, Mac model, macOS build, Xcode/SDK build
-- [ ] Git commit, EZVM version, candidate ZIP SHA-256
+- [ ] Git commit, RiftVM version, candidate ZIP SHA-256
 - [ ] `codesign --verify --deep --strict` passes
 - [ ] Production entitlement allowlist passes
 - [ ] Notarization and stapling status are stated explicitly
@@ -47,13 +49,13 @@ For each supported guest:
 - [ ] Start the VM and open USB. VoiceOver reads `USB accessories` plus a
       truthful state value.
 - [ ] Choose the sacrificial device in Accessory Access. Cancel once and verify
-      EZVM returns to a usable empty state without a retry loop.
+      RiftVM returns to a usable empty state without a retry loop.
 - [ ] Choose it again, connect it, and verify the toolbar count becomes
       `USB (1)` only after controller attachment succeeds.
 - [ ] Verify Save State and Stop is unavailable while attach/detach is pending
       and while a device is attached; the reason names USB rather than a generic
       configuration failure.
-- [ ] Perform guest I/O, then disconnect through EZVM. The guest loses the
+- [ ] Perform guest I/O, then disconnect through RiftVM. The guest loses the
       device once, the toolbar count clears, and saving becomes available.
 - [ ] Reconnect, perform guest I/O, and physically unplug. Exactly one
       non-blocking unexpected-disconnect notice appears; no stale Attached state
@@ -62,7 +64,7 @@ For each supported guest:
       interrupted and cannot later become Attached.
 - [ ] With two disposable devices, attach and detach in both orders. Counts,
       per-device actions, and notices remain independent.
-- [ ] Revoke or change Accessory Access approval. EZVM distinguishes denial,
+- [ ] Revoke or change Accessory Access approval. RiftVM distinguishes denial,
       listener failure, ownership conflict, and physical disappearance.
 - [ ] Repeat guest reboot, normal stop, force stop, host sleep/wake, app quit,
       and fast-user-switch/console-logout boundaries. No delegate callback acts
@@ -96,8 +98,8 @@ Recovery paths:
 
 - [ ] Cancel during `VZMacOSInstaller.install`; wait for the callback and verify
       complete rollback of the owned destination and temporary credential.
-- [ ] Interrupt EZVM after the attempt is durably `applying`. Reopen it and
-      verify that EZVM requests confirmation or an explicit retry—it must not
+- [ ] Interrupt RiftVM after the attempt is durably `applying`. Reopen it and
+      verify that RiftVM requests confirmation or an explicit retry—it must not
       silently resubmit or report success.
 - [ ] Exercise invalid full name, username, and password. Each error points to
       the correct field without echoing secret text.
@@ -127,7 +129,7 @@ interface that is carrying an irreplaceable remote session.
 - [ ] Put the host to sleep during Connected, during retry backoff, and while VM
       startup is still preparing. On wake, only authoritatively disconnected
       adapters retry; stale pre-sleep completions cannot overwrite current state.
-- [ ] Repeat a fresh EZVM process after every transition. Named-network leases
+- [ ] Repeat a fresh RiftVM process after every transition. Named-network leases
       are released after normal exit and process termination.
 - [ ] Confirm the sanitized diagnostic export retains topology, subnet, MTU,
       interface and port-rule failure stages without VM names, paths, UUIDs,

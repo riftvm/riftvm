@@ -18,8 +18,8 @@ Start the same workload in RiftVM, leave it visible, and identify the workload i
 the capture so incompatible samples cannot be compared accidentally:
 
 ```sh
-RiftVM_VIRGL_BACKEND=custom-virgl \
-RiftVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+RIFTVM_VIRGL_BACKEND=custom-virgl \
+RIFTVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
 ```
 
@@ -34,9 +34,9 @@ multiple concurrent VMs, identify the exact app process instead of relying on
 process order:
 
 ```sh
-RiftVM_VIRGL_PID=12345 \
-RiftVM_VIRGL_BACKEND=custom-virgl \
-RiftVM_VIRGL_WORKLOAD=browser-scroll-1920x1080 \
+RIFTVM_VIRGL_PID=12345 \
+RIFTVM_VIRGL_BACKEND=custom-virgl \
+RIFTVM_VIRGL_WORKLOAD=browser-scroll-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/virgl.txt
 ```
 
@@ -46,8 +46,8 @@ collecting metrics.
 Capture the same VM and workload after selecting Apple Virtio graphics:
 
 ```sh
-RiftVM_VIRGL_BACKEND=apple-virtio \
-RiftVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
+RIFTVM_VIRGL_BACKEND=apple-virtio \
+RIFTVM_VIRGL_WORKLOAD=hyprland-idle-1920x1080 \
 scripts/capture-virgl-performance.sh 30 /tmp/apple-virtio.txt
 ```
 
@@ -63,7 +63,7 @@ the primary smoothness signal; the absolute maximum remains a wider hard-stop
 guard so one scheduler spike does not misclassify an otherwise stable run.
 It also rejects large host CPU/RSS regressions and refuses to compare reports whose
 duration, workload, hardware, or macOS build differ. Thresholds can be tightened
-for a release matrix through the documented `RiftVM_VIRGL_MAX_*` environment
+for a release matrix through the documented `RIFTVM_VIRGL_MAX_*` environment
 variables in the verifier; loosening them requires recording the reason with
 the release evidence.
 

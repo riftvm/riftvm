@@ -1,34 +1,36 @@
 # RiftVM 1.0.0 migration inventory
 
+> Historical planning record, with product names normalized to RiftVM. Historical tag and path examples are not current download instructions. See the [current README](../README.md) and [unified product plan](RIFTVM_UNIFIED_PRODUCT_PLAN.md) for the supported product.
+
 Status: active implementation baseline  
 Baseline commit: `94624b91728b13de34e939b3ca0082c709f7e33e`  
-Baseline tag: `ezvm-last`
+Baseline tag: `riftvm-last`
 
 This inventory is the Phase A handoff for the unified
 [RiftVM 1.0.0 implementation plan](RIFTVM_UNIFIED_PRODUCT_PLAN.md). It records
 which implementation remains authoritative while the repository moves from the
-two EZVM applications to one RiftVM application. A row may be removed only
+two RiftVM applications to one RiftVM application. A row may be removed only
 after its replacement passes the stated evidence gate.
 
 ## Product entry points
 
 | Current entry | Current role | RiftVM destination | Removal gate |
 | --- | --- | --- | --- |
-| `EZVM/EZVM.xcodeproj` | General VM application and multi-machine control center | `RiftVM/RiftVM.xcodeproj` | RiftVM builds the macOS and Omarchy journeys |
-| `EZVM/EZVM/Application/Main/MainApp.swift` | General application `@main`, windows, settings, headless launch | RiftVM application shell | One application owns workspace routing and coordinated termination |
+| `RiftVM/RiftVM.xcodeproj` | General VM application and multi-machine control center | `RiftVM/RiftVM.xcodeproj` | RiftVM builds the macOS and Omarchy journeys |
+| `RiftVM/RiftVM/Application/Main/MainApp.swift` | General application `@main`, windows, settings, headless launch | RiftVM application shell | One application owns workspace routing and coordinated termination |
 | Removed standalone Omarchy project | Former dedicated Omarchy application | No desktop application target | Omarchy GUI and acceptance coverage now run through RiftVM |
 | `RiftVM/RiftVM/Omarchy` | Omarchy first-run, runtime, and integration UI | Omarchy workspace profile and views inside RiftVM | No second `@main` or process-global Omarchy workspace remains |
-| `CLI/Executable/main.swift` | `ezvm` executable | `riftvm` executable | CLI reports RiftVM identity and operates only on `.riftvm` workspaces |
+| `CLI/Executable/main.swift` | `riftvm` executable | `riftvm` executable | CLI reports RiftVM identity and operates only on `.riftvm` workspaces |
 
 ## Runtime and state ownership
 
 | Concern | Authoritative implementation | Required migration |
 | --- | --- | --- |
-| General VM model and runtime | `EZVM/EZVM/Core/VMKit` | Rename to RiftVMCore while retaining one GUI/CLI validation engine |
+| General VM model and runtime | `RiftVM/RiftVM/Core/VMKit` | Rename to RiftVMCore while retaining one GUI/CLI validation engine |
 | Cross-process ownership | `VMRunningRegistry` and VM runner leases | Key ownership by RiftVM workspace UUID and keep duplicate-open activation semantics |
 | Omarchy disk installation | `VMOmarchyFactoryInstaller`, `VMOmarchyWorkspaceManager` | Replace the process-wide user-domain workspace with a layout rooted in an individual workspace bundle |
 | Omarchy VM construction | `VMOmarchyVirtualMachineBuilder` | Consume a workspace/profile supplied by the unified coordinator |
-| Guest integration | `VMOmarchyGuestAgentClient` and `EZVMOmarchy/Sources` controllers | Scope every session, clipboard route, notification, and diagnostic record to one workspace UUID |
+| Guest integration | `VMOmarchyGuestAgentClient` and `RiftVMOmarchy/Sources` controllers | Scope every session, clipboard route, notification, and diagnostic record to one workspace UUID |
 | Window routing | `MainApp` URL-valued `WindowGroup` scenes | Route by stable workspace ID; resolve the current bundle URL through the registry |
 | Preferences | Current global `UserDefaults` keys and VM-local configuration | Separate app preference, workspace preference, and active window state |
 | Termination | `AppDelegate` plus `OmarchyApplicationTermination` | One coordinator stops or preserves every owned runner before app termination |
@@ -72,7 +74,7 @@ desktop artifacts must converge on:
    capabilities.
 8. Every mutation uses an absent destination or transactional staging path;
    cancellation removes only artifacts created by that attempt.
-9. Old EZVM data is neither migrated nor deleted automatically.
+9. Old RiftVM data is neither migrated nor deleted automatically.
 
 ## Stage evidence
 
@@ -88,7 +90,7 @@ desktop artifacts must converge on:
 - [x] `RiftVM/RiftVM.xcodeproj` is the only desktop project.
 - [ ] App, core module, CLI kit, executable, identifiers, environment variables,
   workspace format, guest services, and release artifact use the RiftVM names.
-- [ ] A repository identity verifier rejects newly introduced shipping EZVM
+- [ ] A repository identity verifier rejects newly introduced shipping RiftVM
   identifiers while allowing explicitly archived design history.
 
 ### C — Application merge

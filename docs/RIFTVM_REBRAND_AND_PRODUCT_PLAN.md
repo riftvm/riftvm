@@ -6,11 +6,11 @@
 改名前基线：`main` / `b0e2b80`  
 主域名：`riftvm.com`
 
-最新决策：按全新产品发布，不考虑 EZVM 旧版本兼容。RiftVM 与 RiftVM Omarchy 的首个正式版本均为 **1.0.0**。以下条款取代上一版方案中的旧数据迁移、兼容别名与新旧 Host/Agent 组合要求。
+最新决策：按全新产品发布，不考虑 RiftVM 旧版本兼容。RiftVM 与 RiftVM Omarchy 的首个正式版本均为 **1.0.0**。以下条款取代上一版方案中的旧数据迁移、兼容别名与新旧 Host/Agent 组合要求。
 
 ## 1. 决策摘要
 
-EZVM 全面更名为 **RiftVM**，产品定义同步从“macOS 上的 VM Manager”升级为：
+RiftVM 全面更名为 **RiftVM**，产品定义同步从“macOS 上的 VM Manager”升级为：
 
 > **RiftVM brings another world to your Mac.**
 >
@@ -22,11 +22,11 @@ RiftVM 的目标不是隐藏虚拟化提供的隔离，而是消除用户跨越 
 
 | 当前名称 | 新名称 | 定位 |
 |---|---|---|
-| EZVM | **RiftVM** | 通用 macOS / ARM64 Linux 虚拟机产品与共享核心 |
-| EZVM Omarchy | **RiftVM Omarchy** | 打开即进入 Omarchy 的旗舰独立应用 |
-| EZVM Guest Agent | **Rift Agent** | Host 与 Guest 之间的受认证能力桥 |
-| EZVM Session Agent | **Rift Session Agent** | 普通用户级 Wayland/桌面会话集成服务 |
-| `ezvm` CLI | **`riftvm`** | Host CLI，统一采用新名称 |
+| RiftVM | **RiftVM** | 通用 macOS / ARM64 Linux 虚拟机产品与共享核心 |
+| RiftVM Omarchy | **RiftVM Omarchy** | 打开即进入 Omarchy 的旗舰独立应用 |
+| RiftVM Guest Agent | **Rift Agent** | Host 与 Guest 之间的受认证能力桥 |
+| RiftVM Session Agent | **Rift Session Agent** | 普通用户级 Wayland/桌面会话集成服务 |
+| `riftvm` CLI | **`riftvm`** | Host CLI，统一采用新名称 |
 
 内部产品标准：
 
@@ -41,7 +41,7 @@ RiftVM 的目标不是隐藏虚拟化提供的隔离，而是消除用户跨越 
 
 ## 3. 当前仓库影响面
 
-初步盘点：约 1,836 处 `EZVM`、739 处 `ezvm`。不能一次性盲目替换，必须按语义分类。
+初步盘点：约 1,836 处 `RiftVM`、739 处 `riftvm`。不能一次性盲目替换，必须按语义分类。
 
 ### 3.1 用户可见品牌
 
@@ -50,15 +50,15 @@ RiftVM 的目标不是隐藏虚拟化提供的隔离，而是消除用户跨越 
 - App 图标、网站 Logo、Open Graph 图片、页面标题和 SEO 元数据。
 - ZIP、诊断包、Factory、Guest Overlay 等发布制品名称。
 
-这些内容应完整替换为 RiftVM，不保留 EZVM 作为并列品牌。
+这些内容应完整替换为 RiftVM，不保留 RiftVM 作为并列品牌。
 
 ### 3.2 工程与源码名称
 
-- `EZVM/`、`EZVMOmarchy/`、Xcode project、scheme、target、entitlements。
-- Swift Package：`EZVMCore`、`EZVMCLIKit`、`ezvm` executable。
-- Swift 类型与测试：`EZVM*`、`EZVMOmarchy*`。
+- `RiftVM/`、`RiftVMOmarchy/`、Xcode project、scheme、target、entitlements。
+- Swift Package：`RiftVMCore`、`RiftVMCLIKit`、`riftvm` executable。
+- Swift 类型与测试：`RiftVM*`、`RiftVMOmarchy*`。
 - VirGL 原型中的模块名、日志 subsystem 与测试 fixture。
-- `.github/workflows/ezvm-omarchy.yml`、脚本名与临时路径前缀。
+- `.github/workflows/riftvm-omarchy.yml`、脚本名与临时路径前缀。
 
 目标名称：
 
@@ -73,14 +73,14 @@ RiftVM 的目标不是隐藏虚拟化提供的隔离，而是消除用户跨越 
 
 以下旧标识的代码定义全部切换为新标识，不提供旧数据自动发现、导入适配或迁移：
 
-- `~/EZVM Virtual Machines`
-- `.ezvm` machine bundle 扩展名
-- `~/Library/Application Support/EZVM*`
+- `~/RiftVM Virtual Machines`
+- `.riftvm` machine bundle 扩展名
+- `~/Library/Application Support/RiftVM*`
 - UserDefaults keys/suite
 - Keychain service/account
 - Guest Agent enrollment records与机器身份
 - saved-state、snapshot、thumbnail、运行锁和诊断记录
-- `io.github.everettjf.ezvm.preinstalled-image` manifest kind
+- `io.github.everettjf.riftvm.preinstalled-image` manifest kind
 
 新默认值：
 
@@ -100,8 +100,8 @@ RiftVM 的目标不是隐藏虚拟化提供的隔离，而是消除用户跨越 
 
 建议正式改为：
 
-- `com.everettjf.riftvm`
-- `com.everettjf.riftvm.omarchy`
+- `com.riftvm.app`
+- `com.riftvm.app`
 - 对应 test Bundle ID
 
 这是一次新的 macOS 应用身份，会影响 Accessibility、Notifications、Microphone 等 TCC 权限。应用无法代替用户静默迁移这些授权。
@@ -140,7 +140,7 @@ Host、Agent、Guest Overlay 和 factory 镜像作为同一套 RiftVM 发行链�
 
 切换规则：
 
-1. 只读取 `RIFTVM_*`，不提供 `EZVM_*` fallback。
+1. 只读取 `RIFTVM_*`，不提供 `RIFTVM_*` fallback。
 2. CI、发布脚本、构建设置与文档同步更新。
 3. secret 的名称可改，密钥材料不因品牌变化而随意轮换。
 
@@ -153,7 +153,7 @@ Host、Agent、Guest Overlay 和 factory 镜像作为同一套 RiftVM 发行链�
 - 同步更新 Xcode、XcodeGen、CLI 版本来源、Cask、发布脚本、README 示例与验收预期。
 - 首发 tags：`riftvm-v1.0.0`、`riftvm-omarchy-v1.0.0`。
 - 首发制品：`RiftVM-1.0.0.zip`、`RiftVM-Omarchy-1.0.0.zip`。
-- 不沿用 EZVM 的版本序列；Omarchy 上游系统版本和协议/schema 版本各自独立。
+- 不沿用 RiftVM 的版本序列；Omarchy 上游系统版本和协议/schema 版本各自独立。
 - 首页下载按钮继续不显示版本号。
 
 ## 4. 产品架构目标
@@ -191,7 +191,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 ### Phase 0 — 基线封存
 
 - 确认 `main`、tag、Release、Homebrew 与 Pages 当前状态。
-- 创建改名前 tag，例如 `ezvm-final-baseline-2026-09-06`。
+- 创建改名前 tag，例如 `riftvm-final-baseline-2026-09-06`。
 - 保存当前签名、Bundle ID、版本、Agent 协议和 factory manifest 样本。
 - 准备全新 RiftVM/Omarchy 测试工作区，不制作旧版本升级 fixture。
 
@@ -209,7 +209,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 ### Phase 2 — 工程内部改名
 
 - 使用 `git mv` 重命名目录、project、scheme、target、模块、源码和测试文件。
-- 将 Swift API 从 `EZVM*` 改为 `RiftVM*`。
+- 将 Swift API 从 `RiftVM*` 改为 `RiftVM*`。
 - 更新 XcodeGen、SwiftPM、脚本与 workflow 路径。
 - 生成工程后确认无 stale project diff。
 - 单独提交机械改名，不混入功能变化，便于 review 和 bisect。
@@ -225,12 +225,12 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 - 完成新产品首次启动与权限引导。
 - 在新建 VM 上验证 snapshot、saved state、thumbnail、USB/network 配置和 Guest credentials。
 
-验收：干净环境中首装、创建、启动与重新打开正常，不依赖任何 EZVM 数据。
+验收：干净环境中首装、创建、启动与重新打开正常，不依赖任何 RiftVM 数据。
 
 ### Phase 4 — Rift Agent 与新镜像
 
-- binary：`ezvm-agent` → `rift-agent`。
-- user service：`ezvm-session-agent` → `rift-session-agent`。
+- binary：`rift-agent` → `rift-agent`。
+- user service：`rift-session-agent` → `rift-session-agent`。
 - package、systemd/OpenRC、journal 文案与 Overlay 改名。
 - service、socket、挂载路径、VirtioFS tag 与 Host 调用同步改名。
 - 增加 Agent 自升级/重启时的断线恢复与 key-up 清理。
@@ -240,7 +240,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 
 ### Phase 5 — CLI、制品、CI 与发行链
 
-- 只发布 `riftvm` CLI，无 `ezvm` shim。
+- 只发布 `riftvm` CLI，无 `riftvm` shim。
 - 发布全新 `riftvm` Homebrew cask，不实现旧 cask 自动升级迁移。
 - Release tag 改为 `riftvm-v*`、`riftvm-omarchy-v*`。
 - ZIP/App/diagnostics/factory/overlay 制品全部改名。
@@ -254,12 +254,12 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 
 - DNS：apex 与 `www` 均启用 HTTPS，`www` 统一跳转 apex。
 - GitHub Pages 或后续托管配置自定义域名与 CNAME。
-- `xnu.app/ezvm` 保留长期 301 跳转，不制造断链。
+- `xnu.app/riftvm` 保留长期 301 跳转，不制造断链。
 - 官网首页延续裂缝、火/冰、拉力车视觉，但品牌文字全面替换为 RiftVM。
 - 首页主叙事从“Virtual machines made easy”升级为“another native workspace on your Mac”。
 - 产品入口：RiftVM Omarchy 为旗舰；RiftVM 为通用 macOS/Linux 能力。
 - 更新 canonical URL、Open Graph、favicon、下载链接、隐私说明与 Support URL。
-- 发布 RiftVM 1.0.0 公告，说明产品定位与安装方式，不承诺 EZVM 数据兼容。
+- 发布 RiftVM 1.0.0 公告，说明产品定位与安装方式，不承诺 RiftVM 数据兼容。
 
 验收：桌面/移动端、SEO metadata、下载、HTTPS、重定向和 analytics 均在线验证。
 
@@ -324,7 +324,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 ## 6. 明确不做的事情
 
 - 不把改名与输入策略重设计混在同一个提交。
-- 不实现 EZVM 数据、格式、CLI、环境变量与旧 Agent 兼容；不自动删除用户已有数据。
+- 不实现 RiftVM 数据、格式、CLI、环境变量与旧 Agent 兼容；不自动删除用户已有数据。
 - 不默认共享整个 Home，不默认开放 Guest 服务端口。
 - 不给 Guest 任意执行 Host shell 的接口。
 - Host、Agent、镜像和发布脚本同步切换新标识。
@@ -346,7 +346,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 - 新 `.riftvm` 位于默认目录、自定义目录和外置磁盘。
 - 新 Keychain credential、enrollment、saved state 与 snapshots。
 - 安装/下载中断后重试，应用重启后正常恢复。
-- 确认未读取、修改或删除 EZVM 旧数据。
+- 确认未读取、修改或删除 RiftVM 旧数据。
 
 ### Host/Guest 验证矩阵
 
@@ -381,7 +381,7 @@ Root Agent 不直接操作用户 Wayland session；桌面语义由普通用户 S
 
 ## 9. 回滚策略
 
-- 改名前 tag 和最后一个 EZVM Release 长期保留。
+- 改名前 tag 和最后一个 RiftVM Release 长期保留。
 - 不实施旧数据迁移；源码基线用于开发回退，不代表支持旧版本读取 RiftVM 数据。
 - 发布前使用独立测试工作区验证新数据；失败候选不替换已验证制品。
 - Website/DNS 可立即回滚到上一版本；旧 URL 保留重定向。
