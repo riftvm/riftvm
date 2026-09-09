@@ -485,6 +485,17 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertEqual(lifecycle.phase, .stopped)
     }
 
+    func testFailureRequiresCompletedStopBeforeRecovery() {
+        var lifecycle = runningLifecycle()
+        _ = lifecycle.handle(.machineFailed("pause failed"))
+        XCTAssertEqual(lifecycle.handle(.stopRequested), [.requestStop, .scheduleForceStop])
+        XCTAssertEqual(lifecycle.phase, .stopping)
+        XCTAssertEqual(lifecycle.handle(.startRequested), [])
+        XCTAssertEqual(lifecycle.handle(.stopTimedOut), [.forceStop])
+        XCTAssertEqual(lifecycle.handle(.machineStopped), [.cancelForceStop])
+        XCTAssertEqual(lifecycle.phase, .stopped)
+    }
+
     func testRestartStartsNewSessionOnlyAfterGuestStops() {
         var lifecycle = runningLifecycle()
 

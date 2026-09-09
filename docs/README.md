@@ -5,6 +5,7 @@ For installation, requirements, and creating your first workspace, start with th
 
 ## Using and distributing RiftVM
 
+- [Updates and recovery](UPDATES_AND_RECOVERY.md): latest images, protected pre-update backups, and rollback.
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
 - [Homebrew distribution](HOMEBREW.md): installation and maintaining the release cask.
 - [Preinstalled-image manifest](PREINSTALLED_IMAGE_MANIFEST.md): the raw ARM64 image import contract.

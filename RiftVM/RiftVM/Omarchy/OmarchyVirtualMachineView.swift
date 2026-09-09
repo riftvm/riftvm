@@ -434,6 +434,7 @@ enum OmarchyDesktopInputPolicy {
 }
 
 struct OmarchyVirtualMachineView: View {
+    @Environment(\.openWindow) private var openWindow
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
@@ -446,6 +447,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var stopTimeoutTask: Task<Void, Never>?
     @State private var recoveryPoints: [VMOmarchyRecoveryPoint] = []
     @State private var recoveryOperation: RecoveryOperation = .idle
+    @State private var prepareUpdateAfterStop = false
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
@@ -599,7 +601,7 @@ struct OmarchyVirtualMachineView: View {
             }
             Button("Cancel", role: .cancel) { pendingRestore = nil }
         } message: {
-            Text("Omarchy must remain stopped. The current workspace will be replaced transactionally; an interrupted restore is rolled back automatically.")
+            Text("Changes made inside Omarchy since this recovery point will be replaced. Create a backup first if you need to keep them. Omarchy must remain stopped until recovery finishes.")
         }
         .alert(item: $notice) { notice in
             Alert(
@@ -701,7 +703,7 @@ struct OmarchyVirtualMachineView: View {
                     Button {
                         pendingRestore = point
                     } label: {
-                        Label(point.name, systemImage: point.isProtected ? "lock.shield" : "clock.arrow.circlepath")
+                        Label("\(point.name) · \(point.createdAt.formatted(date: .abbreviated, time: .shortened))", systemImage: point.isProtected ? "lock.shield" : "clock.arrow.circlepath")
                     }
                     .disabled(phase != .stopped || recoveryOperation.isWorking)
                 }
@@ -848,8 +850,21 @@ struct OmarchyVirtualMachineView: View {
     @ViewBuilder
     private var updatesMenu: some View {
         Menu {
-            Text("App updates are delivered separately from Omarchy and factory images.")
-            Text("Guest updates run inside Omarchy; create a protected backup first.")
+            Button("Download RiftVM Update", systemImage: "arrow.down.app") {
+                NSWorkspace.shared.open(URL(string: "https://github.com/riftvm/riftvm/releases/latest")!)
+            }
+            Text("Homebrew users: brew upgrade --cask riftvm")
+            Divider()
+            Button("Prepare for Omarchy Update…", systemImage: "lock.shield") {
+                if phase == .stopped {
+                    createProtectedBackup(forUpdate: true)
+                } else {
+                    prepareUpdateAfterStop = true
+                    handle(.stopRequested)
+                }
+            }
+            .disabled(recoveryOperation.isWorking || !(phase == .running || phase == .paused || phase == .stopped))
+            Text("Stops Omarchy and creates a protected recovery point before you update inside the guest.")
             Divider()
             switch factoryChannel {
             case .idle:
@@ -869,12 +884,17 @@ struct OmarchyVirtualMachineView: View {
             case .different(let installed, let available):
                 Text("Workspace factory: \(installed)")
                 Text("Signed channel factory: \(available)")
-                Text("The different channel image will not replace this workspace.")
+                Text("Use a fresh workspace to try the channel image. Your existing workspace is kept.")
                 Button("Check Again") { checkFactoryChannel() }
             case .failed(let message):
                 Text(message)
                 Button("Try Again") { checkFactoryChannel() }
             }
+            Divider()
+            Button("Create Workspace from Latest Image…", systemImage: "plus.rectangle.on.folder") {
+                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy)
+            }
+            Text("Downloads and verifies the signed image during creation. Move your files using Shared Folder after checking the new workspace.")
         } label: {
             Label("Updates", systemImage: factoryChannel.needsAttention ? "arrow.down.circle.fill" : "arrow.triangle.2.circlepath")
         }
@@ -1129,6 +1149,13 @@ struct OmarchyVirtualMachineView: View {
         case .stopped:
             VStack(spacing: 14) {
                 Text("Omarchy is stopped").font(.headline)
+                if case .working(let message) = recoveryOperation {
+                    ProgressView(message)
+                }
+                if case .failed(let message) = recoveryOperation {
+                    Text(message).foregroundStyle(.secondary)
+                    Button("Dismiss Recovery Error") { recoveryOperation = .idle }
+                }
                 Button("Start Omarchy", systemImage: "play.fill") {
                     handle(.startRequested)
                 }
@@ -1138,13 +1165,21 @@ struct OmarchyVirtualMachineView: View {
             .padding(26)
             .background(.regularMaterial, in: .rect(cornerRadius: 14))
         case .failed(let message):
-            ContentUnavailableView(
-                "Omarchy could not start",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
-            .padding(30)
-            .background(.regularMaterial)
+            VStack(spacing: 14) {
+                ContentUnavailableView(
+                    "Omarchy needs attention",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(message)
+                )
+                .padding(30)
+                .background(.regularMaterial)
+                Button("Stop and Enable Recovery", systemImage: "stop.fill") {
+                    handle(.stopRequested)
+                }
+                .buttonStyle(.borderedProminent)
+                Text("Once stopped, retry Start Omarchy or restore a recovery point from Recovery.")
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -1155,7 +1190,13 @@ struct OmarchyVirtualMachineView: View {
         case .stopped:
             handle(.machineStopped)
             refreshRecoveryPoints()
-        case .failed(let message): handle(.machineFailed(message))
+            if prepareUpdateAfterStop {
+                prepareUpdateAfterStop = false
+                createProtectedBackup(forUpdate: true)
+            }
+        case .failed(let message):
+            prepareUpdateAfterStop = false
+            handle(.machineFailed(message))
         case .starting, .pausing, .resuming, .stopping: break
         }
     }
@@ -1166,19 +1207,22 @@ struct OmarchyVirtualMachineView: View {
         ).recoveryPoints()
     }
 
-    private func createProtectedBackup() {
+    private func createProtectedBackup(forUpdate: Bool = false) {
         guard phase == .stopped, !recoveryOperation.isWorking else { return }
         recoveryOperation = .working("Creating protected backup…")
         let manager = VMOmarchyRecoveryManager(
             workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
         )
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { try manager.createProtectedBackup() }
+            let result = Result { try manager.createProtectedBackup(name: forUpdate ? "Before Omarchy update" : "Protected backup") }
             DispatchQueue.main.async {
                 switch result {
                 case .success:
                     recoveryOperation = .idle
                     refreshRecoveryPoints()
+                    notice = UserNotice(title: "Recovery Point Created", message: forUpdate
+                        ? "Start Omarchy, then choose Update in the Omarchy menu. If the update fails, stop Omarchy and choose Before Omarchy update in Recovery. Keep this recovery point until you have checked the updated system."
+                        : "Your recovery point is ready. To restore it later, stop Omarchy and select it in Recovery.")
                 case .failure(let error):
                     recoveryOperation = .failed(error.localizedDescription)
                 }
@@ -1199,6 +1243,8 @@ struct OmarchyVirtualMachineView: View {
                 case .success:
                     recoveryOperation = .idle
                     refreshRecoveryPoints()
+                    factoryChannel = .idle
+                    notice = UserNotice(title: "Recovery Complete", message: "Your workspace has been restored. Choose Start Omarchy to use it.")
                 case .failure(let error):
                     recoveryOperation = .failed(error.localizedDescription)
                 }
@@ -1369,7 +1415,7 @@ struct OmarchyMachineLifecycle: Equatable {
             phase = .starting
             return [.startNewSession]
         case .stopRequested:
-            guard phase == .running || phase == .paused else { return [] }
+            guard phase == .running || phase == .paused || isFailed else { return [] }
             restartAfterStop = false
             phase = .stopping
             return [.requestStop, .scheduleForceStop]
@@ -2034,15 +2080,20 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func requestStop() {
-            guard let machine else { return }
+            guard let machine, machine.state != .stopped else {
+                stopIntegration()
+                self.machine = nil
+                phaseChanged(.stopped)
+                return
+            }
             guard machine.canRequestStop else {
-                phaseChanged(.failed("Omarchy cannot accept a graceful stop request right now."))
+                forceStop()
                 return
             }
             do {
                 try machine.requestStop()
             } catch {
-                phaseChanged(.failed(error.localizedDescription))
+                forceStop()
             }
         }
 
@@ -2112,7 +2163,13 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func forceStop() {
-            guard let machine, machine.canStop else {
+            guard let machine, machine.state != .stopped else {
+                stopIntegration()
+                self.machine = nil
+                phaseChanged(.stopped)
+                return
+            }
+            guard machine.canStop else {
                 phaseChanged(.failed("Omarchy could not be stopped after the graceful shutdown timed out."))
                 return
             }
