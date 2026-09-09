@@ -84,7 +84,8 @@ if [[ -f "$source_commit_file" && "$(tr -d '\r\n' <"$source_commit_file")" == "$
    (cd "$release_dir" && shasum -a 256 -c "$(basename "$checksum")" "$(basename "$guest_checksum")"); then
   echo "Reusing verified RiftVM $version release artifacts from $release_dir"
 else
-  rm -f "$archive" "$checksum" "$guest_archive" "$guest_checksum" "$release_dir/notarized" "$source_commit_file"
+  rm -f "$archive" "$checksum" "$guest_archive" "$guest_checksum" \
+    "$release_dir/notarized" "$release_dir/stapled" "$source_commit_file"
   rm -rf "$derived_data"
   RIFTVM_SIGNING_IDENTITY="$signing_identity" \
   RIFTVM_DERIVED_DATA="$derived_data" \
@@ -102,10 +103,24 @@ if [[ ! -f "$release_dir/notarized" ]]; then
   touch "$release_dir/notarized"
 fi
 
-# Do not staple the ticket into the app. On macOS 27 beta, a stapled app can
-# remain suspended in _dyld_start even though codesign, stapler, and spctl all
-# accept it. The notarized ZIP is still recognized by Gatekeeper through
-# Apple's online notarization record.
+# Keep the release self-contained. A stapled ticket lets Gatekeeper validate
+# RiftVM when the destination Mac is offline. Rebuild the ZIP only once so a
+# resumed release preserves the checksum that will be published and used by
+# Homebrew.
+if [[ ! -f "$release_dir/stapled" ]]; then
+  staple_dir="$release_dir/staple"
+  rm -rf "$staple_dir"
+  mkdir -p "$staple_dir"
+  ditto -x -k "$archive" "$staple_dir"
+  xcrun stapler staple "$staple_dir/RiftVM.app"
+  xcrun stapler validate "$staple_dir/RiftVM.app"
+  codesign --verify --deep --strict --verbose=2 "$staple_dir/RiftVM.app"
+  rm -f "$archive" "$checksum"
+  ditto -c -k --sequesterRsrc --keepParent "$staple_dir/RiftVM.app" "$archive"
+  (cd "$release_dir" && shasum -a 256 "$(basename "$archive")" >"$(basename "$checksum")")
+  touch "$release_dir/stapled"
+fi
+
 install_check_dir="$release_dir/install-check"
 rm -rf "$install_check_dir"
 mkdir -p "$install_check_dir"
