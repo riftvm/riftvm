@@ -33,6 +33,10 @@ struct CreatePhaseSystemView: View {
     @State private var customImageURL = ""
     @State private var showingMacOSVersions = false
 
+    init(initiallyShowingMacOSVersions: Bool = false) {
+        _showingMacOSVersions = State(initialValue: initiallyShowingMacOSVersions)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {

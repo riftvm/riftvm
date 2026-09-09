@@ -128,12 +128,13 @@ struct VMCreateStepperGuideView: View {
     @State private var stepStatusMessage = ""
     @State private var disableNext = false
     @State private var stepFailed = false
+    @State private var hasInitializedGuide = false
 
     let steps: [VMCreateStepperGuideItem]
 
     init(initialKind: RiftWorkspaceKind? = nil) {
-        let steps = [
-            VMCreateStepperGuideItem(systemImage: "desktopcomputer", name: "System", subtitle: "Choose OS and image", content: AnyView(CreatePhaseSystemView()), handler: CreatePhaseSystemViewHandler()),
+        var steps = [
+            VMCreateStepperGuideItem(systemImage: "desktopcomputer", name: "System", subtitle: "Choose OS and image", content: AnyView(CreatePhaseSystemView(initiallyShowingMacOSVersions: initialKind == .macOS)), handler: CreatePhaseSystemViewHandler()),
             VMCreateStepperGuideItem(systemImage: "tag", name: "Name & Location", subtitle: "Name and save location", content: AnyView(CreatePhaseNameLocationView()), handler: CreatePhaseNameLocationViewHandler()),
             VMCreateStepperGuideItem(systemImage: "slider.horizontal.3", name: "Resources", subtitle: "CPU, memory, and storage", content: AnyView(CreatePhaseConfigurationView()), handler: CreatePhaseConfigurationViewHandler()),
             VMCreateStepperGuideItem(systemImage: "folder", name: "Sharing", subtitle: "Share Mac folders", content: AnyView(CreatePhaseSharingView()), handler: CreatePhaseSharingViewHandler(), secondaryNextTitle: "Not Now"),
@@ -141,6 +142,9 @@ struct VMCreateStepperGuideView: View {
             VMCreateStepperGuideItem(systemImage: "arrow.down.circle", name: "Creating", subtitle: "Download and install once", content: AnyView(CreatePhaseCreatingView()), handler: CreatePhaseCreatingViewHandler(), autoAdvanceOnSuccess: true, participatesInSetupProgress: false),
             VMCreateStepperGuideItem(systemImage: "checkmark.seal", name: "Completion", subtitle: "Ready to run", content: AnyView(CreatePhaseCompleteView()), handler: CreatePhaseCompleteViewHandler(), participatesInSetupProgress: false),
         ]
+        if initialKind == .omarchy {
+            steps.removeFirst()
+        }
         self.steps = steps
         _stepperState = State(initialValue: VMCreateStepperGuideStateObject(stepCount: steps.count))
         let formData = VMCreateViewStateObject()
@@ -190,6 +194,11 @@ struct VMCreateStepperGuideView: View {
                     .accessibilityIdentifier("create-guide-close")
             }
         }
+        .task {
+            guard !hasInitializedGuide else { return }
+            hasInitializedGuide = true
+            retryCurrentStep()
+        }
         .onDisappear {
             if formData.canCancelCreation {
                 cancelCurrentOperation()
@@ -229,7 +238,8 @@ struct VMCreateStepperGuideView: View {
                     .keyboardShortcut(.leftArrow, modifiers: [.command])
                     .accessibilityIdentifier("create-guide-previous")
                 }
-                if let secondaryNextTitle = steps[stepperState.current].secondaryNextTitle {
+                if let secondaryNextTitle = steps[stepperState.current].secondaryNextTitle,
+                   formData.systemImageSelection != .preinstalled(.omarchy) {
                     Button(secondaryNextTitle) {
                         tryMoveNextStep()
                     }

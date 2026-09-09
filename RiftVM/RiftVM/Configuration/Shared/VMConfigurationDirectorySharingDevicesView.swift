@@ -49,9 +49,9 @@ struct CreatePhaseSharingView: View {
     private var omarchySharing: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("RiftVM Shared")
+                Text("Share files with Omarchy")
                     .font(.title2.weight(.semibold))
-                Text("Every Omarchy workspace gets a private exchange folder on this Mac.")
+                Text("A shared folder is set up automatically. Nothing to configure here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -62,9 +62,9 @@ struct CreatePhaseSharingView: View {
                         .font(.system(size: 30))
                         .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Available at /mnt/riftvm-shared")
+                        Text("1. Add files on your Mac")
                             .font(.headline)
-                        Text("Drag files onto the workspace or use Import Files. RiftVM copies them into this managed folder; it never exposes Home, Desktop, Documents, or Downloads automatically.")
+                        Text("After creating the workspace, choose Import Files to copy files into RiftVM Shared, or open RiftVM Shared and add files in Finder.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -73,7 +73,19 @@ struct CreatePhaseSharingView: View {
                 .padding(8)
             }
 
-            Label("You can open RiftVM Shared from the workspace toolbar or its card on the home screen.", systemImage: "lock.shield")
+            GroupBox {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("2. Open them in Omarchy")
+                        .font(.headline)
+                    Text("In Omarchy’s file manager, open /mnt/riftvm-shared. Files saved there are also available on your Mac through RiftVM Shared.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+            }
+
+            Label("Only files you put in RiftVM Shared are shared. Your other Mac folders stay private. Click Next to continue.", systemImage: "lock.shield")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

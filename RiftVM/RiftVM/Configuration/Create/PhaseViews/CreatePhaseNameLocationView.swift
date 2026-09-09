@@ -11,8 +11,6 @@ import SwiftUI
 
 class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
-    static let lastDirectoryKey = "CreatePhaseLastSaveDirectory"
-
     // A compact, offline catalog of filesystem-safe astronomical names. The
     // names are intentionally bundled with the app so suggestions never depend
     // on network availability or an app update service.
@@ -33,18 +31,10 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
         "North America", "Omega"
     ]
 
-    // ~/RiftVM Virtual Machines is used when the user never picked a custom location,
-    // so choosing a directory is optional in the create guide.
+    // Each new guide starts at the standard location. A custom choice applies
+    // only to that guide, so temporary test paths cannot become future defaults.
     static func defaultStorageDirectory() -> URL {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: "RiftVM Virtual Machines")
-    }
-
-    static func readLastDirectory() -> String {
-        return UserDefaults.standard.string(forKey: lastDirectoryKey) ?? ""
-    }
-
-    static func saveLastDirectory(path: String) {
-        UserDefaults.standard.set(path, forKey: lastDirectoryKey)
     }
 
     static func bundlePath(baseDirectory: String, name: String) -> String {
@@ -120,14 +110,13 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
     }
 
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
-        DispatchQueue.main.async {
+        await MainActor.run {
             if context.formData.baseDirectory.isEmpty {
-                let lastSaveDirectory = Self.readLastDirectory()
-                if !lastSaveDirectory.isEmpty {
-                    context.formData.baseDirectory = lastSaveDirectory
-                } else {
-                    context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
-                }
+                context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
+                context.configData.name = Self.uniqueName(
+                    baseDirectory: context.formData.baseDirectory,
+                    name: context.configData.name
+                )
 
             }
 
@@ -185,7 +174,7 @@ struct CreatePhaseNameLocationView: View {
                 Section("Location") {
                     VStack(alignment: .leading) {
                         HStack {
-                            Text("Machine files will be saved to :")
+                            Text("Save to")
                             Spacer()
                             Text(displayRootPath)
                                 .lineLimit(4)
@@ -203,7 +192,6 @@ struct CreatePhaseNameLocationView: View {
                                     }
 
                                     let baseDirectory = path.path(percentEncoded: false)
-                                    CreatePhaseNameLocationViewHandler.saveLastDirectory(path: baseDirectory)
                                     formData.baseDirectory = baseDirectory
                                     refreshRootPath()
                                 }
