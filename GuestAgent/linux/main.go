@@ -391,7 +391,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	if absolutePointerAvailable {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: readTrimmed("/usr/share/omarchy/version"), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: installedOmarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sshListening() bool {
