@@ -210,6 +210,7 @@ func runSessionAgent() error {
 	defer listener.Close()
 	defer os.Remove(socketPath)
 	for {
+		reconcileFrameScheduling()
 		capabilities := detectSessionCapabilities(uid)
 		registration := sessionRegistration{UID: uid, Capabilities: capabilities, SocketPath: socketPath}
 		data, err := json.Marshal(registration)

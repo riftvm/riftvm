@@ -162,6 +162,25 @@ struct OmarchyOwnerSetupView: View {
     private enum Field: Hashable { case username, password, confirmation, fullName, email, hostname, timezone }
 
     var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                setupContent
+                    .frame(maxWidth: 600)
+                    .frame(maxWidth: .infinity)
+                    .padding(24)
+            }
+            .scrollIndicators(.visible)
+            Divider()
+            submissionControl
+                .frame(maxWidth: .infinity)
+                .padding(20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.regularMaterial)
+        .defaultFocus($focusedField, .username)
+    }
+
+    private var setupContent: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
                 Image(systemName: "person.crop.circle.badge.checkmark")
@@ -205,9 +224,15 @@ struct OmarchyOwnerSetupView: View {
                         .focused($focusedField, equals: .timezone)
                 }
             }
-            .formStyle(.grouped)
+            // Column forms size to their fields instead of introducing a
+            // second scrolling viewport inside the page.
+            .formStyle(.columns)
+            .textFieldStyle(.roundedBorder)
+            .controlSize(.large)
             .disabled(phase == .submitting || phase == .finishing)
-            .frame(width: 600, height: 365)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(20)
+            .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 16))
 
             if case .failed(let message) = phase {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
@@ -217,6 +242,11 @@ struct OmarchyOwnerSetupView: View {
                     .accessibilityLabel("Setup error: \(message)")
             }
 
+        }
+    }
+
+    @ViewBuilder
+    private var submissionControl: some View {
             switch phase {
             case .editing, .failed:
                 Button("Create Omarchy Owner", systemImage: "person.badge.plus", action: submit)
@@ -228,10 +258,5 @@ struct OmarchyOwnerSetupView: View {
             case .finishing:
                 ProgressView(provisioningDetail ?? "Omarchy is creating your workspace…")
             }
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial)
-        .defaultFocus($focusedField, .username)
     }
 }

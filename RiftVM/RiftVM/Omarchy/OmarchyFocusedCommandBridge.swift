@@ -74,6 +74,7 @@ enum OmarchyHostKeyboardTextEncoder {
 enum OmarchyKeyboardIntegrationState: Equatable {
     case enabled
     case accessibilityRequired
+    case eventTapUnavailable
     case requestingAccessibility
 }
 
@@ -200,7 +201,7 @@ final class OmarchyFocusedCommandBridge {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            stateChanged(.accessibilityRequired)
+            stateChanged(.eventTapUnavailable)
             return
         }
         tap = eventTap

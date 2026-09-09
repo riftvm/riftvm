@@ -26,6 +26,12 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         // Hide only the display view; keep the machine and Agent running.
         isHidden = visible
         window?.invalidateCursorRects(for: self)
+        if visible {
+            pendingDisplayRefresh?.cancel()
+            displayRefreshGeneration &+= 1
+        } else {
+            refreshDisplayAfterTransition()
+        }
     }
 
     // App-targeted events may reach the responder without traversing the
@@ -40,7 +46,6 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     private var displayObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
     private var displayRefreshGeneration: UInt64 = 0
-
     private func recordInputDelivery(_ event: NSEvent, route: String) {
         guard inputDiagnosticsEnabled else { return }
         if route == "window" { diagnosticWindowEvents += 1 } else { diagnosticViewEvents += 1 }
@@ -134,6 +139,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak targetWindow] in
                 guard let self, let targetWindow, self.window === targetWindow,
                       self.displayRefreshGeneration == generation,
+                      !self.hostOverlayVisible,
                       self.virtualMachine != nil else { return }
                 targetWindow.contentView?.layoutSubtreeIfNeeded()
                 self.automaticallyReconfiguresDisplay = false
@@ -525,12 +531,14 @@ struct OmarchyVirtualMachineView: View {
                         ProgressView()
                             .controlSize(.small)
                             .accessibilityLabel("Waiting for Accessibility permission")
-                        Text("Turn on RiftVM Omarchy in System Settings, then return here.")
+                        Text("Turn on RiftVM in System Settings, then return here.")
+                    } else if keyboardIntegration == .eventTapUnavailable {
+                        Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
                     } else {
                         Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
                     }
                     Spacer()
-                    Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : "Enable") {
+                    Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : keyboardIntegration == .eventTapUnavailable ? "Retry" : "Enable") {
                         NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
                     }
                 }
@@ -1913,7 +1921,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startContinuousInputProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
             let environment = ProcessInfo.processInfo.environment
-            guard environment["RIFTVM_OMARCHY_CONTINUOUS_INPUT_ACCEPTANCE"] == "1",
+            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1",
+                  environment["RIFTVM_OMARCHY_CONTINUOUS_INPUT_ACCEPTANCE"] == "1",
                   !continuousInputProbeStarted,
                   status.desktopSessionActive,
                   !status.provisioningPending,
