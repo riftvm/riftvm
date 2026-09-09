@@ -112,7 +112,21 @@ if [[ ! -f "$release_dir/stapled" ]]; then
   rm -rf "$staple_dir"
   mkdir -p "$staple_dir"
   ditto -x -k "$archive" "$staple_dir"
-  xcrun stapler staple "$staple_dir/RiftVM.app"
+  staple_status=1
+  for attempt in {1..12}; do
+    if xcrun stapler staple "$staple_dir/RiftVM.app"; then
+      staple_status=0
+      break
+    fi
+    if [[ $attempt -lt 12 ]]; then
+      echo "Notarization ticket is not available yet; retrying staple ($attempt/12)…" >&2
+      sleep 10
+    fi
+  done
+  [[ $staple_status -eq 0 ]] || {
+    echo "Apple accepted the submission but its stapling ticket did not become available." >&2
+    exit 69
+  }
   xcrun stapler validate "$staple_dir/RiftVM.app"
   codesign --verify --deep --strict --verbose=2 "$staple_dir/RiftVM.app"
   rm -f "$archive" "$checksum"
