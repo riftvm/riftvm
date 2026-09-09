@@ -27,11 +27,7 @@ celebrate() {
   fi
 
   printf '\n%s' "$cyan"
-  printf '%s\n' ' _____ _______     ____  __'
-  printf '%s\n' '| ____|__  /\ \   / /  \/  |'
-  printf '%s\n' '|  _|   / /  \ \ / /| |\/| |'
-  printf '%s\n' '| |___ / /_   \ V / | |  | |'
-  printf '%s\n' '|_____/____|   \_/  |_|  |_|'
+  printf '%s\n' 'RiftVM'
   printf '%s\n' "$reset"
   printf '%s%17s%s\n\n' "$gold" '+' "$reset"
   printf '%s' "$green"
