@@ -9,7 +9,6 @@
 [![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
 [![License](https://img.shields.io/github/license/riftvm/riftvm)](LICENSE)
-[![Pages](https://github.com/riftvm/riftvm/actions/workflows/pages.yml/badge.svg)](https://riftvm.github.io/)
 
 ![RiftVM showing a running Omarchy desktop beside its virtual machine library](./Assets/screenshot1.jpg)
 
