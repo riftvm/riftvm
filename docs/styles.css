@@ -163,3 +163,16 @@ footer { display:flex; justify-content:space-between; padding-block:25px; border
   .split-hero::before,.split-hero::after,.product-content,.ghost-window,.product-action span { transition:none; }
   .pixel-burst { display:none; }
 }
+
+/* Installation and keyboard navigation */
+.skip-link { position:absolute; left:20px; top:-100px; z-index:100; padding:12px 18px; background:var(--text); color:var(--bg); }
+.skip-link:focus { top:12px; }
+.install-intro { padding-block:40px 28px; }
+.install-intro h1 { font-size:clamp(32px,5vw,54px); line-height:1.1; }
+.install-intro p { color:var(--muted); }
+.install-intro .actions { flex-wrap:wrap; }
+.brew-command { margin:20px 0 0; }
+.brew-command code { display:inline-block; max-width:100%; overflow-wrap:anywhere; color:var(--text); }
+
+.requirements { border-left:3px solid var(--orange); padding:10px 16px; background:var(--panel); }
+.requirements strong { color:var(--text); }
