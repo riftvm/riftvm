@@ -3,6 +3,14 @@ import AppKit
 import Virtualization
 
 enum OmarchyWorkspaceConfiguration {
+    static var acceptanceHarnessIncluded: Bool {
+        #if RIFTVM_ACCEPTANCE_HARNESS
+        true
+        #else
+        false
+        #endif
+    }
+
     static let acceptanceEnabledKey = "RIFTVM_OMARCHY_ACCEPTANCE"
     static let acceptanceRootKey = "RIFTVM_OMARCHY_ACCEPTANCE_WORKSPACE_ROOT"
     static let acceptanceUnlockPasswordKey = "RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
@@ -12,7 +20,7 @@ enum OmarchyWorkspaceConfiguration {
         _ workspace: VMOmarchyWorkspaceLayout,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        guard environment[acceptanceEnabledKey] == "1",
+        guard acceptanceHarnessIncluded, environment[acceptanceEnabledKey] == "1",
               let requested = try? layout(environment: environment) else { return false }
         return requested.applicationSupportRoot.resolvingSymlinksInPath().path ==
             workspace.applicationSupportRoot.resolvingSymlinksInPath().path
@@ -22,7 +30,7 @@ enum OmarchyWorkspaceConfiguration {
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default
     ) -> String? {
-        guard environment[acceptanceEnabledKey] == "1",
+        guard acceptanceHarnessIncluded, environment[acceptanceEnabledKey] == "1",
               (try? layout(environment: environment, fileManager: fileManager)) != nil,
               let password = environment[acceptanceUnlockPasswordKey],
               !password.isEmpty else { return nil }

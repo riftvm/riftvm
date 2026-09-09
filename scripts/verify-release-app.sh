@@ -14,6 +14,7 @@ fail() {
 
 [[ -n "$app_path" ]] || fail "usage: $0 <RiftVM.app> [expected-version]"
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
+"$(dirname "$0")/verify-production-test-isolation.sh" "$app_path"
 [[ "$launch_timeout" =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_LAUNCH_TIMEOUT must be a positive integer"
 
 for command in codesign defaults open osascript pgrep plutil ps spctl; do

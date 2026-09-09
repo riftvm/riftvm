@@ -11,6 +11,8 @@ For installation, requirements, and creating your first workspace, start with th
 
 ## Engineering references
 
+- [Stability acceptance](STABILITY_TESTING.md): isolated test harness, production exclusion, and evidence requirements.
+- [P0 validation](P0_VALIDATION.md): observed results and remaining physical checks.
 - [Guest Agent protocol](GUEST_AGENT_PROTOCOL.md): authentication, messages, and guest integration.
 - [Custom VirGL architecture](CUSTOM_VIRGL_ARCHITECTURE.md): graphics ownership, invariants, and failure modes.
 - [VirGL performance](VIRGL_PERFORMANCE.md): measurement and graphics validation.

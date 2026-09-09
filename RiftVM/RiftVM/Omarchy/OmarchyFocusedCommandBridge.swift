@@ -271,6 +271,7 @@ final class OmarchyFocusedCommandBridge {
         tap = nil
     }
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     @discardableResult
     func runAcceptanceCommandSpaceProbe() -> Bool {
         runAcceptanceCommandChordProbe(keyCode: 49)
@@ -347,6 +348,7 @@ final class OmarchyFocusedCommandBridge {
         }
         return true
     }
+    #endif
 
     /// App-targeted accessibility events can bypass the session event tap.
     /// Physical events redirected by the tap are consumed before this monitor;

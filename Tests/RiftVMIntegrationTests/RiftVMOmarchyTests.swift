@@ -13,9 +13,9 @@ final class RiftVMOmarchyTests: XCTestCase {
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
             OmarchyWorkspaceConfiguration.acceptanceRootKey: target.applicationSupportRoot.path,
         ]
-        XCTAssertTrue(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(target, environment: environment))
+        XCTAssertEqual(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(target, environment: environment), OmarchyWorkspaceConfiguration.acceptanceHarnessIncluded)
         let directoryURL = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(fileURLWithPath: target.applicationSupportRoot.path, isDirectory: true))
-        XCTAssertTrue(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(directoryURL, environment: environment))
+        XCTAssertEqual(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(directoryURL, environment: environment), OmarchyWorkspaceConfiguration.acceptanceHarnessIncluded)
         XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(other, environment: environment))
         XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(personal, environment: environment))
         XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(target, environment: [:]))
@@ -46,6 +46,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertEqual(report["message"] as? String, failures.first)
     }
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     @MainActor
     func testProbeTimeoutNamesTheFailedStage() async throws {
         let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -56,7 +57,9 @@ final class RiftVMOmarchyTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("the Guest to unlock"))
         }
     }
+    #endif
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     @MainActor
     func testProbeFocusLossIsNotReportedAsGuestTimeout() async throws {
         let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -70,6 +73,7 @@ final class RiftVMOmarchyTests: XCTestCase {
             XCTAssertFalse(error.localizedDescription.contains("Timed out"))
         }
     }
+    #endif
 
     func testAccessibilityRequestHasVisiblePendingState() {
         XCTAssertNotEqual(
@@ -79,6 +83,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertNotEqual(OmarchyKeyboardIntegrationState.requestingAccessibility, .enabled)
     }
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     func testInputDiagnosticsProbeCapturesHyprlandBindingAndDeviceState() {
         let script = OmarchyInputDiagnosticsAcceptanceProbe.probeScript(
             resultPath: "/mnt/riftvm-shared/result.txt"
@@ -99,7 +104,9 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertTrue(watcher.contains("touch \"$d/locked\""))
         XCTAssertTrue(watcher.contains("touch \"$d/unlocked\""))
     }
+    #endif
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     func testLockWatcherSeparatesChordRecognitionFromOmarchyLockAction() {
         let script = OmarchyInputDiagnosticsAcceptanceProbe.lockWatcherScript(
             guestDirectory: "/mnt/riftvm-shared/probe"
@@ -109,7 +116,9 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertTrue(script.contains("[[ $state == true || $state == false ]]"))
         XCTAssertFalse(script.contains("hyprlock"))
     }
+    #endif
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     func testLockWatcherStopsWhenHostCancelsBeforeReady() throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -134,7 +143,9 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "unexpected-query").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "ready").path))
     }
+    #endif
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     @MainActor
     func testClipboardProbeWaitsForGuestScriptAndMatchingPasteboardPayloads() {
         let script = OmarchyClipboardAcceptanceProbe.probeScript(
@@ -153,6 +164,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertTrue(script.contains("${XDG_RUNTIME_DIR:-/tmp}/riftvm-clipboard-probe.$$.part"))
         XCTAssertTrue(script.contains("guest-clipboard-types"))
     }
+    #endif
 
     func testAcceptanceUnlockCredentialRequiresAcceptanceMode() {
         XCTAssertNil(OmarchyAcceptanceUnlockCredential(environment: [
@@ -276,7 +288,7 @@ final class RiftVMOmarchyTests: XCTestCase {
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
             OmarchyWorkspaceConfiguration.acceptanceRootKey: "/tmp/riftvm-owner-acceptance",
             OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey: password,
-        ]), password)
+        ]), OmarchyWorkspaceConfiguration.acceptanceHarnessIncluded ? password : nil)
     }
 
     func testDedicatedAppUsesOmarchyProductIdentity() throws {
@@ -621,6 +633,31 @@ final class RiftVMOmarchyTests: XCTestCase {
             + VMGuestAgentInputBatch.key(code: 30, pressed: true).events
         )
         XCTAssertEqual(batches[2], VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
+    }
+
+    @MainActor
+    func testHostSleepReleasesHeldGuestKeysAndDetachingRemovesObserver() throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        let view = OmarchyVirtualMachineInputView()
+        window.contentView = view
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        let down = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, characters: "a",
+            charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0
+        ))
+        view.keyDown(with: down)
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.willSleepNotification, object: nil)
+        XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 30, pressed: false).events)
+        window.contentView = nil
+        batches.removeAll()
+        view.keyDown(with: down)
+        let beforeNotification = batches
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.willSleepNotification, object: nil)
+        XCTAssertEqual(batches, beforeNotification)
+        view.setGuestInputEventHandler(nil)
     }
 
     @MainActor
@@ -1463,6 +1500,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertEqual(json["guestAgentVersion"] as? String, "agent")
     }
 
+    #if RIFTVM_ACCEPTANCE_HARNESS
     @MainActor
     func testDynamicDisplayProbeDecodesActiveHyprlandMonitor() throws {
         let data = Data(#"[{"disabled":true,"width":1,"height":1},{"disabled":false,"width":1440,"height":900}]"#.utf8)
@@ -1472,6 +1510,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         )
         XCTAssertThrowsError(try OmarchyDynamicDisplayAcceptanceProbe.decodeDisplay(Data("[]".utf8)))
     }
+    #endif
 
     private func runningLifecycle() -> OmarchyMachineLifecycle {
         var lifecycle = OmarchyMachineLifecycle()

@@ -68,6 +68,7 @@ xcodebuild \
   MARKETING_VERSION="$version" \
   build
 app_path="$derived_data/Build/Products/Release/RiftVM.app"
+"$project_root/scripts/verify-production-test-isolation.sh" "$app_path"
 if [[ -z "${RIFTVM_VIRGL_RUNTIME_SOURCE:-}" ]]; then
   (cd "$project_root" && \
     "$project_root/scripts/build-virgl-runtime-from-source.sh" "$virgl_runtime_source")
