@@ -105,9 +105,8 @@ installation leaves no partial machine bundle.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
 
-The unified product architecture, migration boundaries, image policy, and
-acceptance gates are documented in the
-[RiftVM unified product plan](docs/RIFTVM_UNIFIED_PRODUCT_PLAN.md).
+See the [documentation index](docs/README.md) for troubleshooting, image formats,
+guest integration, graphics architecture, and distribution details.
 
 ### Linux graphics backends
 
@@ -157,11 +156,11 @@ RiftVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction 
    when a genuine macOS 27 runner can execute the same GUI and VM gates.
 3. Expose a small, local automation surface so scripts and AI agents can create, start, inspect, and discard isolated VMs safely.
 
-The automation layer will remain local-first, explicit, and opt-in. RiftVM will not embed an AI model or require a cloud account. See the [refresh roadmap](docs/ROADMAP.md), [ecosystem research](docs/RESEARCH.md), and [Homebrew distribution plan](docs/HOMEBREW.md).
+The automation layer will remain local-first, explicit, and opt-in. RiftVM will not embed an AI model or require a cloud account. See the [documentation index](docs/README.md) for maintained technical references.
 
 ## Contributing
 
-Issues and focused pull requests are welcome. During the refresh, reliability fixes, reproducible bug reports, tests, accessibility improvements, and documentation updates have priority over broad new features.
+Issues and focused pull requests are welcome. Reliability fixes, reproducible bug reports, tests, accessibility improvements, and documentation updates are especially useful.
 
 When reporting a VM problem, include the host macOS version, Mac model/chip, guest OS and image source, and the last operation performed. Do not attach VM disks or logs containing secrets.
 
