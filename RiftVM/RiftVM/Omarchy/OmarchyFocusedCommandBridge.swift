@@ -120,11 +120,14 @@ final class OmarchyFocusedCommandBridge {
     private let stateChanged: (OmarchyKeyboardIntegrationState) -> Void
     private let redirectedCommandChord: (CGKeyCode, CGEventFlags) -> Bool
     private let commandSpaceCaptured: () -> Void
+    private let postVirtualKeyboardEvent: (CGEvent) -> Void
     private var localMonitor: Any?
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
     private var activationObserver: NSObjectProtocol?
+    private var permissionRequestedAt: Date?
+    private var reportedState: OmarchyKeyboardIntegrationState?
     private var commandSpaceState = OmarchyCommandSpaceCaptureState()
     private var agentForwardedKeys = Set<CGKeyCode>()
     private var virtualKeyboardForwardedKeys = Set<CGKeyCode>()
@@ -148,12 +151,16 @@ final class OmarchyFocusedCommandBridge {
         focusProbe: @escaping () -> Bool,
         stateChanged: @escaping (OmarchyKeyboardIntegrationState) -> Void,
         redirectedCommandChord: @escaping (CGKeyCode, CGEventFlags) -> Bool = { _, _ in false },
-        commandSpaceCaptured: @escaping () -> Void = {}
+        commandSpaceCaptured: @escaping () -> Void = {},
+        postVirtualKeyboardEvent: @escaping (CGEvent) -> Void = {
+            $0.postToPid(ProcessInfo.processInfo.processIdentifier)
+        }
     ) {
         self.focusProbe = focusProbe
         self.stateChanged = stateChanged
         self.redirectedCommandChord = redirectedCommandChord
         self.commandSpaceCaptured = commandSpaceCaptured
+        self.postVirtualKeyboardEvent = postVirtualKeyboardEvent
     }
 
     func start() {
@@ -166,10 +173,29 @@ final class OmarchyFocusedCommandBridge {
                 self?.start()
             }
         }
-        guard AXIsProcessTrusted() else {
-            stateChanged(.accessibilityRequired)
-            return
+        if permissionTimer == nil {
+            let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+                self?.refreshCaptureState()
+            }
+            permissionTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
+        refreshCaptureState()
+    }
+
+    private func reportState(_ state: OmarchyKeyboardIntegrationState) {
+        guard reportedState != state else { return }
+        reportedState = state
+        NSLog("Omarchy keyboard capture: %@ (AX trusted: %@)", String(describing: state), AXIsProcessTrusted() ? "yes" : "no")
+        // start() also runs inside makeNSView. Publish after SwiftUI's update
+        // transaction, otherwise its initial State assignment can be dropped.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.reportedState == state else { return }
+            self.stateChanged(state)
+        }
+    }
+
+    private func refreshCaptureState() {
         if localMonitor == nil {
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
                 guard let self else { return event }
@@ -178,7 +204,12 @@ final class OmarchyFocusedCommandBridge {
         }
         if let tap {
             CGEvent.tapEnable(tap: tap, enable: true)
-            stateChanged(.enabled)
+            if CGEvent.tapIsEnabled(tap: tap) {
+                permissionRequestedAt = nil
+                reportState(.enabled)
+                return
+            }
+            reportState(AXIsProcessTrusted() ? .eventTapUnavailable : .accessibilityRequired)
             return
         }
         installEventTap()
@@ -201,41 +232,23 @@ final class OmarchyFocusedCommandBridge {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            stateChanged(.eventTapUnavailable)
+            let requested = permissionRequestedAt.map { Date().timeIntervalSince($0) < 120 } ?? false
+            reportState(AXIsProcessTrusted() ? .eventTapUnavailable : requested ? .requestingAccessibility : .accessibilityRequired)
             return
         }
         tap = eventTap
         source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        stateChanged(.enabled)
+        permissionRequestedAt = nil
+        reportState(CGEvent.tapIsEnabled(tap: eventTap) ? .enabled : .eventTapUnavailable)
     }
 
     func requestPermission() {
-        stateChanged(.requestingAccessibility)
-        if Self.requestAccessibilityAccess() {
-            start()
-            return
-        }
-        permissionTimer?.invalidate()
-        var attemptsRemaining = 240
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
-            guard let self else { timer.invalidate(); return }
-            if AXIsProcessTrusted() {
-                timer.invalidate()
-                self.permissionTimer = nil
-                self.start()
-                return
-            }
-            attemptsRemaining -= 1
-            if attemptsRemaining == 0 {
-                timer.invalidate()
-                self.permissionTimer = nil
-                self.stateChanged(.accessibilityRequired)
-            }
-        }
-        permissionTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
+        permissionRequestedAt = Date()
+        reportState(.requestingAccessibility)
+        _ = Self.requestAccessibilityAccess()
+        start()
     }
 
     func stop() {
@@ -246,6 +259,8 @@ final class OmarchyFocusedCommandBridge {
         commandSpaceState = OmarchyCommandSpaceCaptureState()
         permissionTimer?.invalidate()
         permissionTimer = nil
+        permissionRequestedAt = nil
+        reportedState = nil
         if let activationObserver {
             NotificationCenter.default.removeObserver(activationObserver)
             self.activationObserver = nil
@@ -337,7 +352,7 @@ final class OmarchyFocusedCommandBridge {
     /// Physical events redirected by the tap are consumed before this monitor;
     /// fallback events carry syntheticMarker and therefore never loop.
     func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
-        let releasesCapturedKey = event.type == .keyUp && agentForwardedKeys.contains(event.keyCode)
+        let releasesCapturedKey = event.type == .keyUp && (agentForwardedKeys.contains(event.keyCode) || virtualKeyboardForwardedKeys.contains(event.keyCode))
         guard releasesCapturedKey || event.window == nil || event.window === NSApp.keyWindow,
               let cgEvent = event.cgEvent else { return event }
         return handle(type: cgEvent.type, event: cgEvent) == nil ? nil : event
@@ -356,6 +371,10 @@ final class OmarchyFocusedCommandBridge {
             if commandSpaceState.observe(type: type, keyCode: keyCode) {
                 DispatchQueue.main.async { [commandSpaceCaptured] in commandSpaceCaptured() }
             }
+            return nil
+        }
+        if !synthetic, type == .keyUp, virtualKeyboardForwardedKeys.contains(keyCode) {
+            forwardThroughVirtualKeyboard(type: type, keyCode: keyCode, event: event)
             return nil
         }
         let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
@@ -397,7 +416,6 @@ final class OmarchyFocusedCommandBridge {
         event: CGEvent
     ) {
         guard type == .keyDown || type == .keyUp else { return }
-        let pid = ProcessInfo.processInfo.processIdentifier
         let leftCommandDeviceFlag = CGEventFlags(rawValue: 0x0000_0008)
         let commandFlags = event.flags.union(.maskCommand).union(leftCommandDeviceFlag)
 
@@ -410,13 +428,13 @@ final class OmarchyFocusedCommandBridge {
             commandDown.type = .flagsChanged
             commandDown.flags = commandFlags
             commandDown.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
-            commandDown.postToPid(pid)
+            postVirtualKeyboardEvent(commandDown)
         }
 
         if let localEvent = event.copy() {
             localEvent.flags = commandFlags
             localEvent.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
-            localEvent.postToPid(pid)
+            postVirtualKeyboardEvent(localEvent)
         }
 
         if type == .keyUp, virtualKeyboardForwardedKeys.remove(keyCode) != nil,
@@ -430,7 +448,7 @@ final class OmarchyFocusedCommandBridge {
                 .subtracting(.maskCommand)
                 .subtracting(leftCommandDeviceFlag)
             commandUp.setIntegerValueField(.eventSourceUserData, value: Self.syntheticMarker)
-            commandUp.postToPid(pid)
+            postVirtualKeyboardEvent(commandUp)
         }
     }
 }

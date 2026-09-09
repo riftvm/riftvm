@@ -531,7 +531,7 @@ struct OmarchyVirtualMachineView: View {
                         ProgressView()
                             .controlSize(.small)
                             .accessibilityLabel("Waiting for Accessibility permission")
-                        Text("Turn on RiftVM in System Settings, then return here.")
+                        Text("Turn on RiftVM in System Settings, then return here. If it is already on, remove its old entry and add the current RiftVM app again.")
                     } else if keyboardIntegration == .eventTapUnavailable {
                         Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
                     } else {
