@@ -5,6 +5,72 @@ import XCTest
 @testable import RiftVM
 
 final class RiftVMOmarchyTests: XCTestCase {
+    func testAcceptanceOnlyTargetsTheExplicitTemporaryWorkspace() {
+        let target = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(filePath: "/tmp/riftvm-acceptance-scope.riftvm"))
+        let other = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(filePath: "/tmp/riftvm-other.riftvm"))
+        let personal = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(filePath: NSHomeDirectory()).appending(path: "RiftVM Virtual Machines/Omarchy.riftvm"))
+        let environment = [
+            OmarchyWorkspaceConfiguration.acceptanceEnabledKey: "1",
+            OmarchyWorkspaceConfiguration.acceptanceRootKey: target.applicationSupportRoot.path,
+        ]
+        XCTAssertTrue(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(target, environment: environment))
+        let directoryURL = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(fileURLWithPath: target.applicationSupportRoot.path, isDirectory: true))
+        XCTAssertTrue(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(directoryURL, environment: environment))
+        XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(other, environment: environment))
+        XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(personal, environment: environment))
+        XCTAssertFalse(OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(target, environment: [:]))
+    }
+
+    @MainActor
+    func testAcceptanceFailureDoesNotChangeVirtualMachinePhase() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
+        var phases: [OmarchyVirtualMachineView.Phase] = []
+        var failures: [String] = []
+        let coordinator = OmarchyVirtualMachineRepresentable.Coordinator(
+            sessionID: UUID(), layout: layout, requiredGuestCapabilities: [],
+            clipboardEnabled: false, notificationsEnabled: false,
+            keyboardIntegrationChanged: { _ in }, integrationChanged: { _ in },
+            sharedFolderProbeChanged: { _ in }, clipboardProbeChanged: { _ in },
+            dynamicDisplayProbeChanged: { _ in }, ownerProvisioningCompleted: { _, _ in },
+            ownerProvisioningProgressChanged: { _ in },
+            phaseChanged: { phases.append($0) }, acceptanceFailureChanged: { failures.append($0) }
+        )
+        coordinator.reportAcceptanceFailure("Lock watcher did not become ready")
+        coordinator.reportAcceptanceFailure("A later callback must not overwrite the first failure")
+        XCTAssertTrue(phases.isEmpty)
+        XCTAssertEqual(failures, ["Lock watcher did not become ready"])
+        let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: layout.diagnostics.appending(path: "acceptance-failure.json"))) as? [String: Any])
+        XCTAssertEqual(report["result"] as? String, "failed")
+        XCTAssertEqual(report["message"] as? String, failures.first)
+    }
+
+    @MainActor
+    func testProbeTimeoutNamesTheFailedStage() async throws {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        do {
+            try await OmarchyInputDiagnosticsAcceptanceProbe.waitForFile(missing, timeout: .zero, stage: "the Guest to unlock")
+            XCTFail("A missing result must fail")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("the Guest to unlock"))
+        }
+    }
+
+    @MainActor
+    func testProbeFocusLossIsNotReportedAsGuestTimeout() async throws {
+        let missing = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        do {
+            try await OmarchyInputDiagnosticsAcceptanceProbe.waitForFile(missing, checkFocus: {
+                throw OmarchyInputDiagnosticsAcceptanceProbe.ProbeError.focusLost
+            })
+            XCTFail("Lost focus must interrupt the probe")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("lost keyboard focus"))
+            XCTAssertFalse(error.localizedDescription.contains("Timed out"))
+        }
+    }
+
     func testAccessibilityRequestHasVisiblePendingState() {
         XCTAssertNotEqual(
             OmarchyKeyboardIntegrationState.requestingAccessibility,
@@ -42,6 +108,31 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertTrue(script.contains("OMARCHY_SHELL_IPC_TIMEOUT=0.5s"))
         XCTAssertTrue(script.contains("[[ $state == true || $state == false ]]"))
         XCTAssertFalse(script.contains("hyprlock"))
+    }
+
+    func testLockWatcherStopsWhenHostCancelsBeforeReady() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let query = root.appending(path: "omarchy-shell")
+        try Data("#!/bin/bash\ntouch '\(root.path)/unexpected-query'\n".utf8).write(to: query)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: query.path)
+        try Data().write(to: root.appending(path: "cancel"))
+        let script = root.appending(path: "watch-lock.sh")
+        try Data(OmarchyInputDiagnosticsAcceptanceProbe.lockWatcherScript(guestDirectory: root.path).utf8).write(to: script)
+        let process = Process()
+        process.executableURL = URL(filePath: "/bin/bash")
+        process.arguments = [script.path]
+        process.environment = ["PATH": "\(root.path):/usr/bin:/bin"]
+        let finished = expectation(description: "Cancelled watcher exits")
+        process.terminationHandler = { _ in finished.fulfill() }
+        try process.run()
+        defer { if process.isRunning { process.terminate() } }
+        wait(for: [finished], timeout: 3)
+        guard !process.isRunning else { return }
+        XCTAssertEqual(process.terminationStatus, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "unexpected-query").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appending(path: "ready").path))
     }
 
     @MainActor

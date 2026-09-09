@@ -434,6 +434,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
     @State private var notice: UserNotice?
+    @State private var acceptanceFailure: String?
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
     @State private var clipboardProbe: OmarchyClipboardProbeState = .notRun
@@ -469,7 +470,8 @@ struct OmarchyVirtualMachineView: View {
                         ownerSetupPhase = .finishing
                     }
                 },
-                phaseChanged: handlePhaseChange
+                phaseChanged: handlePhaseChange,
+                acceptanceFailureChanged: { acceptanceFailure = $0 }
             )
             .id(sessionID)
             if phase != .running {
@@ -525,6 +527,19 @@ struct OmarchyVirtualMachineView: View {
             }
         }
         .safeAreaInset(edge: .top) {
+            if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
+                        .font(.headline)
+                    Text(acceptanceFailure ?? "This temporary workspace may type, lock, and restart automatically. Keep this window focused while testing.")
+                    if acceptanceFailure != nil {
+                        Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.orange.opacity(0.18))
+            }
             if keyboardIntegration != .enabled {
                 HStack {
                     if keyboardIntegration == .requestingAccessibility {
@@ -547,6 +562,7 @@ struct OmarchyVirtualMachineView: View {
                 .background(.orange.opacity(0.18))
             }
         }
+        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil }
         .onDisappear {
             stopTimeoutTask?.cancel()
             stopTimeoutTask = nil
@@ -922,6 +938,7 @@ struct OmarchyVirtualMachineView: View {
         guard status.provisioningPending,
               status.capabilities.contains("owner-provisioning-v1"),
               !automaticOwnerProvisioningStarted,
+              OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout),
               let password = OmarchyWorkspaceConfiguration.acceptanceOwnerProvisioningPassword()
         else { return }
 
@@ -1370,7 +1387,7 @@ struct OmarchyMachineLifecycle: Equatable {
     }
 }
 
-private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
+struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
     let clipboardEnabled: Bool
@@ -1387,6 +1404,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let ownerProvisioningCompleted: (UUID, String?) -> Void
     let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+    let acceptanceFailureChanged: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -1402,7 +1420,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeChanged: dynamicDisplayProbeChanged,
             ownerProvisioningCompleted: ownerProvisioningCompleted,
             ownerProvisioningProgressChanged: ownerProvisioningProgressChanged,
-            phaseChanged: phaseChanged
+            phaseChanged: phaseChanged,
+            acceptanceFailureChanged: acceptanceFailureChanged
         )
     }
 
@@ -1469,6 +1488,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let ownerProvisioningCompleted: (UUID, String?) -> Void
         let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+        let acceptanceFailureChanged: (String) -> Void
 
         func start(
             _ machine: VZVirtualMachine,
@@ -1548,8 +1568,42 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private var inputLatencyProbeStarted = false
         private var continuousInputProbeTask: Task<Void, Never>?
         private var continuousInputProbeStarted = false
+        private var lockProbeTask: Task<Void, Never>?
         private var bootUnlockAcceptanceStarted = false
         private var dynamicDisplayProbePassed = false
+        private var acceptanceFailureRecorded = false
+        private var acceptanceEnabled: Bool {
+            !acceptanceFailureRecorded && OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout)
+        }
+
+        func reportAcceptanceFailure(_ message: String) {
+            guard !acceptanceFailureRecorded else { return }
+            acceptanceFailureRecorded = true
+            automaticRecoveryStage = .idle
+            lockProbeTask?.cancel()
+            inputLatencyProbeTask?.cancel()
+            continuousInputProbeTask?.cancel()
+            notificationAcceptanceProbeTask?.cancel()
+            sharedFolderProbeTask?.cancel()
+            clipboardProbeTask?.cancel()
+            dynamicDisplayProbeTask?.cancel()
+            guestRestartUnlockTimeoutTask?.cancel()
+            hostWakeInteractiveTask?.cancel()
+            NSLog("Omarchy acceptance failed (VM lifecycle unchanged): %@", message)
+            let report: [String: Any] = [
+                "schemaVersion": 1, "result": "failed", "message": message,
+                "observedAt": ISO8601DateFormatter().string(from: Date()),
+            ]
+            do {
+                try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
+                try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+                    .write(to: layout.diagnostics.appending(path: "acceptance-failure.json"), options: .atomic)
+            } catch {
+                NSLog("Could not save acceptance failure: %@", error.localizedDescription)
+            }
+            acceptanceFailureChanged(message)
+        }
+
         private var automaticLockProbe = OmarchyLockAcceptanceState()
         private var automaticPauseResumeProbeStarted = false
         private var automaticRecoveryAfterResume = false
@@ -1587,7 +1641,8 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeChanged: @escaping (OmarchyDynamicDisplayProbeState) -> Void,
             ownerProvisioningCompleted: @escaping (UUID, String?) -> Void,
             ownerProvisioningProgressChanged: @escaping (VMOmarchyOwnerProvisioningProgress) -> Void,
-            phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void
+            phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void,
+            acceptanceFailureChanged: @escaping (String) -> Void = { _ in }
         ) {
             self.sessionID = sessionID
             self.layout = layout
@@ -1602,6 +1657,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.ownerProvisioningCompleted = ownerProvisioningCompleted
             self.ownerProvisioningProgressChanged = ownerProvisioningProgressChanged
             self.phaseChanged = phaseChanged
+            self.acceptanceFailureChanged = acceptanceFailureChanged
         }
 
         func submitOwnerProvisioning(_ submission: OmarchyOwnerProvisioningSubmission) {
@@ -1834,7 +1890,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startBootUnlockAcceptanceIfNeeded() {
             let environment = ProcessInfo.processInfo.environment
-            guard environment[OmarchyWorkspaceConfiguration.acceptanceBootUnlockKey] == "1",
+            guard acceptanceEnabled, environment[OmarchyWorkspaceConfiguration.acceptanceBootUnlockKey] == "1",
                   !bootUnlockAcceptanceStarted,
                   let password = environment[
                     OmarchyWorkspaceConfiguration.acceptanceUnlockPasswordKey
@@ -1857,7 +1913,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     return
                 }
                 guard inputView.runAppleUSBTextAcceptance(password + "\n") else {
-                    self.phaseChanged(.failed("Boot unlock acceptance could not deliver Apple USB input."))
+                    self.reportAcceptanceFailure("Boot unlock acceptance could not deliver Apple USB input.")
                     return
                 }
                 NSLog("Omarchy boot unlock acceptance dispatched through Apple USB")
@@ -1867,7 +1923,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startInputLatencyProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
             let environment = ProcessInfo.processInfo.environment
-            guard environment["RIFTVM_OMARCHY_INPUT_LATENCY_ACCEPTANCE"] == "1",
+            guard acceptanceEnabled, environment["RIFTVM_OMARCHY_INPUT_LATENCY_ACCEPTANCE"] == "1",
                   !inputLatencyProbeStarted,
                   status.desktopSessionActive,
                   !status.provisioningPending,
@@ -1912,7 +1968,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 } catch is CancellationError {
                     return
                 } catch {
-                    self.phaseChanged(.failed("Input latency acceptance failed: \(error.localizedDescription)"))
+                    self.reportAcceptanceFailure("Input latency acceptance failed: \(error.localizedDescription)")
                 }
                 self.inputLatencyProbeTask = nil
             }
@@ -1921,7 +1977,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startContinuousInputProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
             let environment = ProcessInfo.processInfo.environment
-            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1",
+            guard acceptanceEnabled,
                   environment["RIFTVM_OMARCHY_CONTINUOUS_INPUT_ACCEPTANCE"] == "1",
                   !continuousInputProbeStarted,
                   status.desktopSessionActive,
@@ -1957,9 +2013,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 } catch is CancellationError {
                     return
                 } catch {
-                    self.phaseChanged(.failed(
+                    self.reportAcceptanceFailure(
                         "Continuous input acceptance failed: \(error.localizedDescription)"
-                    ))
+                    )
                 }
                 self.continuousInputProbeTask = nil
             }
@@ -2064,9 +2120,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private func startNotificationAcceptanceProbeIfNeeded(
             client: VMOmarchyGuestAgentClient
         ) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", !notificationAcceptanceProbeStarted,
+            guard acceptanceEnabled, !notificationAcceptanceProbeStarted,
                   !notificationAcceptanceProbeCompleted else { return }
             notificationAcceptanceProbeStarted = true
             let title = "RiftVM notification \(UUID().uuidString.lowercased())"
@@ -2104,9 +2158,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func startSharedFolderProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", !sharedFolderProbePassed, sharedFolderProbeTask == nil,
+            guard acceptanceEnabled, !sharedFolderProbePassed, sharedFolderProbeTask == nil,
                   let integrationClient else { return }
             sharedFolderProbeChanged(.running)
             sharedFolderProbeTask = Task { @MainActor [weak self] in
@@ -2132,9 +2184,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func startClipboardProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", sharedFolderProbePassed, !clipboardProbePassed,
+            guard acceptanceEnabled, sharedFolderProbePassed, !clipboardProbePassed,
                   clipboardProbeTask == nil, let integrationClient else { return }
             // Claim clipboard transport ownership before scheduling the probe.
             // A ready-status callback is delivered on a separate MainActor task;
@@ -2192,9 +2242,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func startDynamicDisplayProbeIfNeeded(layout: VMOmarchyWorkspaceLayout) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", clipboardProbePassed, !dynamicDisplayProbePassed,
+            guard acceptanceEnabled, clipboardProbePassed, !dynamicDisplayProbePassed,
                   dynamicDisplayProbeTask == nil, let integrationClient,
                   let machineView else { return }
             dynamicDisplayProbeChanged(.running)
@@ -2224,9 +2272,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func startAutomaticPauseResumeProbeIfNeeded() {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", dynamicDisplayProbePassed, !automaticPauseResumeProbeStarted else { return }
+            guard acceptanceEnabled, dynamicDisplayProbePassed, !automaticPauseResumeProbeStarted else { return }
             automaticPauseResumeProbeStarted = true
             automaticRecoveryAfterResume = true
             pause(automaticResume: true)
@@ -2235,22 +2281,27 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         private func startAutomaticLockProbeIfNeeded() {
             let environment = ProcessInfo.processInfo.environment
-            guard environment[OmarchyWorkspaceConfiguration.acceptanceEnabledKey] == "1" else {
+            guard acceptanceEnabled else {
                 return
             }
             guard OmarchyAcceptanceUnlockCredential(environment: environment) != nil else {
-                phaseChanged(.failed(
+                reportAcceptanceFailure(
                     "Acceptance requires a printable ASCII unlock password of 1–128 bytes."
-                ))
+                )
                 return
             }
             guard automaticLockProbe.begin(), let integrationClient,
                   let credential = OmarchyAcceptanceUnlockCredential(environment: environment) else {
                 return
             }
-            Task { @MainActor [weak self, weak integrationClient] in
+            lockProbeTask = Task { @MainActor [weak self, weak integrationClient] in
                 do {
                     guard let self, let integrationClient else { return }
+                    NSApp.activate(ignoringOtherApps: true)
+                    if let view = self.machineView, let window = view.window {
+                        window.makeKeyAndOrderFront(nil)
+                        window.makeFirstResponder(view)
+                    }
                     try await OmarchyInputDiagnosticsAcceptanceProbe.run(
                         client: integrationClient,
                         sharedDirectory: self.layout.shared,
@@ -2278,6 +2329,15 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             self?.keyboardBridge?.runAcceptanceTextInput(
                                 credential.password + "\n"
                             ) == true
+                        },
+                        checkFocus: { [weak self] in
+                            guard let self, self.acceptanceEnabled,
+                                  NSApp.isActive,
+                                  let view = self.machineView,
+                                  view.window?.isKeyWindow == true,
+                                  view.window?.firstResponder === view else {
+                                throw OmarchyInputDiagnosticsAcceptanceProbe.ProbeError.focusLost
+                            }
                         }
                     )
                     guard self.automaticLockProbe.completeObservedCycle() else { return }
@@ -2292,8 +2352,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         activeAt: cycle.unlockedAt
                     )
                     self.startAutomaticPauseResumeProbeIfNeeded()
+                } catch is CancellationError {
+                    return
                 } catch {
-                    self?.phaseChanged(.failed("Guest lock probe failed: \(error.localizedDescription)"))
+                    self?.reportAcceptanceFailure("Guest lock probe failed: \(error.localizedDescription)")
                 }
             }
         }
@@ -2305,9 +2367,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 layout: layout
             )
             guard event == .didWake,
-                  ProcessInfo.processInfo.environment[
-                    OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-                  ] == "1" else { return }
+                  acceptanceEnabled else { return }
             startHostWakeInteractiveProbe()
         }
 
@@ -2369,9 +2429,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 } catch is CancellationError {
                     return
                 } catch {
-                    self.phaseChanged(.failed(
+                    self.reportAcceptanceFailure(
                         "Host wake interactive probe failed: \(error.localizedDescription)"
-                    ))
+                    )
                 }
                 self.hostWakeInteractiveTask = nil
             }
@@ -2379,6 +2439,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         private func handleAutomaticRecoveryReady(_ status: VMOmarchyGuestStatus) {
+            guard acceptanceEnabled else { return }
             switch automaticRecoveryStage {
             case .waitingForPostResumeReady:
                 guard status.capabilities.contains("agent-restart-v1"),
@@ -2397,7 +2458,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     } catch {
                         guard let self else { return }
                         self.automaticRecoveryStage = .idle
-                        self.phaseChanged(.failed("Guest Agent restart probe failed: \(error.localizedDescription)"))
+                        self.reportAcceptanceFailure("Guest Agent restart probe failed: \(error.localizedDescription)")
                     }
                 }
             case .waitingForAgentReady:
@@ -2414,7 +2475,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 recoveryBaselineStatus = status
                 guard guestRestartAcceptanceState.begin(previousBootID: status.bootID) else {
                     automaticRecoveryStage = .idle
-                    phaseChanged(.failed("Guest restart probe could not establish its boot baseline."))
+                    reportAcceptanceFailure("Guest restart probe could not establish its boot baseline.")
                     return
                 }
                 automaticRecoveryStage = .waitingForGuestDisconnect
@@ -2438,7 +2499,7 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 environment: ProcessInfo.processInfo.environment
             ), let integrationClient, keyboardBridge != nil else {
                 automaticRecoveryStage = .idle
-                phaseChanged(.failed("The Guest restart unlock credential became unavailable."))
+                reportAcceptanceFailure("The Guest restart unlock credential became unavailable.")
                 return
             }
             guestRestartUnlockTimeoutTask?.cancel()
@@ -2497,18 +2558,16 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 } catch {
                     guard let self else { return }
                     self.automaticRecoveryStage = .idle
-                    self.phaseChanged(.failed(
+                    self.reportAcceptanceFailure(
                         "Guest restart unlock probe failed: \(error.localizedDescription)"
-                    ))
+                    )
                 }
             }
         }
 
         @MainActor
         private func startAutomaticFullScreenProbeIfNeeded(_ status: VMOmarchyGuestStatus) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", status.desktopSessionActive, !status.provisioningPending,
+            guard acceptanceEnabled, status.desktopSessionActive, !status.provisioningPending,
                   automaticRecoveryStage == .complete,
                   !automaticFullScreenProbeStarted, let machineView,
                   let window = machineView.window else { return }
@@ -2526,15 +2585,13 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         private func startAutomaticCommandSpaceProbeIfNeeded(_ status: VMOmarchyGuestStatus?) {
-            guard ProcessInfo.processInfo.environment[
-                OmarchyWorkspaceConfiguration.acceptanceEnabledKey
-            ] == "1", let status, status.desktopSessionActive, !status.provisioningPending,
+            guard acceptanceEnabled, let status, status.desktopSessionActive, !status.provisioningPending,
                   !automaticCommandSpaceProbeStarted else { return }
             guard keyboardBridge?.runAcceptanceCommandSpaceProbe() == true,
                   let integrationClient else {
-                phaseChanged(.failed(
+                reportAcceptanceFailure(
                     "Focused Command+Space acceptance could not reach the Accessibility event tap."
-                ))
+                )
                 return
             }
             automaticCommandSpaceProbeStarted = true
@@ -2550,9 +2607,9 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     try await Task.sleep(for: .milliseconds(500))
                     self?.startAutomaticLockProbeIfNeeded()
                 } catch {
-                    self?.phaseChanged(.failed(
+                    self?.reportAcceptanceFailure(
                         "Focused Command+Space cleanup failed: \(error.localizedDescription)"
-                    ))
+                    )
                 }
             }
         }
@@ -2712,6 +2769,10 @@ private struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         private func stopIntegration() {
+            lockProbeTask?.cancel()
+            lockProbeTask = nil
+            continuousInputProbeTask?.cancel()
+            continuousInputProbeTask = nil
             inputLatencyProbeTask?.cancel()
             inputLatencyProbeTask = nil
             (machineView as? OmarchyVirtualMachineInputView)?.setGuestInputEventHandler(nil)

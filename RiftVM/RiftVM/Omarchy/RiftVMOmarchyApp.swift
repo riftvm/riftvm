@@ -8,6 +8,16 @@ enum OmarchyWorkspaceConfiguration {
     static let acceptanceUnlockPasswordKey = "RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD"
     static let acceptanceBootUnlockKey = "RIFTVM_OMARCHY_BOOT_UNLOCK_ACCEPTANCE"
 
+    static func isAcceptanceWorkspace(
+        _ workspace: VMOmarchyWorkspaceLayout,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        guard environment[acceptanceEnabledKey] == "1",
+              let requested = try? layout(environment: environment) else { return false }
+        return requested.applicationSupportRoot.resolvingSymlinksInPath().path ==
+            workspace.applicationSupportRoot.resolvingSymlinksInPath().path
+    }
+
     static func acceptanceOwnerProvisioningPassword(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default
