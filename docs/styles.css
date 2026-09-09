@@ -176,3 +176,5 @@ footer { display:flex; justify-content:space-between; padding-block:25px; border
 
 .requirements { border-left:3px solid var(--orange); padding:10px 16px; background:var(--panel); }
 .requirements strong { color:var(--text); }
+
+.install-intro + .split-hero { margin-top:0; }
