@@ -138,7 +138,7 @@ extension VMOmarchyProfile {
             // A Host build must resolve one immutable Factory channel. GitHub's
             // `releases/latest` excludes prereleases and previously redirected
             // Alpha builds to an older release without a Factory manifest.
-            manifestURL: URL(string: "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.2-riftvm.3/riftvm-omarchy-factory-manifest.json")!,
+            manifestURL: URL(string: "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.2/riftvm-omarchy-factory-manifest.json")!,
             signingKeyID: "riftvm-omarchy-factory-2026",
             architecture: "arm64",
             maximumDownloadBytes: 8 * 1_024 * 1_024 * 1_024
