@@ -237,7 +237,7 @@ public struct VMOmarchyFactoryInstaller {
                     progress: progress
                 )
             } else if let parts = manifest.payload.imageParts {
-                try await downloadAndAssemble(parts, to: staging, progress: progress)
+                try await downloadAndAssemble(parts, to: staging, stage: stage, progress: progress)
             } else {
                 throw VMOmarchyFactoryValidationError.invalidManifest
             }
@@ -254,6 +254,7 @@ public struct VMOmarchyFactoryInstaller {
     private func downloadAndAssemble(
         _ parts: [VMOmarchyFactoryManifest.ImagePart],
         to destination: URL,
+        stage: @escaping (String) -> Void,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws {
         let total = parts.reduce(Int64(0)) { partial, part in
@@ -266,6 +267,7 @@ public struct VMOmarchyFactoryInstaller {
         defer { localParts.forEach { try? FileManager.default.removeItem(at: $0) } }
 
         for (index, part) in parts.enumerated() {
+            stage("Downloading Omarchy")
             let local = localParts[index]
             let resume = cacheDirectory.appending(path: "Factory.part-\(index).resume")
             try? FileManager.default.removeItem(at: local)
@@ -276,11 +278,13 @@ public struct VMOmarchyFactoryInstaller {
             ) { received, _ in
                 progress(min(completed + max(received, 0), total), total)
             }
+            stage("Verifying image part \(index + 1) of \(parts.count)")
             try VMOmarchyFactoryValidator.validatePart(at: local, part: part)
             completed += Int64(clamping: part.byteCount)
             progress(completed, total)
         }
 
+        stage("Assembling the image")
         FileManager.default.createFile(atPath: destination.path, contents: nil)
         let output = try FileHandle(forWritingTo: destination)
         defer { try? output.close() }

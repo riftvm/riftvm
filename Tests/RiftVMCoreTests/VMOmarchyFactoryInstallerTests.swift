@@ -69,7 +69,13 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
             transport: transport
         )
 
-        let installed = try await installer.install()
+        var stages: [String] = []
+        let installed = try await installer.install(stage: { stages.append($0) })
+        XCTAssertEqual(stages, [
+            "Checking the image manifest", "Downloading Omarchy", "Downloading Omarchy",
+            "Verifying image part 1 of 2", "Downloading Omarchy",
+            "Verifying image part 2 of 2", "Assembling the image", "Verifying the downloaded image"
+        ])
 
         XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
         XCTAssertEqual(transport.downloadCount, 2)
