@@ -1836,6 +1836,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     // is frontmost. A session-wide event tap must not capture it.
                     return OmarchyCommandCapturePolicy.hasKeyboardFocus(
                         applicationActive: NSApp.isActive,
+                        applicationFrontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier,
                         windowKey: window.isKeyWindow,
                         responderInsideGuest: responder === view || responder.isDescendant(of: view)
                     )

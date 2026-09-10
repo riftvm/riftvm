@@ -782,9 +782,15 @@ final class RiftVMOmarchyTests: XCTestCase {
     }
 
     func testBackgroundKeyWindowDoesNotCaptureHostPasteOrScreenshot() {
+        // AppKit state can lag a cross-display activation. The process that
+        // currently owns the desktop must independently agree before capture.
+        XCTAssertFalse(OmarchyCommandCapturePolicy.hasKeyboardFocus(
+            applicationActive: true, applicationFrontmost: false,
+            windowKey: true, responderInsideGuest: true
+        ))
         for active in [false, true] {
             let focused = OmarchyCommandCapturePolicy.hasKeyboardFocus(
-                applicationActive: active, windowKey: true, responderInsideGuest: true
+                applicationActive: active, applicationFrontmost: active, windowKey: true, responderInsideGuest: true
             )
             for (key, flags): (CGKeyCode, CGEventFlags) in [(9, .maskCommand), (0, [.maskCommand, .maskShift])] {
                 for type: CGEventType in [.keyDown, .keyUp] {
@@ -795,10 +801,10 @@ final class RiftVMOmarchyTests: XCTestCase {
             }
         }
         XCTAssertFalse(OmarchyCommandCapturePolicy.hasKeyboardFocus(
-            applicationActive: true, windowKey: false, responderInsideGuest: true
+            applicationActive: true, applicationFrontmost: true, windowKey: false, responderInsideGuest: true
         ))
         XCTAssertFalse(OmarchyCommandCapturePolicy.hasKeyboardFocus(
-            applicationActive: true, windowKey: true, responderInsideGuest: false
+            applicationActive: true, applicationFrontmost: true, windowKey: true, responderInsideGuest: false
         ))
     }
 
