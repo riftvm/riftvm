@@ -145,3 +145,31 @@ tests passed in `Test-BackgroundFocusTests-2026.09.10_01-10-56--0700.xcresult`
 under `/tmp/riftvm-p0-final-native/Logs/Test`. The old harness was exited to
 stop intercepting host input. A live foreground/background check with the new
 binary remains required; unit tests alone do not close that gate.
+
+## Factory candidate first boot
+
+Candidate `v4.0.3-riftvm.3` passed raw-disk SHA-256 verification, ASIF
+conversion, and signed-manifest/image validation against the app's trusted key.
+An obsolete local signing key was correctly rejected; the established release
+key matched app trust. Commit `3221323` adds an optional signing-key preflight
+before conversion; the complete factory-tool regression script passed.
+
+Fresh temporary workspace `/tmp/riftvm-p0-factory-firstboot.riftvm` completed
+initialization and reached the desktop with Agent `c8a3b43`. Evidence is in
+`dispatch-fix/candidate-firstboot`. Actual DPMS black screen was observed, then
+Escape restored display without pointer movement. However, the immediately
+following burst did not appear; a subsequent burst displayed `keyboard-wake-ok`.
+The first burst reached the host as 29 balanced key pairs, with 58 Agent
+acknowledgments and a maximum 3.957 ms round trip. This does not prove Guest
+application delivery. Wake qualification remains open. A fresh candidate soak
+is running; no passing result is claimed yet.
+
+The follow-up controlled DPMS probe passed: Guest monitor JSON recorded
+`dpmsStatus=false` before input and `true` afterward. A plain Bash reader
+received exact ` wake-immediate-input-ok\n`, including the wake space, and
+the complete result was visible without pointer movement. The earlier
+Escape/text behavior reproduced with the display already awake in the default
+Emacs-mode terminal. It is retained as a terminal-editing control, not evidence
+of DPMS input loss. Probe and before/after files are archived in
+`dispatch-fix/candidate-firstboot/p0-dpms-*`. This closes the keyboard-only
+DPMS wake check; actual host sleep with a held modifier remains separate.
