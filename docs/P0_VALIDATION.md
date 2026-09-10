@@ -206,9 +206,25 @@ This single fast-path success does not resolve the earlier intermittent failure.
 Evidence: `dispatch-fix/candidate-ime-fast-h20-summary.json`; original failure
 and stage-capture artifacts are retained separately.
 
-The full system refresh candidate `v4.0.3-riftvm.4` is being downloaded from
-workflow run `34458834322`. It is separate from the integration-only `.3` image;
-its native acceptance and Factory signing/publication remain outstanding.
+The full system refresh candidate `v4.0.3-riftvm.4` was reconstructed with part,
+archive, and raw-image hashes verified, converted to ASIF, signed, and verified
+against the application's trusted factory key. Its disposable workspace reached
+the provisioned desktop. Full input acceptance and publication remain outstanding.
+
+The fresh Guest's `checkupdates` returned exit 2 with no available packages and
+no stderr, but the first-run Wi-Fi script unconditionally displayed Update System.
+Image source commit `7e8e7ae` now notifies only when a successful package check
+returns updates. Six notification contract cases passed. Full-image workflow
+`34463094630` for `.5` is building; this is not yet a published factory.
+
+Short native CUA typing on `.4` intermittently repeated characters. Later kernel
+observations recorded balanced RiftVM Keyboard events without repeats; the Apple
+virtual keyboard produced no events during the monitored sample. Both monitored
+and subsequent unmonitored samples passed, so monitoring is not a demonstrated
+fix. With the same harness on `.3`, `echo abcdef` and the full alphabet also
+displayed exactly without pointer movement. These samples do not close the
+intermittent input defect or prove a new-image regression. Evidence is retained
+in `dispatch-fix/full-refresh-kernel-monitor` and `old-image-input-comparison`.
 
 ### Cross-display host shortcut follow-up
 
