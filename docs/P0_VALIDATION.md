@@ -239,3 +239,25 @@ Evidence: `dispatch-fix/host-paste-cross-display-h20.json`.
 A subsequent harness 20 stability run stopped at the lock probe because the
 window lost keyboard focus. It is not a pass, and the VM remained available.
 A user-coordinated uninterrupted foreground test interval is pending.
+
+### Connection transition follow-up
+
+Commit `1dcf1c4` clears queued input on pause, disconnect, and stop and gives
+each dispatcher a generation. A canceled old dispatcher cannot clear a new
+dispatcher or its queue. Release compilation passed, as did the three existing
+connection-suspension tests. Those tests cover suspension reasons, not live
+queued-event delivery. The normal build also passed production probe isolation.
+
+Harness 21 paused and resumed the disposable `.3` Guest through the native
+toolbar. Integration became ready, but the following `echo resume-input-ok`
+sample repeated characters and failed. All 21 native key pairs were balanced,
+with zero native repeat events and 42 input acknowledgments. Inferred write
+spacing for the repeated `c` was 7.7 ms; no pair exceeded 68.1 ms. A subsequent
+`echo $TERM` sample did not appear, including after Return. Four individual
+`pressKey` calls then displayed `echo` correctly. This does not establish a
+CUA-specific defect or resolve physical input latency. Evidence is retained in
+`dispatch-fix/h21-pause-resume-repeat` and `h21-post-resume-missing-text`.
+
+Image workflow `34463094630` completed successfully. Candidate `.5` raw-image
+reconstruction passed all supplied release checks after downloading the required
+package inventories. ASIF conversion and native acceptance remain separate gates.
