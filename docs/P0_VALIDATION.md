@@ -49,8 +49,9 @@ samples with 64 repeats, and three rounds on both 60/120 Hz displays. No failure
 report was present. Evidence: `dispatch-fix/harness17-stability-diagnostics`.
 The five-sample Guest application p95 was 16.1 ms (Apple USB) and 8.9 ms
 (Guest Agent); screenshot observation still includes capture overhead.
-The new 1,800-second passive soak was interrupted to validate the subsequently
-discovered Command/text ordering bug. No 30-minute result is claimed.
+That early 1,800-second soak was interrupted to validate the Command/text
+ordering bug. The later candidate soak described below completed successfully;
+these are separate runs.
 
 ## Physical checks already observed
 
@@ -173,3 +174,52 @@ Emacs-mode terminal. It is retained as a terminal-editing control, not evidence
 of DPMS input loss. Probe and before/after files are archived in
 `dispatch-fix/candidate-firstboot/p0-dpms-*`. This closes the keyboard-only
 DPMS wake check; actual host sleep with a held modifier remains separate.
+
+## Candidate soak and current regression results
+
+The candidate soak passed: 1,800 continuous seconds, 180 samples, maximum
+11-second sample gap, unchanged Guest boot and Agent identities, and continuous
+active/provisioned session state. Evidence: `dispatch-fix/candidate-soak.json`
+and `candidate-observe-soak-diagnostics`. The test used host `ad8ea32` and the
+candidate Agent `c8a3b43`; later changes affect release/diagnostic tools only.
+
+The current harness suite passed 74 tests with no skips or failures
+(`dispatch-fix/harness19-tests.json`). The candidate's unused offline workspace
+passed protected pre-update snapshot restoration with exact marker restoration
+and a ready workspace (`candidate-offline-rollback.json`). This is not proof
+of an in-Guest package update rollback.
+
+Optional Chinese packages were installed only in the disposable candidate Guest:
+`fcitx5-chinese-addons 5.1.14-1`, `libime 1.1.16-1`. A mirror timeout initially
+prevented installation; retry succeeded. The immutable factory remains unchanged.
+Candidate IME and full lifecycle runs, held-modifier host sleep, screenshot
+shortcut confirmation, and final distribution gates remain open. Factory asset
+upload is pending explicit approval after automatic review rejected the attempt.
+
+### Candidate IME follow-up (2026-09-10)
+
+Harness 19 failed Pinyin with `你 english-ok`; all 26 key-down/up pairs reached
+the Guest kernel in order without held keys. Harness 20's explicitly diagnostic
+stage-capture run produced `你好 english-ok`. A subsequent run with stage capture
+disabled passed both Pinyin and Xiaohe, including preedit and postcommit deletion.
+This single fast-path success does not resolve the earlier intermittent failure.
+Evidence: `dispatch-fix/candidate-ime-fast-h20-summary.json`; original failure
+and stage-capture artifacts are retained separately.
+
+The full system refresh candidate `v4.0.3-riftvm.4` is being downloaded from
+workflow run `34458834322`. It is separate from the integration-only `.3` image;
+its native acceptance and Factory signing/publication remain outstanding.
+
+### Cross-display host shortcut follow-up
+
+Commit `d94892f` additionally requires NSWorkspace frontmost process ownership
+before intercepting Command shortcuts. Native regression completed successfully.
+With harness 20 and the temporary Guest running, TextEdit copied and pasted the
+marker, then pasted it again after Window > Move to DELL S2725QC. AX text showed
+three identical lines. This verifies app-targeted CUA events and an actual native
+window move; physical global screenshot hotkeys remain a separate check.
+Evidence: `dispatch-fix/host-paste-cross-display-h20.json`.
+
+A subsequent harness 20 stability run stopped at the lock probe because the
+window lost keyboard focus. It is not a pass, and the VM remained available.
+A user-coordinated uninterrupted foreground test interval is pending.

@@ -5,3 +5,6 @@ RiftVM/RiftVM.xcodeproj/xcshareddata/
 .build/
 .swiftpm/
 DerivedData/
+
+# Local LLVM coverage output
+*.profraw
