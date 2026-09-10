@@ -413,8 +413,12 @@ public final class VMOmarchyGuestAgentClient {
                 return
             } catch {
                 guard inputGeneration == generation else { return }
-                pendingInputBatches.removeAll()
                 NSLog("Omarchy desktop input forwarding failed: %@", error.localizedDescription)
+                // A failed acknowledgement leaves delivery ambiguous. Dropping
+                // the remaining queue alone can strand a pressed key in the
+                // Guest. Closing the authenticated session makes the Agent
+                // release its tracked keys before a fresh session reconnects.
+                disconnected("Desktop input forwarding failed. Reconnecting.", generation: self.generation)
                 return
             }
         }
