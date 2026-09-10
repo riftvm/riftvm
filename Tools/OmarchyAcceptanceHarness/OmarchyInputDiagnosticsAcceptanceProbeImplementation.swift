@@ -14,6 +14,7 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         case stageTimeout(String)
         case focusLost
         case unexpectedPinyinCommit
+        case diagnosticCaptureCompleted
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
                 "The Guest did not return Hyprland input diagnostics."
             case .stageTimeout(let stage):
                 "Timed out waiting for \(stage). See the retained probe files in RiftVM Shared."
+            case .diagnosticCaptureCompleted:
+                "Diagnostic capture completed. Run without stage capture to qualify input acceptance."
             case .unexpectedPinyinCommit:
                 "Pinyin committed text did not match the expected result. See the retained committed.txt."
             case .focusLost:
@@ -91,6 +94,10 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         restore() {
           if [ -f "$d/ready" ]; then
             wait_for_release input-keys-released || true
+          fi
+          if [ -n "${stage_pid:-}" ]; then
+            kill "$stage_pid" 2>/dev/null || true
+            wait "$stage_pid" 2>/dev/null || true
           fi
           if [ -n "${monitor_pid:-}" ]; then
             kill "$monitor_pid" 2>/dev/null || true
@@ -163,6 +170,21 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
           grim "$d/candidates.png"
         ) &
         candidate_pid=$!
+        # Optional diagnosis deliberately observes intermediate GUI state. It
+        # changes timing, so these runs cannot qualify the normal fast path.
+        if [ "\(ProcessInfo.processInfo.environment["RIFTVM_IME_STAGE_CAPTURE"] == "1" ? "1" : "0")" = 1 ]; then
+          (
+            for stage in first-commit deleted retyped recommitted english; do
+              for ((attempt=0; attempt<400; attempt++)); do
+                [ ! -f "$d/$stage.request" ] || break
+                sleep 0.05
+              done
+              test -f "$d/$stage.request" || exit 1
+              grim "$d/$stage.png"
+            done
+          ) &
+          stage_pid=$!
+        fi
         # Read only this disposable guest's synthetic keyboard; never grab it.
         # Kernel transitions distinguish delivery from compositor/IME behavior.
         python3 - "$d" <<'PY' > "$d/kernel-input.jsonl" 2>&1 &
@@ -214,6 +236,12 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
                 try await Task.sleep(for: .milliseconds(50))
             }
         }
+        let stageCapture = ProcessInfo.processInfo.environment["RIFTVM_IME_STAGE_CAPTURE"] == "1"
+        func captureStage(_ name: String) async throws {
+            guard stageCapture else { return }
+            try Data().write(to: directory.appending(path: "\(name).request"))
+            try await waitFor("\(name).png")
+        }
         try await waitFor("ready")
         let engine = try String(contentsOf: directory.appending(path: "engine.txt"), encoding: .utf8)
         guard engine.trimmingCharacters(in: .whitespacesAndNewlines) == inputMethod else {
@@ -227,15 +255,20 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         try await waitFor("candidates.png")
         try await client.injectKeyChord(modifiers: [], key: 57) // Commit candidate.
         try await Task.sleep(for: .milliseconds(500))
+        try await captureStage("first-commit")
         // Exercise editing after commit as well as preedit editing. Readline
         // models a UTF-8-aware application editor rather than the terminal's
         // canonical byte-erase behavior.
         try await client.injectKeyChord(modifiers: [], key: 14)
+        try await captureStage("deleted")
         try await client.typeUSASCII(xiaohe ? "hc" : "hao")
+        try await captureStage("retyped")
         try await client.injectKeyChord(modifiers: [], key: 57)
+        try await captureStage("recommitted")
         try await client.injectKeyChord(
             modifiers: [], key: 42, transitionDelay: .milliseconds(60)
         ) // Exercise a short physical-style Shift tap, below Fcitx's 250 ms timeout.
+        try await captureStage("english")
         try await client.typeUSASCII(" english-ok")
         try await client.injectKeyChord(modifiers: [], key: 28)
         try Data().write(to: directory.appending(path: "input-keys-released"))
@@ -244,13 +277,14 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let committed = try String(contentsOf: directory.appending(path: "committed.txt"), encoding: .utf8)
         guard committed == "你好 english-ok" else { throw ProbeError.unexpectedPinyinCommit }
         let report: [String: Any] = [
-            "result": "passed", "engine": inputMethod, "scheme": xiaohe ? "Xiaohe" : "Pinyin", "englishSwitchVerified": true, "committed": committed,
+            "result": stageCapture ? "diagnostic-only" : "passed", "engine": inputMethod, "scheme": xiaohe ? "Xiaohe" : "Pinyin", "englishSwitchVerified": true, "committed": committed,
             "backspaceVerified": true, "backspacePhase": "preedit-and-postcommit", "route": "guest-agent-uinput",
             "keyboardConfiguration": "Shift toggle without shift:both_capslock_cancel; original restored",
             "candidateScreenshot": directory.appending(path: "candidates.png").path,
         ]
         try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
             .write(to: diagnosticsDirectory.appending(path: xiaohe ? "xiaohe-input.json" : "pinyin-input.json"), options: .atomic)
+        if stageCapture { throw ProbeError.diagnosticCaptureCompleted }
     }
 
     static func runContinuousInputBurst(

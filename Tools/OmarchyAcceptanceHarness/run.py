@@ -21,7 +21,10 @@ def main():
     )
     parser.add_argument("--password-stdin", action="store_true")
     parser.add_argument("--trace-input", action="store_true", help="Record local key-code ordering, without text, in the temporary harness log")
+    parser.add_argument("--ime-stage-capture", action="store_true", help="Capture IME stages for diagnosis only; does not qualify timing-sensitive acceptance")
     args = parser.parse_args()
+    if args.ime_stage_capture and args.scenario != "ime":
+        parser.error("--ime-stage-capture requires --scenario ime")
     try:
         workspace = args.workspace.resolve(strict=True)
         app = args.app.resolve(strict=True)
@@ -53,6 +56,8 @@ def main():
         RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD=password,
         RIFTVM_OMARCHY_ACCEPTANCE_SCENARIO=args.scenario,
     )
+    if args.ime_stage_capture:
+        environment["RIFTVM_IME_STAGE_CAPTURE"] = "1"
     if args.trace_input:
         environment["RIFTVM_OMARCHY_TRACE_INPUT_EVENTS"] = "1"
         environment["RIFTVM_INPUT_LATENCY_TRACE"] = "1"
