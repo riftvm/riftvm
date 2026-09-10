@@ -17,6 +17,27 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(chord.key, 38)
     }
 
+    func testQueuedCommandChordReleasesEveryModifierBeforeFollowingText() throws {
+        let command = try XCTUnwrap(VMOmarchyGuestAgentClient.macCommandChordEvents(
+            keyCode: 3, modifierFlags: [.command, .control, .option, .shift]
+        ))
+        let text = try VMLinuxKeyboardTextEncoder.events(for: "p")
+        var held = Set<UInt16>()
+        var textObserved = false
+        for event in command + text where event.type == 1 {
+            if event.code == 25, event.value == 1 {
+                XCTAssertTrue(held.isEmpty, "Text must not inherit the synthesized Command modifiers")
+                textObserved = true
+            }
+            if event.value == 1 { held.insert(event.code) }
+            else if event.value == 0 { held.remove(event.code) }
+        }
+        XCTAssertTrue(textObserved)
+        XCTAssertTrue(held.isEmpty)
+        XCTAssertEqual(command.filter { $0.type == 0 }.count, 10)
+        XCTAssertNil(VMOmarchyGuestAgentClient.macCommandChordEvents(keyCode: UInt16.max, modifierFlags: [.command]))
+    }
+
     func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
         let nonce = UUID().uuidString.lowercased()
         let batches = try VMLinuxKeyboardTextEncoder.batches(

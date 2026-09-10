@@ -1846,20 +1846,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                               client.currentCapabilities.contains("input-uinput-v1") else {
                             return false
                         }
-                        Task { @MainActor in
-                            do {
-                                try await client.injectMacCommandChord(
-                                    keyCode: UInt16(keyCode),
-                                    modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-                                )
-                            } catch {
-                                NSLog(
-                                    "Omarchy Command chord Agent forwarding failed: %@",
-                                    error.localizedDescription
-                                )
-                            }
-                        }
-                        return true
+                        return client.enqueueMacCommandChord(
+                            keyCode: UInt16(keyCode),
+                            modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+                        )
                     }
                 },
                 commandSpaceCaptured: { [weak self, weak view] in

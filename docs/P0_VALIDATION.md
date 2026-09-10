@@ -5,15 +5,17 @@ results. See [Stability acceptance](STABILITY_TESTING.md) for the procedure.
 
 ## Source and environment
 
-- Host: Apple Silicon, macOS 27 beta; source `f71fcde` plus the current worktree.
+- Host: Apple Silicon, macOS 27 beta; input-dispatch changes committed as
+  `c8a3b43`, with the subsequent Command/text queue correction under validation.
 - Disposable workspace: `/tmp/riftvm-p0-acceptance.riftvm`. The personal workspace
   is excluded from acceptance.
 - Disposable Guest Agent: `p0-input-dispatch-2`, containing the asynchronous
   control dispatcher and disconnect key-release cleanup.
 - Local evidence: `/tmp/riftvm-p0-final-evidence`, especially `dispatch-fix`.
   Harness apps are temporary, signed local tools and must not be distributed.
-- Factory-image source still pins Agent `9a3a8fc`; the disposable Agent fixes
-  have not yet been delivered in a newly qualified factory image.
+- Factory-image source `e27625f` pins Agent `c8a3b43`. Candidate
+  `v4.0.3-riftvm.3` is building from verified base `v4.0.3-riftvm.2`; its final
+  image acceptance and publication are still pending.
 
 ## Verified on the current changes
 
@@ -45,7 +47,8 @@ samples with 64 repeats, and three rounds on both 60/120 Hz displays. No failure
 report was present. Evidence: `dispatch-fix/harness17-stability-diagnostics`.
 The five-sample Guest application p95 was 16.1 ms (Apple USB) and 8.9 ms
 (Guest Agent); screenshot observation still includes capture overhead.
-A new 1,800-second passive soak has been started; no result is claimed yet.
+The new 1,800-second passive soak was interrupted to validate the subsequently
+discovered Command/text ordering bug. No 30-minute result is claimed.
 
 ## Physical checks already observed
 
@@ -95,6 +98,18 @@ These older runtime results require a fresh comprehensive run after the changes.
   window was not foreground, despite AX permission being valid. The harness now
   activates its window and verifies focus before posting the chord. Retained
   failure: `dispatch-fix/harness16-stability-diagnostics`. The next run passed after explicit activation and focus verification.
+
+During keyboard-only idle recovery, Escape dismissed the screensaver. An
+immediate Command+F followed by ordinary text then exposed concurrent forwarding:
+Super was held from 00:47:11.071 to .125 while normal text reports began at .072.
+The resulting output file was empty. Both paths now synchronously enqueue into
+the same paced input queue, so a complete chord precedes following text. The
+focused protocol suite passed 45 tests. The updated native/harness suites passed
+66/73 tests, and core/CLI passed 392 (one skip)/12. The fresh `harness18` full
+stability run passed. Three immediate Command+F/text repetitions returned exact
+`p0-command-text-ok`, visible without pointer movement. Evidence is retained in
+`dispatch-fix/command-queue`; a new 1,800-second soak is running. The image Agent
+source is unaffected by this host fix.
 
 ## Remaining release gates
 

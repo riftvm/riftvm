@@ -588,19 +588,30 @@ public final class VMOmarchyGuestAgentClient {
         }
     }
 
-    /// Converts a focused macOS Command chord into a complete Linux Super
-    /// chord on the authenticated uinput keyboard. Super is pressed first to
-    /// match the user's physical Command-first gesture and all releases are
-    /// balanced by `injectKeyChord` even if the transport fails.
-    public func injectMacCommandChord(
+    /// Enqueues the complete Command chord synchronously before following view
+    /// events. Separate async chord requests can otherwise overlap normal text
+    /// while Super is held and turn that text into desktop shortcuts.
+    @discardableResult
+    public func enqueueMacCommandChord(
         keyCode: UInt16,
         modifierFlags: NSEvent.ModifierFlags
-    ) async throws {
-        guard let chord = Self.linuxCommandChord(
-            keyCode: keyCode,
-            modifierFlags: modifierFlags
-        ) else { throw CocoaError(.featureUnsupported) }
-        try await injectKeyChord(modifiers: chord.modifiers, key: chord.key)
+    ) -> Bool {
+        guard sessionID != nil, capabilities.contains("input-uinput-v1"),
+              let events = Self.macCommandChordEvents(keyCode: keyCode, modifierFlags: modifierFlags) else {
+            return false
+        }
+        sendInputEvents(events)
+        return true
+    }
+
+    nonisolated static func macCommandChordEvents(
+        keyCode: UInt16,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> [VMGuestAgentInputEvent]? {
+        guard let chord = linuxCommandChord(keyCode: keyCode, modifierFlags: modifierFlags) else { return nil }
+        let keys = chord.modifiers + [chord.key]
+        return keys.flatMap { VMGuestAgentInputBatch.key(code: $0, pressed: true).events }
+            + keys.reversed().flatMap { VMGuestAgentInputBatch.key(code: $0, pressed: false).events }
     }
 
     nonisolated static func linuxCommandChord(
