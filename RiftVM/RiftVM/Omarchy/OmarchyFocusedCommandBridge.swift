@@ -79,6 +79,10 @@ enum OmarchyKeyboardIntegrationState: Equatable {
 }
 
 enum OmarchyCommandCapturePolicy {
+    static func hasKeyboardFocus(applicationActive: Bool, windowKey: Bool, responderInsideGuest: Bool) -> Bool {
+        applicationActive && windowKey && responderInsideGuest
+    }
+
     static func ownsCommandModifier(keyCode: UInt16) -> Bool {
         keyCode == 54 || keyCode == 55
     }

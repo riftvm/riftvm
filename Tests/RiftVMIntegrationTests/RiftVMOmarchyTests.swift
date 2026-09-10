@@ -781,6 +781,27 @@ final class RiftVMOmarchyTests: XCTestCase {
         ))
     }
 
+    func testBackgroundKeyWindowDoesNotCaptureHostPasteOrScreenshot() {
+        for active in [false, true] {
+            let focused = OmarchyCommandCapturePolicy.hasKeyboardFocus(
+                applicationActive: active, windowKey: true, responderInsideGuest: true
+            )
+            for (key, flags): (CGKeyCode, CGEventFlags) in [(9, .maskCommand), (0, [.maskCommand, .maskShift])] {
+                for type: CGEventType in [.keyDown, .keyUp] {
+                    XCTAssertEqual(OmarchyCommandCapturePolicy.shouldRedirect(
+                        type: type, keyCode: key, flags: flags, focused: focused, isSynthetic: false
+                    ), active)
+                }
+            }
+        }
+        XCTAssertFalse(OmarchyCommandCapturePolicy.hasKeyboardFocus(
+            applicationActive: true, windowKey: false, responderInsideGuest: true
+        ))
+        XCTAssertFalse(OmarchyCommandCapturePolicy.hasKeyboardFocus(
+            applicationActive: true, windowKey: true, responderInsideGuest: false
+        ))
+    }
+
     func testSyntheticAndCommandModifierEventsNeverLoopThroughBridge() {
         XCTAssertFalse(OmarchyCommandCapturePolicy.shouldRedirect(
             type: .keyDown, keyCode: 49, flags: [.maskCommand], focused: true, isSynthetic: true
