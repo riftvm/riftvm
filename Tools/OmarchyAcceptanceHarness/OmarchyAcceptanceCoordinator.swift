@@ -599,6 +599,10 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     client: client, sharedDirectory: self.layout.shared,
                     diagnosticsDirectory: self.layout.diagnostics
                 )
+                try await OmarchyInputDiagnosticsAcceptanceProbe.runPinyin(
+                    client: client, sharedDirectory: self.layout.shared,
+                    diagnosticsDirectory: self.layout.diagnostics, xiaohe: true
+                )
             } catch is CancellationError { return }
             catch { self.reportAcceptanceFailure("Pinyin acceptance failed: \(error.localizedDescription)") }
         }
@@ -669,16 +673,31 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
     func startAutomaticCommandSpaceProbeIfNeeded(_ status: VMOmarchyGuestStatus?) {
         guard acceptanceEnabled, let status, status.desktopSessionActive, !status.provisioningPending,
               !automaticCommandSpaceProbeStarted else { return }
-        guard keyboardBridge?.runAcceptanceCommandSpaceProbe() == true,
-              let integrationClient else {
-            reportAcceptanceFailure(
-                "Focused Command+Space acceptance could not reach the Accessibility event tap."
-            )
-            return
-        }
+        guard let integrationClient else { return }
         automaticCommandSpaceProbeStarted = true
         Task { @MainActor [weak self, weak integrationClient] in
+            guard let self, let view = self.machineView, let window = view.window else { return }
             do {
+                // The local harness may have been launched in the background.
+                // Establish real focus before posting a system-level chord;
+                // never send it to whichever host app happens to be active.
+                NSApp.activate()
+                window.makeKeyAndOrderFront(nil)
+                window.makeFirstResponder(view)
+                let deadline = ContinuousClock.now + .seconds(3)
+                while !NSApp.isActive || !window.isKeyWindow {
+                    guard ContinuousClock.now < deadline else {
+                        self.reportAcceptanceFailure("Command+Space acceptance could not focus its test window.")
+                        return
+                    }
+                    try await Task.sleep(for: .milliseconds(50))
+                }
+                guard self.keyboardBridge?.runAcceptanceCommandSpaceProbe() == true else {
+                    self.reportAcceptanceFailure(
+                        "Focused Command+Space acceptance could not reach the Accessibility event tap."
+                    )
+                    return
+                }
                 // Command+Space intentionally opens Omarchy Menu. Keep it
                 // visible long enough for the event-tap observation to be
                 // committed, then dismiss it before the lock probe begins.
@@ -687,9 +706,9 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 try await Task.sleep(for: .seconds(1))
                 try await integrationClient?.injectKeyChord(modifiers: [], key: 1)
                 try await Task.sleep(for: .milliseconds(500))
-                self?.startAutomaticLockProbeIfNeeded()
+                self.startAutomaticLockProbeIfNeeded()
             } catch {
-                self?.reportAcceptanceFailure(
+                self.reportAcceptanceFailure(
                     "Focused Command+Space cleanup failed: \(error.localizedDescription)"
                 )
             }

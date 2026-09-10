@@ -34,6 +34,12 @@ monotonically increasing sequence, request ID, operation, payload, and
 HMAC-SHA256 proof. A receiver rejects messages from an earlier connection,
 replayed or out-of-order sequences, and any modified field.
 
+Input requests are handled independently of the ordered control-operation queue,
+so status probes, clipboard IPC, and transfers cannot hold up key releases.
+Responses are matched by request ID and may complete in a different order from
+requests. Their framing and sequence allocation remain serialized. Disconnecting
+releases keys successfully pressed by that session and discards queued controls.
+
 Protocol v1 operations are:
 
 - `heartbeat`: liveness and boot identity

@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -140,6 +141,10 @@ func serve(stream io.ReadWriter, config enrollment, input guestInput) error {
 }
 
 func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) error {
+	return serveWithStatusProvider(stream, config, input, currentStatus)
+}
+
+func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input guestInput, readStatus func(bool, bool) status) error {
 	transfers := newTransferSession()
 	defer transfers.close()
 	guestNonceBytes := make([]byte, 32)
@@ -166,31 +171,36 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 	}
 	sessionDigest := sha256.Sum256([]byte(fmt.Sprintf("session|%s|%s|%s", config.MachineID, guestNonce, welcomeValue.HostNonce)))
 	sessionID := base64.StdEncoding.EncodeToString(sessionDigest[:])
-	var receivedSequence, sentSequence uint64
-	for {
-		var request envelope
-		if err := readFrame(stream, &request); err != nil {
-			return err
+
+	// Control operations stay ordered, but compositor probes, clipboard IPC and
+	// file transfers must not delay keyboard releases on the authenticated stream.
+	// Serialize response framing and sequence allocation, not request execution.
+	var sentSequence uint64
+	var writeLock sync.Mutex
+	stopped := make(chan struct{})
+	respond := func(request envelope, payload []byte) error {
+		writeLock.Lock()
+		defer writeLock.Unlock()
+		select {
+		case <-stopped:
+			return io.ErrClosedPipe
+		default:
 		}
-		if err := verifyEnvelope(config.Token, sessionID, request, receivedSequence); err != nil {
-			return err
-		}
-		receivedSequence = request.Sequence
+		sentSequence++
+		return writeFrame(stream, makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload))
+	}
+	control := func(request envelope) error {
 		switch request.Operation {
 		case "heartbeat", "status":
-			payload, err := json.Marshal(currentStatus(input.Available(), input.AbsolutePointerAvailable()))
+			payload, err := json.Marshal(readStatus(input.Available(), input.AbsolutePointerAvailable()))
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 		case "shutdown", "restart":
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, []byte{})
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, nil); err != nil {
 				return err
 			}
 			go power(request.Operation)
@@ -199,9 +209,7 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 			go func() {
@@ -214,20 +222,7 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
-				return err
-			}
-		case "input":
-			result := handleInput(input, request.Payload)
-			payload, err := json.Marshal(result)
-			if err != nil {
-				return err
-			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 		case "ownerProvisioning":
@@ -236,9 +231,7 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 		case "clipboardSet", "clipboardGet":
@@ -247,9 +240,7 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 		case "desktopNotifications":
@@ -258,14 +249,106 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 			if err != nil {
 				return err
 			}
-			sentSequence++
-			response := makeEnvelope(config.Token, sessionID, sentSequence, request.RequestID, request.Operation, payload)
-			if err := writeFrame(stream, response); err != nil {
+			if err := respond(request, payload); err != nil {
 				return err
 			}
 		default:
 			return errors.New("unsupported operation")
 		}
+		return nil
+	}
+	commands := make(chan envelope, 16)
+	workerDone := make(chan struct{})
+	workerError := make(chan error, 1)
+	go func() {
+		defer close(workerDone)
+		for {
+			select {
+			case <-stopped:
+				return
+			case request := <-commands:
+				select {
+				case <-stopped:
+					return
+				default:
+				}
+				if err := control(request); err != nil {
+					workerError <- err
+					interruptSessionStream(stream)
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		close(stopped)
+		interruptSessionStream(stream)
+		<-workerDone
+	}()
+	pressedKeys := make(map[uint16]bool)
+	defer func() {
+		// A disconnected host cannot deliver its final key-up events. Release
+		// only keys this authenticated session successfully pressed.
+		for code := range pressedKeys {
+			if err := input.Write([]inputEvent{{Type: 1, Code: code, Value: 0}, {Type: 0}}); err != nil {
+				log.Printf("release session key: %v", err)
+			}
+		}
+	}()
+	var receivedSequence uint64
+	for {
+		var request envelope
+		if err := readFrame(stream, &request); err != nil {
+			select {
+			case workerErr := <-workerError:
+				return workerErr
+			default:
+				return err
+			}
+		}
+		if err := verifyEnvelope(config.Token, sessionID, request, receivedSequence); err != nil {
+			return err
+		}
+		receivedSequence = request.Sequence
+		if request.Operation == "input" {
+			result := handleInput(input, request.Payload)
+			if result.Success {
+				events, _ := decodeInputBatch(request.Payload)
+				for _, event := range events {
+					if event.Type != 1 {
+						continue
+					}
+					if event.Value == 0 {
+						delete(pressedKeys, event.Code)
+					} else {
+						pressedKeys[event.Code] = true
+					}
+				}
+			}
+			payload, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			if err := respond(request, payload); err != nil {
+				return err
+			}
+		} else {
+			select {
+			case commands <- request:
+			default:
+				return errors.New("too many pending control requests")
+			}
+		}
+	}
+}
+
+// Shut down I/O without closing an fd that remains owned by the accept loop.
+// net.Conn (used by tests) has an idempotent Close instead.
+func interruptSessionStream(stream io.ReadWriter) {
+	if socket, ok := stream.(interface{ Shutdown() error }); ok {
+		_ = socket.Shutdown()
+	} else if closer, ok := stream.(io.Closer); ok {
+		_ = closer.Close()
 	}
 }
 

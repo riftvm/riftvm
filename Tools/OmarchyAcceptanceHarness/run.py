@@ -20,6 +20,7 @@ def main():
         default="lifecycle",
     )
     parser.add_argument("--password-stdin", action="store_true")
+    parser.add_argument("--trace-input", action="store_true", help="Record local key-code ordering, without text, in the temporary harness log")
     args = parser.parse_args()
     try:
         workspace = args.workspace.resolve(strict=True)
@@ -52,6 +53,9 @@ def main():
         RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD=password,
         RIFTVM_OMARCHY_ACCEPTANCE_SCENARIO=args.scenario,
     )
+    if args.trace_input:
+        environment["RIFTVM_OMARCHY_TRACE_INPUT_EVENTS"] = "1"
+        environment["RIFTVM_INPUT_LATENCY_TRACE"] = "1"
     scenario_flags = {
         "input-latency": "RIFTVM_OMARCHY_INPUT_LATENCY_ACCEPTANCE",
         "continuous-input": "RIFTVM_OMARCHY_CONTINUOUS_INPUT_ACCEPTANCE",

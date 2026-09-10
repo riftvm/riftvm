@@ -1,51 +1,116 @@
-# P0 validation — September 9, 2026
+# P0 validation — September 9–10, 2026
 
-This record distinguishes implementation checks from physical acceptance. See
-[Stability acceptance](STABILITY_TESTING.md) for the reproducible harness.
+**P0 remains open.** This record separates current evidence from older baseline
+results. See [Stability acceptance](STABILITY_TESTING.md) for the procedure.
 
-## Completed
+## Source and environment
 
-- Default native regression suite: 65 tests passed; harness suite: 72 passed.
-- Swift package core: 389 tests, one skipped, zero failures; CLI: 12 passed.
-- Production app passes the executable-probe exclusion gate. The signed local
-  harness is rejected by the same gate.
-- Disposable Omarchy guest: file exchange, clipboard text/PNG, display resize,
-  Command shortcut, lock/unlock, pause/resume, Agent restart, guest restart,
-  and full-screen transitions passed.
-- Continuous production input route: 10 samples of 147 characters, 64 repeated
-  keys, and Return passed without pointer movement.
-- Two physical displays (DELL S2722QC, 60 Hz; DELL S2725QC, 120 Hz): three rounds
-  of window transfer and focus recovery passed with matching host/guest sizes.
-- Host screenshot showed the complete `p0-no-mouse` marker after keyboard input,
-  without an intentional pointer movement. This is a visibility check, not a
-  frame-accurate latency measurement.
+- Host: Apple Silicon, macOS 27 beta; source `f71fcde` plus the current worktree.
+- Disposable workspace: `/tmp/riftvm-p0-acceptance.riftvm`. The personal workspace
+  is excluded from acceptance.
+- Disposable Guest Agent: `p0-input-dispatch-2`, containing the asynchronous
+  control dispatcher and disconnect key-release cleanup.
+- Local evidence: `/tmp/riftvm-p0-final-evidence`, especially `dispatch-fix`.
+  Harness apps are temporary, signed local tools and must not be distributed.
+- Factory-image source still pins Agent `9a3a8fc`; the disposable Agent fixes
+  have not yet been delivered in a newly qualified factory image.
 
-- Passive soak: 1,801 seconds, 180 samples, maximum gap 11 seconds; desktop
-  continuously active with unchanged guest boot and Agent instance.
-- Guest Fcitx5 Pinyin: `nihaoo` → preedit Backspace → `nihao`, candidate
-  screenshot, and exact `你好` commit passed. The disposable guest required
-  installation of the Chinese addon; the factory profile initially used US only.
+## Verified on the current changes
 
-The five-sample-per-backend latency comparison reported guest application p95
-of 13.5 ms (Apple USB) and 9.6 ms (Guest Agent). Screenshot-based visible
-observation p95 was about 374/350 ms respectively and includes the probe's
-capture overhead; it must not be presented as measured host presentation time.
+- Native regression: 66 passed, zero failures or skips. Evidence:
+  `dispatch-fix/native-final14.json`.
+- Harness regression: 73 passed, zero failures or skips; the subsequent
+  focus-preparation change also completed the harness test command successfully.
+- The normal Debug app passed executable-probe exclusion. Harness builds are
+  rejected by that production gate, as required.
+- Guest Agent Go race tests and vet passed. The Linux ARM64 binary passed 62 tests
+  inside the disposable guest (`dispatch-fix/linux-tests.log`).
+- A controlled regression reproduced a two-second input-release timeout while
+  status collection was blocked. After separating input from the ordered control
+  queue, the release is acknowledged before the blocked status response.
+- Normal view-to-Agent input delivered ten mixed-case samples exactly: 1,370
+  characters without intentional pointer movement. Evidence:
+  `dispatch-fix/continuous-reader`.
+- User-installed Fcitx5 Pinyin and Xiaohe both completed preedit editing, candidate
+  selection, post-commit deletion/retyping, and Shift switching to English. Each
+  produced exact `你好 english-ok`. Kernel recordings contained 52/48 balanced
+  key events with no repeats; original keyboard options and input-method service
+  were restored. Evidence: `dispatch-fix/qualified-pinyin`, `qualified-xiaohe`,
+  and `harness16-ime-diagnostics`.
 
-## Acceptance still in progress
+The fresh comprehensive scenario passed at 00:41 on September 10. It verified
+clipboard text/PNG, file exchange, dynamic resize, captured Command down/up,
+lock/unlock, pause/resume, Agent and Guest restart, full screen, ten 147-character
+samples with 64 repeats, and three rounds on both 60/120 Hz displays. No failure
+report was present. Evidence: `dispatch-fix/harness17-stability-diagnostics`.
+The five-sample Guest application p95 was 16.1 ms (Apple USB) and 8.9 ms
+(Guest Agent); screenshot observation still includes capture overhead.
+A new 1,800-second passive soak has been started; no result is claimed yet.
 
-- Real host sleep/wake and physical display unplug/replug require separate
-  observation. Notification regression tests and moving windows between
-  connected monitors do not prove these physical scenarios.
-- Host-side Chinese IME composition has not been validated.
-- Combined post-commit deletion/retyping attempts returned `你` and `好` instead
-  of the expected `你好`. Their evidence is retained; the passing preedit-edit
-  scenario does not qualify post-commit deletion or fast IME interaction.
+## Physical checks already observed
 
-Rapid UI-automation text injection produced repeated characters during manual
-IME setup. The cause is not yet established; native harness input passed.
-Do not treat the affected manual attempt as a successful input-method test.
+- Real host sleep: September 10, 05:23:54 UTC; wake: 05:25:04; interactive Guest:
+  05:25:08. Guest boot and Agent instance IDs did not change, and the host window
+  visibly showed `wake-input-ok`. This check did **not** hold a modifier during
+  sleep and predates the latest input-dispatch changes.
+- Physical DELL S2722QC (60 Hz) unplug/replug while S2725QC (120 Hz) stayed
+  connected: host enumeration changed two → one → two displays; window migration
+  and visible `unplug-input-ok`/`replug-input-ok` succeeded with unchanged Guest
+  identities. Evidence: `displays-live.json`, `displays-unplugged.json`, and
+  `displays-replugged.json` in the follow-up evidence root.
 
-The live harness was built from commit `27bc640` plus the P0 working changes.
-Raw local evidence is retained under `/tmp/riftvm-p0-evidence`; it is not
-included in release artifacts. The disposable workspace is stopped and retained
-for the remaining physical checks.
+## Earlier baseline, not final qualification
+
+Before the current input changes, clipboard text/PNG, file exchange, resize,
+Command shortcuts, lock/unlock, pause/resume, Agent restart, Guest restart,
+full-screen transitions, and three rounds of display/focus transfer passed.
+Continuous input delivered ten 147-character samples and 64 repeat events.
+A passive soak lasted 1,801 seconds with 180 samples and an 11-second maximum
+sample gap. Core tests passed 391 with one skip; CLI tests passed 12.
+
+The earlier five-sample latency comparison measured Guest application p95 of
+13.5 ms (Apple USB) and 9.6 ms (Guest Agent). Screenshot observation p95 was about
+374/350 ms and includes capture overhead; it is **not** host presentation latency.
+These older runtime results require a fresh comprehensive run after the changes.
+
+## Failures retained and fixes under validation
+
+- AppKit delivered balanced non-repeat events while input request round trips
+  reached 153–344 ms; uinput writing took only 0.147 ms in the slowest request.
+  The blocked-status regression then established the control-queue problem.
+- Complete synthesized chords could lose characters. The host now paces each
+  SYN_REPORT boundary, including acceptance ASCII strokes. Cancellation records
+  potentially held keys before waiting so cleanup can release them.
+- Early IME attempts returned `你`, `好`, or an empty result. A Bash canonical
+  reader is not a UTF-8-aware editor, so editing checks use Readline. Failed
+  artifacts remain archived; passing preedit alone was not treated as success.
+- Omarchy's `shift:both_capslock_cancel` mapping conflicts with Fcitx's Shift
+  toggle ([upstream #7440](https://github.com/basecamp/omarchy/issues/7440)). The
+  probe models the user's optional configuration and verifies restoration.
+- IME teardown started on Return down before the monitor saw Return up. The
+  harness now waits for explicit host release markers before setup/teardown;
+  the subsequent Pinyin/Xiaohe sequence passed. Earlier failures remain in
+  `dispatch-fix/harness11-diagnostics` through `harness15-diagnostics`.
+- The first fresh comprehensive run stopped at Command+Space because the test
+  window was not foreground, despite AX permission being valid. The harness now
+  activates its window and verifies focus before posting the chord. Retained
+  failure: `dispatch-fix/harness16-stability-diagnostics`. The next run passed after explicit activation and focus verification.
+
+## Remaining release gates
+
+1. Keep the final source state aligned with the passed comprehensive scenario;
+   rerun affected gates if implementation changes.
+2. Qualify keyboard-only idle/black-screen recovery and sleep with a held modifier;
+   verify no stuck modifiers and visible input before moving the pointer.
+3. Repeat final soak/physical acceptance as needed for changes affecting those
+   paths. Older evidence must not stand in for changed behavior.
+4. Commit the qualified source, update the image's immutable Agent pin, and
+   qualify the resulting image. Local Agent replacement is not image delivery.
+5. Complete final packaging/isolation and installation checks before release.
+
+## Input-method scope
+
+Chinese input belongs inside Omarchy. Users install/configure their preferred
+engine, including Xiaohe; the factory image must not preinstall or enable a
+Chinese engine. Host WeChat IME passthrough is not planned or required for P0.
+Chinese clipboard exchange remains supported. See [user setup](OMARCHY_INPUT.md).

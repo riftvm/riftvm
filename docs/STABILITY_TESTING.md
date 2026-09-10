@@ -47,9 +47,11 @@ Scenarios:
   and three rounds of display/focus transitions across physical displays.
 - `displays`: sharing/clipboard setup followed by display and focus transitions.
 - `continuous-input` and `input-latency`: isolated input measurements.
-- `ime`: guest Fcitx5 Pinyin composition, candidate capture, commit, and backspace.
-  Requires `fcitx5-chinese-addons` in the disposable guest; temporarily configures
-  Pinyin and restores the previous profile after the probe.
+- `ime`: guest Fcitx5 Pinyin and Xiaohe double-pinyin composition, candidate
+  capture, preedit/post-commit backspace, and Shift switching to English.
+  Requires user-installed `fcitx5-chinese-addons` in the disposable guest;
+  temporarily configures each engine and restores the profile, keyboard options,
+  and input-method service after each probe.
 - `observe`: passive heartbeat collection, with no automatic lifecycle probes.
 
 The comprehensive scenario requires at least two connected displays. A missing
@@ -66,8 +68,8 @@ The input latency probe measures delivery and the guest compositor's visible
 surface. It does not by itself prove when the host display showed that surface.
 Pair it with a host screenshot or recording taken without pointer movement.
 Chinese text transferred through the clipboard is not an input-method test:
-verify composition, candidate selection, commit, and backspace using the chosen
-host or guest input method.
+verify composition, candidate selection, commit, and backspace using the guest
+input method. Host input-method passthrough is not planned.
 
 For a soak run, use `omarchy-soak-acceptance-tool` after the automated scenarios
 finish. Record the requested and observed duration; a short run does not prove
@@ -98,9 +100,13 @@ someone at the Mac. Retain timestamps and screenshots alongside the JSON reports
    captures input while unfocused nor loses keyboard input after focus returns.
 3. Disconnect and reconnect an external display. Verify the guest remains usable,
    fits the new window, and accepts input without a pointer movement.
-4. For Chinese, inspect the candidate popup, select a candidate, commit text,
-   delete a character, and switch back to English. Specify whether this uses the
-   guest IME or the Mac IME. A guest IME pass does not establish host IME support.
+4. Install a Chinese input method in the disposable guest as a user would.
+   The factory image must not preinstall or enable a Chinese input method.
+   Inspect the candidate popup, select a candidate, commit text,
+   delete a character, and switch back to English using the guest input method.
+   Include Xiaohe double pinyin and Chinese clipboard exchange.
+   Follow [the user setup guide](OMARCHY_INPUT.md) when testing Shift switching:
+   Omarchy's default two-Shift Caps Lock mapping conflicts with that shortcut.
 
 Keep these results separate from automated window transitions, simulated sleep
 notifications, clipboard transfer, and guest-only compositor screenshots.

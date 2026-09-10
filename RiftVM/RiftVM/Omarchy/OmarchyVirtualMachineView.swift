@@ -182,6 +182,15 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             OmarchyWorkspaceConfiguration.acceptanceEnabledKey
         ] == "1", let cgEvent = event.cgEvent else { return }
         let marker = cgEvent.getIntegerValueField(.eventSourceUserData)
+        if ProcessInfo.processInfo.environment["RIFTVM_OMARCHY_TRACE_INPUT_EVENTS"] == "1" {
+            // Local-only diagnostic: compare injected text's key mapping with
+            // the received physical code without logging the text itself.
+            let text = (event.type == .keyDown || event.type == .keyUp) ? event.characters : nil
+            let mappedCode = text.flatMap { OmarchyHostKeyboardTextEncoder.strokes(for: $0)?.first?.keyCode }
+            NSLog("Omarchy test event route=%@ key=%hu mapped=%d repeat=%d timestamp=%.6f",
+                  route, event.keyCode, mappedCode.map(Int.init) ?? -1,
+                  event.type == .keyDown && event.isARepeat ? 1 : 0, event.timestamp)
+        }
         guard marker == OmarchyFocusedCommandBridge.acceptanceMarker
                 || marker == OmarchyFocusedCommandBridge.syntheticMarker else { return }
         NSLog(
@@ -259,14 +268,18 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         if OmarchyCommandCapturePolicy.ownsCommandModifier(keyCode: event.keyCode) {
             return
         }
-        if let guestInputEventHandler,
-           let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
-           let pressed = VMGuestAgentKeyboard.modifierPressed(
-               forMacVirtualKey: event.keyCode,
-               flags: event.modifierFlags
-           ), pressed != guestPressedKeys.contains(code) {
-            if pressed { guestPressedKeys.insert(code) } else { guestPressedKeys.remove(code) }
-            guestInputEventHandler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+        if let guestInputEventHandler {
+            if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
+               let pressed = VMGuestAgentKeyboard.modifierPressed(
+                   forMacVirtualKey: event.keyCode,
+                   flags: event.modifierFlags
+               ), pressed != guestPressedKeys.contains(code) {
+                if pressed { guestPressedKeys.insert(code) } else { guestPressedKeys.remove(code) }
+                guestInputEventHandler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
+            }
+            // The Agent owns keyboard delivery while active. Redundant or
+            // unmapped modifier notifications must not reach the VZ keyboard
+            // independently of the corresponding Agent key transitions.
             return
         }
         super.flagsChanged(with: event)

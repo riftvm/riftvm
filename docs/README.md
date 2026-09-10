@@ -7,6 +7,7 @@ For installation, requirements, and creating your first workspace, start with th
 
 - [Updates and recovery](UPDATES_AND_RECOVERY.md): latest images, protected pre-update backups, and rollback.
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
+- [Chinese input in Omarchy](OMARCHY_INPUT.md): user-installed Pinyin or Xiaohe and Shift-toggle configuration.
 - [Homebrew distribution](HOMEBREW.md): installation and maintaining the release cask.
 - [Preinstalled-image manifest](PREINSTALLED_IMAGE_MANIFEST.md): the raw ARM64 image import contract.
 

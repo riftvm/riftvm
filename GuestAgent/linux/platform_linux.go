@@ -446,6 +446,8 @@ func closeSocket(fd int) { _ = syscall.Close(fd) }
 
 type fdStream struct{ fd int }
 
+func (stream fdStream) Shutdown() error { return syscall.Shutdown(stream.fd, syscall.SHUT_RDWR) }
+
 func (stream fdStream) Read(p []byte) (int, error) { return syscall.Read(stream.fd, p) }
 func (stream fdStream) Write(p []byte) (int, error) {
 	written := 0

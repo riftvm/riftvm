@@ -336,7 +336,18 @@ public final class VMOmarchyGuestAgentClient {
               events.count <= VMGuestAgentInputBatch.maximumEventCount,
               events.last == VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
               capabilities.contains("input-uinput-v1"), sessionID != nil else { return }
-        pendingInputBatches.append(events)
+        // A synthesized modifier chord (or repeat pulse) contains several
+        // SYN_REPORT boundaries. Preserve each boundary in the paced queue;
+        // sending the entire chord in one write can make libinput observe only
+        // its final released state and lose the character.
+        var report: [VMGuestAgentInputEvent] = []
+        for event in events {
+            report.append(event)
+            if event == VMGuestAgentInputEvent(type: 0, code: 0, value: 0) {
+                pendingInputBatches.append(report)
+                report.removeAll(keepingCapacity: true)
+            }
+        }
         guard inputTask == nil else { return }
         inputTask = Task { [weak self] in await self?.drainInputQueue() }
     }
@@ -344,7 +355,7 @@ public final class VMOmarchyGuestAgentClient {
     private func drainInputQueue() async {
         defer { inputTask = nil }
         while !Task.isCancelled, !pendingInputBatches.isEmpty {
-            // Preserve the AppKit event boundary. Hyprland/libinput can drop a
+            // Preserve the SYN_REPORT boundary. Hyprland/libinput can drop a
             // large zero-duration burst even after /dev/uinput reports a
             // successful write. The local vsock round trip is sub-millisecond,
             // so acknowledge each key transition batch before sending the next
@@ -504,21 +515,17 @@ public final class VMOmarchyGuestAgentClient {
         guard capabilities.contains("input-uinput-v1") else {
             throw CocoaError(.featureUnsupported)
         }
-        // Send complete strokes individually. Some Wayland/libinput stacks
-        // coalesce a burst containing dozens of transitions into no visible
-        // text even though uinput accepted the write successfully.
+        // Keep down/up reports distinct here too. A complete stroke written
+        // at once can disappear at the compositor even when uinput accepts it.
+        // Use the balanced chord path so interruption also releases held keys.
         for character in text {
             let events = try VMLinuxKeyboardTextEncoder.events(for: String(character))
-            let batch = VMGuestAgentInputBatch(events: events)
-            let result: VMGuestAgentInputResult = try await request(.input, payload: batch)
-            guard result.success else {
-                throw NSError(
-                    domain: "RiftVMOmarchyInput",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: result.message]
-                )
-            }
-            try await Task.sleep(for: .milliseconds(5))
+            let pressed = events.filter { $0.type == 1 && $0.value == 1 }.map(\.code)
+            guard let key = pressed.last else { continue }
+            try await injectKeyChord(
+                modifiers: Array(pressed.dropLast()), key: key,
+                transitionDelay: .milliseconds(5)
+            )
         }
     }
 
@@ -533,6 +540,9 @@ public final class VMOmarchyGuestAgentClient {
         }
         var pressedKeys: [UInt16] = []
         func send(_ code: UInt16, pressed: Bool) async throws {
+            let traceEnabled = ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
+            let started = DispatchTime.now().uptimeNanoseconds
+            if traceEnabled { NSLog("RiftVM chord send code=%d pressed=%d", code, pressed ? 1 : 0) }
             let result: VMGuestAgentInputResult = try await request(
                 .input,
                 payload: VMGuestAgentInputBatch.key(code: code, pressed: pressed)
@@ -544,6 +554,10 @@ public final class VMOmarchyGuestAgentClient {
                     userInfo: [NSLocalizedDescriptionKey: result.message]
                 )
             }
+            if traceEnabled {
+                NSLog("RiftVM chord ack code=%d pressed=%d elapsedMs=%.3f", code, pressed ? 1 : 0,
+                      Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000)
+            }
             // Hyprland/libinput can discard a complete chord delivered as one
             // zero-duration burst even though uinput accepted every event.
             // Preserve the held-key state across separately synchronized,
@@ -552,11 +566,11 @@ public final class VMOmarchyGuestAgentClient {
         }
         do {
             for modifier in modifiers {
-                try await send(modifier, pressed: true)
                 pressedKeys.append(modifier)
+                try await send(modifier, pressed: true)
             }
-            try await send(key, pressed: true)
             pressedKeys.append(key)
+            try await send(key, pressed: true)
             try await send(key, pressed: false)
             pressedKeys.removeLast()
             for modifier in modifiers.reversed() {

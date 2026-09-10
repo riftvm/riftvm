@@ -9,7 +9,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestSignedSessionRoundTripAndTampering(t *testing.T) {
@@ -155,6 +157,9 @@ func TestServePerformsAuthenticatedHandshakeAndReturnsStatus(t *testing.T) {
 	if err := <-done; err == nil {
 		t.Fatal("serve should exit when its host connection closes")
 	}
+	if len(input.events) != 4 || input.events[2] != (inputEvent{Type: 1, Code: 28, Value: 0}) {
+		t.Fatalf("disconnect left the session key held: %#v", input.events)
+	}
 }
 
 func contains(values []string, expected string) bool {
@@ -235,5 +240,78 @@ func TestEnrollmentValidationRequiresExactProtocolValues(t *testing.T) {
 				t.Fatal("invalid enrollment accepted")
 			}
 		})
+	}
+}
+
+// A slow compositor/status probe must not hold a key down until its timeout.
+func TestSlowStatusDoesNotBlockInputRelease(t *testing.T) {
+	token := bytes.Repeat([]byte{0x4a}, 32)
+	config := enrollment{SchemaVersion: 1, MachineID: "slow-status", Token: token, Port: guestAgentPort}
+	host, guest := net.Pipe()
+	entered, release := make(chan struct{}), make(chan struct{})
+	done := make(chan error, 1)
+	input := &recordingInput{available: true}
+	go func() {
+		done <- serveWithStatusProvider(guest, config, input, func(bool, bool) status {
+			close(entered)
+			<-release
+			return status{AgentVersion: "test"}
+		})
+	}()
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer func() { unblock(); host.Close(); guest.Close(); <-done }()
+	host.SetDeadline(time.Now().Add(2 * time.Second))
+	var greeting hello
+	if err := readFrame(host, &greeting); err != nil {
+		t.Fatal(err)
+	}
+	hostNonce := "test-host"
+	response := welcome{Version: protocolVersion, HostNonce: hostNonce}
+	response.Proof = sign(token, fmt.Sprintf("host|%d|%s|%s|%s", protocolVersion, config.MachineID, greeting.GuestNonce, hostNonce))
+	if err := writeFrame(host, response); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256([]byte(fmt.Sprintf("session|%s|%s|%s", config.MachineID, greeting.GuestNonce, hostNonce)))
+	sessionID := base64.StdEncoding.EncodeToString(digest[:])
+	if err := writeFrame(host, makeEnvelope(token, sessionID, 1, "slow", "status", nil)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("status probe did not start")
+	}
+	payload := inputPayload(t, inputEvent{Type: 1, Code: 30, Value: 0}, inputEvent{Type: 0})
+	if err := writeFrame(host, makeEnvelope(token, sessionID, 2, "release", "input", payload)); err != nil {
+		t.Fatalf("input blocked behind status: %v", err)
+	}
+	var ack envelope
+	if err := readFrame(host, &ack); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyEnvelope(token, sessionID, ack, 0); err != nil {
+		t.Fatal(err)
+	}
+	if ack.RequestID != "release" {
+		t.Fatalf("input was not acknowledged before status: %#v", ack)
+	}
+	var result inputResult
+	if err := json.Unmarshal(ack.Payload, &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Success {
+		t.Fatal("input release failed")
+	}
+	unblock()
+	var statusAck envelope
+	if err := readFrame(host, &statusAck); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyEnvelope(token, sessionID, statusAck, ack.Sequence); err != nil {
+		t.Fatal(err)
+	}
+	if statusAck.RequestID != "slow" {
+		t.Fatalf("lost status response: %#v", statusAck)
 	}
 }
