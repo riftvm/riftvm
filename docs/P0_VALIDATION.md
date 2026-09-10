@@ -6,7 +6,8 @@ results. See [Stability acceptance](STABILITY_TESTING.md) for the procedure.
 ## Source and environment
 
 - Host: Apple Silicon, macOS 27 beta; input-dispatch changes committed as
-  `c8a3b43`, with the subsequent Command/text queue correction under validation.
+  `c8a3b43`, Command/text queue correction `ca44ad8`, and background
+  Command-capture correction `841b0bb`.
 - Disposable workspace: `/tmp/riftvm-p0-acceptance.riftvm`. The personal workspace
   is excluded from acceptance.
 - Disposable Guest Agent: `p0-input-dispatch-2`, containing the asynchronous
@@ -14,7 +15,8 @@ results. See [Stability acceptance](STABILITY_TESTING.md) for the procedure.
 - Local evidence: `/tmp/riftvm-p0-final-evidence`, especially `dispatch-fix`.
   Harness apps are temporary, signed local tools and must not be distributed.
 - Factory-image source `e27625f` pins Agent `c8a3b43`. Candidate
-  `v4.0.3-riftvm.3` is building from verified base `v4.0.3-riftvm.2`; its final
+  `v4.0.3-riftvm.3` built successfully from verified base `v4.0.3-riftvm.2`.
+  Downloaded assets and the manifest passed SHA-256 verification; its final
   image acceptance and publication are still pending.
 
 ## Verified on the current changes
@@ -108,7 +110,9 @@ focused protocol suite passed 45 tests. The updated native/harness suites passed
 66/73 tests, and core/CLI passed 392 (one skip)/12. The fresh `harness18` full
 stability run passed. Three immediate Command+F/text repetitions returned exact
 `p0-command-text-ok`, visible without pointer movement. Evidence is retained in
-`dispatch-fix/command-queue`; a new 1,800-second soak is running. The image Agent
+`dispatch-fix/command-queue`. The subsequent 1,800-second soak exited with
+a generic state-validation error; no passing result was produced. Its log is
+`/tmp/riftvm-p0-command-queue-soak.log`. The image Agent
 source is unaffected by this host fix.
 
 ## Remaining release gates
@@ -129,3 +133,15 @@ Chinese input belongs inside Omarchy. Users install/configure their preferred
 engine, including Xiaohe; the factory image must not preinstall or enable a
 Chinese engine. Host WeChat IME passthrough is not planned or required for P0.
 Chinese clipboard exchange remains supported. See [user setup](OMARCHY_INPUT.md).
+
+## Background host shortcut regression
+
+The user observed host paste and screenshot shortcuts reaching a background VM.
+The capture focus probe checked AppKit's retained key window but omitted
+application activation. Commit `841b0bb` requires `NSApp.isActive` as well as
+the key window and Guest responder. Regression coverage includes Command+V and
+Command+Shift+A with a retained background key window. All 67 native integration
+tests passed in `Test-BackgroundFocusTests-2026.09.10_01-10-56--0700.xcresult`
+under `/tmp/riftvm-p0-final-native/Logs/Test`. The old harness was exited to
+stop intercepting host input. A live foreground/background check with the new
+binary remains required; unit tests alone do not close that gate.
