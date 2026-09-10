@@ -260,4 +260,21 @@ CUA-specific defect or resolve physical input latency. Evidence is retained in
 
 Image workflow `34463094630` completed successfully. Candidate `.5` raw-image
 reconstruction passed all supplied release checks after downloading the required
-package inventories. ASIF conversion and native acceptance remain separate gates.
+package inventories.
+
+### Refreshed image recovery validation
+
+Candidate `.5` passed ASIF byte comparison, signing, and verification against the
+application's trusted public key. A fresh disposable workspace completed owner
+initialization and reached the desktop with integration ready. The initial
+desktop showed Learn Keybindings without the former unconditional Update System
+notification; this observation does not replace a package inventory check.
+
+The native Updates > Prepare for Omarchy Update action gracefully stopped the
+Guest and created a protected Before Omarchy update recovery point. Another boot
+and clean shutdown changed the Guest disk hash. Recovery through the native menu
+restored its exact snapshot hash, then the restored Guest booted, accepted the
+original test account, and advertised an active desktop with integration ready.
+This qualifies the generic disk recovery flow; an actual package update was not
+performed. Evidence: `dispatch-fix/image5-update-preparation`, including before/
+after disk hashes and post-restore boot readiness. Input failures remain open.
