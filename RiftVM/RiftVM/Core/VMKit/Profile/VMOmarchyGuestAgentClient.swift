@@ -273,6 +273,7 @@ public final class VMOmarchyGuestAgentClient {
     private var capabilities: Set<String> = []
     private var pendingRequests: [String: PendingRequest] = [:]
     private var pendingInputBatches: [[VMGuestAgentInputEvent]] = []
+    private var inputGeneration: UInt64 = 0
     private var inputTask: Task<Void, Never>?
 
     /// Latest capabilities advertised by the authenticated Guest session.
@@ -314,9 +315,7 @@ public final class VMOmarchyGuestAgentClient {
         connection = nil
         sessionID = nil
         capabilities.removeAll()
-        inputTask?.cancel()
-        inputTask = nil
-        pendingInputBatches.removeAll()
+        resetInputQueue()
         failPendingRequests(CancellationError())
     }
 
@@ -349,12 +348,22 @@ public final class VMOmarchyGuestAgentClient {
             }
         }
         guard inputTask == nil else { return }
-        inputTask = Task { [weak self] in await self?.drainInputQueue() }
+        let inputGeneration = self.inputGeneration
+        inputTask = Task { [weak self] in await self?.drainInputQueue(generation: inputGeneration) }
     }
 
-    private func drainInputQueue() async {
-        defer { inputTask = nil }
-        while !Task.isCancelled, !pendingInputBatches.isEmpty {
+    private func resetInputQueue() {
+        inputGeneration &+= 1
+        inputTask?.cancel()
+        inputTask = nil
+        pendingInputBatches.removeAll()
+    }
+
+    private func drainInputQueue(generation: UInt64) async {
+        defer {
+            if inputGeneration == generation { inputTask = nil }
+        }
+        while !Task.isCancelled, inputGeneration == generation, !pendingInputBatches.isEmpty {
             // Preserve the SYN_REPORT boundary. Hyprland/libinput can drop a
             // large zero-duration burst even after /dev/uinput reports a
             // successful write. The local vsock round trip is sub-millisecond,
@@ -403,6 +412,7 @@ public final class VMOmarchyGuestAgentClient {
             } catch is CancellationError {
                 return
             } catch {
+                guard inputGeneration == generation else { return }
                 pendingInputBatches.removeAll()
                 NSLog("Omarchy desktop input forwarding failed: %@", error.localizedDescription)
                 return
@@ -1148,6 +1158,7 @@ public final class VMOmarchyGuestAgentClient {
 
     private func disconnected(_ reason: String, generation: UInt64) {
         guard !stopped, self.generation == generation else { return }
+        resetInputQueue()
         heartbeatTimer?.invalidate()
         heartbeatTimer = nil
         sessionID = nil
@@ -1202,6 +1213,7 @@ public final class VMOmarchyGuestAgentClient {
 
     private func suspendConnection(for reason: VMOmarchyConnectionSuspensionReason) {
         guard !stopped else { return }
+        resetInputQueue()
         suspensionGate.suspend(for: reason)
         generation &+= 1
         retryTask?.cancel()
