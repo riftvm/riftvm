@@ -68,6 +68,7 @@ ruby -rjson -rtime -e '
 ' "$work/soak-observation.json"
 
 ruby -rjson -rtime -e '
+  sleep 1.2
   value = {
     schemaVersion: 1, observedAt: Time.now.utc.iso8601,
     sourceRevision: ARGV.fetch(1), guestAgentVersion: "agent-test",
@@ -75,12 +76,18 @@ ruby -rjson -rtime -e '
     desktopSessionActive: false, provisioningPending: false
   }
   File.write(File.join(ARGV.fetch(0), "Diagnostics", "soak-heartbeat.json"), JSON.generate(value))
-' "$work" "$revision"
+' "$work" "$revision" &
+updater_pid=$!
 if RIFTVM_OMARCHY_SOAK_INTERVAL_SECONDS=1 \
-  RIFTVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=2 "$tool" \
-  "$work" "$revision" 1 "$work/rejected.json" >/dev/null 2>&1; then
+  RIFTVM_OMARCHY_SOAK_BASELINE_TIMEOUT_SECONDS=5 "$tool" \
+  "$work" "$revision" 2 "$work/rejected.json" >"$work/rejected.log" 2>&1; then
   echo 'soak monitor accepted an inactive desktop' >&2
   exit 1
 fi
+
+wait "$updater_pid"
+updater_pid=
+grep -q "Guest desktop is inactive" "$work/rejected.log"
+[[ ! -e "$work/rejected.json" ]]
 
 echo 'Verified continuous authenticated Guest soak monitoring and rejection.'

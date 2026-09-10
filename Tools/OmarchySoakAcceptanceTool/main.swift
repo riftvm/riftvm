@@ -3,11 +3,14 @@ import Foundation
 private enum SoakToolError: LocalizedError {
     case invalidArguments
     case freshHeartbeatTimedOut
+    case invalidHeartbeat(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidArguments:
             return "Expected: <workspace> <40-character source revision> <duration-seconds> <output>."
+        case .invalidHeartbeat(let reason):
+            return "Soak validation failed: \(reason)"
         case .freshHeartbeatTimedOut:
             return "The App did not publish a fresh soak heartbeat before the baseline timeout."
         }
@@ -116,20 +119,25 @@ enum OmarchySoakAcceptanceTool {
         repeat {
             let heartbeat = try decoder.decode(SoakHeartbeat.self, from: Data(contentsOf: heartbeatURL))
             let age = Date().timeIntervalSince(heartbeat.observedAt)
-            guard heartbeat.schemaVersion == 1, heartbeat.sourceRevision == revision,
-                  heartbeat.desktopSessionActive, !heartbeat.provisioningPending,
-                  !heartbeat.bootID.isEmpty, heartbeat.agentInstanceID?.isEmpty == false,
-                  age >= -5, age <= TimeInterval(maximumAge) else {
-                throw CocoaError(.fileReadCorruptFile)
+            var failures: [String] = []
+            if heartbeat.schemaVersion != 1 { failures.append("unsupported heartbeat schema") }
+            if heartbeat.sourceRevision != revision { failures.append("host source revision changed or mismatched") }
+            if !heartbeat.desktopSessionActive { failures.append("Guest desktop is inactive") }
+            if heartbeat.provisioningPending { failures.append("Guest provisioning is pending") }
+            if heartbeat.bootID.isEmpty { failures.append("Guest boot identity is missing") }
+            if heartbeat.agentInstanceID?.isEmpty != false { failures.append("Agent instance identity is missing") }
+            if age < -5 || age > TimeInterval(maximumAge) {
+                failures.append("heartbeat age is \(Int(age)) seconds (allowed -5...\(maximumAge))")
             }
-            guard heartbeat.bootID == first.bootID,
-                  heartbeat.agentInstanceID == first.agentInstanceID,
-                  heartbeat.guestAgentVersion == first.guestAgentVersion else {
-                throw CocoaError(.fileReadCorruptFile)
+            if heartbeat.bootID != first.bootID { failures.append("Guest rebooted") }
+            if heartbeat.agentInstanceID != first.agentInstanceID { failures.append("Agent restarted") }
+            if heartbeat.guestAgentVersion != first.guestAgentVersion { failures.append("Guest Agent version changed") }
+            guard failures.isEmpty else {
+                throw SoakToolError.invalidHeartbeat(failures.joined(separator: "; "))
             }
             if let previous = previousSample, heartbeat.observedAt > previous.observedAt {
                 guard heartbeat.uptimeSeconds >= previous.uptimeSeconds else {
-                    throw CocoaError(.fileReadCorruptFile)
+                    throw SoakToolError.invalidHeartbeat("Guest uptime moved backwards")
                 }
                 maximumGap = max(
                     maximumGap,
@@ -143,11 +151,11 @@ enum OmarchySoakAcceptanceTool {
 
         guard let previous = previousSample, sampleCount >= 2,
               maximumGap <= maximumAge else {
-            throw CocoaError(.fileReadCorruptFile)
+            throw SoakToolError.invalidHeartbeat("insufficient fresh samples or excessive sample gap")
         }
         let ended = Date()
         let elapsed = Int(ended.timeIntervalSince(started).rounded(.down))
-        guard elapsed >= duration else { throw CocoaError(.fileReadCorruptFile) }
+        guard elapsed >= duration else { throw SoakToolError.invalidHeartbeat("requested duration was not reached") }
         let observation = SoakObservation(
             schemaVersion: 1,
             startedAt: started,
