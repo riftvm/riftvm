@@ -22,11 +22,16 @@ fail() { printf 'build-omarchy-factory: %s\n' "$*" >&2; exit 1; }
 factory="$output_dir/Omarchy-Factory.asif"
 manifest="$output_dir/riftvm-omarchy-factory-manifest.json"
 
+public_key=${RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY:-}
+if [[ -n $public_key ]]; then
+  swift run --package-path "$project_root" -c release omarchy-factory-tool verify-signing-key \
+    "$private_key" "$public_key"
+fi
+
 "$project_root/scripts/copy-sparse-raw-to-asif.sh" "$source_disk" "$factory"
 "$project_root/scripts/sign-omarchy-factory-parts.sh" \
   "$factory" "$image_version" "$omarchy_revision" "$agent_version" "$private_key"
 
-public_key=${RIFTVM_OMARCHY_FACTORY_PUBLIC_KEY:-}
 if [[ -n $public_key ]]; then
   swift run --package-path "$project_root" -c release omarchy-factory-tool verify \
     "$manifest" "$factory" "$public_key"

@@ -23,6 +23,13 @@ fi
 printf 'test factory bytes' > "$work/factory.asif"
 "$tool" generate-key "$work/private.key" "$work/public.key"
 [[ $(stat -f '%Lp' "$work/private.key") == 600 ]]
+"$tool" verify-signing-key "$work/private.key" "$work/public.key"
+"$tool" generate-key "$work/other-private.key" "$work/other-public.key"
+if "$tool" verify-signing-key "$work/private.key" "$work/other-public.key" 2>"$work/key-error"; then
+  echo 'mismatched signing key unexpectedly passed' >&2
+  exit 1
+fi
+grep -q 'does not match the trusted public key' "$work/key-error"
 "$tool" sign \
   "$work/factory.asif" \
   https://example.test/Omarchy-Factory.asif \

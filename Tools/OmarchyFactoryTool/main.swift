@@ -7,6 +7,7 @@ enum FactoryToolError: LocalizedError {
     case usage
     case existingOutput(String)
     case invalidPrivateKey
+    case signingKeyMismatch
     case invalidImagePart(String)
     case invalidLogicalSize
     case decompressionFailed
@@ -17,6 +18,7 @@ enum FactoryToolError: LocalizedError {
             """
             usage:
               omarchy-factory-tool generate-key <private-key> <public-key>
+              omarchy-factory-tool verify-signing-key <private-key> <public-key>
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
               omarchy-factory-tool sign-parts <image.asif> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json> <part-url> <part-file> [<part-url> <part-file> ...]
               omarchy-factory-tool verify <manifest.json> <image.asif> <public-key>
@@ -25,6 +27,7 @@ enum FactoryToolError: LocalizedError {
             """
         case .existingOutput(let path): "Refusing to overwrite existing output: \(path)"
         case .invalidPrivateKey: "The signing key is not a raw Ed25519 private key."
+        case .signingKeyMismatch: "The signing key does not match the trusted public key."
         case .invalidImagePart(let reason): "The Factory image parts are invalid: \(reason)"
         case .invalidLogicalSize: "The sparse image logical size is invalid."
         case .decompressionFailed: "The compressed sparse image could not be decoded."
@@ -46,6 +49,16 @@ enum OmarchyFactoryTool {
     static func run(_ arguments: [String]) throws {
         guard let command = arguments.first else { throw FactoryToolError.usage }
         switch command {
+        case "verify-signing-key":
+            guard arguments.count == 3 else { throw FactoryToolError.usage }
+            let data = try Data(contentsOf: URL(filePath: arguments[1]))
+            guard let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: data) else {
+                throw FactoryToolError.invalidPrivateKey
+            }
+            let expected = try Data(contentsOf: URL(filePath: arguments[2]))
+            guard key.publicKey.rawRepresentation == expected else {
+                throw FactoryToolError.signingKeyMismatch
+            }
         case "generate-key":
             guard arguments.count == 3 else { throw FactoryToolError.usage }
             let privateURL = URL(filePath: arguments[1])
