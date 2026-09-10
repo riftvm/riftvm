@@ -546,7 +546,7 @@ enum VMGuestAgentKeyboard {
         guard let key = linuxKeyCode(forMacVirtualKey: keyCode) else { return nil }
         let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
         let synthesizedModifiers = chordModifiers.compactMap { flag, code in
-            activeFlags.contains(flag) && !alreadyPressed.contains(code) ? code : nil
+            activeFlags.contains(flag) && !modifierIsPressed(code, in: alreadyPressed) ? code : nil
         }
 
         var events: [VMGuestAgentInputEvent] = []
@@ -578,7 +578,7 @@ enum VMGuestAgentKeyboard {
     ) -> [VMGuestAgentInputEvent]? {
         let activeFlags = flags.intersection(.deviceIndependentFlagsMask)
         let hasMissingModifier = chordModifiers.contains { flag, code in
-            activeFlags.contains(flag) && !alreadyPressed.contains(code)
+            activeFlags.contains(flag) && !modifierIsPressed(code, in: alreadyPressed)
         }
         guard hasMissingModifier else { return nil }
         return chordEvents(
@@ -588,13 +588,28 @@ enum VMGuestAgentKeyboard {
         )
     }
 
+    private static func modifierIsPressed(_ leftCode: UInt16, in pressed: Set<UInt16>) -> Bool {
+        let rightCode: UInt16
+        switch leftCode {
+        case 29: rightCode = 97
+        case 56: rightCode = 100
+        case 42: rightCode = 54
+        case 125: rightCode = 126
+        default: return pressed.contains(leftCode)
+        }
+        return pressed.contains(leftCode) || pressed.contains(rightCode)
+    }
+
     static func effectiveModifierFlags(
         reported flags: NSEvent.ModifierFlags,
         characters: String?,
         charactersIgnoringModifiers: String?
     ) -> NSEvent.ModifierFlags {
         var effective = flags.intersection(.deviceIndependentFlagsMask)
-        guard !effective.contains(.shift), let characters, !characters.isEmpty else {
+        // Control characters, Option translations, and Caps Lock uppercase are
+        // not evidence of an omitted Shift transition.
+        guard effective.intersection([.shift, .control, .option, .command, .capsLock]).isEmpty,
+              let characters, !characters.isEmpty else {
             return effective
         }
         let ignoring = charactersIgnoringModifiers ?? characters

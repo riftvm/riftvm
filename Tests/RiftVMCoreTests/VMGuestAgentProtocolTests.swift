@@ -374,6 +374,30 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         )
     }
 
+    func testTranslatedModifierCharactersDoNotInventShift() {
+        for (flags, text, plain): (NSEvent.ModifierFlags, String, String) in [
+            (.control, "\u{3}", "c"), (.option, "å", "a"), (.capsLock, "A", "a")
+        ] {
+            XCTAssertFalse(VMGuestAgentKeyboard.effectiveModifierFlags(
+                reported: flags, characters: text, charactersIgnoringModifiers: plain
+            ).contains(.shift))
+        }
+    }
+
+    func testRightModifiersDoNotSynthesizeAnExtraLeftModifier() {
+        for (flag, code): (NSEvent.ModifierFlags, UInt16) in [
+            (.shift, 54), (.control, 97), (.option, 100), (.command, 126)
+        ] {
+            XCTAssertNil(VMGuestAgentKeyboard.chordEventsForMissingModifierTransition(
+                forMacVirtualKey: 0, modifierFlags: flag, alreadyPressed: [code]
+            ))
+            let events = VMGuestAgentKeyboard.chordEvents(
+                forMacVirtualKey: 0, modifierFlags: flag, alreadyPressed: [code]
+            )!
+            XCTAssertEqual(events.filter { $0.type == 1 }.count, 2)
+        }
+    }
+
     func testAccessibilityTextInfersMissingShiftForUppercaseAndSymbols() {
         XCTAssertTrue(VMGuestAgentKeyboard.effectiveModifierFlags(
             reported: [], characters: "!", charactersIgnoringModifiers: "1"
