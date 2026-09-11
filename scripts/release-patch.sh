@@ -89,6 +89,9 @@ echo "Running RiftVM $version release checks…"
 # The Linux image catalog ships in the app and is served from riftvm.com; a
 # mismatch silently breaks the create-machine list, so check it before building.
 "$project_root/scripts/test-linux-catalog.sh"
+# Enforce the release-note convention before the expensive build. This fails
+# until docs/RELEASES.md has a section for $version; see the convention there.
+"$project_root/scripts/verify-release-notes.sh" "$version"
 (cd "$project_root" && swift test)
 (cd "$project_root/GuestAgent/linux" && go test ./...)
 (cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/rift-agent-release-check" .)

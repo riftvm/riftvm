@@ -5,6 +5,7 @@ For installation, requirements, and creating your first workspace, start with th
 
 ## Using and distributing RiftVM
 
+- [Release notes](RELEASES.md): what each release contains, and how to write new notes.
 - [Updates and recovery](UPDATES_AND_RECOVERY.md): latest images, protected pre-update backups, and rollback.
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
 - [Chinese input in Omarchy](OMARCHY_INPUT.md): user-installed Pinyin or Xiaohe and Shift-toggle configuration.
