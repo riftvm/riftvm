@@ -11,7 +11,19 @@ keeps new notes consistent.
 - **This file** keeps the same note, versioned with the source, so the reason
   for a release stays reviewable after the tag.
 
-`scripts/verify-release-notes.sh` fails when a release tag has no section here.
+`scripts/release-notes.sh` keeps the two in step:
+
+- `prepare <version>` adds a draft section when a release has none. The release
+  scripts call it, so a missing note never blocks a release; a section that
+  already exists is never touched.
+- `extract <version>` prints the note as the GitHub release body, with links made
+  absolute. `publish-release.sh` calls it, so the published body comes from this
+  file instead of `--generate-notes`.
+- `check` reports releases without a section for manual use.
+
+A draft lists the commits between the previous release and this one as a
+starting point. Replace it with a real note before publishing; a draft that is
+still in place ships as-is, which is better than an empty note but not good.
 
 ## How to write a release note
 

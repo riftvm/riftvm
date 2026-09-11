@@ -79,7 +79,10 @@ next_build="$configured_builds"
 if [[ "$current_version" == "${latest_tag#riftvm-v}" ]]; then
   next_build="$((configured_builds + 1))"
   ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
-  git -C "$project_root" add -- RiftVM/RiftVM.xcodeproj/project.pbxproj
+  # Notes are never a gate: add a draft section now so it lands in the version
+  # commit, and let the author replace it before publishing.
+  "$project_root/scripts/release-notes.sh" prepare "$version"
+  git -C "$project_root" add -- RiftVM/RiftVM.xcodeproj/project.pbxproj docs/RELEASES.md
   git -C "$project_root" commit -m "Prepare RiftVM $version (build $next_build)"
 elif [[ "$current_version" != "$version" ]]; then
   fail "project version is $current_version, expected ${latest_tag#riftvm-v} or $version"
@@ -89,9 +92,9 @@ echo "Running RiftVM $version release checks…"
 # The Linux image catalog ships in the app and is served from riftvm.com; a
 # mismatch silently breaks the create-machine list, so check it before building.
 "$project_root/scripts/test-linux-catalog.sh"
-# Enforce the release-note convention before the expensive build. This fails
-# until docs/RELEASES.md has a section for $version; see the convention there.
-"$project_root/scripts/verify-release-notes.sh" "$version"
+# Make sure the version commit above has a note section, including when this
+# release resumes from an existing tag. Notes never block the release.
+"$project_root/scripts/release-notes.sh" prepare "$version"
 (cd "$project_root" && swift test)
 (cd "$project_root/GuestAgent/linux" && go test ./...)
 (cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/rift-agent-release-check" .)

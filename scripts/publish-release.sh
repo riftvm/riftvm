@@ -194,6 +194,23 @@ else
     --title "RiftVM $version"
 fi
 
+# Replace the generated changelog with the note tracked in docs/RELEASES.md.
+# Releasing is never blocked by notes, so a missing section only means this step
+# is skipped. Other repositories may not carry the file at all.
+if [[ "$release_repo" == "riftvm/riftvm" && -f "$project_root/docs/RELEASES.md" ]]; then
+  notes_file="$release_dir/release-notes.md"
+  if "$project_root/scripts/release-notes.sh" extract "$version" >"$notes_file" 2>"$release_dir/release-notes-error"; then
+    if gh release edit "$tag" --repo "$release_repo" --notes-file "$notes_file"; then
+      echo "Published release notes for $tag from docs/RELEASES.md."
+    else
+      echo "Could not set release notes for $tag; leaving the generated notes in place." >&2
+    fi
+  else
+    cat "$release_dir/release-notes-error" >&2
+    echo "No release note section for $version; leaving the generated notes in place." >&2
+  fi
+fi
+
 git clone "$tap_repo" "$tap_dir/repository"
 ruby "$project_root/scripts/update-cask.rb" \
   "$version" \
