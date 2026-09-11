@@ -80,6 +80,9 @@ fi
 configured_version="$(sed -n 's/.*MARKETING_VERSION = \([^;]*\);/\1/p' "$project_file" | sort -u)"
 [[ "$configured_version" == "$version" ]] || fail "project version is $configured_version, expected $version"
 
+# The Linux image catalog ships in the app and is served from riftvm.com; a
+# mismatch silently breaks the create-machine list, so check it before building.
+"$project_root/scripts/test-linux-catalog.sh"
 (cd "$project_root" && swift test)
 (cd "$project_root/GuestAgent/linux" && go test ./...)
 (cd "$project_root/GuestAgent/linux" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -o "${TMPDIR:-/tmp}/rift-agent-release-check" .)

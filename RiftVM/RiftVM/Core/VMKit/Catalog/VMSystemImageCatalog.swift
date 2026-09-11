@@ -205,7 +205,7 @@ final class VMLinuxImageCatalogService {
     private(set) var lastUpdated: Date?
     private(set) var errorMessage: String?
 
-    private static let endpoint = URL(string: "https://everettjf.github.io/riftvm/catalog/linux.json")!
+    private static let endpoint = URL(string: "https://riftvm.com/catalog/linux.json")!
     private static let allowedDownloadHosts: Set<String> = [
         "cdimage.ubuntu.com", "cdimage.debian.org", "download.fedoraproject.org"
     ]
@@ -284,6 +284,12 @@ struct VMSystemImageCatalog {
     // Apple-hosted catalog entries are shown.
     static let macOSItems: [VMSystemImageCatalogItem] = []
 
+    /*
+     Offline fallback for the published catalog at https://riftvm.com/catalog/linux.json,
+     whose source of truth is docs/catalog/linux.json. Keep every entry's id, name,
+     url, version, fileSize, and sha256 byte-identical to that JSON; the
+     scripts/test-linux-catalog.sh contract test fails otherwise.
+     */
     static let linuxItems: [VMSystemImageCatalogItem] = [
         VMSystemImageCatalogItem(
             id: "ubuntu-24.04-server",
@@ -291,6 +297,7 @@ struct VMSystemImageCatalog {
             name: "Ubuntu Server 24.04 LTS",
             detail: "arm64, live server installer",
             urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-live-server-arm64.iso",
+            version: "24.04.4",
             fileSize: 3_059_724_288,
             sha256: "9a6ce6d7e66c8abed24d24944570a495caca80b3b0007df02818e13829f27f32"
         ),
@@ -298,24 +305,31 @@ struct VMSystemImageCatalog {
             id: "ubuntu-24.04-desktop",
             osType: .linux,
             name: "Ubuntu Desktop 24.04 LTS",
-            detail: "arm64, desktop installer",
+            detail: "arm64, graphical desktop installer",
             urlString: "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.4-desktop-arm64.iso",
+            version: "24.04.4",
             fileSize: 3_540_299_776,
             sha256: "c2610520bf582976839a1724c669e1cfed0547427be5a0ad12d457b92b46ffbe"
         ),
         VMSystemImageCatalogItem(
             id: "debian-13-netinst",
             osType: .linux,
-            name: "Debian 13 (trixie)",
+            name: "Debian 13",
             detail: "arm64, network installer",
-            urlString: "https://cdimage.debian.org/debian-cd/current/arm64/iso-cd/debian-13.1.0-arm64-netinst.iso"
+            urlString: "https://cdimage.debian.org/debian-cd/13.6.0/arm64/iso-cd/debian-13.6.0-arm64-netinst.iso",
+            version: "13.6.0",
+            fileSize: 735_358_976,
+            sha256: "ffa590beb3ae9158c354e00ebc4bf45421f4720bb3a8ddf2db3cbfc0374cf480"
         ),
         VMSystemImageCatalogItem(
-            id: "fedora-42-server",
+            id: "fedora-44-server",
             osType: .linux,
-            name: "Fedora Server 42",
-            detail: "aarch64, DVD installer",
-            urlString: "https://download.fedoraproject.org/pub/fedora/linux/releases/42/Server/aarch64/iso/Fedora-Server-dvd-aarch64-42-1.1.iso"
+            name: "Fedora Server 44",
+            detail: "aarch64, server DVD installer",
+            urlString: "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Server/aarch64/iso/Fedora-Server-dvd-aarch64-44-1.7.iso",
+            version: "44",
+            fileSize: 3_662_544_896,
+            sha256: "ba8372682294d0d76f79427cae1273d36891b192ac9bf0f0f9de4e97a7cbe218"
         ),
     ]
 
