@@ -16,6 +16,7 @@ struct VMOSMainVirtualMachineView: View {
     let rootPath: URL
     let recoveryMode: Bool
     @State private var runtimeState = VMRuntimeState()
+    @State private var liveMachine: VMLiveMachine?
     @State private var isShowingCloseConfirmation = false
     @State private var settingsModel: VMModel?
     @State private var isShowingSharedFolderResult = false
@@ -425,6 +426,7 @@ struct VMOSMainVirtualMachineView: View {
             isShowingSharedFolderResult = true
         }
         .onChange(of: runtimeState.phase) { _, phase in
+            syncLiveMachine()
             guard phase.shouldDismissMachineWindow else { return }
             dismissWindow(
                 id: recoveryMode ? "start-machine-recovery" : "start-machine",
@@ -439,7 +441,61 @@ struct VMOSMainVirtualMachineView: View {
             if runtimeState.phase.shouldDismissMachineWindow {
                 runtimeState = VMRuntimeState()
             }
+            registerLiveMachine()
         }
+        .onDisappear { unregisterLiveMachine() }
+    }
+
+    // MARK: - App-level status
+
+    /// Publishes this machine to the menu bar item and the quit path, so both
+    /// can see the guest and ask it to stop.
+    private func registerLiveMachine() {
+        let machine = VMLiveMachine(
+            rootPath: rootPath,
+            name: workspaceName,
+            status: runtimeState.phase.title
+        )
+        machine.pauseAction = { runtimeState.pause() }
+        machine.resumeAction = { runtimeState.resume() }
+        machine.stopAction = {
+            if runtimeState.canRequestStop { runtimeState.requestStop() }
+            else if runtimeState.canForceStop { runtimeState.forceStop() }
+        }
+        // macOS guests can persist their state, so quitting can save instead of
+        // only shutting the guest down.
+        machine.saveAndStopAction = { runtimeState.saveAndStop() }
+        machine.forceStopAction = { runtimeState.forceStop() }
+        liveMachine = machine
+        VMLiveMachineCenter.shared.register(machine)
+        syncLiveMachine()
+    }
+
+    private func unregisterLiveMachine() {
+        guard let liveMachine else { return }
+        VMLiveMachineCenter.shared.unregister(liveMachine)
+        self.liveMachine = nil
+    }
+
+    private func syncLiveMachine() {
+        guard let liveMachine else { return }
+        liveMachine.status = runtimeState.phase.title
+        liveMachine.canPause = runtimeState.canPause
+        liveMachine.canResume = runtimeState.canResume
+        liveMachine.canStop = runtimeState.canRequestStop || runtimeState.canForceStop
+        liveMachine.canSaveAndStop = runtimeState.canSave
+        if runtimeState.phase == .stopped {
+            liveMachine.hasStopped = true
+            unregisterLiveMachine()
+        }
+    }
+
+    private var workspaceName: String {
+        let target = rootPath.standardizedFileURL
+        let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
+            $0.bundleURL.standardizedFileURL == target
+        }
+        return record?.name ?? rootPath.deletingPathExtension().lastPathComponent
     }
 
     private func memoryDescription(_ bytes: UInt64) -> String {

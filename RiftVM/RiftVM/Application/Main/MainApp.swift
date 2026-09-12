@@ -30,6 +30,15 @@ struct MainApp: App {
             CommunityCommands()
         }
 
+        // Persistent status for the running machines, and the way back to the
+        // app once every workspace window is closed.
+        MenuBarExtra {
+            VMWorkspaceMenu()
+        } label: {
+            VMWorkspaceMenuLabel()
+        }
+        .menuBarExtraStyle(.menu)
+
         WindowGroup("Workspace", id: "workspace", for: UUID.self) { $workspaceID in
             if let workspaceID {
                 WorkspaceWindowView(workspaceID: workspaceID)
@@ -108,6 +117,74 @@ struct MainApp: App {
 }
 
 #if arch(arm64)
+/// Menu bar icon: filled while a workspace machine is alive.
+private struct VMWorkspaceMenuLabel: View {
+    @State private var center = VMLiveMachineCenter.shared
+
+    var body: some View {
+        Image(systemName: center.machines.isEmpty ? "rectangle.stack" : "rectangle.stack.fill")
+            .accessibilityLabel(center.machines.isEmpty
+                ? "RiftVM: no workspace running"
+                : "RiftVM: \(center.machines.count) workspace running")
+    }
+}
+
+/// Menu bar menu: what is running, what can be done to it, and Quit, which
+/// drains the machines before the process exits.
+private struct VMWorkspaceMenu: View {
+    @State private var center = VMLiveMachineCenter.shared
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        if center.machines.isEmpty {
+            Text("No workspace is running")
+        } else {
+            ForEach(center.machines) { machine in
+                Menu("\(machine.name) · \(machine.status)") {
+                    Button("Show Window") { show(machine) }
+                    Divider()
+                    Button("Pause") { machine.pauseAction() }
+                        .disabled(!machine.canPause)
+                    Button("Resume") { machine.resumeAction() }
+                        .disabled(!machine.canResume)
+                    if machine.canSaveAndStop {
+                        Button("Save State and Stop") { machine.saveAndStopAction() }
+                    }
+                    Button("Stop") { machine.stopAction() }
+                        .disabled(!machine.canStop)
+                }
+            }
+        }
+
+        Divider()
+
+        Button("Open Control Center") {
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: "control-center")
+        }
+        Menu("New Workspace") {
+            Button("Omarchy", systemImage: "sparkles.rectangle.stack") {
+                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy)
+            }
+            Button("macOS", systemImage: "macwindow") {
+                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.macOS)
+            }
+        }
+
+        Divider()
+
+        Button("Quit RiftVM") { NSApp.terminate(nil) }
+    }
+
+    private func show(_ machine: VMLiveMachine) {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first(where: {
+            $0.bundleURL.standardizedFileURL == machine.rootPath
+        }) else { return }
+        openWindow(id: "workspace", value: record.id)
+    }
+}
+
 private struct CommunityCommands: Commands {
     @Environment(\.openURL) private var openURL
 

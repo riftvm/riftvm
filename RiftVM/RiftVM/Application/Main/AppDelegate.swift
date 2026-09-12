@@ -37,8 +37,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             alert.runModal()
             return .terminateCancel
         }
-#endif
+        // Quitting must not kill a guest. Ask every live machine to save or shut
+        // down first and reply once they are down, or after the bounded
+        // force-stop fallback, so Quit cannot hang on a wedged guest.
+        return VMLiveMachineCenter.shared.requestTermination()
+#else
         return .terminateNow
+#endif
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

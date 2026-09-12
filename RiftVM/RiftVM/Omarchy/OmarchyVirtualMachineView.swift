@@ -475,6 +475,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var ownerProvisioningSubmission: OmarchyOwnerProvisioningSubmission?
     @State private var automaticOwnerProvisioningStarted = false
     @State private var ownerProvisioningDetail: String?
+    @State private var liveMachine: VMLiveMachine?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -522,7 +523,10 @@ struct OmarchyVirtualMachineView: View {
             OmarchyReleaseReadinessReporter.reportWhenReady(
                 workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
             )
+            registerLiveMachine()
         }
+        .onDisappear { unregisterLiveMachine() }
+        .onChange(of: lifecycle.phase) { _, _ in syncLiveMachine() }
         .dropDestination(for: URL.self) { urls, _ in
             importFiles(urls)
             return !urls.isEmpty
@@ -1292,6 +1296,51 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
+    // MARK: - App-level status
+
+    /// Publishes this workspace to the menu bar item and the quit path. The
+    /// entry lives only while the window does: closing the window already stops
+    /// the guest through the view-teardown path.
+    private func registerLiveMachine() {
+        let machine = VMLiveMachine(rootPath: layout.applicationSupportRoot, name: workspaceName)
+        machine.pauseAction = { handle(.pauseRequested) }
+        machine.resumeAction = { handle(.resumeRequested) }
+        machine.stopAction = { handle(.stopRequested) }
+        machine.forceStopAction = { handle(.stopTimedOut) }
+        liveMachine = machine
+        VMLiveMachineCenter.shared.register(machine)
+        syncLiveMachine()
+    }
+
+    private func unregisterLiveMachine() {
+        guard let liveMachine else { return }
+        VMLiveMachineCenter.shared.unregister(liveMachine)
+        self.liveMachine = nil
+    }
+
+    private func syncLiveMachine() {
+        guard let liveMachine else { return }
+        liveMachine.status = phase.liveStatusTitle
+        liveMachine.canPause = phase == .running
+        liveMachine.canResume = phase == .paused
+        liveMachine.canStop = phase == .running || phase == .paused
+        // Linux guests cannot save machine state, so quitting shuts them down
+        // instead of saving and stopping.
+        liveMachine.canSaveAndStop = false
+        if phase.hasStopped {
+            liveMachine.hasStopped = true
+            unregisterLiveMachine()
+        }
+    }
+
+    private var workspaceName: String {
+        let root = layout.applicationSupportRoot.standardizedFileURL
+        let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
+            $0.bundleURL.standardizedFileURL == root
+        }
+        return record?.name ?? "Omarchy"
+    }
+
     enum Phase: Equatable {
         case starting
         case running
@@ -1339,6 +1388,30 @@ struct OmarchyVirtualMachineView: View {
         let id = UUID()
         let title: String
         let message: String
+    }
+}
+
+extension OmarchyVirtualMachineView.Phase {
+    /// Status line the menu bar item shows for this workspace.
+    var liveStatusTitle: String {
+        switch self {
+        case .starting: "Starting"
+        case .running: "Running"
+        case .pausing: "Pausing"
+        case .paused: "Paused"
+        case .resuming: "Resuming"
+        case .stopping: "Stopping"
+        case .stopped: "Stopped"
+        case .failed: "Error"
+        }
+    }
+
+    /// The guest is no longer running, so the live-machine entry can retire.
+    var hasStopped: Bool {
+        switch self {
+        case .stopped, .failed: true
+        default: false
+        }
     }
 }
 
