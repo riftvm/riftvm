@@ -362,6 +362,9 @@ struct WorkspaceWindowView: View {
                 ProgressView("Opening workspace…")
             }
         }
+        // Title the window after the workspace itself, so the title bar says
+        // which world this is instead of the generic scene name.
+        .navigationTitle(workspace?.name ?? "Workspace")
         .task { load() }
     }
 
