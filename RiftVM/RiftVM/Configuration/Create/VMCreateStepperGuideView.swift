@@ -224,8 +224,13 @@ struct WorkspaceCreationView: View {
 
     private var progress: some View {
         VStack(spacing: 18) {
-            RiftCreationEffect(isReady: session.phase == .ready, isActive: session.phase == .creating, isOmarchy: session.isOmarchy)
-                .frame(height: 190)
+            RiftCreationEffect(
+                isReady: session.phase == .ready,
+                isActive: session.phase == .creating,
+                isOmarchy: session.isOmarchy,
+                progress: session.form.installingProgress
+            )
+            .frame(height: 190)
             Text(session.phase == .ready ? "\(session.config.name) is ready." : session.phase == .failed ? "Let’s get this back on track." : "Preparing \(session.config.name)")
                 .font(.largeTitle.weight(.semibold)).multilineTextAlignment(.center)
             Text(session.phase == .ready ? "Your other world starts here." : session.phase == .failed ? "Your choices are saved. Review the details below." : "You can keep using RiftVM while this finishes.")
@@ -393,37 +398,188 @@ struct RiftCreationButtonStyle: ButtonStyle {
     }
 }
 
+/// A rift of light that tears open while a workspace is being prepared.
+///
+/// `progress` is the real creation progress (0...1) rather than a decorative
+/// loop, so the seam doubles as a progress indicator: the two lit lips and the
+/// light spilling between them widen as the download and install advance, then
+/// the open seam reveals the workspace icon once creation finishes.
 struct RiftCreationEffect: View {
     let isReady: Bool
     let isActive: Bool
     let isOmarchy: Bool
+    var progress: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+
+    /// Geometry of the seam. The width only has to be wider than the open lens;
+    /// the travelling highlights use the height to walk along the lips.
+    private static let seamHeight: Double = 150
+    private static let seamWidth: Double = 360
+
+    private var isAnimating: Bool { isActive && !reduceMotion && scenePhase == .active }
+
+    /// Eased so the first bytes of a long download already move the seam.
+    private var openness: Double { pow(min(max(progress, 0), 1), 0.65) }
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || !isActive || scenePhase != .active)) { context in
-            let breath = reduceMotion || !isActive ? 0.5 : (sin(context.date.timeIntervalSinceReferenceDate * 1.7) + 1) / 2
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isAnimating)) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            let breath = isAnimating ? (sin(time * 1.7) + 1) / 2 : 0.5
+            let waist = seamWaist(breath: breath)
+            let energy = isReady ? 0.5 : 0.2 + openness * 0.7
             ZStack {
-                ForEach(0..<2) { index in
-                    let color: Color = index == 0 ? .red : .blue
-                    Capsule().fill(color.opacity(0.22))
-                        .frame(width: 32, height: 142).blur(radius: 22)
-                        .offset(x: index == 0 ? -15 : 15)
-                    Capsule().fill(color.gradient)
-                        .frame(width: 3, height: 132)
-                        .shadow(color: color.opacity(0.6), radius: 12)
-                        .rotationEffect(.degrees(24))
-                        .offset(x: (index == 0 ? -1 : 1) * (isReady ? 74 : 6))
-                        .scaleEffect(y: 0.85 + breath * 0.15)
-                        .opacity(isReady ? 0.3 : 0.65 + breath * 0.35)
-                }
+                rift(waist: waist, energy: energy, time: time)
                 if isReady {
                     WorkspaceSystemIcon(isOmarchy: isOmarchy, size: 112)
-                        .transition(reduceMotion ? .opacity : .scale(scale: 0.8).combined(with: .opacity))
+                        .transition(reduceMotion ? .opacity : .scale(scale: 0.82).combined(with: .opacity))
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.6), value: isReady)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.45), value: progress)
         .accessibilityHidden(true)
+    }
+
+    /// Half the width of the seam at its waist.
+    private func seamWaist(breath: Double) -> Double {
+        isReady ? 78 : 5 + openness * 38 + breath * 1.8
+    }
+
+    private func rift(waist: Double, energy: Double, time: Double) -> some View {
+        ZStack {
+            riftGlow(waist: waist, energy: energy)
+            riftLight(waist: waist, energy: energy)
+            riftLip(direction: -1, waist: waist, color: .red, energy: energy, time: time, travelsDown: true)
+            riftLip(direction: 1, waist: waist, color: .blue, energy: energy, time: time, travelsDown: false)
+            riftSparks(waist: waist, energy: energy, time: time)
+        }
+        .rotationEffect(.degrees(-4))
+        .opacity(isActive || isReady ? 1 : 0.45)
+    }
+
+    /// Light the rift casts into this world.
+    private func riftGlow(waist: Double, energy: Double) -> some View {
+        RiftLens(waist: waist * 1.7)
+            .fill(LinearGradient(stops: [
+                .init(color: Color.red.opacity(0.9), location: 0),
+                .init(color: Color.red.opacity(0.1), location: 0.45),
+                .init(color: Color.blue.opacity(0.1), location: 0.55),
+                .init(color: Color.blue.opacity(0.9), location: 1)
+            ], startPoint: .leading, endPoint: .trailing))
+            .frame(width: max(waist * 3.4, 4), height: Self.seamHeight * 1.16)
+            .blur(radius: 26)
+            .opacity(0.3 + energy * 0.55)
+    }
+
+    /// The light of the other side escaping through the open seam. The gradient
+    /// is laid out across the lens itself, so each lip keeps its own colour and
+    /// the middle stays a soft blend rather than a white bar.
+    private func riftLight(waist: Double, energy: Double) -> some View {
+        ZStack {
+            RiftLens(waist: waist)
+                .fill(LinearGradient(stops: [
+                    .init(color: Color.red.opacity(0.95), location: 0),
+                    .init(color: Color.red.opacity(0.5), location: 0.22),
+                    .init(color: Color.white.opacity(0.3), location: 0.5),
+                    .init(color: Color.blue.opacity(0.5), location: 0.78),
+                    .init(color: Color.blue.opacity(0.95), location: 1)
+                ], startPoint: .leading, endPoint: .trailing))
+                .frame(width: max(waist * 2, 2), height: Self.seamHeight)
+                .blur(radius: 6 + waist * 0.12)
+                .opacity(0.35 + energy * 0.5)
+            RiftLens(waist: max(waist * 0.5, 1))
+                .fill(Color.white.opacity(0.9))
+                .frame(width: max(waist, 2), height: Self.seamHeight * 0.92)
+                .blur(radius: 3)
+                .opacity(0.12 + energy * 0.3)
+        }
+    }
+
+    /// One lit lip of the seam, with energy running along it.
+    private func riftLip(
+        direction: Double,
+        waist: Double,
+        color: Color,
+        energy: Double,
+        time: Double,
+        travelsDown: Bool
+    ) -> some View {
+        let phase = (time * 0.4).truncatingRemainder(dividingBy: 1)
+        let travel = travelsDown ? phase : 1 - phase
+        return ZStack {
+            RiftLip(direction: direction, waist: waist)
+                .stroke(
+                    LinearGradient(
+                        colors: [color.opacity(0.35), color, color.opacity(0.35)],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    style: StrokeStyle(lineWidth: 2.6, lineCap: .round)
+                )
+                .frame(width: Self.seamWidth, height: Self.seamHeight)
+                .shadow(color: color.opacity(0.9), radius: 10)
+            Circle().fill(Color.white.opacity(0.95))
+                .frame(width: 3.4, height: 3.4)
+                .blur(radius: 1.6)
+                .shadow(color: color, radius: 8)
+                .offset(
+                    x: direction * 4 * waist * travel * (1 - travel),
+                    y: Self.seamHeight / 2 * (2 * travel - 1)
+                )
+                .opacity(isAnimating ? 0.3 + energy * 0.6 : 0)
+        }
+        .opacity(isReady ? 0.45 : 1)
+    }
+
+    /// Motes drifting out of the seam.
+    private func riftSparks(waist: Double, energy: Double, time: Double) -> some View {
+        ZStack {
+            ForEach(0..<7, id: \.self) { index in
+                let seed = Double(index)
+                let life = (time * 0.35 + seed / 7).truncatingRemainder(dividingBy: 1)
+                let side: Double = index.isMultiple(of: 2) ? -1 : 1
+                Circle()
+                    .fill(side < 0 ? Color.red : Color.blue)
+                    .frame(width: 2.6, height: 2.6)
+                    .blur(radius: 0.8)
+                    .offset(
+                        x: side * (waist + 3 + life * 22),
+                        y: sin((seed + 1) * 2.4) * 58 + (life - 0.5) * 26
+                    )
+                    .opacity(isAnimating ? (1 - life) * (0.12 + energy * 0.45) : 0)
+            }
+        }
+    }
+}
+
+/// One lip of the seam: a shallow bow, widest at the waist.
+private struct RiftLip: Shape {
+    var direction: Double
+    var waist: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.midX, y: rect.maxY),
+            control: CGPoint(x: rect.midX + direction * waist * 2, y: rect.midY)
+        )
+        return path
+    }
+}
+
+/// The lens of light held between the two lips.
+private struct RiftLens: Shape {
+    var waist: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = RiftLip(direction: -1, waist: waist).path(in: rect)
+        path.addQuadCurve(
+            to: CGPoint(x: rect.midX, y: rect.minY),
+            control: CGPoint(x: rect.midX + waist * 2, y: rect.midY)
+        )
+        path.closeSubpath()
+        return path
     }
 }
 #endif
