@@ -92,6 +92,46 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.15
+
+RiftVM 0.1.15 shows how far creation has actually come, and names each workspace
+window after the workspace.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Preparing a workspace now opens a rift: two lit lips widen with the real
+  download and install progress, light spills between them, and the workspace
+  icon appears in the open seam when creation finishes. The previous effect
+  repeated the same tilted bars in every phase, so it read as decoration next to
+  a progress bar that was doing the work.
+- A workspace window is titled with the workspace name instead of "Workspace",
+  so several open workspaces can be told apart from the title bar and the Window
+  menu. A rename in the control center reaches the title the next time that
+  workspace opens.
+
+### Validation
+
+Both jobs of the RiftVM GitHub Actions workflow pass on the macOS 27 Xcode 27
+runner image: the macOS job runs the core and CLI tests, the VirGL runtime tests
+(26 tests), the project synchronizer, the Debug app build, the integration-test
+build-for-testing, and the factory, Overlay, and release-gate scripts; the
+guest-agent job runs the Go tests and the ARM64 cross-compile.
+
+Release signing, notarization, staple, Gatekeeper assessment, the production
+entitlement allowlist, the visible-window check, a real import and boot of a
+locally built AArch64 Omarchy preinstalled image, and the published Homebrew cask
+were verified by the release pipeline.
+
+This release does not change guest input, graphics, or recovery behavior.
+
+### Known issues
+
+- An intermittent guest input defect remains open: shortly after pausing and
+  resuming, typed characters can repeat or a line can be lost. See
+  [P0 validation](P0_VALIDATION.md).
+
 ## 0.1.14
 
 RiftVM 0.1.14 fixes the Linux image list in the create-machine flow.
