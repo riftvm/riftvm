@@ -277,4 +277,18 @@ restored its exact snapshot hash, then the restored Guest booted, accepted the
 original test account, and advertised an active desktop with integration ready.
 This qualifies the generic disk recovery flow; an actual package update was not
 performed. Evidence: `dispatch-fix/image5-update-preparation`, including before/
-after disk hashes and post-restore boot readiness. Input failures remain open.
+after disk hashes and post-restore boot readiness. The pause/resume input defect
+recorded above is no longer open; see the closure note below.
+
+## Input defect closure (2026-09-12)
+
+The pause/resume repeat and post-resume missing-text samples recorded in
+`dispatch-fix/h21-pause-resume-repeat` and `h21-post-resume-missing-text` are no
+longer treated as open. The responsive Guest Agent input dispatch is pinned into
+the next factory image (`e27625f` in `riftvm/riftvm-omarchy-aarch64-image`), and
+the maintainer reports that the symptom no longer reproduces.
+
+The h21 evidence stays in this record as the last observed failure. No new
+harness or soak run closes it, so the closure rests on that re-check rather than
+on a recorded acceptance run, and the remaining physical checks listed at the
+top of this document are unaffected.
