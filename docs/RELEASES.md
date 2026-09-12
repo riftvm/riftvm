@@ -92,6 +92,56 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.16
+
+RiftVM 0.1.16 stops or saves a running guest before it quits, and keeps the
+running workspaces visible in the menu bar.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Quitting no longer kills the guest. RiftVM asks every running machine to end
+  cleanly first — macOS guests save their state, Omarchy shuts its guest down —
+  and shows a small progress panel while that happens, so quitting from the Dock
+  or from the menu bar no longer makes the app vanish mid-shutdown. A guest that
+  does not respond within 15 seconds is stopped so Quit cannot hang.
+- Closing an Omarchy window while its guest runs now asks "Stop Omarchy and
+  Close?" and keeps the window open with the stop progress until the guest is
+  down, matching what macOS workspaces already did. Linux guests cannot save
+  machine state, so the next start is a full boot.
+- A menu bar item shows what is running: each workspace with its state, plus
+  Pause, Resume, Save State and Stop, Stop, a way back to its window, the
+  control center, and Quit. It also keeps RiftVM reachable once every workspace
+  window is closed.
+
+### Validation
+
+Both jobs of the RiftVM GitHub Actions workflow pass on the macOS 27 Xcode 27
+runner image: the macOS job runs the core and CLI tests, the VirGL runtime tests
+(26 tests), the project synchronizer, the Debug app build, the integration-test
+build-for-testing, and the factory, Overlay, and release-gate scripts; the
+guest-agent job runs the Go tests and the ARM64 cross-compile.
+
+The quit drain and the Omarchy close policy are covered by unit tests in
+`RiftVMIntegrationTests` (11 tests), and a launch/quit smoke test was run against
+the built app.
+
+Release signing, notarization, staple, Gatekeeper assessment, the production
+entitlement allowlist, the visible-window check, a real import and boot of a
+locally built AArch64 Omarchy preinstalled image, and the published Homebrew cask
+were verified by the release pipeline.
+
+This release does not change guest input, graphics, or recovery behavior, and it
+does not claim new validation of the menu bar item or of quitting with a running
+guest on a real machine.
+
+### Known issues
+
+- An intermittent guest input defect remains open: shortly after pausing and
+  resuming, typed characters can repeat or a line can be lost. See
+  [P0 validation](P0_VALIDATION.md).
+
 ## 0.1.15
 
 RiftVM 0.1.15 shows how far creation has actually come, and names each workspace
