@@ -214,9 +214,18 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     let shouldConfirm: () -> Bool
     let shouldBlock: () -> Bool
     let onCloseAttempt: () -> Void
+    /// Guest canvases extend under the titlebar. Windows that keep their normal
+    /// toolbar — the Omarchy workspace — opt out.
+    var appliesGuestWindowChrome = true
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(rootPath: rootPath, shouldConfirm: shouldConfirm, shouldBlock: shouldBlock, onCloseAttempt: onCloseAttempt)
+        Coordinator(
+            rootPath: rootPath,
+            appliesGuestWindowChrome: appliesGuestWindowChrome,
+            shouldConfirm: shouldConfirm,
+            shouldBlock: shouldBlock,
+            onCloseAttempt: onCloseAttempt
+        )
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -227,6 +236,7 @@ struct VMWindowCloseObserver: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.rootPath = rootPath
+        context.coordinator.appliesGuestWindowChrome = appliesGuestWindowChrome
         context.coordinator.shouldConfirm = shouldConfirm
         context.coordinator.shouldBlock = shouldBlock
         context.coordinator.onCloseAttempt = onCloseAttempt
@@ -239,14 +249,22 @@ struct VMWindowCloseObserver: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSWindowDelegate {
         var rootPath: URL
+        var appliesGuestWindowChrome: Bool
         var shouldConfirm: () -> Bool
         var shouldBlock: () -> Bool
         var onCloseAttempt: () -> Void
         private weak var window: NSWindow?
         private var previousDelegate: NSWindowDelegate?
 
-        init(rootPath: URL, shouldConfirm: @escaping () -> Bool, shouldBlock: @escaping () -> Bool, onCloseAttempt: @escaping () -> Void) {
+        init(
+            rootPath: URL,
+            appliesGuestWindowChrome: Bool,
+            shouldConfirm: @escaping () -> Bool,
+            shouldBlock: @escaping () -> Bool,
+            onCloseAttempt: @escaping () -> Void
+        ) {
             self.rootPath = rootPath
+            self.appliesGuestWindowChrome = appliesGuestWindowChrome
             self.shouldConfirm = shouldConfirm
             self.shouldBlock = shouldBlock
             self.onCloseAttempt = onCloseAttempt
@@ -255,12 +273,14 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         func attach(to window: NSWindow?) {
             guard let window else { return }
             window.representedURL = rootPath.standardizedFileURL
-            // Let the guest canvas occupy the titlebar-safe-area in full screen.
-            // The toolbar still draws normally in windowed mode, while its
-            // auto-hidden full-screen state no longer leaves white margins.
-            window.styleMask.insert(.fullSizeContentView)
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = .black
+            if appliesGuestWindowChrome {
+                // Let the guest canvas occupy the titlebar-safe-area in full screen.
+                // The toolbar still draws normally in windowed mode, while its
+                // auto-hidden full-screen state no longer leaves white margins.
+                window.styleMask.insert(.fullSizeContentView)
+                window.titlebarAppearsTransparent = true
+                window.backgroundColor = .black
+            }
             guard self.window !== window else { return }
             detach()
             self.window = window

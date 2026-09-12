@@ -112,7 +112,6 @@ final class VMLiveMachineCenterTests: XCTestCase {
     }
 
     // MARK: - Helpers
-
     private func makeCenter(_ recorder: CenterRecorder) -> VMLiveMachineCenter {
         VMLiveMachineCenter(
             reply: { recorder.replies.append($0) },
@@ -121,6 +120,37 @@ final class VMLiveMachineCenterTests: XCTestCase {
             hideProgress: {},
             scheduleTimeout: { recorder.timeout = $0 }
         )
+    }
+}
+
+/// Closing an Omarchy window while its guest runs must ask first, and a stop in
+/// flight must keep the window open until the guest is down.
+@MainActor
+final class OmarchyWindowClosePolicyTests: XCTestCase {
+    func testRunningAndPausedGuestsAskBeforeClosing() {
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.running.needsCloseConfirmation(isTerminating: false))
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.paused.needsCloseConfirmation(isTerminating: false))
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.starting.needsCloseConfirmation(isTerminating: false))
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.stopping.needsCloseConfirmation(isTerminating: false))
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.stopped.needsCloseConfirmation(isTerminating: false))
+    }
+
+    func testQuittingNeverPromptsForAWindowClose() {
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.running.needsCloseConfirmation(isTerminating: true))
+    }
+
+    func testStopInFlightKeepsTheWindowOpen() {
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.stopping.blocksWindowClose)
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.pausing.blocksWindowClose)
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.running.blocksWindowClose)
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.stopped.blocksWindowClose)
+    }
+
+    func testStopAndFailureBothRetireTheMachine() {
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.stopped.hasStopped)
+        XCTAssertTrue(OmarchyVirtualMachineView.Phase.failed("boom").hasStopped)
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.stopping.hasStopped)
+        XCTAssertFalse(OmarchyVirtualMachineView.Phase.running.hasStopped)
     }
 }
 

@@ -448,6 +448,7 @@ enum OmarchyDesktopInputPolicy {
 
 struct OmarchyVirtualMachineView: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
@@ -476,6 +477,8 @@ struct OmarchyVirtualMachineView: View {
     @State private var automaticOwnerProvisioningStarted = false
     @State private var ownerProvisioningDetail: String?
     @State private var liveMachine: VMLiveMachine?
+    @State private var isShowingCloseConfirmation = false
+    @State private var closesWhenStopped = false
 
     private var phase: Phase { lifecycle.phase }
 
@@ -526,7 +529,34 @@ struct OmarchyVirtualMachineView: View {
             registerLiveMachine()
         }
         .onDisappear { unregisterLiveMachine() }
-        .onChange(of: lifecycle.phase) { _, _ in syncLiveMachine() }
+        .onChange(of: lifecycle.phase) { _, _ in
+            syncLiveMachine()
+            closeWindowOnceStopped()
+        }
+        .background {
+            VMWindowCloseObserver(
+                rootPath: layout.applicationSupportRoot,
+                shouldConfirm: {
+                    phase.needsCloseConfirmation(isTerminating: VMLiveMachineCenter.shared.isTerminating)
+                },
+                shouldBlock: {
+                    phase.blocksWindowClose
+                },
+                onCloseAttempt: {
+                    isShowingCloseConfirmation = true
+                },
+                appliesGuestWindowChrome: false
+            )
+        }
+        .alert("Stop Omarchy and Close?", isPresented: $isShowingCloseConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Stop Omarchy and Close") {
+                closesWhenStopped = true
+                handle(.stopRequested)
+            }
+        } message: {
+            Text("RiftVM will ask Omarchy to shut down, force stop it only if it does not respond, and then close this window. Linux guests cannot save machine state, so the next start is a full boot.")
+        }
         .dropDestination(for: URL.self) { urls, _ in
             importFiles(urls)
             return !urls.isEmpty
@@ -1318,6 +1348,15 @@ struct OmarchyVirtualMachineView: View {
         self.liveMachine = nil
     }
 
+    /// The user chose "Stop Omarchy and Close": wait for the guest to stop, then
+    /// close the window the close attempt left open.
+    private func closeWindowOnceStopped() {
+        guard closesWhenStopped, phase.hasStopped else { return }
+        closesWhenStopped = false
+        guard let workspaceID = workspaceRecord?.id else { return }
+        dismissWindow(id: "workspace", value: workspaceID)
+    }
+
     private func syncLiveMachine() {
         guard let liveMachine else { return }
         liveMachine.status = phase.liveStatusTitle
@@ -1334,11 +1373,14 @@ struct OmarchyVirtualMachineView: View {
     }
 
     private var workspaceName: String {
+        workspaceRecord?.name ?? "Omarchy"
+    }
+
+    private var workspaceRecord: RiftWorkspaceRecord? {
         let root = layout.applicationSupportRoot.standardizedFileURL
-        let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
+        return (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
             $0.bundleURL.standardizedFileURL == root
         }
-        return record?.name ?? "Omarchy"
     }
 
     enum Phase: Equatable {
@@ -1412,6 +1454,19 @@ extension OmarchyVirtualMachineView.Phase {
         case .stopped, .failed: true
         default: false
         }
+    }
+
+    /// Closing the window while the guest runs asks first. Quitting drains the
+    /// machines through its own panel, so it never asks here.
+    func needsCloseConfirmation(isTerminating: Bool) -> Bool {
+        guard !isTerminating else { return false }
+        return self == .running || self == .paused
+    }
+
+    /// A close attempt during a stop is ignored until the guest finishes, so the
+    /// window keeps showing the stop progress instead of vanishing mid-shutdown.
+    var blocksWindowClose: Bool {
+        self == .pausing || self == .stopping
     }
 }
 

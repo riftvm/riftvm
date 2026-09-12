@@ -358,7 +358,9 @@ struct VMOSMainVirtualMachineView: View {
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
         .background {
             VMWindowCloseObserver(rootPath: rootPath) {
-                runtimeState.needsCloseConfirmation
+                // Quitting already drains the machines through its own panel, so
+                // only a deliberate window close asks here.
+                !VMLiveMachineCenter.shared.isTerminating && runtimeState.needsCloseConfirmation
             } shouldBlock: {
                 runtimeState.isCloseInProgress
             } onCloseAttempt: {
