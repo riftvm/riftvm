@@ -6,35 +6,52 @@ keeps new notes consistent.
 
 ## Where notes live
 
-- **GitHub Releases** is what users read: the note body is set from a written
-  file at publish time, not from `--generate-notes`.
+- **GitHub Releases** is what users read. The note body is generated from the
+  commits in the release at publish time, not from `--generate-notes`.
 - **This file** keeps the same note, versioned with the source, so the reason
   for a release stays reviewable after the tag.
 
 `scripts/release-notes.sh` keeps the two in step:
 
-- `prepare <version>` adds a draft section when a release has none. The release
-  scripts call it, so a missing note never blocks a release; a section that
-  already exists is never touched.
+- `prepare <version>` adds a note section when a release has none, built from the
+  commits between the previous release and this one. The release scripts call it,
+  so a missing note never blocks a release; a section that already exists is
+  never touched.
 - `extract <version>` prints the note as the GitHub release body, with links made
   absolute. `publish-release.sh` calls it, so the published body comes from this
-  file instead of `--generate-notes`.
+  file.
 - `check` reports releases without a section for manual use.
 
-A draft lists the commits between the previous release and this one as a
-starting point. Replace it with a real note before publishing; a draft that is
-still in place ships as-is, which is better than an empty note but not good.
+### What the generated note contains
+
+- Commit subjects become bullets, grouped by conventional-commit prefix:
+  `feat` under Features, `fix` under Fixes, `perf` under Performance, and
+  `refactor`, `chore`, `test`, `ci`, and `build` under Internal. A subject
+  without a prefix stays under Changes, so nothing is dropped.
+- A commit's first body sentence is appended to its bullet as `— <sentence>` when
+  it adds something the subject does not already say. The body is soft-wrapped,
+  so the generator reads the first paragraph as one line, stops at a blank line
+  (a bullet list in the body does not bleed in), and drops a sentence longer than
+  240 characters. That sentence is where the motivation goes, and it is why a
+  commit body matters even when the diff is obvious.
+- `Prepare RiftVM X.Y.Z` is excluded.
+
+The result is a usable changelog without any extra work. Edit the section before
+publishing when a change needs user-facing wording, a known issue, or a
+validation claim; what the generator cannot write is the validation and the
+stated non-claims, so add those when they matter.
 
 ## How to write a release note
 
-1. Start from the commits between the previous tag and the new one
-   (`git log --oneline riftvm-v0.1.13..riftvm-v0.1.14`). Ignore version
-   preparation commits.
-2. Describe **what changed for a user and why**. Commit subjects are not release
-   notes: `Fix null check in catalog` says nothing; "the app asked a retired host
-   that answered 404, so the list never refreshed" does.
-3. Keep it short. Only list changes a user of this build can observe or rely on.
-   Internal refactors and evidence-recording commits do not belong here.
+1. Write the commit subject as the sentence a user would read:
+   `fix(catalog): point the Linux image catalog at riftvm.com`, not
+   `fix null check`. Use `feat:`, `fix:`, `perf:`, `docs:`, `refactor:`,
+   `test:`, `ci:`, or `build:` when the commit fits one.
+2. Put the reason in the commit body's first sentence, before any blank line.
+   `The old host answered 404, so the list never refreshed` survives into the
+   note; a bare subject does not explain anything.
+3. When you edit the generated section, describe **what changed for a user and
+   why**, and keep it short. Internal refactors do not belong in user notes.
 4. State the validation you actually ran, with numbers, and say what the release
    does **not** claim. Do not imply an unverified hardware, sleep, or
    input-method scenario passed.
@@ -49,9 +66,13 @@ RiftVM X.Y.Z <one sentence: what this release is for.>
 
 Requires **macOS 27 or later and Apple silicon**.
 
-### Changes
+### Features
 
-- <user-visible change and its motivation>
+- <user-visible change — its motivation>
+
+### Fixes
+
+- <user-visible fix — its motivation>
 
 ### Validation
 

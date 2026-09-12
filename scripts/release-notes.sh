@@ -18,7 +18,7 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 notes_file="${RIFTVM_RELEASE_NOTES_FILE:-$project_root/docs/RELEASES.md}"
 notes_repo="${RIFTVM_RELEASE_REPOSITORY:-riftvm/riftvm}"
 notes_branch="${RIFTVM_RELEASE_BRANCH:-main}"
-draft_marker="<!-- draft: describe what changed and why before publishing -->"
+draft_marker="<!-- draft: generated from commits; replace with user-facing wording if the change needs it -->"
 
 # RiftVM version tags that predate the notes convention.
 exempt_tags=(
@@ -74,43 +74,94 @@ case "$command" in
       range="HEAD"
       base="$(git -C "$project_root" tag --list 'riftvm-v[0-9]*.[0-9]*.[0-9]*' --sort=version:refname | tail -1)"
     fi
+    # Read subject and body per commit so the generated changelog can use the
+    # motivation lines the author already wrote, not only the subject.
+    log_format='--format=%s%x1f%b%x1e'
     if [[ -n "$base" ]]; then
-      subjects="$(git -C "$project_root" log --no-merges --format='%s' "$base..$range" -- \
-        ':!RiftVM/RiftVM.xcodeproj/project.pbxproj' | grep -v '^Prepare RiftVM ' || true)"
+      commits="$(git -C "$project_root" log --no-merges "$log_format" "$base..$range" | tr -d '\r')"
     else
-      subjects="$(git -C "$project_root" log --no-merges --format='%s' "$range" | grep -v '^Prepare RiftVM ' || true)"
+      commits="$(git -C "$project_root" log --no-merges "$log_format" "$range" | tr -d '\r')"
     fi
 
-    RIFTVM_DRAFT_MARKER="$draft_marker" VERSION="$version" SUBJECTS="$subjects" \
+    RIFTVM_DRAFT_MARKER="$draft_marker" VERSION="$version" COMMITS="$commits" \
       ruby -e '
-        require "json"
         path = ARGV.fetch(0)
         version = ENV.fetch("VERSION")
-        subjects = ENV.fetch("SUBJECTS").split("\n").reject(&:empty?)
         marker = ENV.fetch("RIFTVM_DRAFT_MARKER")
         content = File.read(path)
         abort "release notes lost their convention section" unless content.include?("## How to write a release note")
 
-        lines = []
-        lines << "## #{version}"
-        lines << ""
-        lines << marker
-        lines << ""
-        lines << "Requires **macOS 27 or later and Apple silicon**."
-        lines << ""
-        lines << "### Changes"
-        lines << ""
-        if subjects.empty?
-          lines << "- <no source changes were found between the previous release and this one>"
-        else
-          subjects.each { |subject| lines << "- #{subject}" }
+        # Conventional-commit prefixes, in reading order. Everything else is a change.
+        groups = [
+          ["feat", "Features"],
+          ["fix", "Fixes"],
+          ["perf", "Performance"],
+          ["refactor", "Internal"],
+          ["chore", "Internal"],
+          ["docs", "Documentation"],
+          ["test", "Internal"],
+          ["ci", "Internal"],
+          ["build", "Internal"],
+        ]
+
+        bullets = Hash.new { |hash, key| hash[key] = [] }
+        ENV.fetch("COMMITS", "").split("\x1e").each do |record|
+          record = record.strip
+          next if record.empty?
+          subject, body = record.split("\x1f", 2)
+          next if subject.nil? || subject.empty?
+          next if subject.start_with?("Prepare RiftVM ")
+          next if subject.include?("release note") && subject.start_with?("Record ")
+
+          key = "Changes"
+          text = subject
+          if (match = subject.match(/\A([a-z]+)(?:\([^)]*\))?!?:\s*(.+)\z/)) && groups.any? { |prefix, _| prefix == match[1] }
+            key = match[1]
+            text = match[2]
+          end
+          text = text[0].upcase + text[1..] if text.length > 1
+
+          # The commit body is soft-wrapped, so use its first sentence rather
+          # than its first line, which is usually cut mid-sentence. Stop at the
+          # first blank line so a bullet list in the body does not bleed in.
+          first_paragraph = body.to_s.split(/\n[ \t]*\n/, 2).first.to_s
+          body_text = first_paragraph.gsub(/\s+/, " ").strip
+          detail = body_text.split(/(?<=\.)\s+(?=[A-Z])/).first
+          detail = nil if detail && (detail.empty? || detail.length > 240)
+          if detail
+            detail = detail.sub(/\A[-*]\s*/, "")
+            normalized_subject = subject.downcase.gsub(/[^a-z0-9]/, "")
+            normalized_detail = detail.downcase.gsub(/[^a-z0-9]/, "")
+            unless normalized_detail.empty? ||
+                   normalized_subject.include?(normalized_detail) ||
+                   normalized_detail.include?(normalized_subject)
+              text = "#{text} — #{detail}"
+            end
+          end
+          bullets[key] << text unless bullets[key].include?(text)
         end
-        lines << ""
-        lines << "### Validation"
-        lines << ""
-        lines << "<what was run, with numbers, and what this release does not claim>"
-        lines << ""
-        section = lines.join("\n")
+
+        order = ["Changes"] + groups.map(&:first)
+        section = ["## #{version}", "", marker, "", "Requires **macOS 27 or later and Apple silicon**."]
+        wrote_any = false
+        order.each do |key|
+          items = bullets[key]
+          next if items.empty?
+          wrote_any = true
+          title = groups.assoc(key)&.last || "Changes"
+          section << ""
+          section << "### #{title}"
+          section << ""
+          items.each { |item| section << "- #{item}" }
+        end
+        unless wrote_any
+          section << ""
+          section << "### Changes"
+          section << ""
+          section << "- <no source changes were found between the previous release and this one>"
+        end
+        section << ""
+        section = section.join("\n")
 
         # Newest release first: insert before the first existing version heading.
         if content =~ /^## [0-9]+\.[0-9]+\.[0-9]+$/

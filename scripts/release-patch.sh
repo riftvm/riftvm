@@ -92,6 +92,7 @@ echo "Running RiftVM $version release checks…"
 # The Linux image catalog ships in the app and is served from riftvm.com; a
 # mismatch silently breaks the create-machine list, so check it before building.
 "$project_root/scripts/test-linux-catalog.sh"
+"$project_root/scripts/test-release-notes.sh"
 # Make sure the version commit above has a note section, including when this
 # release resumes from an existing tag. Notes never block the release.
 "$project_root/scripts/release-notes.sh" prepare "$version"
