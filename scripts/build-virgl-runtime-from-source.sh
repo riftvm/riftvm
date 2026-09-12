@@ -99,14 +99,17 @@ metal_candidates=(
 )
 shopt -u nullglob
 metal_bin=
-for metal_candidate in "${metal_candidates[@]}"; do
+# macOS ships bash 3.2 at /bin/bash, where expanding an empty array under
+# `set -u` aborts the shell. Guard the expansion so a missing Metal toolchain
+# reaches the failure below instead of dying as "unbound variable".
+for metal_candidate in ${metal_candidates[@]+"${metal_candidates[@]}"}; do
   candidate_bin="$(dirname "$metal_candidate")"
   if [[ -x $candidate_bin/metal && -x $candidate_bin/metallib ]]; then
     metal_bin=$candidate_bin
     break
   fi
 done
-[[ -n $metal_bin ]] || fail "Metal Toolchain is not installed or is incomplete"
+[[ -n $metal_bin ]] || fail "Metal Toolchain is not installed or is incomplete; install it with: xcodebuild -downloadComponent MetalToolchain"
 tool_wrappers="$work_root/tool-wrappers"
 mkdir -p "$tool_wrappers"
 sed "s|@@METAL_BIN@@|$metal_bin|g" >"$tool_wrappers/xcrun" <<'EOF'
