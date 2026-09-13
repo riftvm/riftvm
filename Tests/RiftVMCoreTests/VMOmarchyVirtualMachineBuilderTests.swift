@@ -44,8 +44,10 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
             activeProcessorCount: 10
         )
 
-        XCTAssertEqual(configuration.cpuCount, 6)
-        XCTAssertEqual(configuration.memorySize, 16 * gib)
+        // The synthetic resource budget does not override the framework's
+        // limits on the real host (CI runners may allow less than 16 GiB).
+        XCTAssertEqual(configuration.cpuCount, min(6, VZVirtualMachineConfiguration.maximumAllowedCPUCount))
+        XCTAssertEqual(configuration.memorySize, min(16 * gib, VZVirtualMachineConfiguration.maximumAllowedMemorySize))
         XCTAssertEqual(configuration.storageDevices.count, 1)
         XCTAssertEqual(configuration.graphicsDevices.count, 1)
         XCTAssertEqual(configuration.socketDevices.count, 1)
