@@ -92,6 +92,35 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.21
+
+RiftVM 0.1.21 presents Omarchy frames on demand while retaining the last pending
+update when rendering is busy.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Performance
+
+- Normal Host presentation no longer runs a repeating 60 Hz timer. Pending updates
+  are coalesced and drained on completion; failed presentations get bounded retries.
+- Visibility restoration and geometry changes request a fresh frame.
+- Rift Agent no longer forces Hyprland variable frame rendering off.
+
+### Validation and rollout
+
+Six core timing/demand tests and 66 native Omarchy integration tests passed, along
+with Go tests and Release build checks. Temporary Guest checks covered keyboard-only
+final updates, minimize/restore, pause/resume input, clipboard/files, resize, and
+six display/focus cycles. See [the report](validation/omarchy-demand-rendering-2026-09-13/README.md).
+
+The complete idle improvement requires the updated Agent and image display watcher
+inside the Guest. This app patch does not publish a new factory or migrate existing
+Guest disks; existing installations can retain their continuous-rendering override.
+Fresh signed factory qualification, complex 3D, physical hot-plug and real Host
+sleep/wake remain in [TODO](TODO.md). The short idle sample is not a universal
+speedup or power-saving claim. Custom VirGL GPU memory-state save/restore remains
+unsupported; Omarchy uses disk recovery points.
+
 ## 0.1.20
 
 RiftVM 0.1.20 improves Omarchy responsiveness and reduces host graphics overhead.

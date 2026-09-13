@@ -225,3 +225,18 @@ remain readable; mixed or incomplete extended timing is rejected. A hidden
 window intentionally produces no presentation windows, so test hidden CPU and
 restoration separately from the visible-frame health gate. Visible timing
 windows restart when presentation becomes active again.
+
+## Demand-driven desktop presentation
+
+With the demand-rendering change, a static desktop may generate no presentation
+windows during a capture. That is expected idle behavior, not a 60 FPS failure.
+Use a continuously changing workload for the existing presentation latency gate;
+use an explicitly visible, static desktop and process CPU samples for idle work.
+Do not lower the latency gate to make an idle sample pass, or interpret absent
+presentation logs as proof that the entire Guest is idle.
+
+Both the Session Agent and the image's `omarchy-riftvm-display-watch` must honor
+VFR. An old watcher can turn a manually enabled VFR option off again within a
+second. Record `hyprctl -j getoption debug:vfr` before and after each sample,
+plus the actual Guest component hashes. A Host-only update cannot deliver the
+full idle improvement while either old Guest override is still running.

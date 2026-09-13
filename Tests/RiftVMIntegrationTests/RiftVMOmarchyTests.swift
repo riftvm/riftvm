@@ -1721,7 +1721,7 @@ extension RiftVMOmarchyTests {
         defer { view.stopPresentation(); window.contentView = nil }
         window.contentView = view
         view.present(resourceID: 1, x: 0, y: 0, width: 640, height: 480, eventSequence: 1)
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         XCTAssertEqual(view.deliveredResources.last, 1)
         let oldActivityGeneration = view.displayActivityGeneration
         window.simulatedOccluded = true
@@ -1734,7 +1734,7 @@ extension RiftVMOmarchyTests {
         XCTAssertEqual(view.deliveredResources.count, hiddenCount)
         window.simulatedOccluded = false
         NotificationCenter.default.post(name: NSWindow.didChangeOcclusionStateNotification, object: window)
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         XCTAssertEqual(view.deliveredResources.count, hiddenCount + 1)
         XCTAssertEqual(view.deliveredResources.last, 3)
         XCTAssertNotEqual(view.displayActivityGeneration, oldActivityGeneration,
@@ -1750,17 +1750,17 @@ extension RiftVMOmarchyTests {
         view.present(resourceID: 1, x: 0, y: 0, width: 640, height: 480, eventSequence: 1)
         XCTAssertTrue(view.deliveredResources.isEmpty)
         window.contentView = view
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         window.simulatedMiniaturized = true
         NotificationCenter.default.post(name: NSWindow.didMiniaturizeNotification, object: window)
         XCTAssertFalse(view.isDisplayRefreshScheduled)
         window.simulatedMiniaturized = false
         NotificationCenter.default.post(name: NSWindow.didDeminiaturizeNotification, object: window)
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         window.contentView = nil
         XCTAssertFalse(view.isDisplayRefreshScheduled)
         window.contentView = view
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         view.invalidateScanout(eventSequence: 2)
         view.refreshPresentationActivity()
         XCTAssertFalse(view.isDisplayRefreshScheduled)
@@ -1782,7 +1782,7 @@ extension RiftVMOmarchyTests {
         XCTAssertFalse(view.isDisplayRefreshScheduled)
         XCTAssertTrue(view.deliveredResources.isEmpty)
         view.isHidden = false
-        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertFalse(view.isDisplayRefreshScheduled, "Normal damage and visibility restoration must not start a periodic timer")
         XCTAssertEqual(view.deliveredResources, [7])
     }
 }

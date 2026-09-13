@@ -283,7 +283,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var keyboardIntegrationStateHandler: ((VMKeyboardIntegrationState) -> Void)?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
+    private var presentationDemand = VMGraphicsPresentationDemand()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
+    private var presentationIsActive = false
     private var displayRefreshTimer: Timer?
     var isDisplayRefreshScheduled: Bool { displayRefreshTimer != nil }
 
@@ -365,9 +367,11 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         accessibilityRetryTimer?.invalidate()
         accessibilityRetryTimer = nil
         presentationLifecycle.stop()
+        presentationIsActive = false
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
         latestScanout = nil
+        presentationDemand.cancel()
         presentationInFlight = false
         cursorLayer.isHidden = true
         runtimeIssueHandler?(nil)
@@ -378,6 +382,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         guard presentationEventFence.accept(eventSequence) else { return }
         displayActivityGeneration &+= 1
         latestScanout = nil
+        presentationDemand.cancel()
+        presentationIsActive = false
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
     }
@@ -717,29 +723,16 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         handler(VMGuestAgentInputBatch.key(code: code, pressed: pressed).events)
     }
 
-    private func ensureDisplayRefreshTimer() {
+    private func schedulePresentationRetry() {
         guard displayRefreshTimer == nil, canPresentFrames,
-              latestScanout != nil, presentationLifecycle.tokenForPresentation() != nil else { return }
-        // VirGL exposes a live, zero-copy scanout texture. Wayland may update
-        // that texture without issuing RESOURCE_FLUSH for every visible change,
-        // so presentation must follow the host display clock instead of relying
-        // exclusively on guest damage notifications.
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
-            guard let self else {
-                timer.invalidate()
-                return
-            }
-            guard self.canPresentFrames else {
-                self.refreshPresentationActivity()
-                return
-            }
-            guard let scanout = self.latestScanout else { return }
-            self.presentFrame(
-                resourceID: scanout.resourceID,
-                x: scanout.x, y: scanout.y,
-                width: scanout.width,
-                height: scanout.height
-            )
+              presentationDemand.isPending, latestScanout != nil,
+              presentationLifecycle.tokenForPresentation() != nil else { return }
+        // Normal frames are entirely event driven. A failed last frame gets a
+        // bounded, one-shot retry instead of relying on another Guest flush.
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.displayRefreshTimer = nil
+            self.drainLatestPresentation()
         }
         displayRefreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
@@ -751,14 +744,16 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     func refreshPresentationActivity() {
         guard canPresentFrames, presentationLifecycle.tokenForPresentation() != nil,
               let scanout = latestScanout else {
-            if displayRefreshTimer != nil { displayActivityGeneration &+= 1 }
+            if presentationIsActive { displayActivityGeneration &+= 1 }
+            presentationIsActive = false
             displayRefreshTimer?.invalidate()
             displayRefreshTimer = nil
             return
         }
-        let wasInactive = displayRefreshTimer == nil
-        ensureDisplayRefreshTimer()
+        let wasInactive = !presentationIsActive
+        presentationIsActive = true
         if wasInactive {
+            presentationDemand.request()
             resetPerformanceWindow(at: CACurrentMediaTime())
             presentFrame(resourceID: scanout.resourceID, x: scanout.x, y: scanout.y,
                          width: scanout.width, height: scanout.height)
@@ -893,11 +888,12 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         guard presentationLifecycle.tokenForPresentation() != nil else { return }
         guard presentationEventFence.accept(eventSequence) else { return }
         latestScanout = (resourceID, x, y, width, height)
+        presentationDemand.request()
         guard canPresentFrames else {
             refreshPresentationActivity()
             return
         }
-        ensureDisplayRefreshTimer()
+        presentationIsActive = true
         presentFrame(resourceID: resourceID, x: x, y: y, width: width, height: height)
     }
 
@@ -909,16 +905,13 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             guestSize = CGSize(width: width, height: height)
         }
         updateDrawableGeometry()
-        // ANGLE's GL-to-Metal blit is serialized on the renderer thread. Never
-        // wait for it on AppKit's main thread: doing so delays keyboard and
-        // mouse event dispatch and makes guest text appear only after a later
-        // pointer event. One in-flight drawable is sufficient because the
-        // scanout texture is live and the display timer will pick up its newest
-        // contents on the next tick.
+        // Preserve damage received while the drawable/renderer is busy. The
+        // completion drains it even when the Guest never submits another frame.
         guard !presentationInFlight else {
             recordPerformanceIfNeeded()
             return
         }
+        guard presentationDemand.take() else { return }
         guard let runtime else {
             failuresInWindow &+= 1
             recordPresentationResult(success: false)
@@ -942,6 +935,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             guard let drawable else {
                 self.presentationInFlight = false
                 self.drawableMissesInWindow &+= 1
+                self.presentationDemand.retryAfterFailure()
+                self.schedulePresentationRetry()
                 self.recordPerformanceIfNeeded()
                 return
             }
@@ -980,16 +975,32 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                     } else {
                         self.failuresInWindow &+= 1
                         self.recordPresentationResult(success: false)
+                        self.presentationDemand.retryAfterFailure()
+                        self.schedulePresentationRetry()
                         RiftVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
                     }
                     self.recordPerformanceIfNeeded()
+                    if succeeded { self.drainLatestPresentation() }
                 }
             }
         }
     }
 
+    private func drainLatestPresentation() {
+        guard presentationDemand.isPending else {
+            displayRefreshTimer?.invalidate()
+            displayRefreshTimer = nil
+            return
+        }
+        guard canPresentFrames, let scanout = latestScanout else { return }
+        presentFrame(resourceID: scanout.resourceID, x: scanout.x, y: scanout.y,
+                     width: scanout.width, height: scanout.height)
+    }
+
     private func presentLatestAfterActivityChange() {
         guard canPresentFrames, let scanout = latestScanout else { return }
+        presentationDemand.request()
+        presentationIsActive = true
         presentFrame(resourceID: scanout.resourceID, x: scanout.x, y: scanout.y,
                      width: scanout.width, height: scanout.height)
     }
@@ -1081,6 +1092,10 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         if metalLayer.contentsScale != scale { metalLayer.contentsScale = scale }
         if metalLayer.drawableSize != drawableSize { metalLayer.drawableSize = drawableSize }
         CATransaction.commit()
+        if latestScanout != nil {
+            presentationDemand.request()
+            DispatchQueue.main.async { [weak self] in self?.drainLatestPresentation() }
+        }
     }
 
     private func updateCursorGeometry() {

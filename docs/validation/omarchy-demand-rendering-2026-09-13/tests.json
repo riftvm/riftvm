@@ -1,0 +1,13 @@
+{
+  "core_timing_and_demand": {
+    "passed": 6
+  },
+  "omarchy_integration": {
+    "passed": 66,
+    "failed": 0,
+    "skipped": 0
+  },
+  "guest_agent": "go test ./... passed; linux/arm64 cross-build passed; candidate binary exercised inside Guest",
+  "image_watcher": "frame scheduling regression and bash syntax checks passed",
+  "production_release": "build and acceptance-probe exclusion passed"
+}
