@@ -1138,6 +1138,36 @@ final class VMGraphicsDrawableAcquirer: @unchecked Sendable {
     }
 }
 
+/// Damage remains pending until a presentation actually starts. A request that
+/// arrives during that presentation survives its completion. Failed acquisitions
+/// get bounded retries, so a lost final frame can recover without an idle loop.
+struct VMGraphicsPresentationDemand {
+    private(set) var isPending = false
+    private var retriesRemaining = 0
+
+    mutating func request() {
+        isPending = true
+        retriesRemaining = 3
+    }
+
+    mutating func take() -> Bool {
+        guard isPending else { return false }
+        isPending = false
+        return true
+    }
+
+    mutating func retryAfterFailure() {
+        guard !isPending, retriesRemaining > 0 else { return }
+        retriesRemaining -= 1
+        isPending = true
+    }
+
+    mutating func cancel() {
+        isPending = false
+        retriesRemaining = 0
+    }
+}
+
 /// CPU-side timing only; completion does not measure display scanout latency.
 struct VMGraphicsTimingSummary: Equatable {
     let averageMilliseconds: Double

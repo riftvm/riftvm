@@ -58,3 +58,37 @@ extension VMGraphicsTimingSummaryTests {
         await fulfillment(of: [finished], timeout: 1)
     }
 }
+
+extension VMGraphicsTimingSummaryTests {
+    func testFinalDamageDuringPresentationIsNotLostAndIdleDoesNotRepeat() {
+        var demand = VMGraphicsPresentationDemand()
+        XCTAssertFalse(demand.take())
+        demand.request()
+        XCTAssertTrue(demand.take())
+        // A final Guest flush arrives while that drawable is in flight.
+        demand.request()
+        demand.request()
+        XCTAssertTrue(demand.take(), "Completion must drain the coalesced final frame without another Guest event")
+        XCTAssertFalse(demand.take(), "A static scanout must not redraw on the next display tick")
+    }
+
+    func testFailedLastFrameHasBoundedRetriesAndNewDamageRecovers() {
+        var demand = VMGraphicsPresentationDemand()
+        demand.request()
+        XCTAssertTrue(demand.take())
+        for _ in 0..<3 {
+            demand.retryAfterFailure()
+            XCTAssertTrue(demand.take())
+        }
+        demand.retryAfterFailure()
+        XCTAssertFalse(demand.take(), "Unavailable drawables must not keep a permanent polling loop alive")
+        demand.request()
+        XCTAssertTrue(demand.take())
+        demand.request()
+        demand.retryAfterFailure()
+        XCTAssertTrue(demand.take(), "Failure of an older frame must preserve new damage")
+        demand.cancel()
+        demand.retryAfterFailure()
+        XCTAssertFalse(demand.take(), "Invalidated scanouts must not be retried")
+    }
+}

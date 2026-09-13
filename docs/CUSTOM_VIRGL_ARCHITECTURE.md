@@ -41,13 +41,24 @@ The normal scanout path borrows VirGL's live texture and wraps it in an
 `EGLImage`; it does not copy pixels through Swift `Data`, `CGImage`, or a CPU
 readback. All VirGL/ANGLE calls retain dedicated-thread EGL context affinity.
 
-The AppKit presentation path uses a 60 Hz timer in common run-loop modes
-while the window is visible. Hidden, minimized, detached, or fully occluded
-windows stop the Host presentation timer and retain the latest scanout for
-immediate restoration. The Guest continues rendering; this is not a
-variable-refresh display-link implementation. There is at most one in-flight drawable
-and one latest pending frame; older pending frames are coalesced. The objective
-is low visible latency, not delivery of stale intermediate frames.
+The AppKit presentation path is damage driven. Each Guest scanout notification
+marks the latest frame pending. At most one drawable acquisition/render is in
+flight; completion drains a newer pending frame even if no further Guest event
+arrives. Successful delivery of the final frame leaves no refresh timer running.
+A failed acquisition/render has at most three one-shot retries, spaced by one
+60 Hz interval; new damage can recover after that budget is exhausted.
+
+Hidden, minimized, detached, or fully occluded windows stop Host presentation
+and retain the latest scanout. Visibility restoration and drawable geometry
+changes request a frame without requiring Guest pointer movement. Existing
+cross-context producer fences and off-main drawable acquisition remain required.
+This is not a high-refresh-rate display-link implementation.
+
+The Guest Agent and companion image display watcher must both stop forcing
+`debug:vfr=false`. Frame scheduling then follows Hyprland/user configuration;
+the Host does not override an explicit continuous-rendering preference. Updating
+only the Host does not remove overrides in an existing Guest. See the demand
+rendering validation report for component requirements and measured scope.
 
 ### Dynamic display
 
