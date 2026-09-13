@@ -58,6 +58,34 @@ The comprehensive scenario requires at least two connected displays. A missing
 prerequisite or failed probe is not a pass. Test failure leaves the VM available
 and prevents later automatic scenarios from starting.
 
+## Foreground acceptance without locking
+
+When locking or host sleep is excluded, use `--scenario observe` and perform
+only the selected actions manually. Do not run `lifecycle` or `stability`, since
+they deliberately lock the guest. This narrower run is not full lifecycle
+qualification.
+
+Use disposable workspaces and retain the app revision and image manifest hash:
+
+1. Type a short and a long line without moving the pointer; pause/resume and
+   repeat. Switch to a host editor and verify Command+V stays in that editor.
+2. Close the running Omarchy window, cancel once, and confirm it still accepts
+   input. Close again and confirm the window remains until shutdown completes.
+3. Start two disposable workspaces and quit from the menu bar. Verify both stop
+   before the process exits. For a disposable macOS guest, verify save and restore
+   separately; an Omarchy shutdown cannot qualify saved-state restoration.
+4. Create a protected pre-update recovery point. Record package versions, run the
+   guest's normal update command, retain its exit status, then reboot and check
+   the desktop, input, clipboard, and file exchange.
+5. Restore the protected point and boot it again. Check a marker created before
+   the snapshot survives, a marker created afterward is absent, and package
+   versions match the original inventory. A simulated marker change alone does
+   not qualify a real package-update rollback.
+
+If the package manager reports no available updates, record that result and
+leave the package-update gate unexercised. Do not downgrade packages merely to
+manufacture an update or count a no-op update as an upgrade.
+
 ## Evidence and limits
 
 Retain `Diagnostics` before removing the temporary workspace. Review the first
