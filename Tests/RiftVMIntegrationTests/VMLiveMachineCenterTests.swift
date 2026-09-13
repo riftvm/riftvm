@@ -48,7 +48,7 @@ final class VMLiveMachineCenterTests: XCTestCase {
         XCTAssertEqual(recorder.replies, [true])
     }
 
-    func testTimeoutForceStopsAndAlwaysReplies() {
+    func testTimeoutWaitsForAsynchronousForceStop() {
         let recorder = CenterRecorder()
         let center = makeCenter(recorder)
         let spy = LiveMachineSpy(name: "Omarchy")
@@ -58,6 +58,37 @@ final class VMLiveMachineCenterTests: XCTestCase {
 
         recorder.timeout?.perform()
         XCTAssertEqual(spy.forceStopCount, 1)
+        XCTAssertTrue(recorder.replies.isEmpty)
+        center.unregister(spy.machine)
+        XCTAssertEqual(recorder.replies, [true])
+    }
+
+    func testStalledForceStopCancelsQuitInsteadOfKillingGuest() {
+        let recorder = CenterRecorder()
+        let center = makeCenter(recorder)
+        let spy = LiveMachineSpy(name: "Omarchy")
+        spy.machine.canStop = true
+        center.register(spy.machine)
+        XCTAssertEqual(center.requestTermination(), .terminateLater)
+        recorder.timeout?.perform()
+        recorder.timeout?.perform()
+        XCTAssertEqual(recorder.replies, [false])
+        XCTAssertFalse(center.isTerminating)
+        XCTAssertEqual(center.machines.count, 1)
+    }
+
+    func testSynchronousStopRepliesAfterReturningTerminateLater() async {
+        let recorder = CenterRecorder()
+        let center = makeCenter(recorder)
+        let spy = LiveMachineSpy(name: "Omarchy")
+        spy.machine.canStop = true
+        spy.machine.stopAction = { center.unregister(spy.machine) }
+        center.register(spy.machine)
+        XCTAssertEqual(center.requestTermination(), .terminateLater)
+        XCTAssertTrue(recorder.replies.isEmpty)
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
         XCTAssertEqual(recorder.replies, [true])
     }
 
@@ -118,6 +149,7 @@ final class VMLiveMachineCenterTests: XCTestCase {
             showProgress: { recorder.shown.append($0) },
             updateProgress: { recorder.updated.append($0) },
             hideProgress: {},
+            reportStopFailure: {},
             scheduleTimeout: { recorder.timeout = $0 }
         )
     }

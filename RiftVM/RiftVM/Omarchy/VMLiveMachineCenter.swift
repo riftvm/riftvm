@@ -81,6 +81,8 @@ final class VMLiveMachineCenter {
 
     private var terminating = false
     private var timeout: DispatchWorkItem?
+    private var requestingStops = false
+    @ObservationIgnored private let reportStopFailure: @MainActor () -> Void
 
     /// True between `applicationShouldTerminate` and the reply, so surfaces can
     /// tell a quit apart from an ordinary window close.
@@ -91,10 +93,18 @@ final class VMLiveMachineCenter {
         showProgress: @escaping @MainActor (String) -> Void = { VMQuitProgressPanel.shared.show(message: $0) },
         updateProgress: @escaping @MainActor (String) -> Void = { VMQuitProgressPanel.shared.update(message: $0) },
         hideProgress: @escaping @MainActor () -> Void = { VMQuitProgressPanel.shared.hide() },
+        reportStopFailure: @escaping @MainActor () -> Void = {
+            let alert = NSAlert()
+            alert.messageText = "RiftVM Could Not Quit"
+            alert.informativeText = "A workspace has not finished stopping. RiftVM stayed open to protect it. Check the workspace and try stopping it again."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        },
         scheduleTimeout: @escaping @MainActor (DispatchWorkItem) -> Void = {
             DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: $0)
         }
     ) {
+        self.reportStopFailure = reportStopFailure
         self.reply = reply
         self.showProgress = showProgress
         self.updateProgress = updateProgress
@@ -113,7 +123,7 @@ final class VMLiveMachineCenter {
         guard machines.contains(where: { $0 === machine }) else { return }
         machines.removeAll { $0 === machine }
         guard terminating else { return }
-        if machines.isEmpty {
+        if machines.isEmpty && !requestingStops {
             finishTermination()
         } else {
             updateProgress(Self.progressMessage(for: machines))
@@ -135,19 +145,41 @@ final class VMLiveMachineCenter {
         terminating = true
         let targets = machines
         showProgress(Self.progressMessage(for: targets))
+        requestingStops = true
         for machine in targets { machine.prepareForTermination() }
-        let work = DispatchWorkItem { [weak self] in self?.forceTermination() }
+        requestingStops = false
+        if machines.isEmpty {
+            // AppKit must receive terminateLater before its asynchronous reply.
+            DispatchQueue.main.async { [weak self] in self?.finishTermination() }
+            return .terminateLater
+        }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.terminating else { return }
+            if self.machines.isEmpty { self.finishTermination() }
+            else { self.forceTermination() }
+        }
         timeout = work
         scheduleTimeout(work)
         return .terminateLater
     }
 
-    /// A guest did not stop in time. Stop the framework machine and let the
-    /// process exit; this is the same bounded fallback the window close path
-    /// uses, and it keeps Quit from hanging on a wedged guest.
+    /// Framework stop is asynchronous. Keep the process alive until the owning
+    /// windows report completion; if even forced stop stalls, cancel Quit.
     private func forceTermination() {
-        for machine in machines where !machine.hasStopped { machine.forceStopAction() }
-        finishTermination()
+        guard terminating else { return }
+        let targets = machines
+        for machine in targets where !machine.hasStopped { machine.forceStopAction() }
+        guard terminating else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.terminating else { return }
+            self.terminating = false
+            self.timeout = nil
+            self.hideProgress()
+            self.reply(false)
+            self.reportStopFailure()
+        }
+        timeout = work
+        scheduleTimeout(work)
     }
 
     private func finishTermination() {

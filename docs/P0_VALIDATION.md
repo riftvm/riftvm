@@ -1,7 +1,22 @@
-# P0 validation — September 9–10, 2026
+# P0 validation
 
-**P0 remains open.** This record separates current evidence from older baseline
-results. See [Stability acceptance](STABILITY_TESTING.md) for the procedure.
+## Current status — September 12, 2026
+
+The pause/resume input defect is closed based on the maintainer's re-check,
+not a new recorded harness run. Historical failures below remain evidence, not
+current open defects. The overall acceptance work is not complete.
+
+| Area | Current status |
+| --- | --- |
+| Pause/resume input | Closed by maintainer re-check; retain regression coverage |
+| Factory delivery | Public channel `.2`; `.5` remains a draft pending qualification and publication |
+| Recovery | Snapshot byte restoration and subsequent boot verified; real package update/rollback outstanding |
+| Quit and menu bar | 0.1.16 shipped; real running-guest checks outstanding |
+| Physical checks | Older sleep/display results retained; no new sleep or lock tests authorized |
+
+See [Stability acceptance](STABILITY_TESTING.md) for the procedure. The sections
+below are a chronological evidence archive; their pending statements describe
+the state at the time of each run.
 
 ## Source and environment
 

@@ -94,6 +94,11 @@ Or download the app archive below.
 
 ## 0.1.16
 
+**Status update, September 12:** The pause/resume input issue listed in this
+release's original known issues was subsequently closed after the maintainer's
+re-check. See [current validation status](P0_VALIDATION.md). The original release
+record below is preserved; this update does not claim a new automated run.
+
 RiftVM 0.1.16 stops or saves a running guest before it quits, and keeps the
 running workspaces visible in the menu bar.
 
