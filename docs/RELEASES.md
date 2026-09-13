@@ -92,6 +92,49 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.18
+
+RiftVM 0.1.18 brings hardware-accelerated Custom VirGL graphics to the dedicated
+Omarchy workspace flow.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Omarchy now uses Custom VirGL exclusively: Guest Mesa VirGL commands are
+  rendered through ANGLE on Metal. Missing runtime libraries produce a clear
+  startup error instead of silently selecting Apple Virtio graphics.
+- Authenticated input works at login and on the desktop. Native setup and pause
+  overlays release held input, and returning to the desktop restores keyboard
+  focus without an extra click.
+- Window and fullscreen changes negotiate Guest resolution through Custom
+  VirGL. Redundant delayed refreshes no longer postpone mode changes.
+- GPU resources remain alive until the virtual machine has stopped. Startup
+  failures before VM creation still allow Stop and Enable Recovery.
+- README, website source, and graphics troubleshooting now describe this path.
+
+### Validation
+
+Real Guest output reports VirGL and the host reports ANGLE Metal. Three repeated
+1280×720 glmark2 GLES 2 runs compared the same temporary Guest against the former
+Apple Virtio path, which reported llvmpipe. Median speed ratios were 2.62× for
+Phong shading, 45.48× for terrain, and 19.39× for refraction. The simple model
+scene was slightly slower (0.97×). Desktop scale differed between paths; these
+are workload-specific product-path results, not universal speedup claims.
+See [the full method and raw results](validation/omarchy-custom-virgl-2026-09-13/README.md).
+
+Temporary workspace checks covered first owner setup, login, pause/resume,
+restart, protected backup/restore, text and PNG clipboard round trips, shared
+files, and six display/focus cycles across two monitors. Fault injection verified
+missing-runtime failure without fallback and a working recovery entry point.
+Targeted Core and native integration regression tests passed, as did the normal
+Release build and production test-isolation check.
+
+No new lock/sleep or physical hot-plug qualification is claimed. Custom VirGL
+provides GLES 3.0 in this tested Guest; this release does not claim Vulkan or
+universal game/application compatibility. GPU memory-state save/restore remains
+unsupported; Omarchy uses disk recovery points.
+
 ## 0.1.17
 
 RiftVM 0.1.17 delivers the refreshed Omarchy factory and waits for asynchronous
