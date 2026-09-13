@@ -26,6 +26,18 @@ in-place disk replacement or automatic migration.
 4. Check the desktop and your applications after the update. Retain the recovery
    point until you are satisfied with the result.
 
+## If a repository download fails
+
+A connection timeout or a package database download error is not a completed
+update. Keep the error output and check connectivity to the configured repository
+before retrying the normal Omarchy update. Do not disable package signatures or
+TLS verification to work around download failures.
+
+Keep the protected recovery point throughout the retry and the first reboot.
+If the desktop no longer starts or the update leaves applications broken, use the
+recovery flow below. A newly downloaded factory image creates a separate
+workspace; it does not repair or replace the existing guest disk in place.
+
 ## Recover after a failed update
 
 Stop Omarchy, then choose the dated recovery point from the **Recovery** menu.

@@ -9,9 +9,9 @@ current open defects. The overall acceptance work is not complete.
 | Area | Current status |
 | --- | --- |
 | Pause/resume input | Closed by maintainer re-check; retain regression coverage |
-| Factory delivery | Public channel `.2`; `.5` remains a draft pending qualification and publication |
-| Recovery | Snapshot byte restoration and subsequent boot verified; real package update/rollback outstanding |
-| Quit and menu bar | 0.1.16 shipped; real running-guest checks outstanding |
+| Factory delivery | `.5` published with verified signed multipart assets; app source pins `.5` |
+| Recovery | 37-package real update, reboot, exact snapshot restore, original inventory and reboot verified |
+| Quit and menu bar | 13 quit/close tests passed; one-Guest close/cancel, paused close and app quit observed; two-Guest exit observed; macOS restore still separate |
 | Physical checks | Older sleep/display results retained; no new sleep or lock tests authorized |
 
 See [Stability acceptance](STABILITY_TESTING.md) for the procedure. The sections
@@ -307,3 +307,32 @@ The h21 evidence stays in this record as the last observed failure. No new
 harness or soak run closes it, so the closure rests on that re-check rather than
 on a recorded acceptance run, and the remaining physical checks listed at the
 top of this document are unaffected.
+
+## September 12 delivery and real update recovery
+
+Host code `0457da3` was tested in an isolated observe-mode harness. No lock or
+host sleep scenario ran. Running-window close confirmation, cancellation with
+visible terminal input, paused-window close to Stopped, and quitting with one
+running Omarchy guest were observed. Thirteen quit/close policy tests passed.
+Two temporary Guest windows were also opened (one awaiting owner setup); Quit
+returned with the process stopped. Per-Guest callback timing and macOS saved-state
+recovery are not claimed by this run.
+
+Factory `.5` passed pinned raw reconstruction, raw/ASIF byte comparison, trusted
+signature validation and remote multipart digest verification, then was published.
+The disposable guest upgraded 37 packages through normal `omarchy-update` (exit
+0) and rebooted with desktop, Agent and terminal input available. An earlier
+repository-timeout attempt exited 1 before changing package versions; its logs
+were retained. No signature/TLS checks were bypassed and no mirror was changed.
+
+Native protected recovery restored disk SHA-256
+`db203ed7e33a140454096218200c0412877006d3cc6b7c8773827a4882f4e621`.
+After boot, the package inventory exactly matched the pre-update inventory;
+the before marker survived and the after marker was absent. Evidence is retained
+in `/tmp/riftvm-sep12-evidence`, especially `update-recovery-result.json`,
+`upgraded-boot`, and `restored-boot`.
+
+CI now executes Core tests rather than only building them. The first run exposed
+a test assuming 16 GiB on a 7 GiB framework-limited runner; the test now checks
+actual framework limits. The corrected CI run `34735001721` passed. Local Core
+coverage ran 392 tests, with one skip and zero failures.

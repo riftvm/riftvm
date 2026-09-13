@@ -92,6 +92,45 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.17
+
+RiftVM 0.1.17 delivers the refreshed Omarchy factory and waits for asynchronous
+forced shutdown before allowing the app to quit.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- New Omarchy workspaces use signed factory `v4.0.3-riftvm.5`, with responsive
+  Guest Agent input dispatch and a first-run update notice only when updates are
+  available. Existing guest disks are retained.
+- Quit waits for forced shutdown completion. If even forced shutdown stalls,
+  RiftVM cancels Quit and explains why it stayed open instead of killing the
+  guest through process teardown.
+- CI now executes the Core regression suite. Resource tests respect the real
+  framework limits of smaller runners.
+- Update/recovery documentation separates current status from historical failures
+  and explains repository download failures.
+
+### Validation
+
+Thirteen quit/close policy tests passed. Core tests ran 392 cases with one skip
+and zero failures. Real temporary Omarchy checks covered close/cancel, paused
+close, one-Guest quit and a two-Guest app quit (one guest awaiting owner setup).
+The two-Guest check confirms app exit; it does not measure each framework stop
+callback independently.
+
+The signed factory passed raw-to-ASIF byte comparison, trusted signature checks,
+remote multipart digest verification, and fresh owner setup. A real update
+upgraded 37 packages, rebooted successfully, and was then restored through the
+protected recovery point. Restored disk hash and package inventory matched;
+the pre-update marker survived and the later marker was removed. The restored
+system booted and displayed terminal input normally.
+
+No new host lock/sleep, physical hot-plug, or macOS saved-state qualification is
+claimed. The first update attempt encountered repository timeouts; the retry
+succeeded without changing mirrors or bypassing signature checks.
+
 ## 0.1.16
 
 **Status update, September 12:** The pause/resume input issue listed in this
