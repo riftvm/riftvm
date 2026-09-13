@@ -92,6 +92,38 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.20
+
+RiftVM 0.1.20 improves Omarchy responsiveness and reduces host graphics overhead.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Performance
+
+- Socket backpressure and Metal drawable waits run off the main thread, keeping
+  host input and window events responsive while the guest or display catches up.
+- Hidden, minimized, and fully occluded windows stop host presentation and resume
+  with the latest guest frame. Stale display work is discarded after visibility changes.
+- VirGL submits aligned command buffers without redundant copies, tracks active
+  synchronization contexts, and handles renderer queue backlogs more efficiently.
+- Diagnostics now include drawable wait and full-frame CPU timing alongside the
+  existing render-only metrics.
+
+### Validation
+
+511 tests passed, with one opt-in near-full APFS volume test skipped. C context
+lifecycle sanitizer tests and the Release build also passed. Temporary Omarchy
+checks covered two displays, resize/focus recovery, text and PNG clipboard round
+trips, file sharing, minimize/restore, and pause/resume input.
+
+Visible and restored desktop samples sustained 60 FPS with no drawable misses or
+presentation failures; the worst window full-frame P95 was 16.45 ms. This is not
+an old/new binary A/B comparison or a new complex 3D benchmark. No new host
+lock/sleep qualification is claimed. GPU memory-state save/restore remains
+unsupported for Custom VirGL; Omarchy uses disk recovery points.
+
+See [the validation report and raw evidence](validation/performance-display-queue-2026-09-13/README.md).
+
 ## 0.1.19
 
 RiftVM 0.1.19 adds per-workspace graphics selection and protects backend changes
