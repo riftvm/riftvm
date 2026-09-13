@@ -57,7 +57,7 @@ void vzvg_renderer_context_destroy(uint32_t context_id);
 void vzvg_renderer_context_attach_resource(uint32_t context_id, uint32_t resource_id);
 void vzvg_renderer_context_detach_resource(uint32_t context_id, uint32_t resource_id);
 
-int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_count);
+int vzvg_renderer_submit(const void *commands, uint32_t context_id, uint32_t dword_count);
 int vzvg_renderer_create_fence(uint32_t fence_id, uint32_t context_id);
 int vzvg_renderer_pop_completed_fence(uint32_t *fence_id);
 int vzvg_renderer_borrow_scanout_texture(uint32_t resource_id,

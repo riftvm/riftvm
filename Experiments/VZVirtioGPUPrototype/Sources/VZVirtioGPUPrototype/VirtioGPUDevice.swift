@@ -858,8 +858,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
               byteCount.isMultiple(of: 4), request.count >= 32 + byteCount else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
-        let commands = Data(request[32..<(32 + byteCount)])
-        guard renderer.submit(contextID: header.contextID, commands: commands) else {
+        guard renderer.submit(contextID: header.contextID, commands: request,
+                              byteRange: 32..<(32 + byteCount)) else {
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         submittedCommandCount += 1

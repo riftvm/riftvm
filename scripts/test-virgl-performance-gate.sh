@@ -79,3 +79,38 @@ if "$verifier" "$candidate" "$baseline" >/dev/null 2>&1; then
 fi
 
 echo "VirGL performance gate tests passed."
+
+# Extended timing must expose a drawable stall even when render timing is low.
+write_report "$candidate" custom-virgl 0 0 0.5 1.0 2.0 10 200
+cat >> "$candidate" <<'TIMING'
+VirGL-Timing-Version: 2
+VirGL-Average-Drawable-Ms: 0.1
+VirGL-Maximum-Window-P95-Drawable-Ms: 0.2
+VirGL-Maximum-Drawable-Ms: 1.0
+VirGL-Average-Frame-Ms: 0.6
+VirGL-Maximum-Window-P95-Frame-Ms: 1.2
+VirGL-Maximum-Frame-Ms: 3.0
+TIMING
+# A frame can include a display interval without the renderer itself stalling.
+sed -i '' 's/VirGL-Average-Frame-Ms: 0.6/VirGL-Average-Frame-Ms: 15.0/; s/VirGL-Maximum-Window-P95-Frame-Ms: 1.2/VirGL-Maximum-Window-P95-Frame-Ms: 17.0/; s/VirGL-Maximum-Frame-Ms: 3.0/VirGL-Maximum-Frame-Ms: 18.0/' "$candidate"
+"$verifier" "$candidate" >/dev/null
+sed -i '' 's/VirGL-Maximum-Drawable-Ms: 1.0/VirGL-Maximum-Drawable-Ms: 60.0/' "$candidate"
+if "$verifier" "$candidate" >/dev/null 2>&1; then
+    echo 'Drawable stall passed unexpectedly' >&2; exit 1
+fi
+sed -i '' 's/VirGL-Timing-Version: 2/VirGL-Timing-Version: incomplete/' "$candidate"
+if "$verifier" "$candidate" >/dev/null 2>&1; then
+    echo 'Mixed timing versions passed unexpectedly' >&2; exit 1
+fi
+
+raw="$temporary_directory/raw.txt"
+printf '%s\n' 'VirGL performance: fps=60 requested=300 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.5 p95PresentMs=1 maxPresentMs=2 timingVersion=2 avgDrawableMs=0.1 p95DrawableMs=0.2 maxDrawableMs=1 avgFrameMs=0.6 p95FrameMs=1.2 maxFrameMs=3' > "$raw"
+awk -f "$project_root/scripts/lib/virgl-summary.awk" "$raw" > "$temporary_directory/summary.txt"
+grep -qx 'VirGL-Timing-Version: 2' "$temporary_directory/summary.txt"
+grep -qx 'VirGL-Average-Frame-Ms: 0.60' "$temporary_directory/summary.txt"
+printf '%s\n' 'VirGL performance: fps=60 avgPresentMs=0.5 p95PresentMs=1 maxPresentMs=2' >> "$raw"
+awk -f "$project_root/scripts/lib/virgl-summary.awk" "$raw" > "$temporary_directory/summary.txt"
+grep -qx 'VirGL-Timing-Version: incomplete' "$temporary_directory/summary.txt"
+awk -f "$project_root/scripts/lib/virgl-summary.awk" /dev/null > "$temporary_directory/summary.txt"
+grep -qx 'VirGL-Average-Frame-Ms: unavailable' "$temporary_directory/summary.txt"
+echo 'Extended drawable/frame timing tests passed.'

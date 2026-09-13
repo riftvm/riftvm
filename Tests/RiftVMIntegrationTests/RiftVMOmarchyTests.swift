@@ -1693,3 +1693,96 @@ private final class MockTerminableMachine: OmarchyTerminableMachine {
         callback?(error)
     }
 }
+
+@MainActor
+private final class PerformanceTestWindow: NSWindow {
+    var simulatedVisible = true
+    var simulatedMiniaturized = false
+    var simulatedOccluded = false
+    override var isVisible: Bool { simulatedVisible }
+    override var isMiniaturized: Bool { simulatedMiniaturized }
+    override var occlusionState: NSWindow.OcclusionState { simulatedOccluded ? [] : [.visible] }
+}
+
+@MainActor
+private final class PerformanceTestDisplay: VMVirGLDisplayView {
+    var deliveredResources: [UInt32] = []
+    override func presentFrame(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+        deliveredResources.append(resourceID)
+    }
+}
+
+extension RiftVMOmarchyTests {
+    @MainActor
+    func testVirGLStopsOccludedRefreshAndRestoresOnlyLatestScanout() async {
+        let view = PerformanceTestDisplay(frame: NSRect(x: 0, y: 0, width: 640, height: 480),
+                                          guestSize: CGSize(width: 640, height: 480), managesKeyboardIntegration: false)
+        let window = PerformanceTestWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        defer { view.stopPresentation(); window.contentView = nil }
+        window.contentView = view
+        view.present(resourceID: 1, x: 0, y: 0, width: 640, height: 480, eventSequence: 1)
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertEqual(view.deliveredResources.last, 1)
+        let oldActivityGeneration = view.displayActivityGeneration
+        window.simulatedOccluded = true
+        NotificationCenter.default.post(name: NSWindow.didChangeOcclusionStateNotification, object: window)
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+        let hiddenCount = view.deliveredResources.count
+        view.present(resourceID: 2, x: 0, y: 0, width: 800, height: 600, eventSequence: 2)
+        view.present(resourceID: 3, x: 0, y: 0, width: 800, height: 600, eventSequence: 3)
+        try? await Task.sleep(for: .milliseconds(70))
+        XCTAssertEqual(view.deliveredResources.count, hiddenCount)
+        window.simulatedOccluded = false
+        NotificationCenter.default.post(name: NSWindow.didChangeOcclusionStateNotification, object: window)
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertEqual(view.deliveredResources.count, hiddenCount + 1)
+        XCTAssertEqual(view.deliveredResources.last, 3)
+        XCTAssertNotEqual(view.displayActivityGeneration, oldActivityGeneration,
+                          "A pre-occlusion renderer completion must not publish its stale drawable")
+    }
+
+    @MainActor
+    func testVirGLMiniaturizeDetachAndStoppedViewCannotRestartTimer() {
+        let view = PerformanceTestDisplay(frame: NSRect(x: 0, y: 0, width: 640, height: 480),
+                                          guestSize: CGSize(width: 640, height: 480), managesKeyboardIntegration: false)
+        let window = PerformanceTestWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        defer { view.stopPresentation(); window.contentView = nil }
+        view.present(resourceID: 1, x: 0, y: 0, width: 640, height: 480, eventSequence: 1)
+        XCTAssertTrue(view.deliveredResources.isEmpty)
+        window.contentView = view
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        window.simulatedMiniaturized = true
+        NotificationCenter.default.post(name: NSWindow.didMiniaturizeNotification, object: window)
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+        window.simulatedMiniaturized = false
+        NotificationCenter.default.post(name: NSWindow.didDeminiaturizeNotification, object: window)
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        window.contentView = nil
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+        window.contentView = view
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        view.invalidateScanout(eventSequence: 2)
+        view.refreshPresentationActivity()
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+        view.present(resourceID: 2, x: 0, y: 0, width: 640, height: 480, eventSequence: 3)
+        view.stopPresentation()
+        view.refreshPresentationActivity()
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+    }
+
+    @MainActor
+    func testVirGLHiddenViewDoesNotPresentUntilUnhidden() {
+        let view = PerformanceTestDisplay(frame: NSRect(x: 0, y: 0, width: 640, height: 480),
+                                          guestSize: CGSize(width: 640, height: 480), managesKeyboardIntegration: false)
+        let window = PerformanceTestWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        defer { view.stopPresentation(); window.contentView = nil }
+        window.contentView = view
+        view.isHidden = true
+        view.present(resourceID: 7, x: 0, y: 0, width: 640, height: 480, eventSequence: 1)
+        XCTAssertFalse(view.isDisplayRefreshScheduled)
+        XCTAssertTrue(view.deliveredResources.isEmpty)
+        view.isHidden = false
+        XCTAssertTrue(view.isDisplayRefreshScheduled)
+        XCTAssertEqual(view.deliveredResources, [7])
+    }
+}

@@ -7,7 +7,9 @@ private final class RendererResultBox<Value>: @unchecked Sendable {
 final class RendererExecutor: @unchecked Sendable {
     private let condition = NSCondition()
     private let ready = DispatchSemaphore(value: 0)
-    private var jobs: [() -> Void] = []
+    private var jobs: [(() -> Void)?] = []
+    private var jobHead = 0
+    private var jobsAreEmpty: Bool { jobHead == jobs.count }
     private var stopping = false
     private var hasStopped = false
     private var pollOperation: (() -> Void)?
@@ -59,6 +61,10 @@ final class RendererExecutor: @unchecked Sendable {
 
     func setPollingEnabled(_ enabled: Bool) {
         condition.lock()
+        guard pollingEnabled != enabled else {
+            condition.unlock()
+            return
+        }
         pollingEnabled = enabled
         condition.signal()
         condition.unlock()
@@ -82,20 +88,34 @@ final class RendererExecutor: @unchecked Sendable {
         ready.signal()
         while true {
             condition.lock()
-            while jobs.isEmpty && !stopping {
+            while jobsAreEmpty && !stopping {
                 if pollingEnabled {
                     _ = condition.wait(until: Date(timeIntervalSinceNow: 0.001))
                     break
                 }
                 condition.wait()
             }
-            if stopping && jobs.isEmpty {
+            if stopping && jobsAreEmpty {
                 hasStopped = true
                 condition.broadcast()
                 condition.unlock()
                 return
             }
-            let job = jobs.isEmpty ? nil : jobs.removeFirst()
+            let job: (() -> Void)?
+            if jobsAreEmpty {
+                job = nil
+            } else {
+                job = jobs[jobHead]
+                jobs[jobHead] = nil // Release captures before the next compaction.
+                jobHead += 1
+                if jobsAreEmpty {
+                    jobs.removeAll(keepingCapacity: true)
+                    jobHead = 0
+                } else if jobHead >= 1024 && jobHead >= jobs.count / 2 {
+                    jobs.removeFirst(jobHead)
+                    jobHead = 0
+                }
+            }
             let poll = pollingEnabled ? pollOperation : nil
             condition.unlock()
             job?()

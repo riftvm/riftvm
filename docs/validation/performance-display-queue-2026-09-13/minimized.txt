@@ -1,0 +1,73 @@
+# RiftVM VirGL performance capture
+Format-Version: 2
+Generated: 2026-09-13T19:09:01Z
+Started: 2026-09-13T19:08:30Z
+Duration: 30s
+Backend: custom-virgl
+Workload: hyprland-idle-minimized-awake
+PID: 1493
+macOS: 27.0 (26A428)
+Hardware: Mac15,6
+
+# Machine-readable summary
+Sample-Count: 30
+Host-Average-CPU-Percent: 8.4
+Host-Peak-CPU-Percent: 12.4
+Host-Average-RSS-MiB: 506.2
+Host-Peak-RSS-MiB: 506.5
+Host-P50-CPU-Percent: 9.0
+Host-P95-CPU-Percent: 11.1
+Host-P50-RSS-MiB: 506.2
+Host-P95-RSS-MiB: 506.3
+VirGL-Timing-Version: 1
+VirGL-Average-Drawable-Ms: unavailable
+VirGL-Maximum-Window-P95-Drawable-Ms: unavailable
+VirGL-Maximum-Drawable-Ms: unavailable
+VirGL-Average-Frame-Ms: unavailable
+VirGL-Maximum-Window-P95-Frame-Ms: unavailable
+VirGL-Maximum-Frame-Ms: unavailable
+VirGL-Window-Count: 0
+VirGL-Average-FPS: unavailable
+VirGL-Minimum-FPS: unavailable
+VirGL-Requested-Frames: 0
+VirGL-Presented-Frames: 0
+VirGL-Drawable-Misses: 0
+VirGL-Presentation-Failures: 0
+VirGL-Average-Present-Ms: unavailable
+VirGL-Maximum-Window-P95-Present-Ms: unavailable
+VirGL-Maximum-Present-Ms: unavailable
+
+# Per-second samples (%CPU RSS-KiB)
+  3.0 518624
+  9.2 518416
+ 10.8 518416
+  9.7 518416
+  8.0 518352
+  9.6 518352
+ 11.1 518352
+  9.8 518352
+  7.9 518352
+  8.6 518352
+  5.7 518352
+ 11.0 518352
+ 10.7 518352
+  8.7 518352
+  7.7 518352
+ 10.5 518352
+ 12.4 518352
+  9.7 518352
+  8.7 518352
+  5.1 518352
+  3.8 518368
+  3.7 518368
+  3.3 518368
+  6.2 518368
+ 10.2 518368
+ 11.1 518368
+ 11.3 518368
+  9.0 518368
+  7.7 518368
+  9.0 518368
+
+# RiftVM graphics and virtio-gpu logs
+Filtering the log data using "processIdentifier == 1493 AND subsystem == "com.riftvm.app" AND (category == "graphics" OR category == "virtio-gpu")"

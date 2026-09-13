@@ -1,4 +1,5 @@
 #include "CVirGLBridge.h"
+#include "ActiveContextSet.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -201,6 +202,7 @@ static EGLSurface egl_surface;
 static EGLContext egl_root_context;
 #define MAX_TRACKED_CONTEXTS 65536
 static EGLSync guest_context_syncs[MAX_TRACKED_CONTEXTS];
+static struct vzvg_active_context_set active_guest_contexts;
 static egl_get_platform_display_fn egl_get_platform_display;
 static egl_initialize_fn egl_initialize;
 static egl_bind_api_fn egl_bind_api;
@@ -502,7 +504,14 @@ int vzvg_renderer_initialize(void) {
     return result;
 }
 
-void vzvg_renderer_cleanup(void) { if (renderer_cleanup) renderer_cleanup(&renderer_cookie); }
+void vzvg_renderer_cleanup(void) {
+    uint32_t context_id;
+    while (vzvg_active_context_pop(&active_guest_contexts, &context_id)) {
+        egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
+        guest_context_syncs[context_id] = NULL;
+    }
+    if (renderer_cleanup) renderer_cleanup(&renderer_cookie);
+}
 void vzvg_renderer_poll(void) { if (renderer_poll) renderer_poll(); }
 
 void vzvg_renderer_get_cap_set(uint32_t set, uint32_t *max_version, uint32_t *max_size) {
@@ -537,6 +546,7 @@ void vzvg_renderer_context_destroy(uint32_t context_id) {
     if (context_id < MAX_TRACKED_CONTEXTS && guest_context_syncs[context_id]) {
         egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
         guest_context_syncs[context_id] = NULL;
+        vzvg_active_context_remove(&active_guest_contexts, context_id);
     }
     context_destroy(context_id);
 }
@@ -546,8 +556,10 @@ void vzvg_renderer_context_attach_resource(uint32_t context_id, uint32_t resourc
 void vzvg_renderer_context_detach_resource(uint32_t context_id, uint32_t resource_id) {
     context_detach_resource((int)context_id, (int)resource_id);
 }
-int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_count) {
-    int result = submit_cmd(commands, (int)context_id, (int)dword_count);
+int vzvg_renderer_submit(const void *commands, uint32_t context_id, uint32_t dword_count) {
+    // virgl_renderer_submit_cmd retains its historical void* ABI, but the
+    // pinned virgl_context submit/vrend decoder take const void* synchronously.
+    int result = submit_cmd((void *)commands, (int)context_id, (int)dword_count);
     // Scanout presentation happens from the shared root GL context. Submit the
     // producer context's pending work before switching contexts so the root
     // blit observes updates immediately instead of waiting for unrelated guest
@@ -563,6 +575,7 @@ int vzvg_renderer_submit(void *commands, uint32_t context_id, uint32_t dword_cou
                     egl_destroy_sync(egl_display, guest_context_syncs[context_id]);
                 }
                 guest_context_syncs[context_id] = sync;
+                vzvg_active_context_insert(&active_guest_contexts, context_id);
                 gl_flush();
             }
         }
@@ -632,9 +645,9 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
     // producer contexts. A CPU-side EGL_FOREVER wait can stall presentation
     // indefinitely when CAMetalLayer replaces its drawable during a resize.
     force_context_zero();
-    for (uint32_t context_id = 0; context_id < MAX_TRACKED_CONTEXTS; context_id++) {
+    uint32_t context_id;
+    while (vzvg_active_context_pop(&active_guest_contexts, &context_id)) {
         EGLSync sync = guest_context_syncs[context_id];
-        if (!sync) continue;
         if (!egl_wait_sync(egl_display, sync, 0)) {
             snprintf(last_error, sizeof(last_error),
                      "guest render fence wait failed: egl=0x%x context=%u",

@@ -1120,6 +1120,44 @@ enum VMGraphicsPresentationHealthTransition: Equatable {
     case recovered
 }
 
+// CAMetalLayer may wait for the display to release a drawable. Keep that wait
+// off AppKit and deliver the result on the main actor for lifecycle validation.
+final class VMGraphicsDrawableAcquirer: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "com.riftvm.app.drawable", qos: .userInteractive)
+
+    func acquire<Value>(
+        _ operation: @escaping () -> Value,
+        completion: @escaping @MainActor (Value, TimeInterval) -> Void
+    ) {
+        queue.async {
+            let started = DispatchTime.now().uptimeNanoseconds
+            let value = operation()
+            let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
+            DispatchQueue.main.async { completion(value, elapsed) }
+        }
+    }
+}
+
+/// CPU-side timing only; completion does not measure display scanout latency.
+struct VMGraphicsTimingSummary: Equatable {
+    let averageMilliseconds: Double
+    let p95Milliseconds: Double
+    let maximumMilliseconds: Double
+
+    init(durations: [TimeInterval]) {
+        let sorted = durations.sorted()
+        guard !sorted.isEmpty else {
+            averageMilliseconds = 0
+            p95Milliseconds = 0
+            maximumMilliseconds = 0
+            return
+        }
+        averageMilliseconds = sorted.reduce(0, +) * 1000 / Double(sorted.count)
+        p95Milliseconds = sorted[Int(ceil(Double(sorted.count) * 0.95)) - 1] * 1000
+        maximumMilliseconds = sorted[sorted.count - 1] * 1000
+    }
+}
+
 struct VMGraphicsPresentationHealthTracker: Equatable {
     private(set) var consecutiveFailures = 0
     private(set) var isDegraded = false

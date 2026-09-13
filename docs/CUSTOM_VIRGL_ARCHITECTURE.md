@@ -41,8 +41,11 @@ The normal scanout path borrows VirGL's live texture and wraps it in an
 `EGLImage`; it does not copy pixels through Swift `Data`, `CGImage`, or a CPU
 readback. All VirGL/ANGLE calls retain dedicated-thread EGL context affinity.
 
-The AppKit presentation path uses a 60 Hz timer in common run-loop modes;
-this is not a variable-refresh display-link implementation. There is at most one in-flight drawable
+The AppKit presentation path uses a 60 Hz timer in common run-loop modes
+while the window is visible. Hidden, minimized, detached, or fully occluded
+windows stop the Host presentation timer and retain the latest scanout for
+immediate restoration. The Guest continues rendering; this is not a
+variable-refresh display-link implementation. There is at most one in-flight drawable
 and one latest pending frame; older pending frames are coalesced. The objective
 is low visible latency, not delivery of stale intermediate frames.
 

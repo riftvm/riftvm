@@ -222,14 +222,11 @@ final class VirGLRenderer {
         serialized { vzvg_renderer_context_detach_resource(contextID, resourceID) }
     }
 
-    func submit(contextID: UInt32, commands: Data) -> Bool {
-        guard commands.count.isMultiple(of: 4) else { return false }
-        var copy = commands
-        return serialized {
-            copy.withUnsafeMutableBytes { bytes in
-                guard let base = bytes.baseAddress else { return false }
-                return vzvg_renderer_submit(base, contextID, UInt32(commands.count / 4)) == 0
-            }
+    func submit(contextID: UInt32, commands: Data, byteRange: Range<Int>) -> Bool {
+        serialized {
+            VirGLCommandBuffer.withBytes(commands, range: byteRange) { bytes, dwordCount in
+                vzvg_renderer_submit(bytes, contextID, dwordCount) == 0
+            } ?? false
         }
     }
 
@@ -428,5 +425,27 @@ final class VirGLRenderer {
     private static var lastError: String {
         guard let pointer = vzvg_renderer_last_error() else { return "unknown error" }
         return String(cString: pointer)
+    }
+}
+
+// The pinned virgl decoder consumes a const buffer synchronously. Borrow the
+// request storage until submit returns; copy only if its address is unaligned.
+enum VirGLCommandBuffer {
+    static func withBytes<Result>(
+        _ data: Data, range: Range<Int>,
+        _ body: (UnsafeRawPointer, UInt32) -> Result
+    ) -> Result? {
+        guard range.lowerBound >= 0, range.upperBound <= data.count,
+              !range.isEmpty, range.count.isMultiple(of: 4),
+              range.count / 4 <= UInt32.max else { return nil }
+        return data.withUnsafeBytes { bytes in
+            let start = bytes.baseAddress!.advanced(by: range.lowerBound)
+            let words = UInt32(range.count / 4)
+            if Int(bitPattern: start).isMultiple(of: 4) { return body(start, words) }
+            let aligned = UnsafeMutableRawPointer.allocate(byteCount: range.count, alignment: 4)
+            defer { aligned.deallocate() }
+            aligned.copyMemory(from: start, byteCount: range.count)
+            return body(UnsafeRawPointer(aligned), words)
+        }
     }
 }
