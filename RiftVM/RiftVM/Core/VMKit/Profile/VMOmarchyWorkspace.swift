@@ -13,6 +13,9 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
     public let guestCapabilities: [String]?
     public let cpuCount: Int?
     public let memoryBytes: UInt64?
+    public var graphicsBackend: VMLinuxGraphicsBackend?
+
+    public var effectiveGraphicsBackend: VMLinuxGraphicsBackend { graphicsBackend ?? .customVirGL }
 
     public init(
         schemaVersion: Int = currentSchemaVersion,
@@ -23,7 +26,8 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
         guestAgentVersion: String? = nil,
         guestCapabilities: [String]? = nil,
         cpuCount: Int? = nil,
-        memoryBytes: UInt64? = nil
+        memoryBytes: UInt64? = nil,
+        graphicsBackend: VMLinuxGraphicsBackend? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.productID = productID
@@ -34,6 +38,7 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
         self.guestCapabilities = guestCapabilities
         self.cpuCount = cpuCount
         self.memoryBytes = memoryBytes
+        self.graphicsBackend = graphicsBackend
     }
 }
 
@@ -244,7 +249,8 @@ public struct VMOmarchyWorkspaceManager {
             guestAgentVersion: agentVersion,
             guestCapabilities: sortedCapabilities,
             cpuCount: old.cpuCount,
-            memoryBytes: old.memoryBytes
+            memoryBytes: old.memoryBytes,
+            graphicsBackend: old.graphicsBackend
         )
         do {
             try JSONEncoder().encode(updated).write(to: layout.configuration, options: .atomic)
@@ -281,7 +287,8 @@ public struct VMOmarchyWorkspaceManager {
             guestAgentVersion: old.guestAgentVersion,
             guestCapabilities: old.guestCapabilities,
             cpuCount: old.cpuCount,
-            memoryBytes: old.memoryBytes
+            memoryBytes: old.memoryBytes,
+            graphicsBackend: old.graphicsBackend
         )
         do {
             try metadataWriter(try JSONEncoder().encode(migrated), layout.configuration)

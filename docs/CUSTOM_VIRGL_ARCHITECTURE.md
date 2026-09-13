@@ -4,8 +4,8 @@ _Omarchy integration updated September 13, 2026; historical validation is dated 
 
 This document records the architecture, invariants, observed failure modes,
 and validation baseline for the Custom VirGL backend. Dedicated Omarchy
-constructs this backend directly and requires its Custom Virtio GPU. It does
-not call the general VM fallback factory.
+constructs its selected backend directly. Custom VirGL is the default; Apple
+Virtio is a persisted, explicit compatibility choice. Neither path silently falls back.
 It is intentionally more durable than the chronological prototype notes.
 
 ## Scope and compatibility
@@ -14,12 +14,14 @@ RiftVM requires macOS 27. Graphics selection still fails safely:
 
 | Host / guest | Requested backend | Fallback |
 | --- | --- | --- |
-| General Linux VM with Custom VirGL enabled | Custom Virtio GPU + VirGL | Apple Virtio if the runtime is unavailable or initialization fails |
-| Dedicated Omarchy workspace | Custom Virtio GPU + VirGL | None; initialization failure stops startup |
+| General Linux VM with Custom VirGL selected | Custom Virtio GPU + VirGL | None; report missing prerequisites or initialization failure |
+| Dedicated Omarchy workspace | Custom VirGL by default; Apple Virtio optional | None; initialization failure stops startup |
 | macOS guest | Apple Mac graphics | Custom VirGL is never selected |
 
-The Custom VirGL setting defaults on in the general Linux configuration. That VM window
-shows both the requested and active backend so a fallback is diagnosable.
+The Linux backend is stored per VM. Settings → Display permits changes only while
+stopped, under the same cross-process lease used by startup. Saved machine state
+blocks backend changes. macOS always uses Apple Graphics. The VM window identifies
+the chosen backend, and startup failures do not silently change the choice.
 
 ## Data paths
 
@@ -128,17 +130,15 @@ finishes makes simple tests deterministic at the cost of desktop latency and
 can deadlock teardown. Track pending fences, signal completions, and invalidate
 them explicitly during reset/stop.
 
-### Fallback ends before virtual-machine construction
+### Backend initialization fails explicitly
 
-The general Linux VM factory creates the renderer, Custom Virtio provider, and all
-`VZCustomVirtioDeviceConfiguration` instances inside one recoverable backend
-construction boundary. A missing runtime, renderer initialization failure, or
-device-configuration failure therefore selects Apple Virtio before creating a
-`VZVirtualMachine`; RiftVM never exposes a partially initialized custom device to
-the guest. Once construction succeeds, configuration application is infallible
-and only installs the already validated device objects. Dedicated Omarchy uses
-the same construction boundary but propagates failure instead of selecting
-Apple Virtio; its builder rejects configurations without the custom GPU.
+The selected Custom VirGL path constructs the renderer and custom device before
+creating the virtual machine. Missing dependencies and initialization failures
+abort startup and explain how to repair the runtime or manually select Apple
+Virtio after shutdown. Omarchy's builder requires the custom GPU only when
+Custom VirGL is selected. An explicit Apple Virtio choice attaches a native
+`VZVirtioGraphicsDeviceConfiguration` and a native VZ display, retaining Omarchy's
+authenticated keyboard, clipboard, owner setup, and recovery integrations.
 
 ### Runtime presentation health is visible
 
@@ -351,8 +351,8 @@ Before merging changes to the Custom VirGL path:
 5. Resize the window, enter/exit full screen, and verify the display ACK chain.
 6. Confirm zero presentation failures and no illegal-resource/DRAW_VBO errors.
 7. Pause/resume and stop/restart; confirm resources and cadence are released.
-8. Verify Omarchy refuses startup when Custom VirGL is unavailable. Verify
-   Apple Virtio fallback separately for the general Linux VM factory.
+8. Verify Custom VirGL startup fails explicitly when unavailable. Verify manual
+   Apple Virtio selection, persistence, native input/display, and switching back.
 9. Build the pinned runtime from source; do not depend on mutable Homebrew libs.
 10. Audit bundled licenses and source checksums before distribution.
 

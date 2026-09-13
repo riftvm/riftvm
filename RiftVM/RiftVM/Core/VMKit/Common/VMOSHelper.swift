@@ -1031,20 +1031,27 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
     }
 }
 
-enum RiftVMExperimentalFeatures {
-    static let customVirGLGraphicsKey = "experimental.customVirGLGraphics"
+/// Persisted per-machine Linux graphics choice. macOS always uses Apple Graphics.
+public enum VMLinuxGraphicsBackend: String, Codable, CaseIterable, Sendable {
+    case customVirGL
+    case appleVirtio
 
-    static func customVirGLGraphicsEnabled(
-        defaults: UserDefaults = .standard
-    ) -> Bool {
-        guard defaults.object(forKey: customVirGLGraphicsKey) != nil else {
-            return true
+    public var displayName: String {
+        switch self {
+        case .customVirGL: "Custom VirGL"
+        case .appleVirtio: "Apple Virtio"
         }
-        return defaults.bool(forKey: customVirGLGraphicsKey)
+    }
+
+    public static func changeRestriction(isRunning: Bool, hasSavedState: Bool) -> String? {
+        if isRunning { return "Shut down this virtual machine before changing its graphics backend." }
+        if hasSavedState { return "Resume and shut down this virtual machine, or discard its saved state, before changing its graphics backend." }
+        return nil
     }
 }
 
 enum VMGraphicsBackendKind: String, Codable, Equatable {
+    case appleMac
     case appleVirtio
     case customVirGL
 }
@@ -1074,53 +1081,36 @@ enum VMMachineStateSupport {
 
 struct VMGraphicsBackendSelection: Equatable {
     let requested: VMGraphicsBackendKind
-    let active: VMGraphicsBackendKind
-    let fallbackReason: String?
+    let active: VMGraphicsBackendKind?
+    let unavailabilityReason: String?
 
     static func resolve(
         isLinux: Bool,
         hostSupportsCustomVirtio: Bool,
-        experimentalEnabled: Bool,
+        requested: VMLinuxGraphicsBackend = .customVirGL,
         customBackendImplemented: Bool,
         hasInstallationMedia: Bool = false,
         guestInputReady: Bool = true
-    ) -> VMGraphicsBackendSelection {
-        guard isLinux, experimentalEnabled else {
-            return VMGraphicsBackendSelection(
-                requested: .appleVirtio, active: .appleVirtio, fallbackReason: nil
-            )
+    ) -> Self {
+        guard isLinux else {
+            return Self(requested: .appleMac, active: .appleMac, unavailabilityReason: nil)
         }
-        guard hostSupportsCustomVirtio else {
-            return VMGraphicsBackendSelection(
-                requested: .customVirGL,
-                active: .appleVirtio,
-                fallbackReason: String(localized: "The Custom VirGL backend requires macOS 27 or later.")
-            )
+        guard requested == .customVirGL else {
+            return Self(requested: .appleVirtio, active: .appleVirtio, unavailabilityReason: nil)
         }
-        guard customBackendImplemented else {
-            return VMGraphicsBackendSelection(
-                requested: .customVirGL,
-                active: .appleVirtio,
-                fallbackReason: String(localized: "The Custom VirGL backend is enabled but has not been linked into this build.")
-            )
+        let reason: String?
+        if !hostSupportsCustomVirtio {
+            reason = "Custom VirGL requires macOS 27 or later."
+        } else if !customBackendImplemented {
+            reason = "The Custom VirGL runtime is not included in this build."
+        } else if hasInstallationMedia {
+            reason = "Eject installation media before using Custom VirGL. Select Apple Virtio to run the installer."
+        } else if !guestInputReady {
+            reason = "The RiftVM Guest Agent has not confirmed input readiness. Select Apple Virtio to install or repair the Guest Agent."
+        } else {
+            reason = nil
         }
-        guard !hasInstallationMedia else {
-            return VMGraphicsBackendSelection(
-                requested: .customVirGL,
-                active: .appleVirtio,
-                fallbackReason: String(localized: "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input.")
-            )
-        }
-        guard guestInputReady else {
-            return VMGraphicsBackendSelection(
-                requested: .customVirGL,
-                active: .appleVirtio,
-                fallbackReason: String(localized: "Apple Virtio is used until the RiftVM Guest Agent confirms reliable keyboard and pointer input.")
-            )
-        }
-        return VMGraphicsBackendSelection(
-            requested: .customVirGL, active: .customVirGL, fallbackReason: nil
-        )
+        return Self(requested: .customVirGL, active: reason == nil ? .customVirGL : nil, unavailabilityReason: reason)
     }
 }
 

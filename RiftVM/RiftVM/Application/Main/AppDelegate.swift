@@ -394,6 +394,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             pointingDevices: defaults.pointingDevices,
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
+            graphicsBackend: .appleVirtio, // New generic imports need Guest Agent enrollment before VirGL.
             linuxFeatures: .recommended
         ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(
@@ -654,6 +655,7 @@ struct ReleaseFixtureCreationConfiguration {
             pointingDevices: defaults.pointingDevices,
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
+            graphicsBackend: osType == .linux ? .appleVirtio : nil,
             linuxFeatures: defaults.linuxFeatures
         )
         return VMModel(
@@ -821,6 +823,7 @@ struct VMPreinstalledImageInstaller {
             pointingDevices: defaults.pointingDevices,
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
+            graphicsBackend: install.configuration?.graphicsBackend ?? .appleVirtio,
             linuxFeatures: defaults.linuxFeatures ?? .recommended
         ).addingManagedSharedFolder(rootPath: stagingURL)
         let model = VMModel(rootPath: stagingURL, state: VMStateModel(imagePath: diskURL), config: config)

@@ -226,7 +226,6 @@ private struct ControlCenterCommands: Commands {
 #if arch(arm64)
 private struct VirtualizationFeaturesSettingsView: View {
     @State private var capabilityRefreshID = UUID()
-    @AppStorage(RiftVMExperimentalFeatures.customVirGLGraphicsKey) private var customVirGLGraphics = true
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
     @AppStorage(VMThumbnailPreferences.generatedStyleKey) private var generatedThumbnailStyle = VMGeneratedThumbnailStyle.aurora.rawValue
 
@@ -265,15 +264,11 @@ private struct VirtualizationFeaturesSettingsView: View {
             Section {
                 LabeledContent("DiskImageKit snapshots", value: "Eligible ASIF configurations")
                 LabeledContent("EFI Secure Boot", value: "Configured per Linux VM")
-                featureToggle(
-                    "Prefer Custom VirGL for Linux",
-                    isOn: $customVirGLGraphics,
-                    capability: .customVirtio
-                )
+                LabeledContent("Linux graphics", value: "Configured per VM in Settings → Display")
             } header: {
                 Text("Feature configuration")
             } footer: {
-                Text("Snapshot storage depends on the machine configuration; an ASIF file alone does not establish that layered snapshots are active. The graphics preference applies on the next start and may fall back to Apple graphics if initialization fails. macOS guests use Apple's graphics stack; graphics support depends on the host, guest, and hardware. This page does not verify guest Metal support or iCloud sign-in eligibility.")
+                Text("Snapshot storage depends on the machine configuration; an ASIF file alone does not establish that layered snapshots are active. The graphics backend is saved per VM and changes only after shutdown. Startup failures never silently switch backends. macOS guests use Apple's graphics stack; graphics support depends on the host, guest, and hardware. This page does not verify guest Metal support or iCloud sign-in eligibility.")
             }
 
             Section {

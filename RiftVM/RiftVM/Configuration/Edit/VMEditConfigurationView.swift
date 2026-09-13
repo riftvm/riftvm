@@ -7,11 +7,12 @@ extension Notification.Name {
 
 struct VMEditConfigurationView: View {
     private enum Category: String, CaseIterable, Identifiable {
-        case general = "General", hardware = "Hardware", devices = "Devices", sharing = "Sharing", linux = "Linux"
+        case general = "General", display = "Display", hardware = "Hardware", devices = "Devices", sharing = "Sharing", linux = "Linux"
         var id: Self { self }
         var symbol: String {
             switch self {
             case .general: "info.circle"
+            case .display: "display"
             case .hardware: "cpu"
             case .devices: "externaldrive.connected.to.line.below"
             case .sharing: "folder"
@@ -23,6 +24,7 @@ struct VMEditConfigurationView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var configData: VMConfigurationViewStateObject
     @State private var selection: Category = .general
+    @State private var runRevision = UUID()
     @State private var saveError: String?
     let model: VMModel
     let appliesSharedFoldersImmediately: Bool
@@ -45,6 +47,7 @@ struct VMEditConfigurationView: View {
             Divider()
             footer
         }
+        .onReceive(NotificationCenter.default.publisher(for: .riftVMRunStateDidChange)) { _ in runRevision = UUID() }
         .environment(configData)
         .frame(minWidth: 720, idealWidth: 820, minHeight: 600, idealHeight: 680)
         .alert("Settings Could Not Be Saved", isPresented: Binding(
@@ -91,11 +94,26 @@ struct VMEditConfigurationView: View {
                     LabeledContent("Location", value: model.rootPath.path(percentEncoded: false))
                 }.formStyle(.grouped)
             }
+        case .display:
+            settingsPage("Display", subtitle: "Graphics backend and guest displays", symbol: "display") {
+                @Bindable var configData = configData
+                Form {
+                    Section {
+                        if configData.osType == .linux {
+                            VMGraphicsBackendPicker(selection: $configData.graphicsBackend, restriction: graphicsRestriction)
+                        } else {
+                            LabeledContent("Graphics Backend", value: "Apple Graphics")
+                            Text("Native Apple graphics for macOS virtual machines.").foregroundStyle(.secondary)
+                        }
+                    }
+                    Section("Displays") { VMConfigurationGraphicDevicesView() }
+                }.formStyle(.grouped)
+            }
         case .hardware:
-            settingsPage("Hardware", subtitle: "Processor, memory, display and storage", symbol: "cpu") {
+            settingsPage("Hardware", subtitle: "Processor, memory and storage", symbol: "cpu") {
                 Form {
                     Section("Compute") { VMConfigurationCPUView(); VMConfigurationMemoryView() }
-                    Section("Display and Storage") { VMConfigurationGraphicDevicesView(); VMConfigurationStorageDevicesView() }
+                    Section("Storage") { VMConfigurationStorageDevicesView() }
                 }.formStyle(.grouped)
             }
         case .devices:
@@ -155,9 +173,31 @@ struct VMEditConfigurationView: View {
         configData.osType == .linux ? Category.allCases : Category.allCases.filter { $0 != .linux }
     }
 
+    private var graphicsRestriction: String? {
+        _ = runRevision
+        return VMLinuxGraphicsBackend.changeRestriction(
+            isRunning: VMRunningRegistry.shared.isRunning(rootPath: model.rootPath),
+            hasSavedState: FileManager.default.fileExists(atPath: model.savedMachineStateURL.path)
+        )
+    }
+
     private func saveConfig() {
         let configuration = configData.getConfigModel()
-        switch configuration.writeConfigToFile(path: model.configURL) {
+        let result: VMOSResultVoid
+        if configuration.type == .linux && configuration.effectiveGraphicsBackend != model.config.effectiveGraphicsBackend {
+            do {
+                result = try VMRunningRegistry.shared.withStoppedMachine(rootPath: model.rootPath) {
+                    if let reason = VMLinuxGraphicsBackend.changeRestriction(isRunning: false,
+                        hasSavedState: FileManager.default.fileExists(atPath: model.savedMachineStateURL.path)) {
+                        throw VMOSError.regularFailure(reason)
+                    }
+                    return configuration.writeConfigToFile(path: model.configURL)
+                }
+            } catch { saveError = error.localizedDescription; return }
+        } else {
+            result = configuration.writeConfigToFile(path: model.configURL)
+        }
+        switch result {
         case .success:
             NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
             NotificationCenter.default.post(

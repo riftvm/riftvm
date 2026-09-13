@@ -15,14 +15,18 @@ Apple graphics.
 
 | Host and guest | Expected graphics path |
 | --- | --- |
-| Omarchy created from the home screen | Custom Virtio GPU with VirGL/ANGLE Metal; no Apple Virtio fallback |
-| General Linux VM with Custom VirGL enabled | Custom Virtio GPU with VirGL/ANGLE; Apple Virtio fallback on initialization failure |
+| Omarchy created from the home screen | Custom VirGL by default; Apple Virtio available in Settings → Display |
+| General Linux VM with Custom VirGL enabled | Custom Virtio GPU with VirGL/ANGLE; explicit error on initialization failure |
 | macOS guest | Apple native Mac graphics path |
 
-The RiftVM deployment target is macOS 27. Omarchy requires Custom VirGL.
-A missing or broken runtime must produce a startup error, never a silent
-software-rendering fallback. General Linux configurations retain their
-separate Apple Virtio fallback policy.
+The RiftVM deployment target is macOS 27. Omarchy defaults to Custom VirGL.
+A missing or broken runtime produces a startup error, never a silent fallback.
+To change backends, shut down and open **Settings → Display → Graphics Backend**.
+Select **Apple Virtio** for Linux compatibility or installation. It may render
+Linux 3D in software. Before selecting Custom VirGL on a general Linux VM, install
+the supported guest drivers and RiftVM Guest Agent and eject installation media.
+Resume and shut down (or discard) any saved machine state before switching.
+macOS uses **Apple Graphics**; Custom VirGL is not supported for macOS guests.
 
 Use the Omarchy window's **Integration**, **Updates**, and **Recovery** menus for
 its status and recovery controls. `riftvm doctor` reports host information;

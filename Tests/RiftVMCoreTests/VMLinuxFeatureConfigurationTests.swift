@@ -49,87 +49,77 @@ final class VMLinuxFeatureConfigurationTests: XCTestCase {
         XCTAssertTrue(lifecycle.isStopped)
     }
 
-    func testCustomVirGLPreferenceDefaultsOnAndRespectsExplicitOptOut() throws {
-        let suiteName = "VMLinuxFeatureConfigurationTests.\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        XCTAssertTrue(RiftVMExperimentalFeatures.customVirGLGraphicsEnabled(defaults: defaults))
-        defaults.set(false, forKey: RiftVMExperimentalFeatures.customVirGLGraphicsKey)
-        XCTAssertFalse(RiftVMExperimentalFeatures.customVirGLGraphicsEnabled(defaults: defaults))
-    }
-
     func testCustomVirGLNeverActivatesForMacOSGuests() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: false,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: true,
+            requested: .customVirGL,
             customBackendImplemented: true
         )
-        XCTAssertEqual(selection.requested, .appleVirtio)
-        XCTAssertEqual(selection.active, .appleVirtio)
-        XCTAssertNil(selection.fallbackReason)
+        XCTAssertEqual(selection.requested, .appleMac)
+        XCTAssertEqual(selection.active, .appleMac)
+        XCTAssertNil(selection.unavailabilityReason)
     }
 
-    func testCustomVirGLSelectionDefaultsToAppleBackend() {
+    func testExplicitAppleSelectionUsesAppleBackend() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: false,
+            requested: .appleVirtio,
             customBackendImplemented: true
         )
         XCTAssertEqual(selection.active, .appleVirtio)
-        XCTAssertNil(selection.fallbackReason)
+        XCTAssertNil(selection.unavailabilityReason)
     }
 
-    func testCustomVirGLSelectionFallsBackUntilRuntimeIsLinked() {
+    func testCustomVirGLRefusesStartupUntilRuntimeIsLinked() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: true,
+            requested: .customVirGL,
             customBackendImplemented: false
         )
         XCTAssertEqual(selection.requested, .customVirGL)
-        XCTAssertEqual(selection.active, .appleVirtio)
-        XCTAssertNotNil(selection.fallbackReason)
+        XCTAssertNil(selection.active)
+        XCTAssertNotNil(selection.unavailabilityReason)
     }
 
     func testCustomVirGLSelectionActivatesOnlyWhenAllGatesPass() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: true,
+            requested: .customVirGL,
             customBackendImplemented: true
         )
         XCTAssertEqual(selection.active, .customVirGL)
-        XCTAssertNil(selection.fallbackReason)
+        XCTAssertNil(selection.unavailabilityReason)
     }
 
-    func testCustomVirGLUsesAppleInputWhileInstallationMediaIsAttached() {
+    func testCustomVirGLRefusesStartupWhileInstallationMediaIsAttached() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: true,
+            requested: .customVirGL,
             customBackendImplemented: true,
             hasInstallationMedia: true,
             guestInputReady: true
         )
         XCTAssertEqual(selection.requested, .customVirGL)
-        XCTAssertEqual(selection.active, .appleVirtio)
-        XCTAssertTrue(selection.fallbackReason?.contains("installation media") == true)
+        XCTAssertNil(selection.active)
+        XCTAssertTrue(selection.unavailabilityReason?.contains("installation media") == true)
     }
 
     func testCustomVirGLWaitsForVerifiedGuestInput() {
         let selection = VMGraphicsBackendSelection.resolve(
             isLinux: true,
             hostSupportsCustomVirtio: true,
-            experimentalEnabled: true,
+            requested: .customVirGL,
             customBackendImplemented: true,
             guestInputReady: false
         )
         XCTAssertEqual(selection.requested, .customVirGL)
-        XCTAssertEqual(selection.active, .appleVirtio)
-        XCTAssertTrue(selection.fallbackReason?.contains("Guest Agent") == true)
+        XCTAssertNil(selection.active)
+        XCTAssertTrue(selection.unavailabilityReason?.contains("Guest Agent") == true)
     }
 
     func testGuestInputReadinessIsScopedToMachineIdentity() throws {

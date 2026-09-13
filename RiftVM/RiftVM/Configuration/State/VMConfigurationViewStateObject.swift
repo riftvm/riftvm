@@ -53,6 +53,7 @@ class VMConfigurationViewStateObject {
     var cpuCount: Int = 1
     var memorySize: UInt64 = 1024 * 1024 * 1024 * 4
 
+    var graphicsBackend: VMLinuxGraphicsBackend = .customVirGL
     var graphicDevices: [VMModelFieldGraphicDeviceItemModel] = []
     var storageDevices: [VMModelFieldStorageDeviceItemModel] = []
     var networkDevices: [VMModelFieldNetworkDeviceItemModel] = []
@@ -74,6 +75,7 @@ class VMConfigurationViewStateObject {
     
     func setValuesWithConfigModel(configModel: VMConfigModel) {
         self.osType = configModel.type
+        self.graphicsBackend = configModel.effectiveGraphicsBackend
         self.name = configModel.name
         self.remark = configModel.remark
         
@@ -120,7 +122,7 @@ class VMConfigurationViewStateObject {
         let audioDevices = self.audioDevices.map({$0.data})
         let directorySharingDevices = self.directorySharingDevices.map({$0.data})
         
-        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices, linuxFeatures: osType == .linux ? linuxFeatures : nil)
+        return VMConfigModel(type: osType, name: name, remark: remark, cpu: cpu, memory: memory, graphicsDevices: graphicDevices, storageDevices: storageDevices, networkDevices: networkDevices, pointingDevices: pointingDevices, audioDevices: audioDevices, directorySharingDevices: directorySharingDevices, graphicsBackend: osType == .linux ? graphicsBackend : nil, linuxFeatures: osType == .linux ? linuxFeatures : nil)
     }
 
     @discardableResult

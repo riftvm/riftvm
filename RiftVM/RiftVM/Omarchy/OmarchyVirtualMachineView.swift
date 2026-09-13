@@ -9,8 +9,8 @@ private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.omarchy.
 final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
     var displayConfigurationChanged: (() -> Void)?
 
-    init() {
-        super.init(frame: .zero, guestSize: CGSize(width: 1920, height: 1200), managesKeyboardIntegration: false)
+    init(usesCustomGraphics: Bool = true) {
+        super.init(frame: .zero, guestSize: CGSize(width: 1920, height: 1200), managesKeyboardIntegration: false, usesCustomGraphics: usesCustomGraphics)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -177,8 +177,7 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
         DispatchQueue.main.async { [weak self, weak targetWindow] in
             guard let self, let targetWindow, self.window === targetWindow,
                   self.displayRefreshGeneration == generation,
-                  !self.hostOverlayVisible,
-                  self.runtime != nil else { return }
+                  !self.hostOverlayVisible else { return }
             targetWindow.contentView?.layoutSubtreeIfNeeded()
             self.displayConfigurationChanged?()
         }
@@ -326,7 +325,7 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
             guestPressedKeys.removeAll()
         }
         guestInputEventHandler = handler
-        setGuestInputHandler(handler)
+        setGuestInputHandler(usesCustomGraphics ? handler : nil)
     }
 
     /// Sends an intentionally unpaced burst through the same view-to-Agent
@@ -491,6 +490,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
     @State private var notice: UserNotice?
+    @State private var activeGraphicsBackend: VMLinuxGraphicsBackend?
     @State private var graphicsIssue: String?
     @State private var acceptanceFailure: String?
     @State private var recordedIntegrationSignature = ""
@@ -536,6 +536,7 @@ struct OmarchyVirtualMachineView: View {
                 graphicsIssueChanged: { graphicsIssue = $0 }
             )
             .id(sessionID)
+            .onAppear { activeGraphicsBackend = try? VMOmarchyWorkspaceManager(layout: layout).metadata().effectiveGraphicsBackend }
             if phase != .running {
                 statusOverlay
             }
@@ -590,6 +591,13 @@ struct OmarchyVirtualMachineView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Menu {
+                    if let activeGraphicsBackend {
+                        Text("\(activeGraphicsBackend.displayName) selected")
+                    }
+                    if let graphicsIssue { Text(graphicsIssue) }
+                    Text("Change the backend in workspace Settings → Display after shutdown.")
+                } label: { Label("Graphics", systemImage: "display") }
                 integrationMenu
                 updatesMenu
                 recoveryMenu
@@ -1664,25 +1672,45 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> VZVirtualMachineView {
-        let view = OmarchyVirtualMachineInputView()
+        context.coordinator.runLease = VMRunningRegistry.shared.acquire(rootPath: layout.applicationSupportRoot)
+        let metadata = Result { try VMOmarchyWorkspaceManager(layout: layout).metadata() }
+        let usesCustomGraphics = (try? metadata.get().effectiveGraphicsBackend) != .appleVirtio
+        let view = OmarchyVirtualMachineInputView(usesCustomGraphics: usesCustomGraphics)
         view.capturesSystemKeys = true
-        view.automaticallyReconfiguresDisplay = false
+        view.automaticallyReconfiguresDisplay = !usesCustomGraphics
         view.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.machineView = view
         // Stop/recovery must remain available even when graphics or VM
         // configuration fails before a VZVirtualMachine can be constructed.
         context.coordinator.beginObservingCommands()
         do {
-            let backend = try VMCustomVirGLGraphicsBackend(devices: [.init(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)], displayView: view)
+            guard context.coordinator.runLease != nil else {
+                throw VMOSError.regularFailure("This workspace is already running or its settings are being changed.")
+            }
+            _ = try metadata.get()
+            let backend: any VMGraphicsBackend
+            if usesCustomGraphics {
+                backend = try VMCustomVirGLGraphicsBackend(devices: [.init(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)], displayView: view)
+            } else {
+                backend = VMAppleGraphicsBackend(displayView: view)
+            }
             context.coordinator.graphicsBackend = backend
             backend.setRuntimeIssueHandler(context.coordinator.graphicsIssueChanged)
-            view.displayConfigurationChanged = { [weak backend] in backend?.refreshDisplayConfiguration() }
+            view.displayConfigurationChanged = { [weak coordinator = context.coordinator] in coordinator?.graphicsBackend?.refreshDisplayConfiguration() }
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                 layout: layout,
                 profile: profile,
-                customGraphicsDevices: backend.deviceConfigurations,
+                customGraphicsDevices: (backend as? VMCustomVirGLGraphicsBackend)?.deviceConfigurations ?? [],
                 microphoneEnabled: microphoneEnabled
             )
+            guard let lease = context.coordinator.runLease,
+                  let assessment = VMRunningRegistry.shared.configureResources(lease,
+                    cpuCount: configuration.cpuCount, memoryBytes: configuration.memorySize) else {
+                throw VMOSError.regularFailure("Could not reserve resources for this workspace.")
+            }
+            guard assessment.allowed else {
+                throw VMOSError.regularFailure(assessment.denialReason ?? "Insufficient host resources.")
+            }
             let machine = VZVirtualMachine(configuration: configuration)
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
@@ -1720,9 +1748,11 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         nsView.virtualMachine = nil
     }
 
-    final class Coordinator: NSObject, VZVirtualMachineDelegate {
+    @MainActor
+    final class Coordinator: NSObject, @preconcurrency VZVirtualMachineDelegate {
+        var runLease: VMRunLease?
         var machine: VZVirtualMachine?
-        var graphicsBackend: VMCustomVirGLGraphicsBackend?
+        var graphicsBackend: (any VMGraphicsBackend)?
         let sessionID: UUID
         let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
@@ -1735,9 +1765,28 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let dynamicDisplayProbeChanged: (OmarchyDynamicDisplayProbeState) -> Void
         let ownerProvisioningCompleted: (UUID, String?) -> Void
         let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
-        let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
+        private let reportPhase: (OmarchyVirtualMachineView.Phase) -> Void
         let acceptanceFailureChanged: (String) -> Void
         let graphicsIssueChanged: (String?) -> Void
+
+        func phaseChanged(_ phase: OmarchyVirtualMachineView.Phase) {
+            if let lease = runLease {
+                switch phase {
+                case .starting: VMRunningRegistry.shared.transition(lease, to: .starting)
+                case .running, .resuming: VMRunningRegistry.shared.transition(lease, to: .running)
+                case .paused, .pausing: VMRunningRegistry.shared.transition(lease, to: .paused)
+                case .stopping: VMRunningRegistry.shared.transition(lease, to: .stopping)
+                case .stopped, .failed:
+                    // An operation error can leave the VM running. Keep its lease
+                    // until VZ confirms stop, including asynchronous view teardown.
+                    if machine == nil || machine?.state == .stopped || machine?.state == .error {
+                        VMRunningRegistry.shared.release(lease)
+                        runLease = nil
+                    }
+                }
+            }
+            reportPhase(phase)
+        }
 
         func start(
             _ machine: VZVirtualMachine,
@@ -1771,7 +1820,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                                 layout: self.layout,
                                 profile: profile,
-                                customGraphicsDevices: self.graphicsBackend?.deviceConfigurations ?? [],
+                                customGraphicsDevices: (self.graphicsBackend as? VMCustomVirGLGraphicsBackend)?.deviceConfigurations ?? [],
                                 microphoneEnabled: microphoneEnabled
                             )
                             let replacement = VZVirtualMachine(configuration: configuration)
@@ -1909,7 +1958,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.dynamicDisplayProbeChanged = dynamicDisplayProbeChanged
             self.ownerProvisioningCompleted = ownerProvisioningCompleted
             self.ownerProvisioningProgressChanged = ownerProvisioningProgressChanged
-            self.phaseChanged = phaseChanged
+            self.reportPhase = phaseChanged
             self.acceptanceFailureChanged = acceptanceFailureChanged
             self.graphicsIssueChanged = graphicsIssueChanged
         }
@@ -1960,35 +2009,43 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.requestStop()
+                MainActor.assumeIsolated {
+                    guard let self, notification.object as? UUID == self.sessionID else { return }
+                    self.requestStop()
+                }
             }
             pauseObserver = NotificationCenter.default.addObserver(
                 forName: .omarchyRequestPause,
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.pause(automaticResume: false)
+                MainActor.assumeIsolated {
+                    guard let self, notification.object as? UUID == self.sessionID else { return }
+                    self.pause(automaticResume: false)
+                }
             }
             resumeObserver = NotificationCenter.default.addObserver(
                 forName: .omarchyRequestResume,
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.resume()
+                MainActor.assumeIsolated {
+                    guard let self, notification.object as? UUID == self.sessionID else { return }
+                    self.resume()
+                }
             }
             keyboardPermissionObserver = NotificationCenter.default.addObserver(
                 forName: .omarchyRequestKeyboardPermission,
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, notification.object as? UUID == self.sessionID else { return }
-                if let keyboardBridge = self.keyboardBridge {
-                    keyboardBridge.requestPermission()
-                } else {
-                    OmarchyFocusedCommandBridge.requestAccessibilityAccess()
+                MainActor.assumeIsolated {
+                    guard let self, notification.object as? UUID == self.sessionID else { return }
+                    if let keyboardBridge = self.keyboardBridge {
+                        keyboardBridge.requestPermission()
+                    } else {
+                        OmarchyFocusedCommandBridge.requestAccessibilityAccess()
+                    }
                 }
             }
             forceStopObserver = NotificationCenter.default.addObserver(
@@ -1996,8 +2053,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                guard let self, notification.object as? UUID == self.sessionID else { return }
-                self.forceStop()
+                MainActor.assumeIsolated {
+                    guard let self, notification.object as? UUID == self.sessionID else { return }
+                    self.forceStop()
+                }
             }
         }
 
@@ -2395,10 +2454,13 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             keyboardBridge = nil
             stopIntegration()
             guard let machine else {
+                if let lease = runLease { VMRunningRegistry.shared.release(lease); runLease = nil }
                 graphicsBackend?.shutdown()
                 graphicsBackend = nil
                 return
             }
+            let lease = runLease
+            runLease = nil
             let backend = graphicsBackend
             graphicsBackend = nil
             // The renderer owns guest resources: retain it until VZ has actually
@@ -2418,6 +2480,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     }
                 }
                 backend?.shutdown()
+                if let lease { VMRunningRegistry.shared.release(lease) }
                 OmarchyApplicationTerminationController.shared.unregister(machine)
             }
             self.machine = nil

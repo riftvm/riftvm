@@ -92,6 +92,40 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.19
+
+RiftVM 0.1.19 adds per-workspace graphics selection and protects backend changes
+while a virtual machine is running.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Linux graphics are configured in **Settings → Display → Graphics Backend**.
+  Omarchy defaults to **Custom VirGL**; **Apple Virtio** is an explicit
+  compatibility option. Existing Omarchy workspaces retain the Custom VirGL default.
+- macOS always uses **Apple Graphics**. Display device types follow the guest OS.
+- Graphics choices persist with the VM. Switching requires shutdown; saved machine
+  state must first be resumed and shut down, or discarded. Startup failures never
+  silently select another backend.
+- Custom VirGL on other Linux guests requires compatible drivers and an enrolled
+  Guest Agent. Generic installation fixtures and new CLI image imports use Apple
+  Virtio for setup; users can select Custom VirGL after guest integration is ready.
+- Omarchy now participates in the shared running registry, including startup,
+  pause, shutdown, and asynchronous teardown. Running workspaces are correctly
+  labeled, and settings cannot race a VM startup in another process.
+- The old global graphics preference is replaced by per-VM settings. README,
+  website, architecture, and troubleshooting guidance describe the new behavior.
+
+### Validation
+
+- Core and CLI regression coverage includes metadata compatibility, explicit
+  native graphics, refusal to fall back, saved-state restrictions, and exclusive
+  settings/startup leases.
+- Disposable Omarchy workspace verification covers both backends, login and
+  terminal input, a short real 3D workload, settings persistence, and switching
+  after shutdown. No lock or sleep tests are performed.
+
 ## 0.1.18
 
 RiftVM 0.1.18 brings hardware-accelerated Custom VirGL graphics to the dedicated

@@ -90,13 +90,14 @@ protocol VMGraphicsBackend {
 }
 
 final class VMAppleGraphicsBackend: VMGraphicsBackend {
-    let kind = VMGraphicsBackendKind.appleVirtio
+    let kind: VMGraphicsBackendKind
     let supportsMachineSaveRestore = true
     let virtualMachineView: VZVirtualMachineView
     var displayView: NSView { virtualMachineView }
 
-    init() {
-        virtualMachineView = VZVirtualMachineView()
+    init(displayView: VZVirtualMachineView = VZVirtualMachineView(), kind: VMGraphicsBackendKind = .appleVirtio) {
+        self.kind = kind
+        virtualMachineView = displayView
         if #available(macOS 14.0, *) {
             virtualMachineView.automaticallyReconfiguresDisplay = true
         }
@@ -272,6 +273,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
     private let managesKeyboardIntegration: Bool
+    let usesCustomGraphics: Bool
     private var commandKeyMonitor: Any?
     private var focusedCommandEventTap: VMFocusedCommandEventTap?
     private var accessibilityRetryTimer: Timer?
@@ -288,22 +290,25 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     // attached; authenticated Guest Agent input becomes available in userspace.
     private var absolutePointerEnabled = true
 
-    init(frame frameRect: NSRect, guestSize: CGSize, managesKeyboardIntegration: Bool = true) {
+    init(frame frameRect: NSRect, guestSize: CGSize, managesKeyboardIntegration: Bool = true, usesCustomGraphics: Bool = true) {
+        self.usesCustomGraphics = usesCustomGraphics
         self.managesKeyboardIntegration = managesKeyboardIntegration
         self.guestSize = guestSize
         super.init(frame: frameRect)
-        wantsLayer = true
-        backgroundLayer.backgroundColor = NSColor.black.cgColor
-        layer = backgroundLayer
-        metalLayer.device = MTLCreateSystemDefaultDevice()
-        metalLayer.pixelFormat = .bgra8Unorm
-        metalLayer.framebufferOnly = false
-        metalLayer.backgroundColor = NSColor.black.cgColor
-        backgroundLayer.addSublayer(metalLayer)
-        cursorLayer.anchorPoint = .zero
-        cursorLayer.contentsGravity = .resize
-        cursorLayer.isHidden = true
-        metalLayer.addSublayer(cursorLayer)
+        if usesCustomGraphics {
+            wantsLayer = true
+            backgroundLayer.backgroundColor = NSColor.black.cgColor
+            layer = backgroundLayer
+            metalLayer.device = MTLCreateSystemDefaultDevice()
+            metalLayer.pixelFormat = .bgra8Unorm
+            metalLayer.framebufferOnly = false
+            metalLayer.backgroundColor = NSColor.black.cgColor
+            backgroundLayer.addSublayer(metalLayer)
+            cursorLayer.anchorPoint = .zero
+            cursorLayer.contentsGravity = .resize
+            cursorLayer.isHidden = true
+            metalLayer.addSublayer(cursorLayer)
+        }
         capturesSystemKeys = true
         automaticallyReconfiguresDisplay = false
         if managesKeyboardIntegration {
@@ -760,8 +765,10 @@ class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func layout() {
         super.layout()
-        updateDrawableGeometry()
-        updateCursorGeometry()
+        if usesCustomGraphics {
+            updateDrawableGeometry()
+            updateCursorGeometry()
+        }
     }
 
     override func viewDidMoveToWindow() {
@@ -787,6 +794,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func updateTrackingAreas() {
+        guard usesCustomGraphics else { super.updateTrackingAreas(); return }
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(
             rect: bounds,
@@ -1156,69 +1164,37 @@ enum VMGraphicsBackendFactory {
     // presenter, and lifecycle implementation are linked into the app target.
     static let customBackendImplemented = true
 
-    static func selection(
+    static func make(
         forLinux: Bool = true,
+        devices: [VMModelFieldGraphicDevice],
+        requested: VMLinuxGraphicsBackend = .customVirGL,
         hasInstallationMedia: Bool = false,
-        guestInputReady: Bool = true
-    ) -> VMGraphicsBackendSelection {
-        VMGraphicsBackendSelection.resolve(
-            isLinux: forLinux,
+        guestInputReady: Bool = true,
+        forceAppleGraphics: Bool = false
+    ) throws -> VMGraphicsBackendCreation {
+        guard forLinux else {
+            return VMGraphicsBackendCreation(backend: VMAppleGraphicsBackend(kind: .appleMac), detail: nil)
+        }
+        if forceAppleGraphics || requested == .appleVirtio {
+            return VMGraphicsBackendCreation(backend: VMAppleGraphicsBackend(), detail: nil)
+        }
+        let selection = VMGraphicsBackendSelection.resolve(
+            isLinux: true,
             hostSupportsCustomVirtio: VirtualizationCapability.customVirtio.isAvailable,
-            experimentalEnabled: RiftVMExperimentalFeatures.customVirGLGraphicsEnabled(),
+            requested: requested,
             customBackendImplemented: customBackendImplemented,
             hasInstallationMedia: hasInstallationMedia,
             guestInputReady: guestInputReady
         )
-    }
-
-    static func make(
-        forLinux: Bool = true,
-        devices: [VMModelFieldGraphicDevice],
-        hasInstallationMedia: Bool = false,
-        guestInputReady: Bool = true,
-        forceAppleGraphics: Bool = false
-    ) -> VMGraphicsBackendCreation {
-        if forceAppleGraphics {
-            return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(),
-                detail: "Apple Virtio graphics selected for release comparison."
-            )
+        guard selection.active == .customVirGL else {
+            throw VMOSError.regularFailure("\(selection.unavailabilityReason ?? "Custom VirGL is unavailable.") Shut down and open Settings → Display to change the backend.")
         }
-        let selection = selection(
-            forLinux: forLinux,
-            hasInstallationMedia: hasInstallationMedia,
-            guestInputReady: guestInputReady
-        )
-        if let fallbackReason = selection.fallbackReason {
-            RiftVMLog.info("Graphics backend fallback: \(fallbackReason)")
-        }
-        // The exhaustive switch intentionally makes adding the production
-        // backend a compiler-visible integration point.
-        switch selection.active {
-        case .appleVirtio:
+        do {
             return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(), detail: selection.fallbackReason
+                backend: try VMCustomVirGLGraphicsBackend(devices: devices), detail: nil
             )
-        case .customVirGL:
-            if #available(macOS 27.0, *) {
-                do {
-                    return VMGraphicsBackendCreation(
-                        backend: try VMCustomVirGLGraphicsBackend(devices: devices), detail: nil
-                    )
-                } catch {
-                    let detail = "Custom VirGL could not start: \(error.localizedDescription)"
-                    RiftVMLog.error(
-                        "Custom VirGL initialization failed; using Apple Virtio: \(String(reflecting: error))"
-                    )
-                    return VMGraphicsBackendCreation(
-                        backend: VMAppleGraphicsBackend(), detail: detail
-                    )
-                }
-            }
-            return VMGraphicsBackendCreation(
-                backend: VMAppleGraphicsBackend(),
-                detail: "The Custom VirGL backend requires macOS 27 or later."
-            )
+        } catch {
+            throw VMOSError.regularFailure("Custom VirGL could not start: \(error.localizedDescription). Verify the bundled runtime, or shut down and choose Apple Virtio in Settings → Display.")
         }
     }
 }

@@ -22,6 +22,8 @@ struct VMConfigModel : Decodable, Encodable {
     let pointingDevices: [VMModelFieldPointingDevice]
     let audioDevices: [VMModelFieldAudioDevice]
     let directorySharingDevices: [VMModelFieldDirectorySharingDevice]
+    var graphicsBackend: VMLinuxGraphicsBackend? = nil
+    var effectiveGraphicsBackend: VMLinuxGraphicsBackend { graphicsBackend ?? .customVirGL }
     var linuxFeatures: VMLinuxFeatureConfiguration? = nil
     
     static func createWithDefaultValues(osType: VMOSType) -> VMConfigModel {
@@ -96,6 +98,7 @@ struct VMConfigModel : Decodable, Encodable {
             pointingDevices: pointingDevices,
             audioDevices: audioDevices,
             directorySharingDevices: sharingDevices,
+            graphicsBackend: graphicsBackend,
             linuxFeatures: linuxFeatures
         )
     }
@@ -127,6 +130,7 @@ struct VMConfigModel : Decodable, Encodable {
             pointingDevices: pointingDevices,
             audioDevices: audioDevices,
             directorySharingDevices: sharingDevices,
+            graphicsBackend: graphicsBackend,
             linuxFeatures: linuxFeatures
         )
     }
@@ -324,6 +328,7 @@ struct VMModel: Identifiable {
             pointingDevices: config.pointingDevices,
             audioDevices: config.audioDevices,
             directorySharingDevices: config.directorySharingDevices,
+            graphicsBackend: config.graphicsBackend,
             linuxFeatures: config.linuxFeatures
         )
 

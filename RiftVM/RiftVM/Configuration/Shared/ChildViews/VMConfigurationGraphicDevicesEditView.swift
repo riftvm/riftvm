@@ -14,7 +14,7 @@ struct VMConfigurationGraphicDevicesEditView: View {
     @Environment(\.dismiss) private var dismiss
     
     
-    @State private var inputType: VMModelFieldGraphicDevice.DeviceType = .Mac
+    private var inputType: VMModelFieldGraphicDevice.DeviceType { configData.osType == .macOS ? .Mac : .Virtio }
     @State private var inputWidth = 1920
     @State private var inputHeight = 1200
     @State private var inputPixelsPerInch = 80
@@ -24,11 +24,7 @@ struct VMConfigurationGraphicDevicesEditView: View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 Section("New Display") {
-                    Picker("Type", selection: $inputType) {
-                        ForEach(VMModelFieldGraphicDevice.DeviceType.allCases) { item in
-                            Text(item.displayName).tag(item)
-                        }
-                    }
+                    LabeledContent("Type", value: inputType.displayName)
                     Picker("Resolution", selection: resolutionBinding) {
                         Text("1280 × 720").tag("1280x720")
                         Text("1920 × 1080").tag("1920x1080")

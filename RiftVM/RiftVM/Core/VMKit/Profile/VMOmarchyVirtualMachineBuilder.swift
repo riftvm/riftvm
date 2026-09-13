@@ -116,12 +116,17 @@ public enum VMOmarchyVirtualMachineBuilder {
         )
         configuration.storageDevices = [VZVirtioBlockDeviceConfiguration(attachment: diskAttachment)]
 
-        // Omarchy requires the caller-owned VirGL runtime. Never create an
-        // Apple display as an implicit fallback when accelerated setup fails.
-        configuration.graphicsDevices = []
-        configuration.customVirtioDevices = customGraphicsDevices
-        if validatesConfiguration && !customGraphicsDevices.contains(where: { $0.deviceID == 16 }) {
-            throw VMOmarchyVirtualMachineBuilderError.customGraphicsRequired
+        // Both paths are explicit per-workspace choices; never silently fall back.
+        if (metadata?.effectiveGraphicsBackend ?? .customVirGL) == .appleVirtio {
+            let graphics = VZVirtioGraphicsDeviceConfiguration()
+            graphics.scanouts = [VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1920, heightInPixels: 1200)]
+            configuration.graphicsDevices = [graphics]
+        } else {
+            configuration.graphicsDevices = []
+            configuration.customVirtioDevices = customGraphicsDevices
+            if validatesConfiguration && !customGraphicsDevices.contains(where: { $0.deviceID == 16 }) {
+                throw VMOmarchyVirtualMachineBuilderError.customGraphicsRequired
+            }
         }
         configuration.keyboards = [VZUSBKeyboardConfiguration()]
         configuration.pointingDevices = [VZUSBScreenCoordinatePointingDeviceConfiguration()]
@@ -194,7 +199,7 @@ extension VMOmarchyVirtualMachineBuilderError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .customGraphicsRequired:
-            "Omarchy requires Custom VirGL graphics. Verify the bundled VirGL runtime and try again."
+            "Custom VirGL is selected for this workspace. Verify the bundled runtime, or shut down and choose Apple Virtio in Settings → Display."
         case .invalidMachineIdentifier:
             "The Omarchy machine identity is invalid."
         case .recoveryFailed(let reason):

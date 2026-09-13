@@ -35,18 +35,21 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         let targetHeight: CGFloat = originalContentSize.height > 700 ? 640 : 760
         window.setContentSize(NSSize(width: targetWidth, height: targetHeight))
         try await Task.sleep(for: .milliseconds(500))
-        // Retain backing-pixel evidence, but compare the Guest with the mode
-        // that Custom VirGL requests from logical bounds (including alignment).
+        // Custom VirGL requests aligned logical bounds. Apple Virtio exposes
+        // its actual negotiated mode through VZGraphicsDisplay.
         let viewSize = view.convertToBacking(view.bounds).size
         let hostAfter = OmarchyDisplaySize(
             width: Int(viewSize.width.rounded()),
             height: Int(viewSize.height.rounded())
         )
         let requested = VMDisplayGeometry.guestResolution(for: view.bounds.size)
-        let expectedGuest = OmarchyDisplaySize(width: Int(requested.width), height: Int(requested.height))
-        NSLog("Custom VirGL display probe: screen=%@ original=%.0fx%.0f target=%.0fx%.0f actual=%.0fx%.0f guestBefore=%dx%d expected=%dx%d", window.screen?.localizedName ?? "unknown", originalContentSize.width, originalContentSize.height, targetWidth, targetHeight, view.bounds.width, view.bounds.height, before.width, before.height, expectedGuest.width, expectedGuest.height)
+        var expectedGuest = OmarchyDisplaySize(width: Int(requested.width), height: Int(requested.height))
         try Data().write(to: probeDirectory.appending(path: "resize-go"), options: .atomic)
         let after = try await waitForDisplay(at: probeDirectory.appending(path: "after.json"))
+        if let nativeDisplay = view.virtualMachine?.graphicsDevices.first?.displays.first {
+            expectedGuest = OmarchyDisplaySize(width: Int(nativeDisplay.sizeInPixels.width), height: Int(nativeDisplay.sizeInPixels.height))
+        }
+        NSLog("Graphics display probe expected=%dx%d guest=%dx%d", expectedGuest.width, expectedGuest.height, after.width, after.height)
         guard before != after else { throw ProbeError.resolutionUnchanged(before) }
         guard after == expectedGuest else {
             throw ProbeError.hostGuestMismatch(host: expectedGuest, guest: after)
@@ -146,7 +149,7 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         var errorDescription: String? {
             switch self {
             case .hostGuestMismatch(let host, let guest):
-                "Guest display \(guest.width)x\(guest.height) does not match the requested Custom VirGL mode \(host.width)x\(host.height)."
+                "Guest display \(guest.width)x\(guest.height) does not match the requested graphics mode \(host.width)x\(host.height)."
             case .invalidMonitorJSON: "Hyprland returned invalid monitor JSON."
             case .missingWindow: "The Omarchy display has no Host window."
             case .resolutionUnchanged(let size):

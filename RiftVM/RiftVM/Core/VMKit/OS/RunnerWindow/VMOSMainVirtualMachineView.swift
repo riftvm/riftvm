@@ -173,7 +173,7 @@ struct VMOSMainVirtualMachineView: View {
                              ? String(localized: "Custom VirGL needs attention")
                              : (backend == .customVirGL
                                 ? String(localized: "Custom VirGL active")
-                                : String(localized: "Apple Virtio active")))
+                                : (backend == .appleMac ? "Apple Graphics active" : "Apple Virtio active")))
                         if let detail = runtimeState.graphicsBackendDetail {
                             Divider()
                             Text(detail)
@@ -189,7 +189,7 @@ struct VMOSMainVirtualMachineView: View {
                     .help(runtimeState.graphicsBackendDetail
                           ?? (backend == .customVirGL
                               ? String(localized: "Custom VirGL acceleration is active")
-                              : String(localized: "Apple Virtio graphics is active")))
+                              : (backend == .appleMac ? "Apple Graphics is active" : "Apple Virtio graphics is active")))
                     .accessibilityLabel(
                         graphicsNeedsAttention
                             ? String(localized: "Graphics needs attention")

@@ -67,7 +67,7 @@ factory does not replace your existing guest disk. See [Updates and recovery](do
 
 - Apple silicon and macOS 27 or later are required. Intel Macs and generic Linux ISO installation are outside the supported creation flow.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
-- Omarchy uses Custom VirGL graphics and disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
+- Omarchy defaults to Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
 - Omarchy shares only its managed exchange folder by default. Other host folders are not exposed automatically. A guest with read-write access to a deliberately shared folder can change its contents.
 - Chinese input methods are installed and configured inside Omarchy by the user; Mac input-method passthrough is not provided. See [Chinese input](docs/OMARCHY_INPUT.md).
 
@@ -118,15 +118,22 @@ guest integration, graphics architecture, and distribution details.
 
 ### Linux graphics backends
 
-Omarchy uses Custom VirGL exclusively: Guest Mesa VirGL commands are rendered
+Omarchy defaults to Custom VirGL: Guest Mesa VirGL commands are rendered
 through virglrenderer and ANGLE on Metal. If the runtime cannot initialize,
 startup reports an error instead of switching to Apple Virtio.
 
 | Workspace / configuration | Graphics path |
 | --- | --- |
-| Omarchy created from the home screen | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal; no Apple Virtio fallback |
+| Omarchy created from the home screen | Custom VirGL by default; Apple Virtio is an explicit per-workspace option |
 | macOS guest | Apple native Mac graphics |
-| General Linux VM with Custom VirGL enabled | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal, with Apple Virtio fallback if initialization fails |
+| Other Linux VMs | Custom VirGL for prepared guests; select Apple Virtio for installation or compatibility |
+
+Choose **Settings → Display → Graphics Backend** for each Linux workspace. Shut
+down before switching. A saved machine state must first be resumed and shut down,
+or discarded. The choice is stored with the VM and is never silently changed after
+a startup failure. macOS always uses **Apple Graphics** and has no backend picker.
+Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent;
+Apple Virtio may use software rendering for Linux 3D.
 
 Custom VirGL supports zero-copy scanout presentation and dynamic resolution.
 It does not support memory-state save/restore because guest RAM alone cannot

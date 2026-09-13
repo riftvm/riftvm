@@ -268,13 +268,20 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         } ?? false
         let releaseSmokeConfiguration = VMReleaseSmokeTest.configuration(for: rootPath)
         let releaseSmokeRequiresVirGL = releaseSmokeConfiguration?.requireVirGL == true
-        let graphicsCreation = VMGraphicsBackendFactory.make(
-            forLinux: model.config.type == .linux,
-            devices: model.config.graphicsDevices,
-            hasInstallationMedia: hasInstallationMedia,
-            guestInputReady: guestInputReady || releaseSmokeRequiresVirGL,
-            forceAppleGraphics: releaseSmokeConfiguration?.forceAppleGraphics == true
-        )
+        let graphicsCreation: VMGraphicsBackendCreation
+        do {
+            graphicsCreation = try VMGraphicsBackendFactory.make(
+                forLinux: model.config.type == .linux,
+                devices: model.config.graphicsDevices,
+                requested: model.config.effectiveGraphicsBackend,
+                hasInstallationMedia: hasInstallationMedia,
+                guestInputReady: guestInputReady || releaseSmokeRequiresVirGL,
+                forceAppleGraphics: releaseSmokeConfiguration?.forceAppleGraphics == true
+            )
+        } catch {
+            fail(error.localizedDescription)
+            return
+        }
         let graphicsBackend = graphicsCreation.backend
         self.graphicsBackend = graphicsBackend
         runtimeState?.updateGraphicsBackend(

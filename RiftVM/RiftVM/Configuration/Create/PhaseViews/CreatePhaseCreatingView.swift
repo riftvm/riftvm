@@ -241,7 +241,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 guestAgentVersion: factory.manifest.payload.guestAgentVersion,
                 guestCapabilities: factory.manifest.payload.guestCapabilities.sorted(),
                 cpuCount: context.configData.cpuCount,
-                memoryBytes: context.configData.memorySize
+                memoryBytes: context.configData.memorySize,
+                graphicsBackend: context.configData.graphicsBackend
             ))
             try manager.prepare(
                 factoryDisk: factory.diskURL,
@@ -531,6 +532,9 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
     }
 
     private func attachLinuxInstaller(imagePath: String, context: VMCreateStepperGuidePhaseContext) {
+        // Installer environments have no enrolled Guest Agent. Persist the
+        // installation choice explicitly; users opt into VirGL after setup.
+        context.configData.graphicsBackend = .appleVirtio
         context.configData.storageDevices.removeAll {
             $0.data.type == .USB && ($0.data.imagePath.isEmpty || $0.data.imagePath == context.formData.imagePath)
         }

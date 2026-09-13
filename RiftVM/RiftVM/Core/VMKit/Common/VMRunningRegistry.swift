@@ -201,6 +201,17 @@ final class VMRunningRegistry {
         return entries[key] != nil || isLockedByAnotherProcess(key: key)
     }
 
+    /// Serialize settings edits with VM startup, including other RiftVM processes.
+    func withStoppedMachine<T>(rootPath: URL, operation: () throws -> T) throws -> T {
+        let key = canonicalKey(rootPath)
+        guard entries[key] == nil, let descriptor = acquireCrossProcessLock(key: key) else {
+            throw NSError(domain: "RiftVM.Settings", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "Shut down this virtual machine before changing its graphics backend."])
+        }
+        defer { flock(descriptor, LOCK_UN); close(descriptor) }
+        return try operation()
+    }
+
     private func acquireCrossProcessLock(key: String) -> Int32? {
         do {
             try FileManager.default.createDirectory(at: lockDirectory, withIntermediateDirectories: true,

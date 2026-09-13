@@ -8,6 +8,7 @@ struct WorkspaceControlCenterView: View {
     @State private var snapshot: RiftWorkspaceRegistrySnapshot?
     @State private var filter: WorkspaceFilter = .all
     @State private var errorMessage: String?
+    @State private var graphicsWorkspace: RiftWorkspaceRecord?
     @State private var settingsModel: VMModel?
     @State private var snapshotWorkspace: RiftWorkspaceRecord?
     @State private var renameWorkspace: RiftWorkspaceRecord?
@@ -36,6 +37,7 @@ struct WorkspaceControlCenterView: View {
         .onReceive(NotificationCenter.default.publisher(for: .riftWorkspaceRegistryDidChange)) { _ in loadRegistry() }
         .onReceive(NotificationCenter.default.publisher(for: .riftVMRunStateDidChange)) { _ in runStateRevision = UUID() }
         .onReceive(NotificationCenter.default.publisher(for: .riftvmConfigurationSaved)) { _ in loadRegistry() }
+        .sheet(item: $graphicsWorkspace) { OmarchyGraphicsSettingsView(workspace: $0) }
         .sheet(item: $settingsModel) { VMEditConfigurationView(model: $0) }
         .sheet(item: $snapshotWorkspace) { workspace in
             MachineSnapshotsView(machineName: workspace.name, rootPath: workspace.bundleURL)
@@ -255,7 +257,7 @@ struct WorkspaceControlCenterView: View {
 
     private func showSettings(for workspace: RiftWorkspaceRecord) {
         guard workspace.kind == .macOS else {
-            errorMessage = "Omarchy hardware and integration settings are managed by RiftVM for the best supported experience."
+            graphicsWorkspace = workspace
             return
         }
         switch VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) {
