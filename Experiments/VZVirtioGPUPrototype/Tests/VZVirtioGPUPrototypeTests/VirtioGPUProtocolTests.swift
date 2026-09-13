@@ -461,3 +461,60 @@ import Testing
     scheduler.submit(3)
     #expect(delivered == [1, 3])
 }
+
+@Test func rendererQueuePreservesLargeBurstsAcrossCompaction() {
+    let executor = RendererExecutor()
+    let started = DispatchSemaphore(value: 0)
+    let unblock = DispatchSemaphore(value: 0)
+    executor.async { started.signal(); _ = unblock.wait(timeout: .now() + 5) }
+    #expect(started.wait(timeout: .now() + 1) == .success)
+    var received: [Int] = []
+    for index in 0..<10000 { executor.async { received.append(index) } }
+    unblock.signal()
+    executor.stop()
+    #expect(received == Array(0..<10000))
+}
+
+@Test func commandSubmissionBorrowsAlignedBytesWithoutMutatingRequest() {
+    let data = Data((0..<256).map(UInt8.init))
+    let result = data.withUnsafeBytes { original in
+        VirGLCommandBuffer.withBytes(data, range: 32..<96) { pointer, words in
+            #expect(pointer == original.baseAddress!.advanced(by: 32))
+            #expect(words == 16)
+            return Data(bytes: pointer, count: Int(words) * 4)
+        }
+    }
+    #expect(result == Data(32..<96))
+    #expect(data == Data((0..<256).map(UInt8.init)))
+}
+
+@Test func commandSubmissionAlignsUnalignedStorageAndRejectsInvalidRanges() {
+    let allocation = UnsafeMutableRawPointer.allocate(byteCount: 257, alignment: 16)
+    defer { allocation.deallocate() }
+    allocation.initializeMemory(as: UInt8.self, repeating: 0x5a, count: 257)
+    let data = Data(bytesNoCopy: allocation.advanced(by: 1), count: 256, deallocator: .none)
+    let result = VirGLCommandBuffer.withBytes(data, range: 0..<256) { pointer, words in
+        #expect(Int(bitPattern: pointer).isMultiple(of: 4))
+        #expect(pointer != UnsafeRawPointer(allocation.advanced(by: 1)))
+        #expect(words == 64)
+        return Data(bytes: pointer, count: 256)
+    }
+    #expect(result == data)
+    for range in [0..<0, -4..<4, 0..<3, 0..<260] {
+        let accepted = VirGLCommandBuffer.withBytes(data, range: range) { _, _ in true }
+        #expect(accepted == nil)
+    }
+}
+
+@Test func rendererQueueReleasesConsumedClosureCaptures() {
+    let executor = RendererExecutor()
+    defer { executor.stop() }
+    weak var released: NSObject?
+    do {
+        let token = NSObject()
+        released = token
+        executor.async { [token] in _ = token.description }
+    }
+    let didRelease = executor.sync { released == nil }
+    #expect(didRelease)
+}

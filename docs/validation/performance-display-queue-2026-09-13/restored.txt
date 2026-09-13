@@ -1,0 +1,83 @@
+# RiftVM VirGL performance capture
+Format-Version: 2
+Generated: 2026-09-13T19:09:58Z
+Started: 2026-09-13T19:09:28Z
+Duration: 30s
+Backend: custom-virgl
+Workload: hyprland-idle-restored-awake
+PID: 1493
+macOS: 27.0 (26A428)
+Hardware: Mac15,6
+
+# Machine-readable summary
+Sample-Count: 30
+Host-Average-CPU-Percent: 12.2
+Host-Peak-CPU-Percent: 23.8
+Host-Average-RSS-MiB: 508.4
+Host-Peak-RSS-MiB: 509.3
+Host-P50-CPU-Percent: 11.2
+Host-P95-CPU-Percent: 22.4
+Host-P50-RSS-MiB: 509.3
+Host-P95-RSS-MiB: 509.3
+VirGL-Timing-Version: 2
+VirGL-Average-Drawable-Ms: 8.00
+VirGL-Maximum-Window-P95-Drawable-Ms: 16.27
+VirGL-Maximum-Drawable-Ms: 16.78
+VirGL-Average-Frame-Ms: 8.26
+VirGL-Maximum-Window-P95-Frame-Ms: 16.45
+VirGL-Maximum-Frame-Ms: 20.19
+VirGL-Window-Count: 6
+VirGL-Average-FPS: 60.0
+VirGL-Minimum-FPS: 60.0
+VirGL-Requested-Frames: 3594
+VirGL-Presented-Frames: 1801
+VirGL-Drawable-Misses: 0
+VirGL-Presentation-Failures: 0
+VirGL-Average-Present-Ms: 0.22
+VirGL-Maximum-Window-P95-Present-Ms: 0.87
+VirGL-Maximum-Present-Ms: 2.16
+
+# Per-second samples (%CPU RSS-KiB)
+  5.3 518544
+  5.4 518544
+  6.0 518544
+  5.3 518544
+  5.4 518544
+  5.1 518544
+  5.5 518544
+  5.7 518544
+  6.1 518544
+ 10.3 521520
+ 11.1 521536
+ 11.4 521536
+  8.4 521536
+ 11.4 521536
+ 11.2 521536
+  7.2 521536
+ 11.1 521552
+ 11.9 521552
+ 11.8 521552
+ 11.4 521552
+ 11.3 521552
+ 16.9 521552
+ 18.0 521552
+ 20.0 521552
+ 23.8 521552
+ 21.5 521552
+ 21.6 521552
+ 19.1 521552
+ 22.4 521552
+ 23.5 521552
+
+# RiftVM graphics and virtio-gpu logs
+Filtering the log data using "processIdentifier == 1493 AND subsystem == "com.riftvm.app" AND (category == "graphics" OR category == "virtio-gpu")"
+Timestamp               Ty Process[PID:TID]
+2026-09-13 12:09:32.397 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.2 requested=599 presented=301 drawableMisses=0 failures=0 avgPresentMs=0.16 p95PresentMs=0.19 maxPresentMs=0.45 drawable=2048x1312 timingVersion=2 avgDrawableMs=8.33 p95DrawableMs=16.27 maxDrawableMs=16.57 avgFrameMs=8.51 p95FrameMs=16.45 maxFrameMs=16.75
+2026-09-13 12:09:36.814 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL zero-copy frames presented: 18000
+2026-09-13 12:09:37.397 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.0 requested=599 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.16 p95PresentMs=0.20 maxPresentMs=0.23 drawable=2048x1312 timingVersion=2 avgDrawableMs=8.58 p95DrawableMs=16.27 maxDrawableMs=16.78 avgFrameMs=8.76 p95FrameMs=16.45 maxFrameMs=16.96
+2026-09-13 12:09:42.397 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.0 requested=599 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.16 p95PresentMs=0.19 maxPresentMs=0.90 drawable=2048x1312 timingVersion=2 avgDrawableMs=7.86 p95DrawableMs=16.12 maxDrawableMs=16.46 avgFrameMs=8.04 p95FrameMs=16.27 maxFrameMs=17.31
+2026-09-13 12:09:46.814 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL zero-copy frames presented: 18600
+2026-09-13 12:09:47.398 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.0 requested=599 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.17 p95PresentMs=0.20 maxPresentMs=0.84 drawable=2048x1312 timingVersion=2 avgDrawableMs=7.69 p95DrawableMs=16.11 maxDrawableMs=16.45 avgFrameMs=7.88 p95FrameMs=16.28 maxFrameMs=16.60
+2026-09-13 12:09:52.398 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.0 requested=599 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.30 p95PresentMs=0.71 maxPresentMs=1.54 drawable=2048x1312 timingVersion=2 avgDrawableMs=7.87 p95DrawableMs=15.66 maxDrawableMs=16.39 avgFrameMs=8.21 p95FrameMs=16.01 maxFrameMs=20.19
+2026-09-13 12:09:56.815 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL zero-copy frames presented: 19200
+2026-09-13 12:09:57.398 I  RiftVM[1493:567c4a] [com.riftvm.app:graphics] VirGL performance: fps=60.0 requested=599 presented=300 drawableMisses=0 failures=0 avgPresentMs=0.39 p95PresentMs=0.87 maxPresentMs=2.16 drawable=2048x1312 timingVersion=2 avgDrawableMs=7.69 p95DrawableMs=15.46 maxDrawableMs=16.47 avgFrameMs=8.13 p95FrameMs=15.97 maxFrameMs=16.74

@@ -245,6 +245,85 @@ struct VMOmarchyConnectionSuspensionGate {
     }
 }
 
+// Own a duplicate descriptor so queued work can never write to a descriptor
+// reused by a later connection. Only this serial queue writes session frames.
+final class VMOmarchySocketWriter: @unchecked Sendable {
+    fileprivate let descriptor: Int32
+    private let queue = DispatchQueue(label: "com.riftvm.app.omarchy.agent.write", qos: .userInitiated)
+    private let lock = NSLock()
+    private var cancelled = false
+
+    init(descriptor: Int32) throws {
+        let duplicate = Darwin.dup(descriptor)
+        guard duplicate >= 0 else { throw POSIXError(.EBADF) }
+        let flags = fcntl(duplicate, F_GETFL)
+        var noSigPipe: Int32 = 1
+        guard flags >= 0,
+              fcntl(duplicate, F_SETFL, flags | O_NONBLOCK) == 0,
+              setsockopt(duplicate, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe,
+                         socklen_t(MemoryLayout<Int32>.size)) == 0 else {
+            let error = POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            Darwin.close(duplicate)
+            throw error
+        }
+        self.descriptor = duplicate
+    }
+
+    deinit { Darwin.close(descriptor) }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    private var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func enqueue(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
+        // Include time spent queued in the deadline, so a slow peer cannot
+        // keep old commands alive indefinitely behind another blocked write.
+        let deadline = DispatchTime.now().uptimeNanoseconds + 30_000_000_000
+        queue.async { [self] in
+            do {
+                try data.withUnsafeBytes { bytes in
+                    var offset = 0
+                    while offset < bytes.count {
+                        if isCancelled { throw CancellationError() }
+                        guard DispatchTime.now().uptimeNanoseconds < deadline else {
+                            throw POSIXError(.ETIMEDOUT)
+                        }
+                        let count = Darwin.write(descriptor, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
+                        if count > 0 { offset += count; continue }
+                        if count < 0 && errno == EINTR { continue }
+                        if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            var event = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
+                            let result = Darwin.poll(&event, 1, 100)
+                            if result < 0 && errno != EINTR {
+                                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                            }
+                            if result > 0 && event.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 {
+                                throw POSIXError(.EPIPE)
+                            }
+                            continue
+                        }
+                        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                    }
+                }
+                completion(nil)
+            } catch {
+                // A partial frame poisons the stream. Never send another
+                // frame on it, even before the main actor handles the error.
+                cancel()
+                completion(error)
+            }
+        }
+    }
+}
+
 @MainActor
 public final class VMOmarchyGuestAgentClient {
     private struct PendingRequest {
@@ -258,7 +337,7 @@ public final class VMOmarchyGuestAgentClient {
     private let stateChanged: (VMOmarchyIntegrationState) -> Void
     private let hostPowerChanged: (VMOmarchyHostPowerEvent) -> Void
     private let ioQueue = DispatchQueue(label: "com.riftvm.app.omarchy.agent", qos: .utility)
-    private let writeLock = NSLock()
+    private var writer: VMOmarchySocketWriter?
     private var connection: VZVirtioSocketConnection?
     private var generation: UInt64 = 0
     private var sessionID: String?
@@ -802,12 +881,18 @@ public final class VMOmarchyGuestAgentClient {
 
     private func begin(_ connection: VZVirtioSocketConnection, generation: UInt64) {
         self.connection = connection
+        do {
+            writer = try VMOmarchySocketWriter(descriptor: connection.fileDescriptor)
+        } catch {
+            disconnected(error.localizedDescription, generation: generation)
+            return
+        }
         stateChanged(.authenticating)
         let enrollment = enrollment
-        let descriptor = connection.fileDescriptor
-        ioQueue.async { [weak self] in
+        guard let writer else { return }
+        ioQueue.async { [weak self, writer] in
             self?.readLoop(
-                descriptor: descriptor,
+                writer: writer,
                 enrollment: enrollment,
                 generation: generation
             )
@@ -815,10 +900,11 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     private nonisolated func readLoop(
-        descriptor: Int32,
+        writer: VMOmarchySocketWriter,
         enrollment: VMGuestAgentEnrollment,
         generation: UInt64
     ) {
+        let descriptor = writer.descriptor
         var buffer = VMGuestAgentFrameBuffer()
         var authenticator: VMGuestAgentAuthenticator
         do {
@@ -835,7 +921,19 @@ public final class VMOmarchyGuestAgentClient {
             var bytes = [UInt8](repeating: 0, count: 64 * 1024)
             while true {
                 let count = Darwin.read(descriptor, &bytes, bytes.count)
-                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { usleep(10_000); continue }
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    // Wait for actual data; fixed sleeps add latency to every
+                    // input acknowledgement on this nonblocking connection.
+                    var event = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
+                    let result = Darwin.poll(&event, 1, -1)
+                    if result < 0 && errno != EINTR {
+                        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                    }
+                    if result > 0 && event.revents & Int16(POLLNVAL) != 0 {
+                        throw POSIXError(.EBADF)
+                    }
+                    continue
+                }
                 if count < 0 && errno == EINTR { continue }
                 if count < 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
                 if count == 0 { throw CocoaError(.fileReadUnknown) }
@@ -928,26 +1026,10 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     private func send(_ operation: VMGuestAgentOperation) {
-        guard let sessionID, let connection else { return }
+        guard let sessionID else { return }
         do {
-            writeLock.lock()
-            defer { writeLock.unlock() }
-            sendSequence &+= 1
-            let authenticator = try VMGuestAgentAuthenticator(
-                tokenData: enrollment.token,
-                machineID: enrollment.machineID
-            )
-            let envelope = try authenticator.makeEnvelope(
-                sessionID: sessionID,
-                sequence: sendSequence,
-                requestID: UUID().uuidString,
-                operation: operation,
-                payload: Data()
-            )
-            try Self.writeAll(
-                descriptor: connection.fileDescriptor,
-                data: VMGuestAgentFrameCodec.encode(envelope)
-            )
+            try sendEnvelope(operation: operation, requestID: UUID().uuidString,
+                             payload: Data(), sessionID: sessionID)
         } catch {
             disconnected(error.localizedDescription, generation: generation)
         }
@@ -993,9 +1075,7 @@ public final class VMOmarchyGuestAgentClient {
         payload: Data,
         sessionID: String
     ) throws {
-        guard let connection else { throw CocoaError(.fileNoSuchFile) }
-        writeLock.lock()
-        defer { writeLock.unlock() }
+        guard let writer else { throw CocoaError(.fileNoSuchFile) }
         sendSequence &+= 1
         let authenticator = try VMGuestAgentAuthenticator(
             tokenData: enrollment.token,
@@ -1008,10 +1088,15 @@ public final class VMOmarchyGuestAgentClient {
             operation: operation,
             payload: payload
         )
-        try Self.writeAll(
-            descriptor: connection.fileDescriptor,
-            data: VMGuestAgentFrameCodec.encode(envelope)
-        )
+        let data = try VMGuestAgentFrameCodec.encode(envelope)
+        let currentGeneration = generation
+        writer.enqueue(data) { [weak self, weak writer] error in
+            guard let error else { return }
+            Task { @MainActor in
+                guard let self, let writer, self.writer === writer else { return }
+                self.disconnected(error.localizedDescription, generation: currentGeneration)
+            }
+        }
     }
 
     private func downloadData(
@@ -1241,6 +1326,8 @@ public final class VMOmarchyGuestAgentClient {
     }
 
     private func closeConnection() {
+        writer?.cancel()
+        writer = nil
         guard let connection else { return }
         _ = Darwin.shutdown(connection.fileDescriptor, SHUT_RDWR)
         connection.close()

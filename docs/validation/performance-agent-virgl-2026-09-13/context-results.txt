@@ -1,0 +1,7 @@
+Bridge sync lifecycle: replacement, destroy/reuse, failed wait/retry, cleanup passed
+Active context set: boundary, replacement, removal, reuse, and full-capacity tests passed
+active contexts,old ns/iteration,new ns/iteration,speed ratio
+0,18066.15,5.85,3088.23
+1,17809.55,12.45,1430.49
+4,17850.95,41.10,434.33
+64,18791.60,511.90,36.71

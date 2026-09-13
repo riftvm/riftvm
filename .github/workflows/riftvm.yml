@@ -24,6 +24,8 @@ jobs:
           swift build --build-tests
           swift test --skip-build --filter RiftVMCoreTests
           swift test --skip-build --filter RiftVMCLIKitTests
+      - name: Test VirGL context synchronization
+        run: scripts/test-virgl-context-sync.sh
       - name: Test VirGL runtime
         run: swift test --package-path Experiments/VZVirtioGPUPrototype
       - name: Synchronize unified Xcode target

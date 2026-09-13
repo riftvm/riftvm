@@ -252,6 +252,7 @@ private final class VMFocusedCommandEventTap {
 class VMVirGLDisplayView: VZVirtualMachineView {
     private let backgroundLayer = CALayer()
     private let metalLayer = CAMetalLayer()
+    private let drawableAcquirer = VMGraphicsDrawableAcquirer()
     private let cursorLayer = CALayer()
     weak var runtime: RiftVMVirGLRuntime?
     private var guestInputHandler: (([VMGuestAgentInputEvent]) -> Void)?
@@ -265,6 +266,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var totalPresentationTimeInWindow: TimeInterval = 0
     private var maximumPresentationTimeInWindow: TimeInterval = 0
     private var presentationDurationsInWindow: [TimeInterval] = []
+    private var drawableWaitDurationsInWindow: [TimeInterval] = []
+    private var frameDurationsInWindow: [TimeInterval] = []
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
@@ -282,7 +285,15 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var displayRefreshTimer: Timer?
+    var isDisplayRefreshScheduled: Bool { displayRefreshTimer != nil }
+
+    var canPresentFrames: Bool {
+        guard usesCustomGraphics, let window else { return false }
+        return window.isVisible && !window.isMiniaturized
+            && window.occlusionState.contains(.visible) && !isHiddenOrHasHiddenAncestor
+    }
     private var presentationInFlight = false
+    private(set) var displayActivityGeneration: UInt64 = 0
     private var presentationHealth = VMGraphicsPresentationHealthTracker()
     private var presentationLifecycle = VMGraphicsPresentationLifecycle()
     private var presentationEventFence = VMGraphicsPresentationEventFence()
@@ -365,6 +376,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
 
     func invalidateScanout(eventSequence: UInt64) {
         guard presentationEventFence.accept(eventSequence) else { return }
+        displayActivityGeneration &+= 1
         latestScanout = nil
         displayRefreshTimer?.invalidate()
         displayRefreshTimer = nil
@@ -706,7 +718,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func ensureDisplayRefreshTimer() {
-        guard displayRefreshTimer == nil else { return }
+        guard displayRefreshTimer == nil, canPresentFrames,
+              latestScanout != nil, presentationLifecycle.tokenForPresentation() != nil else { return }
         // VirGL exposes a live, zero-copy scanout texture. Wayland may update
         // that texture without issuing RESOURCE_FLUSH for every visible change,
         // so presentation must follow the host display clock instead of relying
@@ -714,6 +727,10 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
             guard let self else {
                 timer.invalidate()
+                return
+            }
+            guard self.canPresentFrames else {
+                self.refreshPresentationActivity()
                 return
             }
             guard let scanout = self.latestScanout else { return }
@@ -726,6 +743,41 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         }
         displayRefreshTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+    }
+
+    // Keep the live scanout while occluded, but stop acquiring drawables and
+    // waking the presentation timer. Restoration immediately uses the newest
+    // scanout even if the Guest has not issued another RESOURCE_FLUSH.
+    func refreshPresentationActivity() {
+        guard canPresentFrames, presentationLifecycle.tokenForPresentation() != nil,
+              let scanout = latestScanout else {
+            if displayRefreshTimer != nil { displayActivityGeneration &+= 1 }
+            displayRefreshTimer?.invalidate()
+            displayRefreshTimer = nil
+            return
+        }
+        let wasInactive = displayRefreshTimer == nil
+        ensureDisplayRefreshTimer()
+        if wasInactive {
+            resetPerformanceWindow(at: CACurrentMediaTime())
+            presentFrame(resourceID: scanout.resourceID, x: scanout.x, y: scanout.y,
+                         width: scanout.width, height: scanout.height)
+        }
+    }
+
+    override func viewDidHide() {
+        super.viewDidHide()
+        refreshPresentationActivity()
+    }
+
+    override func viewDidUnhide() {
+        super.viewDidUnhide()
+        refreshPresentationActivity()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        if usesCustomGraphics { updateDrawableGeometry() }
     }
 
     private func releaseShortcutIsActive(_ event: NSEvent) -> Bool {
@@ -778,9 +830,17 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         window?.acceptsMouseMovedEvents = true
         guard let window else {
             releaseInputCapture()
+            refreshPresentationActivity()
             return
         }
         let center = NotificationCenter.default
+        for name in [NSWindow.didChangeOcclusionStateNotification,
+                     NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+            windowObservers.append(center.addObserver(forName: name, object: window, queue: .main) {
+                [weak self] _ in self?.refreshPresentationActivity()
+            })
+        }
+        refreshPresentationActivity()
         windowObservers.append(center.addObserver(
             forName: NSWindow.didResignKeyNotification,
             object: window,
@@ -833,11 +893,16 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         guard presentationLifecycle.tokenForPresentation() != nil else { return }
         guard presentationEventFence.accept(eventSequence) else { return }
         latestScanout = (resourceID, x, y, width, height)
+        guard canPresentFrames else {
+            refreshPresentationActivity()
+            return
+        }
         ensureDisplayRefreshTimer()
         presentFrame(resourceID: resourceID, x: x, y: y, width: width, height: height)
     }
 
-    private func presentFrame(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+    func presentFrame(resourceID: UInt32, x: Int, y: Int, width: Int, height: Int) {
+        guard canPresentFrames else { return }
         guard let presentationToken = presentationLifecycle.tokenForPresentation() else { return }
         requestedFramesInWindow &+= 1
         if width > 0, height > 0 {
@@ -860,42 +925,73 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             recordPerformanceIfNeeded()
             return
         }
-        guard let drawable = metalLayer.nextDrawable() else {
-            drawableMissesInWindow &+= 1
-            recordPerformanceIfNeeded()
-            return
-        }
+        let frameStartedAt = CACurrentMediaTime()
+        let targetLayer = metalLayer
         presentationInFlight = true
-        let startedAt = CACurrentMediaTime()
-        runtime.presentAsync(
-            resourceID: resourceID,
-            sourceX: x, sourceY: y, sourceWidth: width, sourceHeight: height,
-            into: drawable.texture
-        ) { [weak self] succeeded in
-            DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      self.presentationLifecycle.acceptsCompletion(token: presentationToken) else { return }
-                if succeeded { drawable.present() }
+        let activityGeneration = displayActivityGeneration
+        drawableAcquirer.acquire({ targetLayer.nextDrawable() }) { [weak self] drawable, wait in
+            guard let self,
+                  self.presentationLifecycle.acceptsCompletion(token: presentationToken) else { return }
+            guard self.canPresentFrames, self.displayActivityGeneration == activityGeneration else {
                 self.presentationInFlight = false
-                if succeeded {
-                    self.recordPresentationResult(success: true)
-                    let duration = CACurrentMediaTime() - startedAt
-                    self.totalPresentationTimeInWindow += duration
-                    self.maximumPresentationTimeInWindow = max(self.maximumPresentationTimeInWindow, duration)
-                    self.presentationDurationsInWindow.append(duration)
-                    self.presentedFrames &+= 1
-                    self.presentedFramesInWindow &+= 1
-                    if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
-                        RiftVMLog.info("VirGL zero-copy frames presented: \(self.presentedFrames)", logger: RiftVMLog.graphics)
-                    }
-                } else {
-                    self.failuresInWindow &+= 1
-                    self.recordPresentationResult(success: false)
-                    RiftVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
-                }
+                self.presentLatestAfterActivityChange()
+                return
+            }
+            // Include nil acquisitions; their wait would otherwise disappear.
+            self.drawableWaitDurationsInWindow.append(wait)
+            guard let drawable else {
+                self.presentationInFlight = false
+                self.drawableMissesInWindow &+= 1
                 self.recordPerformanceIfNeeded()
+                return
+            }
+            let startedAt = CACurrentMediaTime()
+            runtime.presentAsync(
+                resourceID: resourceID,
+                sourceX: x, sourceY: y, sourceWidth: width, sourceHeight: height,
+                into: drawable.texture
+            ) { [weak self] succeeded in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          self.presentationLifecycle.acceptsCompletion(token: presentationToken) else { return }
+                    self.presentationInFlight = false
+                    // A frame already in flight may complete after occlusion.
+                    guard self.canPresentFrames else { return }
+                    guard self.displayActivityGeneration == activityGeneration else {
+                        // A hide/show or scanout invalidation may overtake a
+                        // renderer completion. Discard its drawable and immediately
+                        // schedule the latest scanout without allowing two in flight.
+                        self.presentLatestAfterActivityChange()
+                        return
+                    }
+                    if succeeded { drawable.present() }
+                    self.frameDurationsInWindow.append(CACurrentMediaTime() - frameStartedAt)
+                    if succeeded {
+                        self.recordPresentationResult(success: true)
+                        let duration = CACurrentMediaTime() - startedAt
+                        self.totalPresentationTimeInWindow += duration
+                        self.maximumPresentationTimeInWindow = max(self.maximumPresentationTimeInWindow, duration)
+                        self.presentationDurationsInWindow.append(duration)
+                        self.presentedFrames &+= 1
+                        self.presentedFramesInWindow &+= 1
+                        if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
+                            RiftVMLog.info("VirGL zero-copy frames presented: \(self.presentedFrames)", logger: RiftVMLog.graphics)
+                        }
+                    } else {
+                        self.failuresInWindow &+= 1
+                        self.recordPresentationResult(success: false)
+                        RiftVMLog.error("VirGL zero-copy presentation failed for resource \(resourceID)")
+                    }
+                    self.recordPerformanceIfNeeded()
+                }
             }
         }
+    }
+
+    private func presentLatestAfterActivityChange() {
+        guard canPresentFrames, let scanout = latestScanout else { return }
+        presentFrame(resourceID: scanout.resourceID, x: scanout.x, y: scanout.y,
+                     width: scanout.width, height: scanout.height)
     }
 
     private func recordPresentationResult(success: Bool) {
@@ -941,12 +1037,23 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                 drawable.width,
                 drawable.height
             )
-        RiftVMLog.info(summary, logger: RiftVMLog.graphics)
+        let drawableTiming = VMGraphicsTimingSummary(durations: drawableWaitDurationsInWindow)
+        let frameTiming = VMGraphicsTimingSummary(durations: frameDurationsInWindow)
+        let completeSummary = summary + String(
+            format: " timingVersion=2 avgDrawableMs=%.2f p95DrawableMs=%.2f maxDrawableMs=%.2f avgFrameMs=%.2f p95FrameMs=%.2f maxFrameMs=%.2f",
+            drawableTiming.averageMilliseconds, drawableTiming.p95Milliseconds, drawableTiming.maximumMilliseconds,
+            frameTiming.averageMilliseconds, frameTiming.p95Milliseconds, frameTiming.maximumMilliseconds
+        )
+        RiftVMLog.info(completeSummary, logger: RiftVMLog.graphics)
         if ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1",
            let file = fopen("/tmp/riftvm-virgl-presentation.log", "a") {
-            fputs("\(summary) bounds=\(Int(bounds.width))x\(Int(bounds.height)) guest=\(Int(guestSize.width))x\(Int(guestSize.height)) layer=\(Int(metalLayer.frame.width))x\(Int(metalLayer.frame.height))\n", file)
+            fputs("\(completeSummary) bounds=\(Int(bounds.width))x\(Int(bounds.height)) guest=\(Int(guestSize.width))x\(Int(guestSize.height)) layer=\(Int(metalLayer.frame.width))x\(Int(metalLayer.frame.height))\n", file)
             fclose(file)
         }
+        resetPerformanceWindow(at: now)
+    }
+
+    private func resetPerformanceWindow(at now: TimeInterval) {
         performanceWindowStartedAt = now
         requestedFramesInWindow = 0
         presentedFramesInWindow = 0
@@ -955,17 +1062,25 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         totalPresentationTimeInWindow = 0
         maximumPresentationTimeInWindow = 0
         presentationDurationsInWindow.removeAll(keepingCapacity: true)
+        drawableWaitDurationsInWindow.removeAll(keepingCapacity: true)
+        frameDurationsInWindow.removeAll(keepingCapacity: true)
     }
 
     private func updateDrawableGeometry() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
         let presentationFrame = VMDisplayGeometry.aspectFit(content: guestSize, in: bounds)
-        metalLayer.frame = presentationFrame
-        metalLayer.contentsScale = scale
-        metalLayer.drawableSize = CGSize(
+        let drawableSize = CGSize(
             width: max(1, presentationFrame.width * scale),
             height: max(1, presentationFrame.height * scale)
         )
+        guard metalLayer.frame != presentationFrame || metalLayer.contentsScale != scale
+                || metalLayer.drawableSize != drawableSize else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if metalLayer.frame != presentationFrame { metalLayer.frame = presentationFrame }
+        if metalLayer.contentsScale != scale { metalLayer.contentsScale = scale }
+        if metalLayer.drawableSize != drawableSize { metalLayer.drawableSize = drawableSize }
+        CATransaction.commit()
     }
 
     private func updateCursorGeometry() {

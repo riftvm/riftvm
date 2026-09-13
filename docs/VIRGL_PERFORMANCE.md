@@ -204,3 +204,24 @@ scrolling, video, and workspace-switching workloads.
 | Black desktop with `DRAW_VBO` errors | target-aware resource validation, especially `PIPE_BUFFER` byte widths |
 | Super shortcut is ignored | first responder, AppKit local monitor, full down/up chord, Agent desktop-ready ownership |
 | Scroll jumps too far | bounded wheel delta and high-resolution trackpad conversion |
+
+## Extended CPU frame timing (performance branch)
+
+New per-window logs keep `avgPresentMs`, `p95PresentMs`, and `maxPresentMs`
+with their existing meaning, starting after drawable acquisition. With
+`timingVersion=2`, `avgDrawableMs`/`p95DrawableMs`/`maxDrawableMs` also include
+all calls to `nextDrawable()`, including nil results. The `avgFrameMs`,
+`p95FrameMs`, and `maxFrameMs` fields start before acquisition and finish after
+the main-thread completion and drawable presentation call. These are CPU-side
+intervals, not physical scanout or input-to-photon measurements.
+
+The capture emits corresponding `VirGL-*-Drawable-Ms` and `VirGL-*-Frame-Ms`
+summary fields. The verifier uses separate CPU-frame budgets for the new families because
+drawable backpressure includes display pacing: average 20 ms, P95 34 ms, and
+maximum 50 ms. Configure these with `RIFTVM_VIRGL_MAX_AVERAGE_FRAME_MS`,
+`RIFTVM_VIRGL_MAX_P95_FRAME_MS`, and `RIFTVM_VIRGL_MAX_FRAME_MS`. The old
+render-only budgets remain unchanged. Acquisition runs off the main actor. Legacy logs
+remain readable; mixed or incomplete extended timing is rejected. A hidden
+window intentionally produces no presentation windows, so test hidden CPU and
+restoration separately from the visible-frame health gate. Visible timing
+windows restart when presentation becomes active again.

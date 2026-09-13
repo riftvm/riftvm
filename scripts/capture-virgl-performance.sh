@@ -88,48 +88,7 @@ percentile() {
 }
 
 virgl_summary() {
-    awk '
-        /VirGL performance: fps=/ {
-            for (field_index = 1; field_index <= NF; field_index++) {
-                field = $field_index
-                gsub(/,$/, "", field)
-                split(field, pair, "=")
-                if (pair[1] == "fps") { fps += pair[2]; if (windows == 0 || pair[2] < min_fps) min_fps = pair[2] }
-                if (pair[1] == "requested") requested += pair[2]
-                if (pair[1] == "presented") presented += pair[2]
-                if (pair[1] == "drawableMisses") misses += pair[2]
-                if (pair[1] == "failures") failures += pair[2]
-                if (pair[1] == "avgPresentMs") average_present += pair[2]
-                if (pair[1] == "p95PresentMs" && pair[2] > maximum_p95_present) maximum_p95_present = pair[2]
-                if (pair[1] == "maxPresentMs" && pair[2] > maximum_present) maximum_present = pair[2]
-            }
-            windows++
-        }
-        END {
-            printf "VirGL-Window-Count: %d\n", windows
-            if (windows == 0) {
-                print "VirGL-Average-FPS: unavailable"
-                print "VirGL-Minimum-FPS: unavailable"
-                print "VirGL-Requested-Frames: 0"
-                print "VirGL-Presented-Frames: 0"
-                print "VirGL-Drawable-Misses: 0"
-                print "VirGL-Presentation-Failures: 0"
-                print "VirGL-Average-Present-Ms: unavailable"
-                print "VirGL-Maximum-Window-P95-Present-Ms: unavailable"
-                print "VirGL-Maximum-Present-Ms: unavailable"
-            } else {
-                printf "VirGL-Average-FPS: %.1f\n", fps / windows
-                printf "VirGL-Minimum-FPS: %.1f\n", min_fps
-                printf "VirGL-Requested-Frames: %.0f\n", requested
-                printf "VirGL-Presented-Frames: %.0f\n", presented
-                printf "VirGL-Drawable-Misses: %.0f\n", misses
-                printf "VirGL-Presentation-Failures: %.0f\n", failures
-                printf "VirGL-Average-Present-Ms: %.2f\n", average_present / windows
-                printf "VirGL-Maximum-Window-P95-Present-Ms: %.2f\n", maximum_p95_present
-                printf "VirGL-Maximum-Present-Ms: %.2f\n", maximum_present
-            }
-        }
-    ' "$graphics_logs"
+    awk -f "$script_dir/lib/virgl-summary.awk" "$graphics_logs"
 }
 
 {

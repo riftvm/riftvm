@@ -1,0 +1,28 @@
+{
+  "core": {
+    "total": 404,
+    "passed": 403,
+    "skipped": 1,
+    "failed": 0,
+    "skipReason": "RIFTVM_REAL_LOW_SPACE_VOLUME is not configured"
+  },
+  "cli": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0
+  },
+  "virglRuntime": {
+    "total": 30,
+    "passed": 30,
+    "failed": 0
+  },
+  "omarchyIntegration": {
+    "totalTestCount": 66,
+    "passedTests": 66,
+    "failedTests": 0,
+    "skippedTests": 0,
+    "result": "Passed"
+  },
+  "cRegression": "passed including ASan/UBSan bridge lifecycle",
+  "productionBuild": "Release compiled; executable acceptance probes excluded"
+}

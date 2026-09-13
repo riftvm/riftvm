@@ -1,0 +1,29 @@
+{
+  "base": "4df32a12c802bcc1a9af36d72f1fc1c840c52409",
+  "branch": "perf/agent-io-virgl-sync",
+  "files": {
+    ".github/workflows/riftvm.yml": "e75df3403dd4a7c21792e31cce4d29978ad41e74565f6091f3e13d2bb591334d",
+    "Experiments/VZVirtioGPUPrototype/Sources/CVirGLBridge/ActiveContextSet.h": "8013597830617537916455ee337732311a2aebfeb96f6aeafd44081d5e592c76",
+    "Experiments/VZVirtioGPUPrototype/Sources/CVirGLBridge/CVirGLBridge.c": "03cce8f07942d881e012bdadc402669c8ce0a6ed9a35b96ebf034bc861e0342c",
+    "Experiments/VZVirtioGPUPrototype/Sources/CVirGLBridge/include/CVirGLBridge.h": "dff96f9e85529a5a0f5b940563caed8d0dc121eb4ecc470bcce539a7959d4839",
+    "Experiments/VZVirtioGPUPrototype/Sources/VZVirtioGPUPrototype/RendererExecutor.swift": "da423b2cd0e016b11ddc246fa2f9a105927ad9b817ffe1c02670f377c71af103",
+    "Experiments/VZVirtioGPUPrototype/Sources/VZVirtioGPUPrototype/VirGLRenderer.swift": "69245a45d2536799941d3c2e40dd8a194cb15a75ad6b995dd82bca3c5be8ea58",
+    "Experiments/VZVirtioGPUPrototype/Sources/VZVirtioGPUPrototype/VirtioGPUDevice.swift": "4628eb8166af68204ec054bb2a1488cc57da7e6aacccaa01ac2ada16f8a62e35",
+    "Experiments/VZVirtioGPUPrototype/Tests/VZVirtioGPUPrototypeTests/VirtioGPUProtocolTests.swift": "8f22c9bf051164ca939c7d7d58d93b97b57edc3570b5fabe02fb4c3def458031",
+    "RiftVM/RiftVM/Core/VMKit/Common/VMOSHelper.swift": "d78477e3e7a017a86f1e7c172cc50653e8cd715ae400fe90c3c19488414770ee",
+    "RiftVM/RiftVM/Core/VMKit/Model/Fields/VMModelFieldGraphicDevice.swift": "fe8b19b05cd6dedb941c0580193635cb9b062a424f8643d1734dcb35d8c7a86b",
+    "RiftVM/RiftVM/Core/VMKit/Profile/VMOmarchyGuestAgentClient.swift": "88aedd176690400c6c1ab459ee632b1ddb3ac5e8920fc39c41e2c1871e5d288d",
+    "Tests/CVirGLBridgeTests/ActiveContextSetTests.c": "950a3eec6792e82ab228ef603bfd75afd6e5cbe91e71fd55a43c2948dcc4fbc1",
+    "Tests/CVirGLBridgeTests/ContextSyncLifecycleTests.c": "72bdcb1868ef45fc19889c78f8822a481b93368838e33e71103f601ac8c905db",
+    "Tests/Performance/RendererQueueBenchmark.swift": "64f10e3034d2d696da0a44645639693460464e1151ed871a56cc395c72a58180",
+    "Tests/RiftVMCoreTests/VMGraphicsTimingSummaryTests.swift": "9325942436bf550bae9ee1b8db145a9cea5f4a6530e698cea9fbdf09e1584a23",
+    "Tests/RiftVMCoreTests/VMOmarchySocketWriterTests.swift": "53924fa18c874c259cc0653dd2199f1f791b901df20ec050349c8c8aebf1c5d8",
+    "Tests/RiftVMIntegrationTests/RiftVMOmarchyTests.swift": "e53c299a89e2413b5574c03670cef34ca7ffb143e321be6e4ba2fdd3c5ac46a6",
+    "scripts/benchmark-renderer-queue.sh": "56daf1b8a697bafed35ba1e477b1c41c97da16b433fd8262e9c504fd38eef67f",
+    "scripts/capture-virgl-performance.sh": "5f9deefb8ce169042ef2c3a32de9fc4fdf93b06d764a5e6139a722f29b24d338",
+    "scripts/lib/virgl-summary.awk": "3a5f6de0f14ddc03b5929d138a00b2830f4930abe3331f0d602106e03544bd0a",
+    "scripts/test-virgl-context-sync.sh": "c608da8fe123b2d9bc5b7a583c755102f988c84f25a1a1fad6fae625fc57aa2a",
+    "scripts/test-virgl-performance-gate.sh": "0d2d9170d6a1c69be350e5c6c8cf0a47262ad3b006856fafc725dbad1f72dce0",
+    "scripts/verify-virgl-performance.sh": "b5144c91f6f1de97cea50971083b66b7f59a83fe869e9f083c6b830844744122"
+  }
+}
