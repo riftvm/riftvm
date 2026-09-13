@@ -5,6 +5,29 @@ import XCTest
 @testable import RiftVM
 
 final class RiftVMOmarchyTests: XCTestCase {
+    @MainActor
+    func testStopCommandEnablesRecoveryWhenNoMachineWasCreated() {
+        let sessionID = UUID()
+        var phases: [OmarchyVirtualMachineView.Phase] = []
+        let coordinator = OmarchyVirtualMachineRepresentable.Coordinator(
+            sessionID: sessionID,
+            layout: .init(applicationSupportRoot: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)),
+            requiredGuestCapabilities: [], clipboardEnabled: false, notificationsEnabled: false,
+            keyboardIntegrationChanged: { _ in }, integrationChanged: { _ in },
+            sharedFolderProbeChanged: { _ in }, clipboardProbeChanged: { _ in },
+            dynamicDisplayProbeChanged: { _ in }, ownerProvisioningCompleted: { _, _ in },
+            ownerProvisioningProgressChanged: { _ in }, phaseChanged: { phases.append($0) },
+            acceptanceFailureChanged: { _ in }
+        )
+        coordinator.beginObservingCommands()
+        NotificationCenter.default.post(name: Notification.Name("RiftVMOmarchy.requestStop"), object: UUID())
+        XCTAssertTrue(phases.isEmpty, "Commands for other workspaces must be ignored")
+        NotificationCenter.default.post(name: Notification.Name("RiftVMOmarchy.requestStop"), object: sessionID)
+        XCTAssertEqual(phases, [.stopped])
+        XCTAssertNil(coordinator.machine)
+        XCTAssertNil(coordinator.graphicsBackend)
+    }
+
     func testAcceptanceOnlyTargetsTheExplicitTemporaryWorkspace() {
         let target = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(filePath: "/tmp/riftvm-acceptance-scope.riftvm"))
         let other = VMOmarchyWorkspaceLayout(applicationSupportRoot: URL(filePath: "/tmp/riftvm-other.riftvm"))
@@ -600,7 +623,7 @@ final class RiftVMOmarchyTests: XCTestCase {
         bridge.stop()
     }
 
-    func testDesktopInputPolicyUsesOnlyAgentAfterDesktopReadiness() {
+    func testCustomVirGLInputPolicySupportsLoginAndReadyDesktop() {
         func status(
             capabilities: Set<String> = ["input-uinput-v1", "desktop-input-v1"],
             active: Bool = true,
@@ -614,11 +637,38 @@ final class RiftVMOmarchyTests: XCTestCase {
         }
 
         XCTAssertTrue(OmarchyDesktopInputPolicy.usesGuestAgent(status: status()))
-        XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(status: status(active: false)))
+        XCTAssertTrue(OmarchyDesktopInputPolicy.usesGuestAgent(status: status(active: false)))
+        XCTAssertTrue(OmarchyDesktopInputPolicy.usesGuestAgent(
+            status: status(capabilities: ["input-uinput-v1"], active: false)
+        ))
+        XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(
+            status: status(capabilities: [], active: false)
+        ))
         XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(status: status(provisioning: true)))
         XCTAssertFalse(OmarchyDesktopInputPolicy.usesGuestAgent(
             status: status(capabilities: ["input-uinput-v1"])
         ))
+    }
+
+    @MainActor
+    func testCustomVirGLPointerButtonsReleaseBeforeHostOverlay() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.mouseEvent(
+                with: type, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ))
+        }
+        view.mouseDown(with: try mouse(.leftMouseDown))
+        XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 272, pressed: true).events)
+        view.setHostOverlayVisible(true)
+        XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 272, pressed: false).events)
+        batches.removeAll()
+        view.mouseDown(with: try mouse(.leftMouseDown))
+        XCTAssertTrue(batches.isEmpty, "The native owner form must not send mouse input to the Guest")
+        view.setGuestInputEventHandler(nil)
     }
 
     @MainActor

@@ -1,7 +1,9 @@
 # RiftVM preinstalled-image manifest
 
 The preinstalled-image manifest is the source of truth for importing a decoded,
-bootable ARM64 raw disk into RiftVM. Release-specific download metadata may add
+bootable ARM64 raw disk into a general RiftVM bundle (`config.json`). This is
+the CLI import contract, not the signed ASIF factory manifest used by the
+dedicated Omarchy creation flow. Release-specific download metadata may add
 fields of its own, but these fields are the stable RiftVM contract:
 
 ```json

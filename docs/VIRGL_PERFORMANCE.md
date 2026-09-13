@@ -4,6 +4,11 @@ For architecture, invariants, known failure modes, and the maintained test
 checklist, read [Custom VirGL architecture and engineering notes](CUSTOM_VIRGL_ARCHITECTURE.md)
 first.
 
+Omarchy uses Custom VirGL exclusively. The legacy general-VM commands below
+require fixtures with a top-level `config.json`; they are not Omarchy workspace
+commands. An Omarchy comparison against Apple Virtio requires a separate old
+baseline build and a disposable workspace, not a production fallback switch.
+
 RiftVM records two low-overhead graphics streams while a Custom VirGL virtual
 machine is running on macOS 27:
 
@@ -11,6 +16,13 @@ machine is running on macOS 27:
   presentation failures, requested display size, and drawable size.
 - `virtio-gpu`: submitted/delivered/coalesced frames and the complete dynamic
   display handshake, including every guest `GET_DISPLAY_INFO` request.
+
+## Real 3D workload evidence
+
+The [September 13 Omarchy comparison](validation/omarchy-custom-virgl-2026-09-13/README.md)
+records Guest renderer identification, repeated fixed-resolution glmark2 scenes,
+raw results, and limitations. Desktop FPS and idle CPU are auxiliary diagnostics,
+not proof of Linux 3D acceleration.
 
 ## Capture a repeatable sample
 

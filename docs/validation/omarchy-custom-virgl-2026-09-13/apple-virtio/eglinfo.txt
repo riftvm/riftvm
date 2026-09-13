@@ -1,0 +1,124 @@
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: DRI3 error: Could not get DRI3 device
+MESA-EGL: warning: Ensure your X server supports DRI3 to get accelerated rendering
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: DRI2: failed to create screen
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: DRI2: failed to create screen
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: NEEDS EXTENSION: falling back to kms_swrast
+GBM platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+
+Wayland platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+
+X11 platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+
+Surfaceless platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+
+Device platform:
+Device #0:
+
+Platform Device platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+
+Device #1:
+
+Platform Device platform:
+EGL API version: 1.5
+EGL vendor string: Mesa Project
+EGL version string: 1.5
+EGL client APIs: OpenGL OpenGL_ES 
+OpenGL core profile vendor: Mesa
+OpenGL core profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL core profile version: 4.6 (Core Profile) Mesa 26.2.2-arch1.1
+OpenGL core profile shading language version: 4.60
+OpenGL compatibility profile vendor: Mesa
+OpenGL compatibility profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL compatibility profile version: 4.6 (Compatibility Profile) Mesa 26.2.2-arch1.1
+OpenGL compatibility profile shading language version: 4.60
+OpenGL ES profile vendor: Mesa
+OpenGL ES profile renderer: llvmpipe (LLVM 22.1.8, 128 bits)
+OpenGL ES profile version: OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+OpenGL ES profile shading language version: OpenGL ES GLSL ES 3.20
+

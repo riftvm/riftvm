@@ -1,0 +1,11 @@
+[stage3] ANGLE Metal EGL 1.5 initialized
+2026-09-13 00:58:17.626 RiftVM[5951:4253674] Omarchy shared-folder round trip passed (host-to-guest cbd0bbe1b43fd821d369a0b2b24f54167ccce47265c6d8ec49783f2c00838799, guest-to-host a190a9c7695848e89e695ebb95fb308e9a84cb863c972d9640c5561be2533788)
+2026-09-13 00:58:25.097 RiftVM[5951:4253674] Omarchy clipboard round trip passed (text dab83ab15d7a0c5150ee9a75d753eb105b5973ca5bb61b569e7b6116165f9d75/ed5a212a0f16aeaa67f6e3f3d9925473bd41ca7b1af5b63295edb72675c7c07f, PNG 535f3019bc845f4ad326f1e4ada85c78ea641fb8832c2420ad5cf29956012aab/535f3019bc845f4ad326f1e4ada85c78ea641fb8832c2420ad5cf29956012aab)
+2026-09-13 00:58:27.932 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2722QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:58:30.982 RiftVM[5951:4253674] Omarchy dynamic display round trip passed (1024x656 -> 880x528; host 1760x1063)
+2026-09-13 00:58:39.100 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2722QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:58:48.509 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2725QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:58:58.961 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2722QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:59:08.137 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2725QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:59:19.695 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2722QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528
+2026-09-13 00:59:28.996 RiftVM[5951:4253674] Custom VirGL display probe: screen=DELL S2725QC original=1024x728 target=880x640 actual=880x532 guestBefore=1024x656 expected=880x528

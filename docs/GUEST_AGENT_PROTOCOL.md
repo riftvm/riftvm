@@ -6,18 +6,20 @@ requires privileged host networking.
 
 ## Trust and enrollment
 
-Each VM receives an independent random 256-bit token. The host stores its copy
-outside the VM bundle under the user's Application Support directory. The
+Each VM receives an independent random 256-bit token. General VM enrollment
+stores the host copy under the user's Application Support directory; dedicated
+Omarchy workspaces store it in their private `Enrollment/config.json`, exposed
+to the guest through a read-only enrollment share. The
 enrollment directory is mode `0700` and each token file is mode `0600`, so
 normal VM launches do not trigger an interactive Keychain prompt. Installation
 places the guest copy in a root-readable file. The token is never stored in the
-RiftVM bundle's `config.json`, included in diagnostics, or logged. It is present
+general VM's top-level `config.json`, included in diagnostics, or logged. It is present
 in the separately exported enrollment file and in the guest's root-only
 `/etc/rift-agent/config.json`.
 
 This storage choice preserves per-VM mutual authentication while allowing
 unattended VM launches and release smoke tests. Treat the host account and its
-Application Support data as part of the trust boundary; enrollment files must
+Application Support data and Omarchy workspace enrollment as part of the trust boundary; enrollment files must
 never be synchronized, committed, or included in support bundles.
 
 The guest starts authentication with a random nonce and an HMAC-SHA256 proof
@@ -49,7 +51,7 @@ Protocol v1 operations are:
 - `uploadStart`, `uploadChunk`, `uploadCommit`: bounded, checksum-verified host-to-guest transfer
 - `downloadInfo`, `downloadChunk`: bounded, checksum-verified guest-to-host transfer
 - `transferCancel`: explicit cleanup of either transfer direction
-- `input`: bounded Linux `input_event` batches for the Custom VirGL display
+- `input`: bounded Linux `input_event` batches for authenticated desktop input
 - `ownerProvisioning`: one-shot delivery of validated Omarchy owner setup data
 - `clipboardSet`, `clipboardGet`: bounded text or PNG transfer through the active desktop Session Agent
 - `desktopNotifications`: bounded, read-only polling of sanitized Omarchy notification snapshots
@@ -59,9 +61,11 @@ transfer UI. `ssh-addresses-v1` enables validated `ssh://` links and is advertis
 only while the Guest Agent observes a listening SSH socket; IP addresses remain
 available as diagnostic status even when SSH is not running.
 `input-uinput-v1` is advertised only when the agent successfully creates its
-root-owned `/dev/uinput` device; RiftVM then forwards keyboard, relative pointer,
-button, and wheel events from the Custom VirGL display. The Apple graphics
-backend continues to use Virtualization.framework's native USB input path.
+root-owned `/dev/uinput` device. Omarchy Custom VirGL uses it for keyboard,
+absolute pointer, buttons, and wheel input. Authenticated uinput serves the
+login screen before desktop readiness; the native owner form keeps input on
+the host. Do not infer input routing
+from the graphics backend alone.
 `input-uinput-desktop-v1` means the agent has verified that the active desktop
 compositor actually owns the RiftVM input device. The host must not infer this
 only from `hyprctl` or a compositor socket: stale runtime sockets can produce a

@@ -1,0 +1,15 @@
+=======================================================
+    glmark2 2023.01
+=======================================================
+    OpenGL Information
+    GL_VENDOR:      Mesa
+    GL_RENDERER:    virgl
+    GL_VERSION:     OpenGL ES 3.0 Mesa 26.2.2-arch1.1
+    Surface Config: buf=32 r=8 g=8 b=8 a=8 depth=32 stencil=0 samples=0
+    Surface Size:   800x600 windowed
+=======================================================
+[terrain] duration=25.0: FPS: 489 FrameTime: 2.045 ms
+[refract] duration=25.0: FPS: 809 FrameTime: 1.237 ms
+=======================================================
+                                  glmark2 Score: 648 
+=======================================================

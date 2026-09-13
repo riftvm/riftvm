@@ -40,8 +40,10 @@ public struct VirGLRuntimeDependencies: Sendable, Equatable {
         }
     }
 
-    public enum DependencyError: Error, CustomStringConvertible, Equatable {
+    public enum DependencyError: LocalizedError, CustomStringConvertible, Equatable {
         case missing([String])
+
+        public var errorDescription: String? { description }
 
         public var description: String {
             switch self {

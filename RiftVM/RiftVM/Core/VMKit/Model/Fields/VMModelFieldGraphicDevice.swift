@@ -248,7 +248,7 @@ private final class VMFocusedCommandEventTap {
 }
 
 @available(macOS 27.0, *)
-final class VMVirGLDisplayView: VZVirtualMachineView {
+class VMVirGLDisplayView: VZVirtualMachineView {
     private let backgroundLayer = CALayer()
     private let metalLayer = CAMetalLayer()
     private let cursorLayer = CALayer()
@@ -271,6 +271,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
+    private let managesKeyboardIntegration: Bool
     private var commandKeyMonitor: Any?
     private var focusedCommandEventTap: VMFocusedCommandEventTap?
     private var accessibilityRetryTimer: Timer?
@@ -283,12 +284,12 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     private var presentationHealth = VMGraphicsPresentationHealthTracker()
     private var presentationLifecycle = VMGraphicsPresentationLifecycle()
     private var presentationEventFence = VMGraphicsPresentationEventFence()
-    // Input falls back to Virtualization.framework until the authenticated
-    // guest agent advertises uinput. Custom VirGL has no VZ graphics device,
-    // so its reliable desktop input path is the agent once userspace starts.
+    // Custom VirGL owns presentation and input. There is no native VZ display
+    // attached; authenticated Guest Agent input becomes available in userspace.
     private var absolutePointerEnabled = true
 
-    init(frame frameRect: NSRect, guestSize: CGSize) {
+    init(frame frameRect: NSRect, guestSize: CGSize, managesKeyboardIntegration: Bool = true) {
+        self.managesKeyboardIntegration = managesKeyboardIntegration
         self.guestSize = guestSize
         super.init(frame: frameRect)
         wantsLayer = true
@@ -303,32 +304,31 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         cursorLayer.contentsGravity = .resize
         cursorLayer.isHidden = true
         metalLayer.addSublayer(cursorLayer)
-        // Forward Command/Super and the other system-key chords to Linux just
-        // like a normal VZVirtualMachineView. The host full-screen command is
-        // still handled by the window controller before it reaches the view.
         capturesSystemKeys = true
         automaticallyReconfiguresDisplay = false
-        commandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self,
-                  let vmWindow = self.window,
-                  vmWindow.isKeyWindow,
-                  NSApp.keyWindow === vmWindow,
-                  NSApp.modalWindow == nil,
-                  !NSApp.windows.contains(where: {
-                      $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
-                  }),
-                  vmWindow.attachedSheet == nil else { return event }
-            // Accessibility input and some system-key event sources leave the
-            // event's window unset even though AppKit is dispatching to the key
-            // VM window. Accept that form, but never steal a chord explicitly
-            // associated with another RiftVM window.
-            if let eventWindow = event.window, eventWindow !== vmWindow { return event }
-            if let responderView = vmWindow.firstResponder as? NSView,
-               responderView !== self, !responderView.isDescendant(of: self) {
-                return event
+        if managesKeyboardIntegration {
+            commandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self,
+                      let vmWindow = self.window,
+                      vmWindow.isKeyWindow,
+                      NSApp.keyWindow === vmWindow,
+                      NSApp.modalWindow == nil,
+                      !NSApp.windows.contains(where: {
+                          $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
+                      }),
+                      vmWindow.attachedSheet == nil else { return event }
+                // Accessibility input and some system-key event sources leave the
+                // event's window unset even though AppKit is dispatching to the key
+                // VM window. Accept that form, but never steal a chord explicitly
+                // associated with another RiftVM window.
+                if let eventWindow = event.window, eventWindow !== vmWindow { return event }
+                if let responderView = vmWindow.firstResponder as? NSView,
+                   responderView !== self, !responderView.isDescendant(of: self) {
+                    return event
+                }
+                if self.isHostFullScreenShortcut(event) { return event }
+                return self.forwardCommandChordToGuest(event) ? nil : event
             }
-            if self.isHostFullScreenShortcut(event) { return event }
-            return self.forwardCommandChordToGuest(event) ? nil : event
         }
     }
 
@@ -370,12 +370,13 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
         focusedCommandEventTap?.stop()
         focusedCommandEventTap = nil
+        if handler == nil { releaseInputCapture() }
         guestInputHandler = handler
         guard handler != nil else {
             keyboardIntegrationStateHandler?(.waitingForGuest)
             return
         }
-        installFocusedCommandEventTap()
+        if managesKeyboardIntegration { installFocusedCommandEventTap() }
     }
 
     func setKeyboardIntegrationStateHandler(
@@ -465,8 +466,8 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             releaseInputCapture()
             return
         }
-        // `capturesSystemKeys` normally makes AppKit offer Command chords via
-        // `performKeyEquivalent`, but some event sources (including hardware
+        // AppKit normally offers Command chords via `performKeyEquivalent`,
+        // but some event sources (including hardware
         // layouts and accessibility event injection) deliver them directly as
         // key-down events. Cover both routes so macOS Command consistently
         // becomes Linux Super instead of silently disappearing.
@@ -537,6 +538,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     private func forwardCommandChordToGuest(_ event: NSEvent) -> Bool {
+        guard managesKeyboardIntegration else { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags.contains(.command) else { return false }
         guard !event.isARepeat else { return true }
@@ -562,30 +564,78 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         return event.keyCode == 3 && flags.contains([.command, .control])
     }
 
-    override func mouseMoved(with event: NSEvent) { super.mouseMoved(with: event) }
-    override func mouseDragged(with event: NSEvent) { super.mouseDragged(with: event) }
-    override func rightMouseDragged(with event: NSEvent) { super.rightMouseDragged(with: event) }
-    override func otherMouseDragged(with event: NSEvent) { super.otherMouseDragged(with: event) }
+    private func forwardPointerMotion(_ event: NSEvent) -> Bool {
+        guard guestInputHandler != nil, !isHidden else { return false }
+        if absolutePointerEnabled { sendAbsolutePosition(event) }
+        else { sendRelativeMotion(event) }
+        return true
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        if !forwardPointerMotion(event) { super.mouseMoved(with: event) }
+    }
+    override func mouseDragged(with event: NSEvent) {
+        if !forwardPointerMotion(event) { super.mouseDragged(with: event) }
+    }
+    override func rightMouseDragged(with event: NSEvent) {
+        if !forwardPointerMotion(event) { super.rightMouseDragged(with: event) }
+    }
+    override func otherMouseDragged(with event: NSEvent) {
+        if !forwardPointerMotion(event) { super.otherMouseDragged(with: event) }
+    }
     override func mouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        super.mouseDown(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            else { capturePointer() }
+            sendButton(code: 272, pressed: true)
+        } else {
+            super.mouseDown(with: event)
+        }
     }
     override func mouseUp(with event: NSEvent) {
-        super.mouseUp(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            sendButton(code: 272, pressed: false)
+        } else {
+            super.mouseUp(with: event)
+        }
     }
     override func rightMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        super.rightMouseDown(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            else { capturePointer() }
+            sendButton(code: 273, pressed: true)
+        } else {
+            super.rightMouseDown(with: event)
+        }
     }
     override func rightMouseUp(with event: NSEvent) {
-        super.rightMouseUp(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            sendButton(code: 273, pressed: false)
+        } else {
+            super.rightMouseUp(with: event)
+        }
     }
     override func otherMouseDown(with event: NSEvent) {
         restoreKeyboardFocus()
-        super.otherMouseDown(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            else { capturePointer() }
+            sendButton(code: 274, pressed: true)
+        } else {
+            super.otherMouseDown(with: event)
+        }
     }
     override func otherMouseUp(with event: NSEvent) {
-        super.otherMouseUp(with: event)
+        if guestInputHandler != nil, !isHidden {
+            if absolutePointerEnabled { sendAbsolutePosition(event) }
+            sendButton(code: 274, pressed: false)
+        } else {
+            super.otherMouseUp(with: event)
+        }
     }
 
     override func scrollWheel(with event: NSEvent) {
@@ -691,7 +741,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
         CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
     }
 
-    private func releaseInputCapture() {
+    func releaseInputCapture() {
         if let guestInputHandler {
             for code in pressedKeys.sorted() {
                 guestInputHandler(VMGuestAgentInputBatch.key(code: code, pressed: false).events)
@@ -846,7 +896,7 @@ final class VMVirGLDisplayView: VZVirtualMachineView {
             break
         case .degraded:
             runtimeIssueHandler?(
-                String(localized: "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting.")
+                String(localized: "Custom VirGL repeatedly failed to present the guest display. The VM is still running. If the display does not recover, stop it and restart; report the graphics diagnostics if the problem persists.")
             )
         case .recovered:
             runtimeIssueHandler?(nil)
@@ -933,7 +983,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     let displayView: NSView
     private let virglView: VMVirGLDisplayView
     private var runtime: RiftVMVirGLRuntime?
-    private let deviceConfigurations: [VZCustomVirtioDeviceConfiguration]
+    let deviceConfigurations: [VZCustomVirtioDeviceConfiguration]
     private var requestedResolution: (width: UInt32, height: UInt32)?
     private var pendingDisplayRequest: DispatchWorkItem?
     private var dynamicDisplayReady = false
@@ -941,7 +991,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         "RIFTVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
     ] != "1"
 
-    init(devices: [VMModelFieldGraphicDevice]) throws {
+    init(devices: [VMModelFieldGraphicDevice], displayView: VMVirGLDisplayView? = nil) throws {
         let device = devices.first ?? .default(osType: .linux)
         let initialResolution = VMDisplayGeometry.guestResolution(for: CGSize(
             width: max(1, device.width),
@@ -949,7 +999,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         ))
         let dependencies = VirGLRuntimeDependencies.resolve()
         try dependencies.validate()
-        let view = VMVirGLDisplayView(
+        let view = displayView ?? VMVirGLDisplayView(
             frame: .zero,
             guestSize: CGSize(
                 width: Int(initialResolution.width),
@@ -957,7 +1007,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             )
         )
         virglView = view
-        displayView = view
+        self.displayView = view
         let runtime = try RiftVMVirGLRuntime(
             configuration: .init(
                 width: initialResolution.width,

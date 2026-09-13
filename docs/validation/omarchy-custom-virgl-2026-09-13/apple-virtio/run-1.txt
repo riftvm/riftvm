@@ -1,0 +1,20 @@
+MESA-EGL: warning: egl: failed to create dri2 screen
+MESA-EGL: warning: egl: failed to create dri2 screen
+=======================================================
+    glmark2 2023.01
+=======================================================
+    OpenGL Information
+    GL_VENDOR:      Mesa
+    GL_RENDERER:    llvmpipe (LLVM 22.1.8, 128 bits)
+    GL_VERSION:     OpenGL ES 3.2 Mesa 26.2.2-arch1.1
+    Surface Config: buf=32 r=8 g=8 b=8 a=8 depth=32 stencil=0 samples=0
+    Surface Size:   1280x720 windowed
+=======================================================
+[build] duration=10.0:use-vbo=true: FPS: 624 FrameTime: 1.603 ms
+[shading] duration=10.0:shading=phong: FPS: 232 FrameTime: 4.323 ms
+[bump] bump-render=normals:duration=10.0: FPS: 465 FrameTime: 2.151 ms
+[terrain] duration=10.0: FPS: 6 FrameTime: 197.864 ms
+[refract] duration=10.0: FPS: 23 FrameTime: 44.032 ms
+=======================================================
+                                  glmark2 Score: 269 
+=======================================================

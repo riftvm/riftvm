@@ -1,0 +1,10 @@
+Manual GUI fault injection, 2026-09-13
+Candidate: local harness10, separately signed copy with Contents/Frameworks/VirGLRuntime moved out.
+Workspace: /tmp/riftvm-gpu-comparison/benchmark.riftvm (disposable).
+
+Observed startup error:
+VirGL runtime is incomplete; missing: libEGL.dylib, libGLESv2.dylib, libepoxy.0.dylib, libvirglrenderer.1.dylib.
+
+Clicked Stop and Enable Recovery.
+Observed: Omarchy is stopped; Start Omarchy button available.
+No Guest boot occurred and no Apple graphics fallback was selected.

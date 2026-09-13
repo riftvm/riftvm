@@ -28,9 +28,9 @@ Prefer a direct download? Get the signed and notarized app from
 
 ## Create your first workspace
 
-1. Open RiftVM and choose **Create Omarchy Workspace** or **Create macOS Workspace**.
+1. Open RiftVM and choose **Omarchy** or **macOS** from the home screen or the **+** menu. Your selection carries into the creation form.
 2. Choose a name, location, and hardware settings. The default location is `~/RiftVM Virtual Machines`; RiftVM remembers a custom location when you choose one.
-3. Click **Create** to download and verify the required image, then start your workspace. Omarchy guides you through owner setup on first boot.
+3. Click **Create Omarchy** or **Create Workspace** to download and verify the required image. You can continue in the background, then launch from the workspace list. Omarchy guides you through owner setup on first boot.
 
 Each workspace has its own writable disk and machine identity. Downloaded
 images are cached for reuse; Omarchy still needs a connection to verify its
@@ -38,20 +38,24 @@ release manifest when creating a workspace, even with a cached image.
 
 ## What it does
 
-- Creates and runs macOS virtual machines from a local IPSW, a selectable macOS version, or Apple's latest supported restore image
-- Creates and runs a verified, preinstalled Omarchy workspace with first-run owner setup
-- Stores machines in `~/RiftVM Virtual Machines` by default; any other location can still be chosen
-- Keeps downloaded system images in a shared store and reuses them when creating more machines
-- Takes, restores, and deletes snapshots of a stopped machine
-- Clones stopped machines with a new hardware identity and imports/exports checksum-verified `.riftvmexport` packages
-- Integrates with an optional authenticated Linux guest agent for readiness, IP reporting, SSH links, safe file transfer, and explicit shutdown/restart commands
-- Installs a `riftvm` CLI with versioned JSON inspection, validation, diagnostics, and headless start/status/stop commands
-- Configures CPU, memory, display, storage, networking, audio, pointing devices, and shared directories
-- Accelerates Linux desktops with a native Custom Virtio GPU backed by
-  VirGLRenderer and ANGLE/Metal; macOS guests retain Apple native graphics and
-  Linux guests fall back to Apple Virtio if Custom VirGL can't start
-- Uses Apple's native virtualization stack—no bundled hypervisor or cross-architecture emulation
-- Keeps the app and its VM configuration format intentionally small
+- Runs Omarchy and macOS locally through Apple's native virtualization stack
+- Creates Omarchy from a signed, verified factory image with guided owner setup
+- Creates macOS machines from a local IPSW, a selected release, or Apple's latest compatible restore image
+- Reuses downloaded images and gives each workspace its own writable disk and machine identity
+- Integrates Omarchy keyboard shortcuts, dynamic display sizing, text and image clipboard exchange, and notifications through an authenticated guest agent
+- Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
+- Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
+- Provides macOS machine configuration, stopped-machine snapshots, cloning, and checksum-verified `.riftvmexport` import/export in the general VM flow
+
+### Update and recover Omarchy
+
+Use **Updates → Prepare for Omarchy Update…** to stop the guest and create a
+protected recovery point. Start Omarchy and update it from its own menu. If the
+update causes problems, stop it and restore the saved point from **Recovery**.
+
+**Updates → Create Workspace from Latest Image…** creates a separate workspace
+from the signed factory channel. Updating RiftVM itself or downloading a newer
+factory does not replace your existing guest disk. See [Updates and recovery](docs/UPDATES_AND_RECOVERY.md).
 
 ## Requirements
 
@@ -63,8 +67,9 @@ release manifest when creating a workspace, even with a cached image.
 
 - Apple silicon and macOS 27 or later are required. Intel Macs and generic Linux ISO installation are outside the supported creation flow.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
-- Omarchy's Custom VirGL graphics do not support saving and restoring guest memory state. Stopped-machine file snapshots remain available.
-- Share host folders deliberately: a guest with read-write access can change their contents.
+- Omarchy uses Custom VirGL graphics and disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
+- Omarchy shares only its managed exchange folder by default. Other host folders are not exposed automatically. A guest with read-write access to a deliberately shared folder can change its contents.
+- Chinese input methods are installed and configured inside Omarchy by the user; Mac input-method passthrough is not provided. See [Chinese input](docs/OMARCHY_INPUT.md).
 
 For setup, display, input, and signing problems, see the
 [troubleshooting guide](docs/TROUBLESHOOTING.md).
@@ -73,18 +78,21 @@ For setup, display, input, and signing problems, see the
 
 The Homebrew cask links `riftvm` into Homebrew's executable prefix. Every
 command writes one schema-versioned JSON object and uses deterministic exit
-codes, making it suitable for local scripts:
+codes. These commands operate on general VM bundles containing `config.json`;
+the dedicated Omarchy workspace layout (`Workspace/Configuration.json`) is not
+currently supported by CLI discovery or lifecycle commands. Use the app to
+manage Omarchy workspaces created from the home screen. For a general VM:
 
 ```sh
 riftvm list
-riftvm inspect "My Omarchy Workspace"
+riftvm inspect "My macOS VM"
 riftvm validate "/path/to/My VM.riftvm"
 riftvm doctor
-riftvm start "My Omarchy Workspace" --timeout 90
-riftvm status "My Omarchy Workspace"
-riftvm stop "My Omarchy Workspace" --timeout 30
+riftvm start "My macOS VM" --timeout 90
+riftvm status "My macOS VM"
+riftvm stop "My macOS VM" --timeout 30
 riftvm install-image preinstalled-image.json --image disk.raw \
-  --destination "$HOME/RiftVM Virtual Machines/My Omarchy Workspace.riftvm" --timeout 300
+  --destination "$HOME/RiftVM Virtual Machines/Imported Linux.riftvm" --timeout 300
 ```
 
 Use `--root /path/to/library` one or more times when machines are stored outside
@@ -110,19 +118,21 @@ guest integration, graphics architecture, and distribution details.
 
 ### Linux graphics backends
 
-RiftVM selects the graphics backend at runtime:
+Omarchy uses Custom VirGL exclusively: Guest Mesa VirGL commands are rendered
+through virglrenderer and ANGLE on Metal. If the runtime cannot initialize,
+startup reports an error instead of switching to Apple Virtio.
 
-| Host and guest | Graphics path |
+| Workspace / configuration | Graphics path |
 | --- | --- |
-| macOS 27+ host, Linux guest | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal |
-| macOS guest | Apple native Mac graphics path |
+| Omarchy created from the home screen | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal; no Apple Virtio fallback |
+| macOS guest | Apple native Mac graphics |
+| General Linux VM with Custom VirGL enabled | Custom Virtio GPU → VirGLRenderer → ANGLE/Metal, with Apple Virtio fallback if initialization fails |
 
-The Custom VirGL path supports zero-copy scanout presentation, display-clock
-frame pacing, authenticated guest keyboard/wheel input, and guest-acknowledged
-dynamic resolution for window and full-screen transitions. It intentionally
-does not support Virtualization.framework machine-state save/restore: restoring
-guest RAM alone cannot reconstruct VirGL renderer contexts and resources.
-Stopped-VM file snapshots remain supported.
+Custom VirGL supports zero-copy scanout presentation and dynamic resolution.
+It does not support memory-state save/restore because guest RAM alone cannot
+reconstruct renderer contexts and resources. Stopped-VM file snapshots remain
+supported. Omarchy recovery points protect the stopped disk and workspace
+configuration; they do not restore running GPU state.
 
 Implementation and validation details are in the
 [Custom VirGL architecture notes](docs/CUSTOM_VIRGL_ARCHITECTURE.md),
@@ -144,7 +154,7 @@ Pick a macOS version from the built-in list in the creation flow (or use the lat
 
 ### Omarchy
 
-Choose **Create Omarchy Workspace**. RiftVM downloads the pinned Factory release, verifies its signed manifest and image digest, creates a private writable disk and machine identity, then guides you through owner setup. Generic Linux distributions and custom ISO installation are intentionally outside RiftVM's product scope.
+Choose **Omarchy** from the home screen or **+** menu. RiftVM downloads the pinned Factory release, verifies its signed manifest and image digest, creates a private writable disk and machine identity, then guides you through owner setup. Generic Linux distributions and custom ISO installation are intentionally outside RiftVM's product scope.
 
 ## Direction
 
@@ -152,8 +162,10 @@ RiftVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction 
 
 1. Make VM creation, launch, stop, recovery, and error handling reliable.
 2. Keep local macOS 27 tests, signed releases, Homebrew distribution,
-   diagnostics, and configuration migration reproducible. Hosted CI can return
-   when a genuine macOS 27 runner can execute the same GUI and VM gates.
+   diagnostics, and configuration migration reproducible. CI runs core, CLI,
+   runtime, and build checks on the `xcode-27` runner, with Guest Agent checks on
+   Ubuntu. Real VM, physical-display, and signed-release acceptance remain
+   separate from build checks.
 3. Expose a small, local automation surface so scripts and AI agents can create, start, inspect, and discard isolated VMs safely.
 
 The automation layer will remain local-first, explicit, and opt-in. RiftVM will not embed an AI model or require a cloud account. See the [documentation index](docs/README.md) for maintained technical references.

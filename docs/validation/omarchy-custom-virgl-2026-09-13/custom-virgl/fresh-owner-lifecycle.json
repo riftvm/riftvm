@@ -1,0 +1,12 @@
+{
+  "firstActiveAfterLockedObservedAt" : "2026-09-13T07:48:57Z",
+  "firstActiveObservedAt" : "2026-09-13T07:48:57Z",
+  "firstLockedObservedAt" : "2026-09-13T07:48:47Z",
+  "firstProvisioningPendingObservedAt" : "2026-09-13T07:48:17Z",
+  "guestAgentVersion" : "c8a3b4308c2635e2a29a5ecd224c52799237b4ac",
+  "lastDesktopSessionActive" : true,
+  "lastObservedAt" : "2026-09-13T07:50:07Z",
+  "lastProvisioningPending" : false,
+  "schemaVersion" : 6,
+  "sourceRevision" : "79b318fa59a0ba82e8977054ccf384014902f77b"
+}

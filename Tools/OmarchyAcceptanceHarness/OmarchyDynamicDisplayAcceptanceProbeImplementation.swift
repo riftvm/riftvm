@@ -17,8 +17,11 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         let probeDirectory = sharedDirectory.appending(path: ".riftvm-display-\(nonce)")
         let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
         let originalContentSize = window.contentLayoutRect.size
+        let originalFrame = window.frame
         defer {
-            window.setContentSize(originalContentSize)
+            // contentLayoutRect excludes the toolbar; feeding it back into
+            // setContentSize shrinks a full-size-content window on every run.
+            window.setFrame(originalFrame, display: true)
             try? FileManager.default.removeItem(at: probeDirectory)
         }
         try FileManager.default.createDirectory(at: probeDirectory, withIntermediateDirectories: false)
@@ -32,25 +35,28 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         let targetHeight: CGFloat = originalContentSize.height > 700 ? 640 : 760
         window.setContentSize(NSSize(width: targetWidth, height: targetHeight))
         try await Task.sleep(for: .milliseconds(500))
-        // Hyprland reports the virtual display's backing pixels, while AppKit
-        // bounds are expressed in logical points on Retina displays.
+        // Retain backing-pixel evidence, but compare the Guest with the mode
+        // that Custom VirGL requests from logical bounds (including alignment).
         let viewSize = view.convertToBacking(view.bounds).size
         let hostAfter = OmarchyDisplaySize(
             width: Int(viewSize.width.rounded()),
             height: Int(viewSize.height.rounded())
         )
+        let requested = VMDisplayGeometry.guestResolution(for: view.bounds.size)
+        let expectedGuest = OmarchyDisplaySize(width: Int(requested.width), height: Int(requested.height))
+        NSLog("Custom VirGL display probe: screen=%@ original=%.0fx%.0f target=%.0fx%.0f actual=%.0fx%.0f guestBefore=%dx%d expected=%dx%d", window.screen?.localizedName ?? "unknown", originalContentSize.width, originalContentSize.height, targetWidth, targetHeight, view.bounds.width, view.bounds.height, before.width, before.height, expectedGuest.width, expectedGuest.height)
         try Data().write(to: probeDirectory.appending(path: "resize-go"), options: .atomic)
         let after = try await waitForDisplay(at: probeDirectory.appending(path: "after.json"))
         guard before != after else { throw ProbeError.resolutionUnchanged(before) }
-        guard abs(after.width - hostAfter.width) <= 4,
-              abs(after.height - hostAfter.height) <= 4 else {
-            throw ProbeError.hostGuestMismatch(host: hostAfter, guest: after)
+        guard after == expectedGuest else {
+            throw ProbeError.hostGuestMismatch(host: expectedGuest, guest: after)
         }
         return OmarchyDynamicDisplayRoundTrip(
             observedAt: Date(),
             guestBefore: before,
             guestAfter: after,
-            hostViewAfter: hostAfter
+            hostViewAfter: hostAfter,
+            expectedGuest: expectedGuest
         )
     }
 
@@ -88,6 +94,8 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
                     "maximumFramesPerSecond": screen.maximumFramesPerSecond,
                     "guestWidth": result.guestAfter.width, "guestHeight": result.guestAfter.height,
                     "hostWidth": result.hostViewAfter.width, "hostHeight": result.hostViewAfter.height,
+                    "requestedGuestWidth": result.expectedGuest?.width ?? 0,
+                    "requestedGuestHeight": result.expectedGuest?.height ?? 0,
                     "focusRecovered": true,
                 ])
             }
@@ -138,7 +146,7 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         var errorDescription: String? {
             switch self {
             case .hostGuestMismatch(let host, let guest):
-                "Guest display \(guest.width)x\(guest.height) does not match Host view \(host.width)x\(host.height)."
+                "Guest display \(guest.width)x\(guest.height) does not match the requested Custom VirGL mode \(host.width)x\(host.height)."
             case .invalidMonitorJSON: "Hyprland returned invalid monitor JSON."
             case .missingWindow: "The Omarchy display has no Host window."
             case .resolutionUnchanged(let size):

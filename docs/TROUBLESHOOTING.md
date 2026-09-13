@@ -1,6 +1,6 @@
-# RiftVM troubleshooting and hard-won lessons
+# RiftVM troubleshooting
 
-_Updated: September 9, 2026_
+_Graphics guidance reflects the Custom VirGL Omarchy implementation in this source tree._
 
 This guide records failures found while bringing Omarchy from bootable to
 usable on RiftVM. Start with the symptom, preserve the first useful log, and
@@ -15,14 +15,20 @@ Apple graphics.
 
 | Host and guest | Expected graphics path |
 | --- | --- |
-| macOS 27+, Linux | Custom Virtio GPU with VirGL/ANGLE; Apple Virtio fallback on startup failure |
+| Omarchy created from the home screen | Custom Virtio GPU with VirGL/ANGLE Metal; no Apple Virtio fallback |
+| General Linux VM with Custom VirGL enabled | Custom Virtio GPU with VirGL/ANGLE; Apple Virtio fallback on initialization failure |
 | macOS guest | Apple native Mac graphics path |
 
-The RiftVM deployment target is macOS 27. A Custom VirGL fix must not silently
-remove the Apple Virtio fallback.
+The RiftVM deployment target is macOS 27. Omarchy requires Custom VirGL.
+A missing or broken runtime must produce a startup error, never a silent
+software-rendering fallback. General Linux configurations retain their
+separate Apple Virtio fallback policy.
 
-Run `riftvm doctor` and `riftvm validate "/path/to/Machine.riftvm"` before modifying
-a machine. Do not attach disks or logs containing credentials to a bug report.
+Use the Omarchy window's **Integration**, **Updates**, and **Recovery** menus for
+its status and recovery controls. `riftvm doctor` reports host information;
+`riftvm validate "/path/to/Machine.riftvm"` validates general VM bundles with a
+top-level `config.json`, not dedicated Omarchy workspaces. Do not attach disks,
+enrollment files, or logs containing credentials to a bug report.
 
 ## App runs but no Control Center appears
 
@@ -54,6 +60,14 @@ rendering did not wake promptly after input changed the guest surface.
 - If characters become visible only after pointer movement, investigate render
   wakeup/frame scheduling as well as keyboard delivery.
 
+## Accessibility is enabled, but the banner remains
+
+In System Settings, check the permission for the exact RiftVM app you are
+running. A development or temporary test build may not share the installed
+app's permission identity. Return to RiftVM after enabling access; if the state
+does not refresh, stop the guest and relaunch that app. Do not repeatedly
+change signing identities or grant unrelated apps permission.
+
 ## Command-to-Super shortcuts do nothing
 
 macOS Command must be translated to the Linux Super key on the authenticated
@@ -63,13 +77,16 @@ before it reaches the guest.
 - Test both `Command-K` and `Command-Space` after Hyprland is fully ready.
 - Verify key-down and key-up ordering; a stuck modifier can make later input
   look unrelated and broken.
+- Command capture applies only while RiftVM is frontmost and the guest view
+  owns keyboard focus. When another Mac app is active, its paste and screenshot
+  shortcuts should stay with the host.
 - Do not infer shortcut support from ordinary typing.
 
 ## Pointer capture or scrolling feels wrong
 
-RiftVM prefers the native USB digitizer and uses capability-negotiated Agent
-input where desktop delivery is required. Pointer release, absolute movement,
-and wheel deltas are separate behaviors.
+Omarchy uses authenticated Agent input with capability-negotiated absolute
+pointer support. Pointer release, absolute movement, and wheel deltas are
+separate behaviors.
 
 - Verify that the pointer can enter and leave the VM before tuning scroll.
 - Preserve high-resolution trackpad deltas, but accumulate and clamp them into
@@ -80,9 +97,10 @@ and wheel deltas are separate behaviors.
 
 ## Full screen is stretched, oversized, or surrounded by black bars
 
-Resizing the host view is not the same as changing the guest mode. Custom
-VirGL must publish a generation-tagged mode and retain the display event until
-the guest acknowledges it through display-info/EDID handling.
+Resizing the host view is not the same as changing the guest mode. Dedicated
+Omarchy uses native automatic display reconfiguration and a guest display
+watcher. The separate Custom VirGL path publishes a generation-tagged mode and
+retains the display event until the guest acknowledges display-info/EDID.
 
 - Test window resize completion, enter full screen, exit full screen, and
   repeated transitions.
@@ -93,11 +111,12 @@ the guest acknowledges it through display-info/EDID handling.
 - Confirm the compositor selected the announced mode rather than judging only
   the outer macOS window size.
 
-## First-run setup loops between keyboard and time zone
+## First-run owner setup does not complete
 
-The Omarchy first-run UI depends on more than key delivery. Time-zone selection
-requires a working desktop D-Bus/session environment, and display/input helpers
-may start before the compositor and devices are truly ready.
+The current flow collects username, password, keyboard, hostname, and time zone
+in the native **Set up your Omarchy owner** form. RiftVM submits them once over
+the authenticated Guest Agent channel. Completion requires the guest
+provisioning service and desktop session to become ready.
 
 - Use the matched RiftVM and guest-image/Agent versions.
 - Retry helpers on real compositor/device readiness instead of using a fixed
@@ -142,8 +161,8 @@ physical host usage.
   hash, and logical size before import.
 - Install transactionally so interruption cannot leave a machine that appears
   valid but contains a partial disk.
-- Guest changes must remain compatible with the Apple Virtio fallback unless
-  the manifest explicitly says otherwise.
+- Omarchy image changes must retain Mesa VirGL and the authenticated Guest
+  Agent input/display capabilities required by the Custom VirGL path.
 
 ## Guest has no internet access
 
@@ -154,8 +173,8 @@ path is Virtualization.framework NAT.
   alone is not sufficient.
 - Record whether failure is name resolution, routing, certificate/time, or the
   upstream repository.
-- RiftVM 0.1.9 includes the USB Accessory Access and vmnet entitlements in its
-  signed release. Custom builds can differ: check Settings → Signed capabilities
+- Signed releases include USB Accessory Access and vmnet entitlements.
+  Custom builds can differ: check Settings → Signed capabilities
   for the running app. An entitlement does not prove that a network is active.
 - NAT remains the default. Select bridged or custom vmnet networking deliberately
   for the required topology; changing modes is not a general fix for DNS or
@@ -168,8 +187,9 @@ Settings reports host OS eligibility separately from signed entitlements.
 Neither is an end-to-end validation of a particular VM. Check the guest OS,
 hardware, VM configuration, and runtime status as well.
 
-- Custom VirGL is a Linux graphics preference applied at startup. Initialization
-  failure can select Apple graphics instead; inspect the active backend.
+- Omarchy always constructs Custom VirGL at startup. General Linux VMs also
+  expose a graphics preference; initialization failure in that separate flow
+  can select Apple graphics instead.
 - DiskImageKit layering requires a supported ASIF machine configuration. Do not
   infer the snapshot backend from a `.asif` extension alone.
 - EFI Secure Boot is an explicit per-VM setting, not a global enabled state.
@@ -178,6 +198,22 @@ hardware, VM configuration, and runtime status as well.
   Omarchy window does not currently expose the same accessory controls.
 - macOS guest graphics and iCloud eligibility depend on the supported guest and
   hardware configuration. Host OS version alone does not verify either feature.
+
+## An acceptance-test warning appears
+
+An **Automated acceptance testing** banner identifies the separate local test
+app. Test failures leave its temporary VM available and are not equivalent to
+a VM startup failure. The distributed RiftVM app excludes these automatic
+probes. Stop the test guest and use the installed release for normal work.
+See [Stability acceptance](STABILITY_TESTING.md) for test isolation.
+
+## Omarchy still offers Update System
+
+A factory image records packages at its build time. New upstream updates can
+appear afterward; an update notification alone does not mean the image download
+failed. Use [Updates and recovery](UPDATES_AND_RECOVERY.md) to create a protected
+point before updating. A fresh factory workspace and an in-place guest update
+are separate operations.
 
 ## Definition of fixed
 

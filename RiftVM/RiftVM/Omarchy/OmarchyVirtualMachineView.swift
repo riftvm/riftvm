@@ -6,7 +6,15 @@ import Virtualization
 
 private let omarchyMetadataQueue = DispatchQueue(label: "com.riftvm.app.omarchy.metadata")
 
-final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
+final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
+    var displayConfigurationChanged: (() -> Void)?
+
+    init() {
+        super.init(frame: .zero, guestSize: CGSize(width: 1920, height: 1200), managesKeyboardIntegration: false)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
     private(set) var hostOverlayVisible = false
 
     override var acceptsFirstResponder: Bool {
@@ -16,14 +24,17 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     func setHostOverlayVisible(_ visible: Bool) {
         guard hostOverlayVisible != visible else { return }
         hostOverlayVisible = visible
-        if visible { releaseGuestKeys() }
         capturesSystemKeys = !visible
+        if visible {
+            releaseGuestKeys()
+            releaseInputCapture()
+        }
         if visible, let responder = window?.firstResponder as? NSView,
            responder === self || responder.isDescendant(of: self) {
             window?.makeFirstResponder(nil)
         }
-        // SwiftUI overlays do not remove the VZ view's native cursor tracking.
-        // Hide only the display view; keep the machine and Agent running.
+        // Hide guest presentation while native controls own input; keep the
+        // machine and authenticated Agent running.
         isHidden = visible
         window?.invalidateCursorRects(for: self)
         if visible {
@@ -31,6 +42,14 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             displayRefreshGeneration &+= 1
         } else {
             refreshDisplayAfterTransition()
+            // Resume and owner completion remove a native button/form that
+            // owned focus. Return input to the Guest only in the active window.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.hostOverlayVisible,
+                      let window = self.window, window.isKeyWindow,
+                      NSApp.isActive, window.attachedSheet == nil else { return }
+                window.makeFirstResponder(self)
+            }
         }
     }
 
@@ -46,6 +65,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
     private var displayObservers: [NSObjectProtocol] = []
     private var powerObservers: [NSObjectProtocol] = []
     private var pendingDisplayRefresh: DispatchWorkItem?
+    private var lastDisplayLayoutSize = CGSize.zero
     private var displayRefreshGeneration: UInt64 = 0
     private func recordInputDelivery(_ event: NSEvent, route: String) {
         guard inputDiagnosticsEnabled else { return }
@@ -116,6 +136,13 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         super.mouseDown(with: event)
     }
 
+    override func layout() {
+        super.layout()
+        guard bounds.size != lastDisplayLayoutSize else { return }
+        lastDisplayLayoutSize = bounds.size
+        scheduleDisplayRefresh()
+    }
+
     private func scheduleDisplayRefresh() {
         pendingDisplayRefresh?.cancel()
         displayRefreshGeneration &+= 1
@@ -144,16 +171,16 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
         displayRefreshGeneration &+= 1
         let generation = displayRefreshGeneration
         guard let targetWindow = window else { return }
-        for delay in [0.0, 0.35, 1.25] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak targetWindow] in
-                guard let self, let targetWindow, self.window === targetWindow,
-                      self.displayRefreshGeneration == generation,
-                      !self.hostOverlayVisible,
-                      self.virtualMachine != nil else { return }
-                targetWindow.contentView?.layoutSubtreeIfNeeded()
-                self.automaticallyReconfiguresDisplay = false
-                self.automaticallyReconfiguresDisplay = true
-            }
+        // The Custom VirGL backend already coalesces geometry changes. Extra
+        // delayed retries would restart its debounce and postpone every mode
+        // change. Layout and window notifications supply the final geometry.
+        DispatchQueue.main.async { [weak self, weak targetWindow] in
+            guard let self, let targetWindow, self.window === targetWindow,
+                  self.displayRefreshGeneration == generation,
+                  !self.hostOverlayVisible,
+                  self.runtime != nil else { return }
+            targetWindow.contentView?.layoutSubtreeIfNeeded()
+            self.displayConfigurationChanged?()
         }
     }
 
@@ -299,6 +326,7 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
             guestPressedKeys.removeAll()
         }
         guestInputEventHandler = handler
+        setGuestInputHandler(handler)
     }
 
     /// Sends an intentionally unpaced burst through the same view-to-Agent
@@ -433,16 +461,13 @@ final class OmarchyVirtualMachineInputView: VZVirtualMachineView {
 }
 
 enum OmarchyDesktopInputPolicy {
-    /// The authenticated Agent/uinput route is the sole Omarchy desktop input
-    /// path. When there is no desktop session (firmware, owner setup, lock
-    /// screen), leaving the handler unset lets Virtualization.framework's
-    /// virtual keyboard serve that different lifecycle surface.
+    /// Custom VirGL has no native VZ display to receive keyboard events.
+    /// Use authenticated uinput at the login screen as well as the desktop;
+    /// the native owner form is protected separately by hostOverlayVisible.
     static func usesGuestAgent(status: VMOmarchyGuestStatus) -> Bool {
-        guard status.desktopSessionActive,
-              !status.provisioningPending,
-              status.capabilities.contains("input-uinput-v1"),
-              status.capabilities.contains("desktop-input-v1") else { return false }
-        return true
+        guard !status.provisioningPending,
+              status.capabilities.contains("input-uinput-v1") else { return false }
+        return !status.desktopSessionActive || status.capabilities.contains("desktop-input-v1")
     }
 }
 
@@ -466,6 +491,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
     @State private var notice: UserNotice?
+    @State private var graphicsIssue: String?
     @State private var acceptanceFailure: String?
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
@@ -506,7 +532,8 @@ struct OmarchyVirtualMachineView: View {
                     }
                 },
                 phaseChanged: handlePhaseChange,
-                acceptanceFailureChanged: { acceptanceFailure = $0 }
+                acceptanceFailureChanged: { acceptanceFailure = $0 },
+                graphicsIssueChanged: { graphicsIssue = $0 }
             )
             .id(sessionID)
             if phase != .running {
@@ -592,6 +619,12 @@ struct OmarchyVirtualMachineView: View {
             }
         }
         .safeAreaInset(edge: .top) {
+            if let graphicsIssue {
+                Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.orange.opacity(0.18))
+            }
             if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
                 VStack(alignment: .leading, spacing: 4) {
                     Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
@@ -627,7 +660,7 @@ struct OmarchyVirtualMachineView: View {
                 .background(.orange.opacity(0.18))
             }
         }
-        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil }
+        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil; graphicsIssue = nil }
         .onDisappear {
             stopTimeoutTask?.cancel()
             stopTimeoutTask = nil
@@ -1608,6 +1641,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
     let acceptanceFailureChanged: (String) -> Void
+    let graphicsIssueChanged: (String?) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -1624,28 +1658,36 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             ownerProvisioningCompleted: ownerProvisioningCompleted,
             ownerProvisioningProgressChanged: ownerProvisioningProgressChanged,
             phaseChanged: phaseChanged,
-            acceptanceFailureChanged: acceptanceFailureChanged
+            acceptanceFailureChanged: acceptanceFailureChanged,
+            graphicsIssueChanged: graphicsIssueChanged
         )
     }
 
     func makeNSView(context: Context) -> VZVirtualMachineView {
         let view = OmarchyVirtualMachineInputView()
         view.capturesSystemKeys = true
+        view.automaticallyReconfiguresDisplay = false
         view.setHostOverlayVisible(hostOverlayVisible)
-        view.automaticallyReconfiguresDisplay = true
+        context.coordinator.machineView = view
+        // Stop/recovery must remain available even when graphics or VM
+        // configuration fails before a VZVirtualMachine can be constructed.
+        context.coordinator.beginObservingCommands()
         do {
+            let backend = try VMCustomVirGLGraphicsBackend(devices: [.init(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)], displayView: view)
+            context.coordinator.graphicsBackend = backend
+            backend.setRuntimeIssueHandler(context.coordinator.graphicsIssueChanged)
+            view.displayConfigurationChanged = { [weak backend] in backend?.refreshDisplayConfiguration() }
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                 layout: layout,
                 profile: profile,
+                customGraphicsDevices: backend.deviceConfigurations,
                 microphoneEnabled: microphoneEnabled
             )
             let machine = VZVirtualMachine(configuration: configuration)
             machine.delegate = context.coordinator
             context.coordinator.machine = machine
-            context.coordinator.machineView = view
             OmarchyApplicationTerminationController.shared.register(machine)
-            context.coordinator.beginObservingCommands()
-            view.virtualMachine = machine
+            backend.bind(virtualMachine: machine)
             context.coordinator.installKeyboardBridge(for: view)
             context.coordinator.start(
                 machine,
@@ -1655,6 +1697,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 permitsEFIVariableStoreRecovery: true
             )
         } catch {
+            context.coordinator.graphicsBackend?.shutdown()
+            context.coordinator.graphicsBackend = nil
             DispatchQueue.main.async {
                 context.coordinator.phaseChanged(.failed(error.localizedDescription))
             }
@@ -1678,6 +1722,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
     final class Coordinator: NSObject, VZVirtualMachineDelegate {
         var machine: VZVirtualMachine?
+        var graphicsBackend: VMCustomVirGLGraphicsBackend?
         let sessionID: UUID
         let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
@@ -1692,6 +1737,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let ownerProvisioningProgressChanged: (VMOmarchyOwnerProvisioningProgress) -> Void
         let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
         let acceptanceFailureChanged: (String) -> Void
+        let graphicsIssueChanged: (String?) -> Void
 
         func start(
             _ machine: VZVirtualMachine,
@@ -1725,12 +1771,13 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                                 layout: self.layout,
                                 profile: profile,
+                                customGraphicsDevices: self.graphicsBackend?.deviceConfigurations ?? [],
                                 microphoneEnabled: microphoneEnabled
                             )
                             let replacement = VZVirtualMachine(configuration: configuration)
                             replacement.delegate = self
                             self.machine = replacement
-                            view.virtualMachine = replacement
+                            self.graphicsBackend?.bind(virtualMachine: replacement)
                             OmarchyApplicationTerminationController.shared.register(replacement)
                             self.start(
                                 replacement,
@@ -1847,7 +1894,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             ownerProvisioningCompleted: @escaping (UUID, String?) -> Void,
             ownerProvisioningProgressChanged: @escaping (VMOmarchyOwnerProvisioningProgress) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void,
-            acceptanceFailureChanged: @escaping (String) -> Void = { _ in }
+            acceptanceFailureChanged: @escaping (String) -> Void = { _ in },
+            graphicsIssueChanged: @escaping (String?) -> Void = { _ in }
         ) {
             self.sessionID = sessionID
             self.layout = layout
@@ -1863,6 +1911,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.ownerProvisioningProgressChanged = ownerProvisioningProgressChanged
             self.phaseChanged = phaseChanged
             self.acceptanceFailureChanged = acceptanceFailureChanged
+            self.graphicsIssueChanged = graphicsIssueChanged
         }
 
         func submitOwnerProvisioning(_ submission: OmarchyOwnerProvisioningSubmission) {
@@ -2079,6 +2128,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         func configureDesktopInput(for status: VMOmarchyGuestStatus) {
             guard let view = machineView as? OmarchyVirtualMachineInputView else { return }
+            graphicsBackend?.setDynamicDisplayReady(status.desktopSessionActive && !status.provisioningPending)
+            graphicsBackend?.setAbsolutePointerEnabled(status.capabilities.contains("input-uinput-absolute-v1"))
             guard OmarchyDesktopInputPolicy.usesGuestAgent(status: status),
                   let integrationClient else {
                 view.setGuestInputEventHandler(nil)
@@ -2220,6 +2271,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func requestStop() {
             guard let machine, machine.state != .stopped else {
                 stopIntegration()
+                graphicsBackend?.shutdown()
+                graphicsBackend = nil
                 self.machine = nil
                 phaseChanged(.stopped)
                 return
@@ -2303,6 +2356,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func forceStop() {
             guard let machine, machine.state != .stopped else {
                 stopIntegration()
+                graphicsBackend?.shutdown()
+                graphicsBackend = nil
                 self.machine = nil
                 phaseChanged(.stopped)
                 return
@@ -2318,6 +2373,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         self.phaseChanged(.failed(error.localizedDescription))
                     } else if self.machine === machine {
                         self.stopIntegration()
+                        self.graphicsBackend?.shutdown()
+                        self.graphicsBackend = nil
                         self.machine = nil
                         self.phaseChanged(.stopped)
                     }
@@ -2337,9 +2394,31 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
-            guard let machine else { return }
+            guard let machine else {
+                graphicsBackend?.shutdown()
+                graphicsBackend = nil
+                return
+            }
+            let backend = graphicsBackend
+            graphicsBackend = nil
+            // The renderer owns guest resources: retain it until VZ has actually
+            // stopped, even if SwiftUI has already dismantled the display view.
             Task { @MainActor in
-                OmarchyApplicationTerminationController.shared.stopForViewTeardown(machine)
+                while machine.state != .stopped && machine.state != .error {
+                    if machine.canStop {
+                        let error: Error? = await withCheckedContinuation { continuation in
+                            machine.stop { continuation.resume(returning: $0) }
+                        }
+                        if let error {
+                            RiftVMLog.error("Omarchy teardown stop failed; retaining GPU until stopped: \(error.localizedDescription)")
+                        }
+                    }
+                    if machine.state != .stopped && machine.state != .error {
+                        try? await Task.sleep(for: .milliseconds(250))
+                    }
+                }
+                backend?.shutdown()
+                OmarchyApplicationTerminationController.shared.unregister(machine)
             }
             self.machine = nil
         }
@@ -2348,7 +2427,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             Task { @MainActor in
                 OmarchyApplicationTerminationController.shared.machineDidStop(virtualMachine)
             }
+            guard machine === virtualMachine else { return }
             stopIntegration()
+            graphicsBackend?.shutdown()
+            graphicsBackend = nil
             machine = nil
             phaseChanged(.stopped)
         }
@@ -2357,7 +2439,11 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             Task { @MainActor in
                 OmarchyApplicationTerminationController.shared.machineDidStop(virtualMachine)
             }
+            guard machine === virtualMachine else { return }
             stopIntegration()
+            graphicsBackend?.shutdown()
+            graphicsBackend = nil
+            machine = nil
             phaseChanged(.failed(error.localizedDescription))
         }
 

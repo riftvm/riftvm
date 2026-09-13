@@ -6,6 +6,7 @@ public enum VMOmarchyVirtualMachineBuilder {
     public static func makeConfiguration(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        customGraphicsDevices: [VZCustomVirtioDeviceConfiguration] = [],
         microphoneEnabled: Bool = false,
         hostMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory,
         activeProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount
@@ -20,6 +21,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         return try buildConfiguration(
             layout: layout,
             profile: profile,
+            customGraphicsDevices: customGraphicsDevices,
             microphoneEnabled: microphoneEnabled,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
@@ -30,6 +32,7 @@ public enum VMOmarchyVirtualMachineBuilder {
     static func makeUnvalidatedConfigurationForTesting(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        customGraphicsDevices: [VZCustomVirtioDeviceConfiguration] = [],
         microphoneEnabled: Bool = false,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int
@@ -37,6 +40,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         try buildConfiguration(
             layout: layout,
             profile: profile,
+            customGraphicsDevices: customGraphicsDevices,
             microphoneEnabled: microphoneEnabled,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
@@ -47,6 +51,7 @@ public enum VMOmarchyVirtualMachineBuilder {
     private static func buildConfiguration(
         layout: VMOmarchyWorkspaceLayout,
         profile: VMOmarchyProfile,
+        customGraphicsDevices: [VZCustomVirtioDeviceConfiguration],
         microphoneEnabled: Bool,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int,
@@ -111,9 +116,13 @@ public enum VMOmarchyVirtualMachineBuilder {
         )
         configuration.storageDevices = [VZVirtioBlockDeviceConfiguration(attachment: diskAttachment)]
 
-        let graphics = VZVirtioGraphicsDeviceConfiguration()
-        graphics.scanouts = [VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1920, heightInPixels: 1200)]
-        configuration.graphicsDevices = [graphics]
+        // Omarchy requires the caller-owned VirGL runtime. Never create an
+        // Apple display as an implicit fallback when accelerated setup fails.
+        configuration.graphicsDevices = []
+        configuration.customVirtioDevices = customGraphicsDevices
+        if validatesConfiguration && !customGraphicsDevices.contains(where: { $0.deviceID == 16 }) {
+            throw VMOmarchyVirtualMachineBuilderError.customGraphicsRequired
+        }
         configuration.keyboards = [VZUSBKeyboardConfiguration()]
         configuration.pointingDevices = [VZUSBScreenCoordinatePointingDeviceConfiguration()]
         configuration.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
@@ -176,6 +185,7 @@ public enum VMOmarchyVirtualMachineBuilder {
 }
 
 public enum VMOmarchyVirtualMachineBuilderError: Error, Equatable {
+    case customGraphicsRequired
     case invalidMachineIdentifier
     case recoveryFailed(String)
 }
@@ -183,6 +193,8 @@ public enum VMOmarchyVirtualMachineBuilderError: Error, Equatable {
 extension VMOmarchyVirtualMachineBuilderError: LocalizedError {
     public var errorDescription: String? {
         switch self {
+        case .customGraphicsRequired:
+            "Omarchy requires Custom VirGL graphics. Verify the bundled VirGL runtime and try again."
         case .invalidMachineIdentifier:
             "The Omarchy machine identity is invalid."
         case .recoveryFailed(let reason):

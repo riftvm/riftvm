@@ -1,0 +1,78 @@
+{
+  "observations": [
+    {
+      "cycle": 0,
+      "display": "DELL S2722QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 60,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    },
+    {
+      "cycle": 0,
+      "display": "DELL S2725QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 120,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    },
+    {
+      "cycle": 1,
+      "display": "DELL S2722QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 60,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    },
+    {
+      "cycle": 1,
+      "display": "DELL S2725QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 120,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    },
+    {
+      "cycle": 2,
+      "display": "DELL S2722QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 60,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    },
+    {
+      "cycle": 2,
+      "display": "DELL S2725QC",
+      "focusRecovered": true,
+      "guestHeight": 528,
+      "guestWidth": 880,
+      "hostHeight": 1063,
+      "hostWidth": 1760,
+      "maximumFramesPerSecond": 120,
+      "requestedGuestHeight": 528,
+      "requestedGuestWidth": 880
+    }
+  ],
+  "result": "passed",
+  "schemaVersion": 1
+}

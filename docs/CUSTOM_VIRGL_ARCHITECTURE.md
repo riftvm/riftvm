@@ -1,9 +1,11 @@
 # Custom VirGL architecture and engineering notes
 
-_Last validated: September 1, 2026_
+_Omarchy integration updated September 13, 2026; historical validation is dated below._
 
-This document records the production architecture, invariants, observed
-failure modes, and validation baseline for RiftVM's macOS 27 Linux graphics path.
+This document records the architecture, invariants, observed failure modes,
+and validation baseline for the Custom VirGL backend. Dedicated Omarchy
+constructs this backend directly and requires its Custom Virtio GPU. It does
+not call the general VM fallback factory.
 It is intentionally more durable than the chronological prototype notes.
 
 ## Scope and compatibility
@@ -12,10 +14,11 @@ RiftVM requires macOS 27. Graphics selection still fails safely:
 
 | Host / guest | Requested backend | Fallback |
 | --- | --- | --- |
-| macOS 27+, Linux | Custom Virtio GPU + VirGL | Apple Virtio if the runtime is unavailable or initialization fails |
+| General Linux VM with Custom VirGL enabled | Custom Virtio GPU + VirGL | Apple Virtio if the runtime is unavailable or initialization fails |
+| Dedicated Omarchy workspace | Custom Virtio GPU + VirGL | None; initialization failure stops startup |
 | macOS guest | Apple Mac graphics | Custom VirGL is never selected |
 
-The Custom VirGL setting defaults on where supported. The running VM window
+The Custom VirGL setting defaults on in the general Linux configuration. That VM window
 shows both the requested and active backend so a fallback is diagnosable.
 
 ## Data paths
@@ -36,7 +39,8 @@ The normal scanout path borrows VirGL's live texture and wraps it in an
 `EGLImage`; it does not copy pixels through Swift `Data`, `CGImage`, or a CPU
 readback. All VirGL/ANGLE calls retain dedicated-thread EGL context affinity.
 
-Presentation is display-clock driven. There is at most one in-flight drawable
+The AppKit presentation path uses a 60 Hz timer in common run-loop modes;
+this is not a variable-refresh display-link implementation. There is at most one in-flight drawable
 and one latest pending frame; older pending frames are coalesced. The objective
 is low visible latency, not delivery of stale intermediate frames.
 
@@ -126,13 +130,15 @@ them explicitly during reset/stop.
 
 ### Fallback ends before virtual-machine construction
 
-RiftVM creates the renderer, Custom Virtio provider, and all
+The general Linux VM factory creates the renderer, Custom Virtio provider, and all
 `VZCustomVirtioDeviceConfiguration` instances inside one recoverable backend
 construction boundary. A missing runtime, renderer initialization failure, or
 device-configuration failure therefore selects Apple Virtio before creating a
 `VZVirtualMachine`; RiftVM never exposes a partially initialized custom device to
 the guest. Once construction succeeds, configuration application is infallible
-and only installs the already validated device objects.
+and only installs the already validated device objects. Dedicated Omarchy uses
+the same construction boundary but propagates failure instead of selecting
+Apple Virtio; its builder rejects configurations without the custom GPU.
 
 ### Runtime presentation health is visible
 
@@ -345,7 +351,8 @@ Before merging changes to the Custom VirGL path:
 5. Resize the window, enter/exit full screen, and verify the display ACK chain.
 6. Confirm zero presentation failures and no illegal-resource/DRAW_VBO errors.
 7. Pause/resume and stop/restart; confirm resources and cadence are released.
-8. Verify Apple Virtio fallback on a host/configuration without Custom Virtio.
+8. Verify Omarchy refuses startup when Custom VirGL is unavailable. Verify
+   Apple Virtio fallback separately for the general Linux VM factory.
 9. Build the pinned runtime from source; do not depend on mutable Homebrew libs.
 10. Audit bundled licenses and source checksums before distribution.
 

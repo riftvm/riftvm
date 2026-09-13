@@ -11,6 +11,7 @@ struct OmarchyDynamicDisplayRoundTrip: Codable, Equatable {
     let guestBefore: OmarchyDisplaySize
     let guestAfter: OmarchyDisplaySize
     let hostViewAfter: OmarchyDisplaySize
+    var expectedGuest: OmarchyDisplaySize? = nil
 }
 
 enum OmarchyDynamicDisplayProbeState: Equatable {

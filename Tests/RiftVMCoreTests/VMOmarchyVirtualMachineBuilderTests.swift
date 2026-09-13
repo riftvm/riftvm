@@ -36,10 +36,18 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
 
+        XCTAssertThrowsError(try VMOmarchyVirtualMachineBuilder.makeConfiguration(
+            layout: layout, profile: .production
+        )) { error in
+            XCTAssertEqual(error as? VMOmarchyVirtualMachineBuilderError, .customGraphicsRequired)
+        }
+        let gpu = VZCustomVirtioDeviceConfiguration()
+        gpu.deviceID = 16
         let gib = UInt64(1_024 * 1_024 * 1_024)
         let configuration = try VMOmarchyVirtualMachineBuilder.makeUnvalidatedConfigurationForTesting(
             layout: layout,
             profile: .production,
+            customGraphicsDevices: [gpu],
             hostMemoryBytes: 32 * gib,
             activeProcessorCount: 10
         )
@@ -49,7 +57,9 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.cpuCount, min(6, VZVirtualMachineConfiguration.maximumAllowedCPUCount))
         XCTAssertEqual(configuration.memorySize, min(16 * gib, VZVirtualMachineConfiguration.maximumAllowedMemorySize))
         XCTAssertEqual(configuration.storageDevices.count, 1)
-        XCTAssertEqual(configuration.graphicsDevices.count, 1)
+        XCTAssertTrue(configuration.graphicsDevices.isEmpty, "Omarchy must never silently select Apple graphics")
+        XCTAssertEqual(configuration.customVirtioDevices.count, 1)
+        XCTAssertTrue(configuration.customVirtioDevices.first === gpu)
         XCTAssertEqual(configuration.socketDevices.count, 1)
         XCTAssertEqual(configuration.directorySharingDevices.count, 2)
         XCTAssertEqual(
