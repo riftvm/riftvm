@@ -15,20 +15,21 @@
   <link rel="apple-touch-icon" href="assets/riftvm-icon.png?brand=rift-r">
   <link rel="canonical" href="https://riftvm.com/">
   <title>RiftVM — Bring another world to your Mac</title>
-  <link rel="stylesheet" href="styles.css?asset=fbbacb83431a">
-  <link rel="stylesheet" href="copy-command.css">
-  <script src="copy-command.js" defer></script>
+  <link rel="stylesheet" href="styles.css?asset=cde3c3bfa3ff">
+  <link rel="stylesheet" href="copy-command.css?asset=f6c05091d0e2">
+  <script src="copy-command.js?asset=a45e6baa63cd" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#top">Skip to content</a>
   <header class="nav wrap">
     <a class="brand" href="#top" aria-label="RiftVM home"><img class="mark" src="assets/riftvm-icon.png?brand=rift-r" width="36" height="36" alt="">RiftVM</a>
     <nav aria-label="Main navigation">
-      <a href="#top">Products</a>
+      <a href="#install">Workspaces</a>
       <a href="#features">Features</a>
       <a href="#systems">Systems</a>
       <a href="https://github.com/riftvm/riftvm/blob/main/docs/README.md">Docs</a>
-      <a href="https://discord.gg/eGzEaP6TzR">Community</a>
+      <a href="#community">Community</a>
+      <a href="https://github.com/riftvm/riftvm/issues/new/choose">Feedback</a>
       <a class="button small" href="https://github.com/riftvm/riftvm">GitHub</a>
     </nav>
   </header>
@@ -41,7 +42,7 @@
       <div class="install-command" aria-label="Install with Homebrew"><code>brew install --cask riftvm/tap/riftvm</code><button class="copy-button" type="button" data-copy="brew install --cask riftvm/tap/riftvm" aria-label="Copy Homebrew install command" aria-live="polite">Copy</button></div>
     </section>
     <section class="split-hero" id="install" aria-label="Explore RiftVM workspaces">
-      <a class="split-product split-omarchy" href="#features" aria-label="Explore the Omarchy workspace">
+      <a class="split-product split-omarchy" href="https://github.com/riftvm/riftvm#omarchy" aria-label="Explore the Omarchy workspace">
         <span class="product-content omarchy-content">
           <span class="product-kicker">The featured experience</span>
           <span class="product-title"><strong>Omarchy</strong> workspace</span>
@@ -52,7 +53,7 @@
         <span class="ghost-window hot-window" aria-hidden="true"><i></i><i></i><i></i><b>omarchy@riftvm</b><code>super + space</code></span>
       </a>
 
-      <a class="split-product split-riftvm" href="#features" aria-label="Explore the macOS workspace">
+      <a class="split-product split-riftvm" href="https://github.com/riftvm/riftvm#macos" aria-label="Explore the macOS workspace">
         <span class="product-content riftvm-content">
           <span class="product-kicker">The native Mac experience</span>
           <span class="product-title"><strong>macOS</strong> workspace</span>
@@ -76,9 +77,9 @@
 
     <section class="strip" aria-label="Core capabilities">
       <div class="wrap stats">
-        <div><strong>Native</strong><span>Virtualization.framework</span></div>
-        <div><strong>Focused</strong><span>macOS + Omarchy</span></div>
-        <div><strong>Local</strong><span>No account required</span></div>
+        <a href="https://github.com/riftvm/riftvm/blob/main/docs/CUSTOM_VIRGL_ARCHITECTURE.md"><strong>Native</strong><span>Virtualization.framework →</span></a>
+        <a href="#systems"><strong>Focused</strong><span>macOS + Omarchy →</span></a>
+        <a href="https://github.com/riftvm/riftvm#what-it-does"><strong>Local</strong><span>No account required →</span></a>
       </div>
     </section>
 
@@ -86,33 +87,54 @@
       <p class="eyebrow">A complete native workflow</p>
       <h2>Powerful where it matters. Quiet everywhere else.</h2>
       <div class="cards feature-grid">
-        <article><span>01</span><h3>Download at the end</h3><p>Choose your system and hardware first. RiftVM downloads only after you click Create, uses available resume data to retry interrupted downloads, and reuses saved images.</p></article>
-        <article><span>02</span><h3>Update with a recovery point</h3><p>Prepare for an Omarchy update with a protected backup. Update inside the guest, then restore the saved point if you need to return to the earlier system.</p></article>
-        <article><span>03</span><h3>Safe lifecycle</h3><p>Start, stop, and restart your workspace with protection against concurrent use of its writable disk. Quitting waits for guest shutdown to complete.</p></article>
-        <article><span>04</span><h3>Simple file exchange</h3><p>Use Open Shared Folder or Import Files to exchange files with Omarchy. Each workspace has its own folder; your other Mac folders are not shared automatically.</p></article>
-        <article><span>05</span><h3>Networking built in</h3><p>Omarchy uses NAT to connect through your Mac. Advanced network modes are available separately in the general VM configuration.</p></article>
-        <article><span>06</span><h3>Omarchy integration</h3><p>Focused input, dynamic display, clipboard, notifications, shared folders, and authenticated guest coordination.</p></article>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm#create-your-first-workspace"><span>01</span><h3>Download at the end</h3><p>Choose your system and hardware first. RiftVM downloads only after you click Create, uses available resume data to retry interrupted downloads, and reuses saved images.</p><span class="card-link">Read the guide →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/UPDATES_AND_RECOVERY.md#recover-after-a-failed-update"><span>02</span><h3>Update with a recovery point</h3><p>Prepare for an Omarchy update with a protected backup. Update inside the guest, then restore the saved point if you need to return to the earlier system.</p><span class="card-link">Read the guide →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm#what-it-does"><span>03</span><h3>Safe lifecycle</h3><p>Start, stop, and restart your workspace with protection against concurrent use of its writable disk. Quitting waits for guest shutdown to complete.</p><span class="card-link">Read the guide →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm#what-it-does"><span>04</span><h3>Simple file exchange</h3><p>Use Open Shared Folder or Import Files to exchange files with Omarchy. Each workspace has its own folder; your other Mac folders are not shared automatically.</p><span class="card-link">Read the guide →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/TROUBLESHOOTING.md#guest-has-no-internet-access"><span>05</span><h3>Networking built in</h3><p>Omarchy uses NAT to connect through your Mac. Advanced network modes are available separately in the general VM configuration.</p><span class="card-link">Read the guide →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/README.md"><span>06</span><h3>Omarchy integration</h3><p>Focused input, dynamic display, clipboard, notifications, shared folders, and authenticated guest coordination.</p><span class="card-link">Read the guide →</span></a>
       </div>
+    </section>
+
+    <section class="section wrap performance" id="performance">
+      <p class="eyebrow">Performance with evidence</p>
+      <h2>More work when it matters.<br>Less work when it doesn’t.</h2>
+      <div class="cards">
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/validation/omarchy-custom-virgl-2026-09-13/README.md"><span>GPU</span><h3>Accelerated Omarchy graphics</h3><p>Custom VirGL translates guest graphics through ANGLE to Metal. See the measured workloads and compatibility limits.</p><span class="card-link">See the 3D comparison →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/validation/omarchy-demand-rendering-2026-09-13/README.md"><span>DISPLAY</span><h3>Frames on demand</h3><p>Present when content changes, retain pending updates while busy, and refresh when the window becomes visible again.</p><span class="card-link">Read the rendering results →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/blob/main/docs/UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest"><span>IDLE</span><h3>90% fewer idle queries</h3><p>The display watcher checks the compositor less often while keeping resize detection responsive. Existing Guests need the paired integration update and a reboot.</p><span class="card-link">Update your Guest →</span></a>
+      </div>
+      <p class="performance-note">90% refers to steady-state compositor query frequency, not total CPU use or energy savings. <a href="https://github.com/riftvm/riftvm/blob/main/docs/validation/watcher-idle-2026-09-13/README.md">Read the validation and remaining work →</a></p>
     </section>
 
     <section class="section roadmap" id="systems">
       <div class="wrap roadmap-grid">
-        <div><p class="eyebrow">Two worlds, deeply supported</p><h2>Choose macOS or Omarchy.</h2><p>macOS restore releases come from Apple. Omarchy uses a pinned, verified Factory image and Custom VirGL graphics rendered through ANGLE on Metal.</p></div>
+        <div><p class="eyebrow">Two worlds, deeply supported</p><h2>Choose macOS or Omarchy.</h2><p>macOS restore releases come from Apple. Omarchy uses a pinned, verified Factory image and defaults to Custom VirGL graphics rendered through ANGLE on Metal. Each Linux workspace can explicitly select Apple Virtio for compatibility; macOS uses native Apple Graphics.</p></div>
         <ol>
-          <li><span>01</span><div><strong>Built for macOS 27 and later</strong><p>Pick a signed IPSW from the refreshed catalog or let Apple resolve the newest version compatible with your Mac.</p></div></li>
-          <li><span>02</span><div><strong>Omarchy, ready to work</strong><p>Download a signed, verified factory image and complete guided owner setup. A newer factory creates a separate workspace and preserves your existing one.</p></div></li>
-          <li><span>03</span><div><strong>Reusable image downloads</strong><p>Reuse cached images when creating more machines. Omarchy creation still connects to verify the signed release manifest.</p></div></li>
-          <li><span>04</span><div><strong>Useful diagnostics</strong><p>Export version, host, and VM configuration details directly from Community &amp; Feedback when asking for help.</p></div></li>
+          <li><a href="https://github.com/riftvm/riftvm#macos"><span>01</span><div><strong>Built for macOS 27 and later</strong><p>Pick a signed IPSW from the refreshed catalog or let Apple resolve the newest version compatible with your Mac.</p></div></a></li>
+          <li><a href="https://github.com/riftvm/riftvm#omarchy"><span>02</span><div><strong>Omarchy, ready to work</strong><p>Download a signed, verified factory image and complete guided owner setup. A newer factory creates a separate workspace and preserves your existing one.</p></div></a></li>
+          <li><a href="https://github.com/riftvm/riftvm#create-your-first-workspace"><span>03</span><div><strong>Reusable image downloads</strong><p>Reuse cached images when creating more machines. Omarchy creation still connects to verify the signed release manifest.</p></div></a></li>
+          <li><a href="https://github.com/riftvm/riftvm/blob/main/docs/TROUBLESHOOTING.md"><span>04</span><div><strong>Useful diagnostics</strong><p>Export version, host, and VM configuration details directly from Community &amp; Feedback when asking for help.</p></div></a></li>
         </ol>
+      </div>
+    </section>
+
+    <section class="section wrap" id="community" aria-labelledby="community-title">
+      <p class="eyebrow">Community &amp; feedback</p>
+      <h2 id="community-title">A question, a bug, or an idea?</h2>
+      <div class="cards">
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/issues/new?template=bug_report.yml"><span>GITHUB ISSUES</span><h3>Report a bug</h3><p>Tell us what happened, what you expected, and which macOS and RiftVM versions you use.</p><span class="card-link">Open a bug report →</span></a>
+        <a class="feature-card" href="https://github.com/riftvm/riftvm/issues/new?template=feature_request.yml"><span>GITHUB ISSUES</span><h3>Suggest an improvement</h3><p>Describe the workflow you want to make better. Track the discussion and progress on GitHub.</p><span class="card-link">Share your idea →</span></a>
+        <a class="feature-card" href="https://discord.com/invite/eGzEaP6TzR"><span>DISCORD</span><h3>Join the community</h3><p>Ask questions, share your setup, and talk with other users.</p><span class="card-link">Open Discord →</span></a>
       </div>
     </section>
 
     <section class="cta wrap">
       <div><p class="eyebrow">Ready to go?</p><h2>Bring another world to your Mac.</h2></div>
-      <div class="actions"><a class="button" href="https://github.com/riftvm/riftvm/releases/latest" target="_blank" rel="noopener noreferrer">Download from GitHub Releases</a><a class="text-link" href="https://github.com/riftvm/riftvm/issues">Feedback →</a></div>
+      <div class="actions"><a class="button" href="https://github.com/riftvm/riftvm/releases/latest" target="_blank" rel="noopener noreferrer">Download from GitHub Releases</a><a class="text-link" href="https://github.com/riftvm/riftvm/issues/new/choose">Submit feedback →</a></div>
     </section>
   </main>
 
-  <footer class="wrap"><a href="https://github.com/riftvm/riftvm/blob/main/docs/UPDATES_AND_RECOVERY.md">Updates &amp; recovery</a><a href="https://github.com/riftvm/riftvm/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a><span>RiftVM · MIT License</span><span>One app. Two worlds.</span></footer>
+  <footer class="wrap"><a href="https://github.com/riftvm/riftvm/blob/main/docs/UPDATES_AND_RECOVERY.md">Updates &amp; recovery</a><a href="https://github.com/riftvm/riftvm/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a><a href="https://github.com/riftvm/riftvm/issues/new/choose">GitHub feedback</a><a href="https://discord.com/invite/eGzEaP6TzR">Discord</a><a href="https://github.com/riftvm/riftvm/blob/main/LICENSE">MIT License</a><a href="#top">Back to top ↑</a></footer>
 </body>
 </html>

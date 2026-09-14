@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a problem with RiftVM.
+title: "[Bug]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include what you expected and the steps to reproduce the problem.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions and workspace
+      description: RiftVM version, host macOS version, and Guest system.
+      placeholder: "RiftVM … / macOS … / Omarchy or macOS Guest"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Relevant screenshots or diagnostics, if available. Remove passwords, tokens and personal file paths before sharing.

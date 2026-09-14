@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest an improvement to RiftVM.
+title: "[Idea]: "
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What would you like to do?
+      description: Describe your workflow and what is difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Suggested improvement
+      description: Explain the behavior you would like and any alternatives you have tried.
+    validations:
+      required: true
