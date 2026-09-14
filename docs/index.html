@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="RiftVM brings focused Omarchy and macOS workspaces to Apple silicon Macs in one native app.">
-  <meta name="theme-color" content="#faf9f6">
+  <meta name="theme-color" content="#07152f">
   <meta property="og:title" content="RiftVM — Bring another world to your Mac">
   <meta property="og:description" content="Create focused Omarchy and macOS workspaces in one native app.">
   <meta property="og:type" content="website">
@@ -15,14 +15,11 @@
   <link rel="apple-touch-icon" href="assets/riftvm-icon.png?brand=rift-r">
   <link rel="canonical" href="https://riftvm.com/">
   <title>RiftVM — Bring another world to your Mac</title>
-  <link rel="stylesheet" href="styles.css?asset=737e6740c41d">
+  <link rel="stylesheet" href="styles.css?asset=30f7d41b2978">
   <link rel="stylesheet" href="copy-command.css?asset=e875d0a35232">
   <script src="copy-command.js?asset=a45e6baa63cd" defer></script>
 </head>
 <body>
-  <div class="rift-atmosphere" aria-hidden="true">
-    <span class="rift-seam"></span>
-  </div>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="nav wrap">
     <a class="brand" href="#top" aria-label="RiftVM home"><img src="assets/riftvm-icon.png?brand=rift-r" width="34" height="34" alt="">RiftVM</a>
@@ -30,21 +27,39 @@
     <a class="button nav-download" href="#install">Get RiftVM <span aria-hidden="true">↗</span></a>
   </header>
   <main id="main">
-    <section class="hero wrap" id="top" aria-labelledby="page-title">
-      <div class="hero-copy">
-        <p class="eyebrow"><span class="status-dot"></span> Native virtualization for Apple silicon</p>
-        <h1 id="page-title">Another world.<br><span>Right on your Mac.</span></h1>
-        <p class="hero-description">A Linux desktop to make your own. A fresh macOS to try something new. Run both in independent workspaces, with one thoughtfully native app.</p>
-        <div class="actions"><a class="button primary" href="#install">Get RiftVM for Mac <span aria-hidden="true">↗</span></a><a class="text-link" href="#workspaces">Explore the workspaces <span aria-hidden="true">↓</span></a></div>
-        <p class="hero-meta">Free &amp; open source <span>·</span> macOS 27+ <span>·</span> Apple silicon</p>
+    <section class="split-hero" id="top" aria-label="Explore RiftVM workspaces">
+      <h1 class="visually-hidden">RiftVM — Omarchy and macOS. One app. Two worlds.</h1>
+      <a class="split-product split-omarchy" href="#omarchy" aria-label="Explore the Omarchy workspace">
+        <span class="product-content omarchy-content">
+          <span class="product-kicker">The featured experience</span>
+          <span class="product-title"><strong>Omarchy</strong> workspace</span>
+          <span class="product-copy">Open Omarchy.<br>Start working.</span>
+          <span class="product-action">Explore Omarchy <span aria-hidden="true">↙</span></span>
+          <span class="product-meta">Apple silicon · macOS 27+ · Signed &amp; notarized</span>
+        </span>
+        <span class="ghost-window hot-window" aria-hidden="true"><i></i><i></i><i></i><b>omarchy@riftvm</b><code>super + space</code></span>
+      </a>
+
+      <a class="split-product split-riftvm" href="#macos" aria-label="Explore the macOS workspace">
+        <span class="product-content riftvm-content">
+          <span class="product-kicker">The native Mac experience</span>
+          <span class="product-title"><strong>macOS</strong> workspace</span>
+          <span class="product-copy">Install, run, snapshot.<br>Made native.</span>
+          <span class="system-list" aria-label="Supported system"><span>macOS</span></span>
+          <span class="product-action">Explore macOS <span aria-hidden="true">↘</span></span>
+        </span>
+        <span class="ghost-window cool-window" aria-hidden="true"><i></i><i></i><i></i><b>Virtual machines</b><code>Native. Local. Fast.</code></span>
+      </a>
+
+      <div class="hero-rift" aria-hidden="true"></div>
+      <div class="pixel-burst" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
-      <div class="workspace-preview" aria-label="Illustrated overview of independent RiftVM workspaces">
-        <div class="preview-toolbar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>RiftVM</span><span class="toolbar-symbol" aria-hidden="true">⊞</span></div>
-        <div class="preview-body"><div class="preview-heading"><div><span class="mini-label">YOUR MAC, MORE POSSIBILITIES</span><h2>Your workspaces</h2></div><span class="preview-caption">Two worlds. One app.</span></div>
-          <a class="workspace-tile warm" href="#omarchy"><span class="world-icon" aria-hidden="true">O</span><div><strong>Omarchy</strong><span>Your Linux world</span></div><span class="tile-arrow" aria-hidden="true">↗</span><p>A ready-to-work desktop.<br>A space to build, learn, and explore.</p><span class="tile-bottom">Linux on Apple silicon <span aria-hidden="true">→</span></span></a>
-          <a class="workspace-tile cool" href="#macos"><span class="world-icon" aria-hidden="true">⌘</span><div><strong>macOS</strong><span>Your other Mac</span></div><span class="tile-arrow" aria-hidden="true">↗</span><p>A clean environment.<br>A familiar place to test what’s next.</p><span class="tile-bottom">Apple’s native virtualization <span aria-hidden="true">→</span></span></a>
-        </div><div class="preview-footer"><span class="status-dot"></span> Independent disks. Explicit sharing. Local control.</div>
+      <div class="hero-car" aria-hidden="true">
+        <span class="car-glow"></span>
+        <img src="assets/riftvm-omarchy-rally-car.webp" width="1536" height="1024" fetchpriority="high" alt="">
       </div>
+      <div class="hero-choice" aria-hidden="true"><span>One app. Two worlds.</span></div>
     </section>
     <div class="trust-strip wrap" aria-label="Product principles"><a href="https://github.com/riftvm/riftvm#requirements">Built for Apple silicon <span>↗</span></a><a href="https://github.com/riftvm/riftvm#what-it-does">Your work stays local <span>↗</span></a><a href="https://github.com/riftvm/riftvm/releases/latest">Signed &amp; notarized <span>↗</span></a><a href="https://github.com/riftvm/riftvm/blob/main/LICENSE">Open source, MIT licensed <span>↗</span></a></div>
 
