@@ -8,16 +8,25 @@
 .backend-note{margin-top:22px;font-size:11px;line-height:1.9;color:#828c9b;max-width:830px}.backend-note a{color:#bac7e4;text-decoration:underline;text-underline-offset:3px}
 
 
-/* Fire above left, ice below right: the seam between two worlds. */
+/* Daylight palette: two worlds separated by the original diagonal light seam. */
+:root{color-scheme:light;--bg:#faf9f6;--panel:#fff;--text:#182b3d;--muted:#526579;--line:#25425b20;--accent:#246aa2;--warm:#aa471e;--cool:#246aa2}
 body{isolation:isolate}
-.rift-atmosphere{position:absolute;inset:0 0 auto;height:1100px;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 0% 0%,#fa602d42,transparent 48%),radial-gradient(ellipse at 100% 82%,#238eff38,transparent 50%);mask-image:linear-gradient(#000 75%,transparent)}
-.rift-fracture{width:100%;height:100%;opacity:.65}
-.rift-fracture path{fill:none;stroke:url(#rift-light);stroke-linejoin:bevel}
-.rift-halo{stroke-width:15;opacity:.5;filter:url(#rift-glow)}
-.rift-edge{stroke-width:1.3;opacity:.65}
-.rift-shards{stroke-width:.7;opacity:.3}
-.hero h1{ text-shadow:0 3px 25px #0b0e13 }
-.workspace-preview{border-color:#aac9ed30;background:linear-gradient(135deg,#352720f2,#171e29f5 48%,#18293aee)}
-.world-card.warm{border-color:#ff95642b}.world-card.cool{border-color:#6bbdff2b}
-.install-section{background:radial-gradient(ellipse at 0% 0%,#ed754014,transparent 55%),radial-gradient(ellipse at 100% 100%,#429bff20,transparent 60%),#11161f}
-@media(max-width:760px){.rift-atmosphere{height:1450px}.rift-fracture{opacity:.35}}
+.rift-atmosphere{position:absolute;inset:0 0 auto;height:1100px;z-index:-1;overflow:hidden;pointer-events:none;mask-image:linear-gradient(#000 72%,transparent)}
+.rift-atmosphere:before,.rift-atmosphere:after{content:"";position:absolute;inset:0}
+.rift-atmosphere:before{background:radial-gradient(ellipse at 10% 5%,#ffd2a3,transparent 65%),linear-gradient(145deg,#fff2dc,#ffe5dc);clip-path:polygon(0 0,78% 0,28% 100%,0 100%)}
+.rift-atmosphere:after{background:radial-gradient(ellipse at 100% 80%,#9dddf6,transparent 70%),linear-gradient(140deg,#edf8ff,#d9edff);clip-path:polygon(78% 0,100% 0,100% 100%,28% 100%)}
+.rift-seam{position:absolute;inset:0;z-index:1;background:linear-gradient(160deg,#ffb77e,#fff 45%,#d6f8ff 70%,#72c9ef);clip-path:polygon(77.7% 0,78.3% 0,28.3% 100%,27.7% 100%);filter:drop-shadow(0 0 9px #fff)}
+.hero h1{text-shadow:none}.hero h1>span{color:#386887}.eyebrow{color:#466f87}.hero-meta,.feature-number,.preview-caption,footer p{color:#5e7182}
+.button{border-color:#34597440;background:#ffffff70}.button:hover{background:#fff}.button.primary{background:#203d53;color:#fff;border-color:#203d53;box-shadow:0 6px 18px #28455d16}.button.primary:hover{background:#2c5674}
+.text-link{border-color:#315b7945}.status-dot{background:#477d63}
+.workspace-preview{background:linear-gradient(135deg,#fffcf6ed,#f5fbffed);border-color:#fff;box-shadow:0 25px 65px #3b607824,0 2px 6px #32547012}.workspace-preview:before{display:none}
+.preview-toolbar{color:#536d80}.window-dots i{background:#a9b8bf}.window-dots i:first-child{background:#eaa28c}.window-dots i:nth-child(2){background:#e8c57b}.window-dots i:nth-child(3){background:#8fbaa7}
+.workspace-tile.warm{background:linear-gradient(145deg,#ffe3c4,#fff1e5)}.workspace-tile.cool{background:linear-gradient(145deg,#d1eafa,#e9f5fd)}.workspace-tile{border-color:#547a961a}.world-icon{border-color:#547a9628}.workspace-tile p{color:#51687b}.tile-bottom{border-color:#53748b25}.preview-footer{color:#5c7180}
+.trust-strip a{color:#4d6578}.trust-strip a span{color:#637c91}
+.world-card{background:linear-gradient(135deg,var(--world-bg),#fff 90%);border-color:#34597422}.world-card.warm{--world-bg:#ffe6cc}.world-card.cool{--world-bg:#dceffb}.world-card ul{color:#496277}.world-watermark{opacity:.055}
+.features-section{background:#f1f5f7}.feature-card:hover{background:#e7eef3}.metric{color:#285975}
+.install-section{background:linear-gradient(115deg,#fff0dd,#f7f9f8 45%,#e0f2fc)}.requirements{color:#5a6e7d}.requirements strong{color:#284b65}.install-panel{background:#ffffffc9;border-color:#fff;box-shadow:0 16px 45px #38557012}.install-divider{color:#61788a}.install-details a{color:#315e7f}.install-details a:hover{color:#173d58}
+.community-card{background:#fff;border-color:#25425b20}.community-card:hover{border-color:#7594aa}.community-card h3>span{color:#668499}.discord-card{background:linear-gradient(135deg,#e9edff,#fff);border-color:#aab8df60}.discord-card .mini-label{color:#5264a4}
+.backend-note{color:#5b7080}.backend-note a{color:#2d608a}
+.install-command{background:#f2f6f8!important;border-color:#32597425!important}.install-command code{color:#254860}.copy-button{background:#fff!important;color:#294d65!important;border-color:#315b7940!important}
+@media(max-width:760px){.rift-atmosphere{height:1450px}.rift-seam{opacity:.8}}
