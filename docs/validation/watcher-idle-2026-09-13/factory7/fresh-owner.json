@@ -1,0 +1,18 @@
+{
+  "factoryImageVersion": "v4.0.3-riftvm.7",
+  "provisioningPending": false,
+  "desktopSessionActive": true,
+  "guestAgentVersion": "524cde8fa88118122910a0a2210c8b776d433a15",
+  "fileImportPassed": true,
+  "clipboardRoundTripPassed": true,
+  "dynamicDisplayRoundTripPassed": true,
+  "guestDisplayBefore": {
+    "height": 656,
+    "width": 1024
+  },
+  "guestDisplayAfter": {
+    "height": 528,
+    "width": 880
+  },
+  "dynamicDisplayRoundTripObservedAt": "2026-09-14T03:58:19Z"
+}

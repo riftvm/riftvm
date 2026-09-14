@@ -25,3 +25,24 @@ identify this run. VFR was still true after the cycles; keyboard output and a fi
 blue terminal frame were observed. The tiled test terminal was small after the
 six cycles, so a separate terminal was used to hold the final frame for inspection.
 The disposable Guest was then stopped. No personal Guest was started or modified.
+
+## Factory .7 qualification
+
+Full ARM64 build [34802477349](https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34802477349)
+succeeded. Complete raw SHA-256:
+`655b72dcdb9a4be045d42eda7ef00c421f4bae0496c4fa5cc337aae4ecb8b154`.
+Downloaded parts, reconstructed raw, raw-to-ASIF byte comparison, signing-key
+trust, signed manifest and multipart hashes passed. A network timeout was
+recovered with HTTP range downloads before checking the complete hashes.
+
+A new workspace prepared from the signed factory completed owner initialization,
+file import, text/PNG clipboard, dynamic resize and all six cross-display/focus
+cycles. Its watcher hash matches the reviewed candidate; VFR stayed true. The
+final blue frame was observed after keyboard-driven red/green updates. A later
+cold start returned to the desktop with both session services active, VFR true
+and a keyboard-produced marker. The temporary Guest was stopped afterward.
+Sanitized evidence and signed manifest are in `factory7/`.
+
+This release still does not close physical cable hot-plug, real Host sleep/wake,
+complex 3D compatibility, 120 FPS, long controlled idle/energy measurements or a
+matched Try Omarchy benchmark.
