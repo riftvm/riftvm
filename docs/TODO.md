@@ -8,11 +8,15 @@ See [the validation report](validation/omarchy-demand-rendering-2026-09-13/READM
 for completed checks and raw evidence. The local test closes the key tested
 scenarios, not broad compatibility qualification.
 
-- [ ] Build and publish a new signed Omarchy factory containing both the updated
+- [x] Build and publish a new signed Omarchy factory containing both the updated
   Rift Agent and display watcher; qualify fresh owner setup with the matching Host.
-- [ ] Provide and validate an explicit upgrade path for existing Guest Agent and
+- [x] Provide and validate an explicit upgrade path for existing Guest Agent and
   watcher installations. A Host-only update does not deliver the full idle gain;
   preserve user compositor configuration and existing disks.
+  Delivery: [signed factory .6 and paired updater](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.6),
+  [upgrade instructions](UPDATES_AND_RECOVERY.md), and
+  [fresh-owner / upgrade / rollback evidence](validation/omarchy-integration-delivery-2026-09-13/README.md).
+
 - [ ] Exercise complex 3D applications and sustained changing workloads with VFR
   enabled; verify final-frame correctness and the existing latency gate.
 - [ ] Qualify physical display hot-plug and real Host sleep/wake, including input
