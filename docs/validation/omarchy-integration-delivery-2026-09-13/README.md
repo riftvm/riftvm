@@ -45,5 +45,26 @@ sleep qualification are separate TODOs.
 
 Full ARM64 build run: https://github.com/riftvm/riftvm-omarchy-aarch64-image/actions/runs/34792828682
 
-The `.6` candidate uses a complete rebuild, not an Agent-only rebake. Local signed
-factory and fresh-owner acceptance results will be recorded before promotion.
+The `.6` candidate uses a complete rebuild, not an Agent-only rebake. All downloaded
+asset hashes and the complete 64 GiB raw digest matched. Raw-to-ASIF byte comparison,
+trusted signing-key check, signed manifest verification and multipart checks passed.
+The signed manifest and its checksums are retained in `factory6/`.
+
+A fresh workspace was prepared from that verified factory, registered through the
+existing Registry API, and started in the local acceptance Host. The acceptance-only
+owner setup completed using the temporary credential. The observed desktop reported
+`provisioningPending:false`, matching Agent version/hash, active system/session
+services and `debug:vfr=true, set:false`. Five red/green update pairs completed and
+the final blue frame was visibly observed without pointer-driven updates.
+
+A subsequent cold start passed shared-folder/file import, text and PNG clipboard
+round trips, dynamic resolution round trip, and all six size/focus cycles across the
+two existing 60/120 Hz displays. The final keyboard command and VFR/service snapshots
+passed after those cycles. This is display/focus recovery, not a 120 FPS claim.
+The fresh temporary Guest was then stopped. The personal Guest was never started.
+
+The final integration archive uses the exact tested installer and payload bytes;
+only portable archive headers and recorded installer-source metadata changed.
+`final-package.json` records this comparison and the archive digest. The update
+Agent and full factory Agent were built from the same immutable source pin; their
+individual build provenance and component hashes are retained.

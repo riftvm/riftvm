@@ -1,0 +1,69 @@
+{
+  "clipboardImageCapabilityAdvertised" : true,
+  "clipboardRoundTripObservedAt" : "2026-09-14T01:00:20Z",
+  "clipboardRoundTripPassed" : true,
+  "clipboardTextCapabilityAdvertised" : true,
+  "desktopSessionActive" : true,
+  "dynamicDisplayCapabilityAdvertised" : true,
+  "dynamicDisplayRoundTripObservedAt" : "2026-09-14T01:00:24Z",
+  "dynamicDisplayRoundTripPassed" : true,
+  "factoryImageVersion" : "v4.0.3-riftvm.6",
+  "fileImportObservedAt" : "2026-09-14T01:00:13Z",
+  "fileImportPassed" : true,
+  "guestAddresses" : [
+    "192.168.64.3",
+    "fda3:1ad9:681b:2fd8:bdea:e988:5347:31b1"
+  ],
+  "guestAgentVersion" : "524cde8fa88118122910a0a2210c8b776d433a15",
+  "guestCapabilities" : [
+    "agent-restart-v1",
+    "clipboard-agent-image-v1",
+    "clipboard-agent-text-v1",
+    "desktop-input-v1",
+    "desktop-notifications-v1",
+    "dynamic-display-v1",
+    "file-transfer-v1",
+    "input-uinput-absolute-v1",
+    "input-uinput-desktop-v1",
+    "input-uinput-v1",
+    "kvm-diagnostics-v1",
+    "shared-folders-v1",
+    "shutdown-v1",
+    "ssh-addresses-v1"
+  ],
+  "guestDisplayAfter" : {
+    "height" : 528,
+    "width" : 880
+  },
+  "guestDisplayBefore" : {
+    "height" : 656,
+    "width" : 1024
+  },
+  "guestHostName" : "omarchy",
+  "guestToHostImageSHA256" : "535f3019bc845f4ad326f1e4ada85c78ea641fb8832c2420ad5cf29956012aab",
+  "guestToHostSHA256" : "c2cf1b9506953ee6ea702b5d5f5329d74a79c129dbd1a266a420f78b4ac2111a",
+  "guestToHostTextSHA256" : "2a3090c8698e101861c25a066a2627ddeb074076bcef52210e95486d207f15af",
+  "hostToGuestImageSHA256" : "535f3019bc845f4ad326f1e4ada85c78ea641fb8832c2420ad5cf29956012aab",
+  "hostToGuestSHA256" : "a0efde30c54c96fe98769a3115d4a6a11a33eee35e675e297e6d0ca3532cd97f",
+  "hostToGuestTextSHA256" : "f6962882973e78c107b037b3311966ebac37d76ad3ed1dbe8f85fd607582bb8e",
+  "hostViewAfter" : {
+    "height" : 1063,
+    "width" : 1760
+  },
+  "importedFileSHA256" : "9e806bd2e048f9e3f7b8ed59bff078d7756598bb024792c9f1252f64761af86c",
+  "observedAt" : "2026-09-14T01:03:13Z",
+  "omarchyRevision" : "4.0.3-1",
+  "provisioningPending" : false,
+  "requiredCapabilities" : [
+    "agent-restart-v1",
+    "desktop-input-v1",
+    "dynamic-display-v1",
+    "shutdown-v1"
+  ],
+  "schemaVersion" : 5,
+  "sharedFolderCapabilityAdvertised" : true,
+  "sharedFolderRoundTripObservedAt" : "2026-09-14T01:00:13Z",
+  "sharedFolderRoundTripPassed" : true,
+  "sourceRevision" : "bfceffa0af92874daac93c04793a822738c202af",
+  "workspaceCreatedAt" : "2026-09-14T00:53:11Z"
+}
