@@ -1,0 +1,3 @@
+Agent and watcher installed; pairing and user configuration were preserved.
+Save your work and reboot Omarchy to activate both components together.
+If needed, run this installer with rollback, then reboot again.

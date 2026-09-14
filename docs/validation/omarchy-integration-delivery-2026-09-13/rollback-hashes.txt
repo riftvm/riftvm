@@ -1,0 +1,2 @@
+/usr/local/sbin/rift-agent: OK
+/usr/local/libexec/omarchy-riftvm-display-watch: OK
