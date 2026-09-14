@@ -1,0 +1,16 @@
+{
+  "clipboardRoundTripObservedAt": "2026-09-14T03:26:49Z",
+  "clipboardRoundTripPassed": true,
+  "dynamicDisplayRoundTripObservedAt": "2026-09-14T03:26:54Z",
+  "dynamicDisplayRoundTripPassed": true,
+  "fileImportObservedAt": "2026-09-14T03:26:43Z",
+  "fileImportPassed": true,
+  "guestDisplayBefore": {
+    "height": 656,
+    "width": 1024
+  },
+  "guestDisplayAfter": {
+    "height": 528,
+    "width": 880
+  }
+}

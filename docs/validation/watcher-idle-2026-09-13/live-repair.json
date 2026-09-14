@@ -1,0 +1,19 @@
+{
+  "imageSource": "2e181a47a0640fbdfd7b5ce72641d388bec068f0",
+  "watcherSHA256": "88d7dc5a0e9e684f41b710c7d2d042031cb64c23a2c31bf9f206b9e6d722f649",
+  "durationSeconds": 65,
+  "monitorQueries": 8,
+  "injectedMode": "1280x720",
+  "repairedMode": {
+    "width": 1024,
+    "height": 656
+  },
+  "vfr": {
+    "option": "debug:vfr",
+    "bool": true,
+    "set": false
+  },
+  "service": "active",
+  "scriptResult": "PASS",
+  "finalBlueVisuallyObserved": true
+}
