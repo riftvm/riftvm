@@ -7,3 +7,17 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
 .backend-note{margin-top:22px;font-size:11px;line-height:1.9;color:#828c9b;max-width:830px}.backend-note a{color:#bac7e4;text-decoration:underline;text-underline-offset:3px}
 
+
+/* Fire above left, ice below right: the seam between two worlds. */
+body{isolation:isolate}
+.rift-atmosphere{position:absolute;inset:0 0 auto;height:1100px;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 0% 0%,#fa602d42,transparent 48%),radial-gradient(ellipse at 100% 82%,#238eff38,transparent 50%);mask-image:linear-gradient(#000 75%,transparent)}
+.rift-fracture{width:100%;height:100%;opacity:.65}
+.rift-fracture path{fill:none;stroke:url(#rift-light);stroke-linejoin:bevel}
+.rift-halo{stroke-width:15;opacity:.5;filter:url(#rift-glow)}
+.rift-edge{stroke-width:1.3;opacity:.65}
+.rift-shards{stroke-width:.7;opacity:.3}
+.hero h1{ text-shadow:0 3px 25px #0b0e13 }
+.workspace-preview{border-color:#aac9ed30;background:linear-gradient(135deg,#352720f2,#171e29f5 48%,#18293aee)}
+.world-card.warm{border-color:#ff95642b}.world-card.cool{border-color:#6bbdff2b}
+.install-section{background:radial-gradient(ellipse at 0% 0%,#ed754014,transparent 55%),radial-gradient(ellipse at 100% 100%,#429bff20,transparent 60%),#11161f}
+@media(max-width:760px){.rift-atmosphere{height:1450px}.rift-fracture{opacity:.35}}
