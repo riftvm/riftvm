@@ -29,6 +29,9 @@ scenarios, not broad compatibility qualification.
 
 - [ ] P1: investigate refresh-rate-aware presentation and input-to-photon latency,
   including 120 Hz displays; display/focus tests do not establish 120 FPS support.
-- [ ] Reduce the Guest display watcher's one-second polling where practical.
+- [x] Reduce idle Guest display watcher compositor queries: ten-poll audits,
+  immediate DRM-change reconciliation and fast retries. One-second DRM reads remain.
+  See [watcher PR #3](https://github.com/riftvm/riftvm-omarchy-aarch64-image/pull/3)
+  and [native validation](validation/watcher-idle-2026-09-13/README.md).
 - [ ] Run a matched Try Omarchy comparison with equivalent hardware/resources,
   resolution, workloads, and separate CPU, frame latency, and energy measurements.
