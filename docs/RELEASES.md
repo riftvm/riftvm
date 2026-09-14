@@ -92,6 +92,35 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.22
+
+RiftVM 0.1.22 connects new Omarchy workspaces to the demand-rendering factory and
+provides an explicit integration upgrade for existing Guests.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- New workspaces use signed factory `v4.0.3-riftvm.6`, built in full with the
+  matching Agent and display watcher. Both stop overriding Hyprland VFR.
+- Existing Guests can install the paired integration package linked in
+  [Updates and recovery](UPDATES_AND_RECOVERY.md). It backs up both components,
+  preserves pairing and user configuration, and supports rollback. A reboot
+  activates the update; the app does not automatically replace existing disks.
+
+### Validation
+
+The full ARM64 image build and eight transactional updater tests passed. A
+previous-factory component baseline was upgraded in a disposable Guest, rebooted,
+checked for service readiness and keyboard-only final updates, rolled back to the
+original file hashes, and booted again. Pairing configuration remained unchanged.
+See [delivery evidence](validation/omarchy-integration-delivery-2026-09-13/README.md)
+for signed factory qualification, exact sources and limits.
+
+Physical display hot-plug, real Host sleep, complex 3D compatibility and longer
+energy measurements remain [TODO](TODO.md). Custom VirGL GPU memory-state
+save/restore remains unsupported; Omarchy uses disk recovery points.
+
 ## 0.1.21
 
 RiftVM 0.1.21 presents Omarchy frames on demand while retaining the last pending

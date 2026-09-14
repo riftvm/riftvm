@@ -1,0 +1,46 @@
+{
+  "clipboardImageCapabilityAdvertised" : true,
+  "clipboardRoundTripPassed" : false,
+  "clipboardTextCapabilityAdvertised" : true,
+  "desktopSessionActive" : true,
+  "dynamicDisplayCapabilityAdvertised" : true,
+  "dynamicDisplayRoundTripPassed" : false,
+  "factoryImageVersion" : "v4.0.3-riftvm.6",
+  "fileImportPassed" : false,
+  "guestAddresses" : [
+    "192.168.64.3",
+    "fda3:1ad9:681b:2fd8:bdea:e988:5347:31b1"
+  ],
+  "guestAgentVersion" : "524cde8fa88118122910a0a2210c8b776d433a15",
+  "guestCapabilities" : [
+    "agent-restart-v1",
+    "clipboard-agent-image-v1",
+    "clipboard-agent-text-v1",
+    "desktop-input-v1",
+    "desktop-notifications-v1",
+    "dynamic-display-v1",
+    "file-transfer-v1",
+    "input-uinput-absolute-v1",
+    "input-uinput-desktop-v1",
+    "input-uinput-v1",
+    "kvm-diagnostics-v1",
+    "shared-folders-v1",
+    "shutdown-v1",
+    "ssh-addresses-v1"
+  ],
+  "guestHostName" : "omarchy",
+  "observedAt" : "2026-09-14T00:58:32Z",
+  "omarchyRevision" : "4.0.3-1",
+  "provisioningPending" : false,
+  "requiredCapabilities" : [
+    "agent-restart-v1",
+    "desktop-input-v1",
+    "dynamic-display-v1",
+    "shutdown-v1"
+  ],
+  "schemaVersion" : 5,
+  "sharedFolderCapabilityAdvertised" : true,
+  "sharedFolderRoundTripPassed" : false,
+  "sourceRevision" : "bfceffa0af92874daac93c04793a822738c202af",
+  "workspaceCreatedAt" : "2026-09-14T00:53:11Z"
+}

@@ -74,6 +74,8 @@ jobs:
         with:
           go-version-file: GuestAgent/linux/go.mod
           cache: false
+      - name: Test transactional integration upgrades
+        run: python3 -m unittest discover -s GuestAgent/integration -p 'test_*.py'
       - name: Test and cross-compile Rift Agent
         working-directory: GuestAgent/linux
         run: |

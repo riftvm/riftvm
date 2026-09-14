@@ -1,0 +1,37 @@
+{
+  "keyID" : "riftvm-omarchy-factory-2026",
+  "payload" : {
+    "architecture" : "arm64",
+    "guestAgentVersion" : "524cde8fa88118122910a0a2210c8b776d433a15",
+    "guestCapabilities" : [
+      "agent-restart-v1",
+      "desktop-input-v1",
+      "dynamic-display-v1",
+      "owner-provisioning-v1",
+      "shutdown-v1"
+    ],
+    "imageByteCount" : 5304745984,
+    "imageParts" : [
+      {
+        "byteCount" : 1992294400,
+        "sha256" : "12c5dada5a7f23552400abac25ef72c70db59a29a6832de8def62bd2e828a3a8",
+        "url" : "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.6/Omarchy-Factory.asif.part-00"
+      },
+      {
+        "byteCount" : 1992294400,
+        "sha256" : "aaa8e6023005a84797dd60e0a65312aa66818fae492424b8dd245a2f93a96e03",
+        "url" : "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.6/Omarchy-Factory.asif.part-01"
+      },
+      {
+        "byteCount" : 1320157184,
+        "sha256" : "40784e4fa452c63870502f92dfabbf9cdffae069a276987f9b45373c34232394",
+        "url" : "https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.6/Omarchy-Factory.asif.part-02"
+      }
+    ],
+    "imageSHA256" : "acadf90f2287b86a28125366ecddf51428a1e7df853c6151d8aca6bf1820563d",
+    "imageVersion" : "v4.0.3-riftvm.6",
+    "omarchyRevision" : "d0f3651baae330938f373e40bb5169b23aef91a2",
+    "schemaVersion" : 2
+  },
+  "signature" : "rW+U9e4QbeELwlC+L+JaUvkr3SejOA61WYZDP2ztnCo6LOVMJVEdN8QJOfCoYdteMUZegvtaCm7WwNi753UwCw=="
+}

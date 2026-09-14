@@ -26,6 +26,38 @@ in-place disk replacement or automatic migration.
 4. Check the desktop and your applications after the update. Retain the recovery
    point until you are satisfied with the result.
 
+## Update RiftVM integration inside an existing Guest
+
+Omarchy's normal package update does not replace RiftVM's separately installed
+Agent and display watcher. To receive demand rendering on an existing workspace,
+first create the protected recovery point described above, then download the
+paired integration package from the [`.6` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.6).
+Use RiftVM 0.1.21 or later. Inside the Guest terminal:
+
+```sh
+mkdir -p ~/Downloads/riftvm-integration-6
+cd ~/Downloads/riftvm-integration-6
+base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.6
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.6.tar.gz" &&
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.6.tar.gz.sha256" &&
+sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.6.tar.gz.sha256 &&
+mkdir package &&
+tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.6.tar.gz -C package &&
+sudo python3 package/update-integration.py install
+```
+
+Save your work and reboot Omarchy to activate both components. Check keyboard
+input, resizing, clipboard and desktop updates, then run
+`sudo python3 package/update-integration.py accept`. The update preserves pairing,
+user files, systemd configuration and your Hyprland preferences. It does not force
+VFR on if your own configuration disables it.
+
+To undo the update, run `sudo python3 package/update-integration.py rollback` and
+reboot. If the Guest is inaccessible, restore the protected recovery point from
+RiftVM. An interrupted installation is recovered when you rerun install or rollback.
+For transaction behavior and limitations, see the
+[integration installer guide](../GuestAgent/integration/README.md).
+
 ## If a repository download fails
 
 A connection timeout or a package database download error is not a completed
