@@ -92,6 +92,24 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.23
+
+### Performance
+
+- New Omarchy workspaces use factory `.7`, which reduces idle display watcher
+  compositor queries by 90% while retaining one-second DRM resize detection and
+  fast retries for unconfirmed changes. This is a query-frequency improvement;
+  CPU and energy savings have not been quantified.
+- Existing Guests can install the paired `.7` integration update, preserving
+  configuration and retaining rollback. Reboot the Guest to activate it.
+
+### Validation
+
+- Real Guest mode repair, cold start, clipboard/file integration, resize and six
+  cross-display focus cycles passed with VFR enabled.
+- See [watcher validation](validation/watcher-idle-2026-09-13/README.md) and
+  [upgrade instructions](UPDATES_AND_RECOVERY.md).
+
 ## 0.1.22
 
 RiftVM 0.1.22 connects new Omarchy workspaces to the demand-rendering factory and
