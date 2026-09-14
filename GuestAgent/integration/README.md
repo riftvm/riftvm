@@ -2,7 +2,7 @@
 
 This package upgrades an existing RiftVM Omarchy Guest's Agent and display watcher
 together. It does not enroll a new machine, overwrite `/etc/rift-agent/config.json`,
-edit Hyprland settings, replace systemd units, or reinstall the operating system.
+replace the factory's `/run/rift-agent-config` enrollment mount, edit Hyprland settings, replace systemd units, or reinstall the operating system.
 It requires the existing standard Agent and watcher paths and Linux AArch64.
 
 Before installing, save your work and use **Updates → Prepare for Omarchy Update…**

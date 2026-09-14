@@ -30,6 +30,6 @@ manifest={'schemaVersion':1,'product':'riftvm-omarchy-integration','version':sys
 (folder/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 PY
 archive="RiftVM-Omarchy-Integration-$version.tar.gz"
-COPYFILE_DISABLE=1 tar -czf "$output/$archive" -C "$stage/bundle" manifest.json rift-agent omarchy-riftvm-display-watch update-integration.py
+COPYFILE_DISABLE=1 tar --format ustar -czf "$output/$archive" -C "$stage/bundle" manifest.json rift-agent omarchy-riftvm-display-watch update-integration.py
 (cd "$output" && shasum -a 256 "$archive" > "$archive.sha256")
 echo "Created $output/$archive"
