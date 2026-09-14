@@ -1,0 +1,17 @@
+{
+  "archiveSHA256": "5602b9a954fef6aa5adf88b3bd930c05472e410a8b276fef7c6e1937d7e3a015",
+  "manifest": {
+    "schemaVersion": 1,
+    "product": "riftvm-omarchy-integration",
+    "version": "v4.0.3-riftvm.7",
+    "installerSource": "166587c48b7a7602de41f30178b05f65002ffca1",
+    "imageSource": "d31503f3959299d1eae156d88c427bc2ab5a8312",
+    "agentSource": "524cde8fa88118122910a0a2210c8b776d433a15",
+    "files": {
+      "rift-agent": "3614827b36a69d6de16c442d00aafe43821c28db66f6144ee63a85939faae26a",
+      "omarchy-riftvm-display-watch": "88d7dc5a0e9e684f41b710c7d2d042031cb64c23a2c31bf9f206b9e6d722f649"
+    }
+  },
+  "matchesLiveTestedWatcher": true,
+  "agentUnchangedFromQualifiedUpdate6": true
+}
