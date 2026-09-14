@@ -8,22 +8,12 @@
 .backend-note{margin-top:22px;font-size:11px;line-height:1.9;color:#828c9b;max-width:830px}.backend-note a{color:#bac7e4;text-decoration:underline;text-underline-offset:3px}
 
 
-/* Daylight palette: two worlds separated by the original diagonal light seam. */
-:root{color-scheme:light;--bg:#faf9f6;--panel:#fff;--text:#182b3d;--muted:#526579;--line:#25425b20;--accent:#246aa2;--warm:#aa471e;--cool:#246aa2}
-body{isolation:isolate}
-.hero h1{text-shadow:none}.hero h1>span{color:#386887}.eyebrow{color:#466f87}.hero-meta,.feature-number,.preview-caption,footer p{color:#5e7182}
-.button{border-color:#34597440;background:#ffffff70}.button:hover{background:#fff}.button.primary{background:#203d53;color:#fff;border-color:#203d53;box-shadow:0 6px 18px #28455d16}.button.primary:hover{background:#2c5674}
-.text-link{border-color:#315b7945}.status-dot{background:#477d63}
-.workspace-preview{background:linear-gradient(135deg,#fffcf6ed,#f5fbffed);border-color:#fff;box-shadow:0 25px 65px #3b607824,0 2px 6px #32547012}.workspace-preview:before{display:none}
-.preview-toolbar{color:#536d80}.window-dots i{background:#a9b8bf}.window-dots i:first-child{background:#eaa28c}.window-dots i:nth-child(2){background:#e8c57b}.window-dots i:nth-child(3){background:#8fbaa7}
-.workspace-tile.warm{background:linear-gradient(145deg,#ffe3c4,#fff1e5)}.workspace-tile.cool{background:linear-gradient(145deg,#d1eafa,#e9f5fd)}.workspace-tile{border-color:#547a961a}.world-icon{border-color:#547a9628}.workspace-tile p{color:#51687b}.tile-bottom{border-color:#53748b25}.preview-footer{color:#5c7180}
-.trust-strip a{color:#4d6578}.trust-strip a span{color:#637c91}
-.world-card{background:linear-gradient(135deg,var(--world-bg),#fff 90%);border-color:#34597422}.world-card.warm{--world-bg:#ffe6cc}.world-card.cool{--world-bg:#dceffb}.world-card ul{color:#496277}.world-watermark{opacity:.055}
-.features-section{background:#f1f5f7}.feature-card:hover{background:#e7eef3}.metric{color:#285975}
-.install-section{background:linear-gradient(115deg,#fff0dd,#f7f9f8 45%,#e0f2fc)}.requirements{color:#5a6e7d}.requirements strong{color:#284b65}.install-panel{background:#ffffffc9;border-color:#fff;box-shadow:0 16px 45px #38557012}.install-divider{color:#61788a}.install-details a{color:#315e7f}.install-details a:hover{color:#173d58}
-.community-card{background:#fff;border-color:#25425b20}.community-card:hover{border-color:#7594aa}.community-card h3>span{color:#668499}.discord-card{background:linear-gradient(135deg,#e9edff,#fff);border-color:#aab8df60}.discord-card .mini-label{color:#5264a4}
-.backend-note{color:#5b7080}.backend-note a{color:#2d608a}
-.install-command{background:#f2f6f8!important;border-color:#32597425!important}.install-command code{color:#254860}.copy-button{background:#fff!important;color:#294d65!important;border-color:#315b7940!important}
+/* Deep navy surfaces continue the original ice-and-fire hero. */
+:root{--bg:#0b111d;--panel:#121c2b;--muted:#a8b5c7}
+.features-section{background:#101a29}
+.world-card.warm{border-color:#ff95642b}.world-card.cool{border-color:#6bbdff2b}
+.install-section{background:radial-gradient(ellipse at 0% 0%,#ed754014,transparent 55%),radial-gradient(ellipse at 100% 100%,#429bff20,transparent 60%),#101b2b}
+.community-card{background:#111c2b}.discord-card{background:linear-gradient(135deg,#7b89ed18,#111c2b)}
 /* Original RiftVM hero, restored from eb01b3b. */
 /* The hero is one decision surface split into two complete product links. */
 .split-hero { position:relative; min-height:max(720px,calc(100svh - 76px)); margin-top:-76px; padding-top:76px; overflow:hidden; isolation:isolate; background:#07101f; }
