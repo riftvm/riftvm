@@ -123,14 +123,17 @@ built-in copies and rejected drift. A clean Release build for
 Before the release is published, the archive is also signed with Developer ID,
 notarized, stapled, Gatekeeper-assessed, and checked for a visible main window.
 
-### Known issues
+The runtime gates ran against the shipped build and the signed
+`v4.0.3-riftvm.7` preinstalled image, which was verified part by part and as a
+whole before use:
 
-- The release-fixture guest boot gates (`verify-release-cli`,
-  `verify-release-vm`, nested virtualization, and the preinstalled-image check)
-  were **not run for this release**: the machine used to publish had no enrolled
-  read-only release fixture. The 0.1.25 app source is identical to 0.1.23, which
-  passed those gates during the 0.1.23 release, so no behavioural regression is
-  expected — but this build was not boot-tested in a guest before publishing.
+- Preinstalled-image manifest check, import, validation, boot, status, and clean
+  stop.
+- CLI JSON, concurrent machines, SIGKILL restart, saved-state fallback, and EFI
+  boot recovery.
+- Guest boot, Guest Agent authentication, upload/download byte round-trip, and
+  clean stop.
+- Nested virtualization: guest `/dev/kvm` with `KVM_GET_API_VERSION=12`.
 
 This release does not re-run the macOS restore-image acceptance, physical
 display hot-plug, real Host sleep, or 120 Hz latency work; those remain open in
