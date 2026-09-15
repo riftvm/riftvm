@@ -92,6 +92,42 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## 0.1.25
+
+RiftVM 0.1.25 rebuilds the 0.1.23 source with the released Xcode 27 toolchain.
+The application code is unchanged.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- The archive is built with the released Xcode 27.0 (27A266a). No source,
+  entitlement, or behaviour change is included.
+- Repository changes carried in this release are documentation and website only:
+  GitHub issue templates, the website palette and copy, and the checked-in
+  Homebrew cask.
+
+There is no integration-package update in this release. Workspaces, images, and
+the Omarchy Agent and display watcher are identical to 0.1.23, so existing
+Guests need no integration install or reboot.
+
+### Validation
+
+418 Swift tests passed with 0 failures and one existing conditional skip
+(406 in `RiftVMCoreTests`, 12 in `RiftVMCLIKitTests`). Go Guest Agent tests
+passed, and the Linux arm64 Guest Agent cross-build succeeded. The Linux image
+catalog contract test verified all four images against the served, source, and
+built-in copies and rejected drift. A clean Release build for
+`platform=macOS,arch=arm64` succeeded with the released Xcode 27.0 (27A266a).
+
+Before the release is published, the archive is also signed with Developer ID,
+notarized, stapled, Gatekeeper-assessed, checked for a visible main window, and
+cold-started against a real Omarchy guest.
+
+This release does not re-run the macOS restore-image acceptance, physical
+display hot-plug, real Host sleep, or 120 Hz latency work; those remain open in
+[TODO](TODO.md).
+
 ## 0.1.23
 
 ### Performance
