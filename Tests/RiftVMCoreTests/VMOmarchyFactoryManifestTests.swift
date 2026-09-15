@@ -22,7 +22,7 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
         try VMOmarchyFactoryValidator.validateManifest(
             manifest,
             profile: .production,
-            publicKey: key.publicKey.rawRepresentation
+            publicKeys: [key.publicKey.rawRepresentation]
         )
         try VMOmarchyFactoryValidator.validateImage(at: imageURL, manifest: manifest)
     }
@@ -45,10 +45,90 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
         XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
             .init(payload: changed, keyID: VMOmarchyProfile.production.factoryImage.signingKeyID, signature: signature.base64EncodedString()),
             profile: .production,
-            publicKey: key.publicKey.rawRepresentation
+            publicKeys: [key.publicKey.rawRepresentation]
         )) { error in
             XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidSignature)
         }
+    }
+
+    /// The factory signing key has rotated more than once, so a manifest signed
+    /// by any one configured key has to verify, not only by the newest.
+    func testManifestSignedByAnyTrustedKeyVerifies() throws {
+        let retired = Curve25519.Signing.PrivateKey()
+        let current = Curve25519.Signing.PrivateKey()
+        let payload = makePayload(image: Data("rotated factory".utf8))
+        let signature = try retired.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+        let manifest = VMOmarchyFactoryManifest(
+            payload: payload,
+            keyID: VMOmarchyProfile.production.factoryImage.signingKeyID,
+            signature: signature.base64EncodedString()
+        )
+
+        XCTAssertNoThrow(try VMOmarchyFactoryValidator.validateManifest(
+            manifest,
+            profile: .production,
+            publicKeys: [current.publicKey.rawRepresentation, retired.publicKey.rawRepresentation]
+        ))
+    }
+
+    func testManifestSignedOutsideTheTrustSetIsRejected() throws {
+        let trusted = Curve25519.Signing.PrivateKey()
+        let stranger = Curve25519.Signing.PrivateKey()
+        let payload = makePayload(image: Data("untrusted factory".utf8))
+        let signature = try stranger.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+        let manifest = VMOmarchyFactoryManifest(
+            payload: payload,
+            keyID: VMOmarchyProfile.production.factoryImage.signingKeyID,
+            signature: signature.base64EncodedString()
+        )
+
+        XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
+            manifest,
+            profile: .production,
+            publicKeys: [trusted.publicKey.rawRepresentation]
+        )) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidSignature)
+        }
+    }
+
+    func testTrustSetWithoutAUsableKeyIsRejected() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let payload = makePayload(image: Data("no usable anchor".utf8))
+        let signature = try key.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+        let manifest = VMOmarchyFactoryManifest(
+            payload: payload,
+            keyID: VMOmarchyProfile.production.factoryImage.signingKeyID,
+            signature: signature.base64EncodedString()
+        )
+
+        for anchors in [[Data](), [Data(repeating: 0, count: 31)]] {
+            XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
+                manifest,
+                profile: .production,
+                publicKeys: anchors
+            )) { error in
+                XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidPublicKey)
+            }
+        }
+    }
+
+    /// A malformed anchor alongside a good one is ignored, so a configuration
+    /// mistake in one entry cannot make every factory version unverifiable.
+    func testMalformedAnchorBesideAValidOneIsIgnored() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let payload = makePayload(image: Data("mixed anchors".utf8))
+        let signature = try key.signature(for: VMOmarchyFactoryValidator.canonicalPayload(payload))
+        let manifest = VMOmarchyFactoryManifest(
+            payload: payload,
+            keyID: VMOmarchyProfile.production.factoryImage.signingKeyID,
+            signature: signature.base64EncodedString()
+        )
+
+        XCTAssertNoThrow(try VMOmarchyFactoryValidator.validateManifest(
+            manifest,
+            profile: .production,
+            publicKeys: [Data(repeating: 0, count: 31), key.publicKey.rawRepresentation]
+        ))
     }
 
     func testManifestMissingRequiredGuestCapabilityIsRejected() throws {
@@ -73,7 +153,7 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
                 signature: signature.base64EncodedString()
             ),
             profile: .production,
-            publicKey: key.publicKey.rawRepresentation
+            publicKeys: [key.publicKey.rawRepresentation]
         )) { error in
             XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidManifest)
         }
@@ -113,7 +193,7 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
         XCTAssertNoThrow(try VMOmarchyFactoryValidator.validateManifest(
             manifest,
             profile: .production,
-            publicKey: key.publicKey.rawRepresentation
+            publicKeys: [key.publicKey.rawRepresentation]
         ))
     }
 
@@ -198,7 +278,7 @@ final class VMOmarchyFactoryManifestTests: XCTestCase {
         XCTAssertThrowsError(try VMOmarchyFactoryValidator.validateManifest(
             manifest,
             profile: .production,
-            publicKey: key.publicKey.rawRepresentation
+            publicKeys: [key.publicKey.rawRepresentation]
         )) { error in
             XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidManifest)
         }

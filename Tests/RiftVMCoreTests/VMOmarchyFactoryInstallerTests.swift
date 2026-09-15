@@ -20,7 +20,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
         var stages: [String] = []
@@ -47,7 +47,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
         do {
@@ -65,7 +65,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
 
@@ -89,7 +89,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
 
@@ -110,7 +110,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
 
@@ -139,7 +139,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
 
@@ -159,7 +159,7 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         let installer = VMOmarchyFactoryInstaller(
             profile: fixture.profile,
             cacheDirectory: fixture.cache,
-            publicKey: fixture.key.publicKey.rawRepresentation,
+            publicKeys: [fixture.key.publicKey.rawRepresentation],
             transport: transport
         )
 

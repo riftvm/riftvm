@@ -2,8 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>RiftVMOmarchyFactoryPublicKeyBase64</key>
-	<string>87EEFi2D64R/Ww/AVqtMy7OSxF4kxI1Mmsp7FdWtHcU=</string>
+	<!-- Factory manifests may be signed by any key in this set. The signing key
+	     has rotated more than once, and a manifest signed by a key the app does
+	     not carry is rejected as an invalid signature, which breaks workspace
+	     creation for that factory version. -->
+	<key>RiftVMOmarchyFactoryPublicKeysBase64</key>
+	<array>
+		<string>87EEFi2D64R/Ww/AVqtMy7OSxF4kxI1Mmsp7FdWtHcU=</string>
+		<string>/jefvy681EgwtdDZLGZYVetdu24jCfzmRIdWZ6Y7mbU=</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RiftVM uses the Mac microphone only when you enable microphone sharing for a workspace.</string>
 	<key>RiftVMSourceRevision</key>

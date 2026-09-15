@@ -170,6 +170,13 @@ if [[ -z ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:
   exit 78
 fi
 
+# Creating an Omarchy workspace fetches a signed factory manifest and rejects a
+# signature no configured key can verify. That rejection breaks workspace
+# creation for every user of the affected factory version while every other
+# release check still passes, so confirm the published manifest verifies
+# against the keys inside this exact build before anything is published.
+"$project_root/scripts/verify-factory-trust.sh" "$install_check_dir/RiftVM.app"
+
 # Publish refs only after the exact candidate has passed notarization,
 # Gatekeeper, GUI readiness, and all real-VM tests.
 git -C "$project_root" push origin "HEAD:refs/heads/$release_branch" "refs/tags/$tag"

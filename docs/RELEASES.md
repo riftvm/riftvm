@@ -92,6 +92,35 @@ brew upgrade --cask riftvm
 Or download the app archive below.
 ```
 
+## Factory signing keys
+
+Creating an Omarchy workspace fetches a signed Factory manifest and verifies it
+against the public keys compiled into the app
+(`RiftVMOmarchyFactoryPublicKeysBase64` in `RiftVM/RiftVM/Info.plist`). A
+manifest signed by any other key is rejected as `invalidSignature`, and that
+rejection is a hard failure of workspace creation — every other release check
+still passes while no user can create the featured workspace.
+
+Two rules follow.
+
+1. **Add a signing key to the app before signing a release with it.** The value
+   is a set, so a rotation is: ship a build that accepts both the old and the
+   new key, then start signing with the new one.
+2. **Check the pinned manifest before publishing.** `publish-release.sh` runs
+   `scripts/verify-factory-trust.sh` against the built app, and that script
+   fails the release when the manifest the app will fetch verifies against none
+   of its keys.
+
+The script is also the quickest local check after touching a key or the manifest
+URL:
+
+```sh
+scripts/verify-factory-trust.sh /Applications/RiftVM.app
+```
+
+It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
+out of the app, so neither can drift from what the check exercises.
+
 ## 0.1.25
 
 RiftVM 0.1.25 rebuilds the 0.1.23 source with the released Xcode 27 toolchain.

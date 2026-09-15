@@ -991,7 +991,8 @@ struct OmarchyVirtualMachineView: View {
 
     private func checkFactoryChannel() {
         guard factoryChannel != .checking else { return }
-        guard let publicKey = FactoryTrustConfiguration.publicKey() else {
+        let publicKeys = FactoryTrustConfiguration.publicKeys()
+        guard !publicKeys.isEmpty else {
             factoryChannel = .failed("This build has no trusted factory signing key.")
             return
         }
@@ -1000,7 +1001,7 @@ struct OmarchyVirtualMachineView: View {
         let installer = VMOmarchyFactoryInstaller(
             profile: profile,
             cacheDirectory: layout.cache,
-            publicKey: publicKey,
+            publicKeys: publicKeys,
             transport: VMOmarchyURLSessionTransport()
         )
         factoryChannel = .checking
