@@ -121,6 +121,54 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.1.26
+
+RiftVM 0.1.26 fixes Omarchy workspace creation, which every build since 0.1.18
+rejected, and redraws the seam shown while a workspace is prepared.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Creating an Omarchy workspace works again.** RiftVM pins a signed Factory
+  manifest and refuses one whose signature it cannot verify. The factory signing
+  key rotated, and the published `.6` and `.7` images are signed with a key the
+  app did not carry, so creation stopped right after "Fetching the signed
+  Omarchy Factory manifest" with `VMOmarchyFactoryValidationError` (error 3).
+  The app now carries a set of signing keys and accepts a manifest signed by any
+  of them, so images signed before or after a rotation both verify. Existing
+  workspaces were never affected: the manifest is only checked when one is
+  created.
+- A failed creation no longer leaves a frozen fragment of the animation in the
+  middle of the window. The error screen shows the explanation alone.
+
+### Changes
+
+- The seam shown while a workspace is prepared is redrawn. Its colour gradient
+  was laid out across the container instead of across the tear, so the warm and
+  cool lips never appeared and the shape read as a thin blurred sliver. It is
+  now an irregular tear with light bent along its lips and matter falling into
+  it, and it pulls back to a slit once the workspace is ready so the icon stays
+  legible.
+
+### Validation
+
+- The pinned Factory manifest was fetched and verified against the keys inside
+  the built app, and a manifest edited after signing is still rejected. The
+  release runs this check before publishing, so an image the app cannot verify
+  can no longer ship.
+- 422 Swift tests passed with 0 failures and one existing conditional skip
+  (410 in `RiftVMCoreTests`, 12 in `RiftVMCLIKitTests`). Go Guest Agent tests
+  passed, and the Linux arm64 Guest Agent cross-build succeeded. The Linux image
+  catalog contract test verified all four images and rejected drift.
+- Against the shipped build and the signed `v4.0.3-riftvm.7` image:
+  preinstalled-image import, validation, boot, status, and clean stop; CLI JSON,
+  concurrent machines, SIGKILL restart, saved-state fallback, and EFI boot
+  recovery; guest boot with Guest Agent authentication and an upload/download
+  byte round-trip; and nested virtualization with guest `/dev/kvm`.
+- macOS restore-image acceptance, physical display hot-plug, real Host sleep,
+  and 120 Hz latency work are not re-run; they remain open in [TODO](TODO.md).
+
 ## 0.1.25
 
 RiftVM 0.1.25 rebuilds the 0.1.23 source with the released Xcode 27 toolchain.
