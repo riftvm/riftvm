@@ -11,7 +11,12 @@ permissions:
 
 concurrency:
   group: riftvm-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded pull-request runs are throwaway, so cancelling them saves
+  # minutes. A main push is not: every release publishes its version commit
+  # and then a follow-up commit, and cancelling the first run left the
+  # release commit with a cancelled check on GitHub for 0.1.18 through
+  # 0.1.25.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   macos:
