@@ -244,13 +244,14 @@ private struct OmarchyWelcomeView: View {
                 guard forecast.hasEnoughSpace else {
                     throw OnboardingError.insufficientSpace(required: forecast.requiredBytes, available: forecast.availableBytes)
                 }
-                guard let publicKey = FactoryTrustConfiguration.publicKey() else {
+                let publicKeys = FactoryTrustConfiguration.publicKeys()
+                guard !publicKeys.isEmpty else {
                     throw OnboardingError.releaseChannelNotConfigured
                 }
                 let installer = VMOmarchyFactoryInstaller(
                     profile: profile,
                     cacheDirectory: workspaceManager.layout.cache,
-                    publicKey: publicKey,
+                    publicKeys: publicKeys,
                     transport: VMOmarchyURLSessionTransport()
                 )
                 let factory = try await installer.install { received, expected in
@@ -308,11 +309,16 @@ private struct OmarchyWelcomeView: View {
 }
 
 enum FactoryTrustConfiguration {
-    static func publicKey(bundle: Bundle = .main) -> Data? {
-        guard let encoded = bundle.object(forInfoDictionaryKey: "RiftVMOmarchyFactoryPublicKeyBase64") as? String,
-              !encoded.isEmpty,
-              let data = Data(base64Encoded: encoded),
-              data.count == 32 else { return nil }
-        return data
+    /// Every factory key this build accepts. The value is a set so a manifest
+    /// signed by any configured key verifies, rather than only the newest one.
+    /// Entries that are not a well-formed 32-byte key are dropped.
+    static func publicKeys(bundle: Bundle = .main) -> [Data] {
+        guard let encoded = bundle.object(forInfoDictionaryKey: "RiftVMOmarchyFactoryPublicKeysBase64") as? [String] else {
+            return []
+        }
+        return encoded.compactMap { value in
+            guard let data = Data(base64Encoded: value), data.count == 32 else { return nil }
+            return data
+        }
     }
 }

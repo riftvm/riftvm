@@ -97,10 +97,16 @@ public enum VMOmarchyFactoryValidationError: Error, Equatable {
 public enum VMOmarchyFactoryValidator {
     public static let maximumPartBytes: UInt64 = 1_900 * 1_024 * 1_024
 
+    /// Verifies a manifest against a set of trusted keys.
+    ///
+    /// Trust is a set rather than a single key because the factory signing key
+    /// has rotated: a manifest signed by a key the build does not carry is
+    /// rejected, and that rejection breaks workspace creation for every user of
+    /// that factory version. Any one configured key may have signed.
     public static func validateManifest(
         _ manifest: VMOmarchyFactoryManifest,
         profile: VMOmarchyProfile,
-        publicKey: Data
+        publicKeys: [Data]
     ) throws {
         let payload = manifest.payload
         let validDelivery: Bool
@@ -140,13 +146,18 @@ public enum VMOmarchyFactoryValidator {
         guard manifest.keyID == profile.factoryImage.signingKeyID else {
             throw VMOmarchyFactoryValidationError.unexpectedSigningKey
         }
-        guard let key = try? Curve25519.Signing.PublicKey(rawRepresentation: publicKey) else {
+        // Malformed entries are dropped rather than failing the whole set: one
+        // bad anchor in a build's configuration must not make every factory
+        // version unverifiable. A set with no usable key still fails.
+        let keys = publicKeys.compactMap { try? Curve25519.Signing.PublicKey(rawRepresentation: $0) }
+        guard !keys.isEmpty else {
             throw VMOmarchyFactoryValidationError.invalidPublicKey
         }
         guard let signature = Data(base64Encoded: manifest.signature) else {
             throw VMOmarchyFactoryValidationError.invalidSignature
         }
-        guard key.isValidSignature(signature, for: try canonicalPayload(payload)) else {
+        let signedBytes = try canonicalPayload(payload)
+        guard keys.contains(where: { $0.isValidSignature(signature, for: signedBytes) }) else {
             throw VMOmarchyFactoryValidationError.invalidSignature
         }
     }

@@ -22,6 +22,7 @@ enum FactoryToolError: LocalizedError {
               omarchy-factory-tool sign <image.asif> <image-url> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json>
               omarchy-factory-tool sign-parts <image.asif> <version> <omarchy-revision> <agent-version> <key-id> <private-key> <manifest.json> <part-url> <part-file> [<part-url> <part-file> ...]
               omarchy-factory-tool verify <manifest.json> <image.asif> <public-key>
+              omarchy-factory-tool verify-manifest <manifest.json> <public-key> [<public-key> ...]
               omarchy-factory-tool prepare-workspace <manifest.json> <image.asif> <public-key> <application-support-root>
               omarchy-factory-tool decode-sparse-gzip <archive.gz> <logical-size> <output.raw>
             """
@@ -162,12 +163,22 @@ enum OmarchyFactoryTool {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             try encoder.encode(manifest).write(to: output, options: [.atomic])
+        case "verify-manifest":
+            // Signature-only verification, so the release gate can check the
+            // manifest the app will fetch before the image exists locally. It
+            // takes the whole trust set and accepts a signature from any key.
+            guard arguments.count >= 3 else { throw FactoryToolError.usage }
+            let manifest = try loadManifest(URL(filePath: arguments[1]))
+            let publicKeys = try arguments.dropFirst(2).map { try Data(contentsOf: URL(filePath: $0)) }
+            let profile = verificationProfile(signingKeyID: manifest.keyID)
+            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKeys: publicKeys)
+            print("verified \(manifest.payload.imageVersion) signed by \(manifest.keyID)")
         case "verify":
             guard arguments.count == 4 else { throw FactoryToolError.usage }
             let manifest = try loadManifest(URL(filePath: arguments[1]))
             let publicKey = try Data(contentsOf: URL(filePath: arguments[3]))
             let profile = verificationProfile(signingKeyID: manifest.keyID)
-            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKeys: [publicKey])
             try VMOmarchyFactoryValidator.validateImage(at: URL(filePath: arguments[2]), manifest: manifest)
         case "prepare-workspace":
             guard arguments.count == 5 else { throw FactoryToolError.usage }
@@ -175,7 +186,7 @@ enum OmarchyFactoryTool {
             let image = URL(filePath: arguments[2])
             let publicKey = try Data(contentsOf: URL(filePath: arguments[3]))
             let profile = verificationProfile(signingKeyID: manifest.keyID)
-            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+            try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKeys: [publicKey])
             try VMOmarchyFactoryValidator.validateImage(at: image, manifest: manifest)
             let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
                 productID: profile.productID,

@@ -186,7 +186,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                     available: forecast.availableBytes
                 )
             }
-            guard let publicKey = FactoryTrustConfiguration.publicKey() else {
+            let publicKeys = FactoryTrustConfiguration.publicKeys()
+            guard !publicKeys.isEmpty else {
                 throw OmarchyCreationError.releaseChannelNotConfigured
             }
             let supportRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -205,7 +206,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             let installer = VMOmarchyFactoryInstaller(
                 profile: profile,
                 cacheDirectory: supportRoot.appending(path: "FactoryCache", directoryHint: .isDirectory),
-                publicKey: publicKey,
+                publicKeys: publicKeys,
                 transport: transport
             )
             context.formData.creationStage = "Downloading and verifying Omarchy"

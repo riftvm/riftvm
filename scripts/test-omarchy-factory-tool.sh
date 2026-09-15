@@ -46,6 +46,30 @@ printf 'factory bytes' > "$work/factory.part-01"
   https://example.test/Omarchy-Factory.asif.part-00 "$work/factory.part-00" \
   https://example.test/Omarchy-Factory.asif.part-01 "$work/factory.part-01"
 "$tool" verify "$work/multipart-manifest.json" "$work/factory.asif" "$work/public.key"
+
+# verify-manifest is the signature-only check the release gate runs against the
+# published manifest, before any image exists locally. It has to accept a
+# signature from any configured key and from nothing else.
+"$tool" verify-manifest "$work/manifest.json" "$work/public.key"
+"$tool" verify-manifest "$work/manifest.json" "$work/other-public.key" "$work/public.key"
+"$tool" verify-manifest "$work/multipart-manifest.json" "$work/public.key"
+if "$tool" verify-manifest "$work/manifest.json" "$work/other-public.key" 2>/dev/null; then
+  echo 'manifest signed outside the trust set unexpectedly verified' >&2
+  exit 1
+fi
+if "$tool" verify-manifest "$work/manifest.json" 2>/dev/null; then
+  echo 'verify-manifest unexpectedly accepted an empty trust set' >&2
+  exit 1
+fi
+ruby -rjson -e '
+  manifest = JSON.parse(File.read(ARGV.fetch(0)))
+  manifest.fetch("payload")["imageVersion"] = "tampered"
+  File.write(ARGV.fetch(1), JSON.generate(manifest))
+' "$work/manifest.json" "$work/tampered-manifest.json"
+if "$tool" verify-manifest "$work/tampered-manifest.json" "$work/public.key" 2>/dev/null; then
+  echo 'tampered manifest unexpectedly verified' >&2
+  exit 1
+fi
 ruby -rjson -e '
   manifest = JSON.parse(File.read(ARGV.fetch(0)))
   abort "wrong multipart schema" unless manifest.dig("payload", "schemaVersion") == 2

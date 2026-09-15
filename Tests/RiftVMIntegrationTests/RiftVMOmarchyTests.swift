@@ -458,8 +458,11 @@ final class RiftVMOmarchyTests: XCTestCase {
                 from: Data(contentsOf: template), format: nil
             ) as? [String: Any]
         )
-        let factoryPublicKey = try XCTUnwrap(values["RiftVMOmarchyFactoryPublicKeyBase64"] as? String)
-        XCTAssertEqual(Data(base64Encoded: factoryPublicKey)?.count, 32)
+        let factoryPublicKeys = try XCTUnwrap(values["RiftVMOmarchyFactoryPublicKeysBase64"] as? [String])
+        XCTAssertFalse(factoryPublicKeys.isEmpty)
+        for factoryPublicKey in factoryPublicKeys {
+            XCTAssertEqual(Data(base64Encoded: factoryPublicKey)?.count, 32)
+        }
         XCTAssertEqual(values["RiftVMSourceRevision"] as? String, "$(RIFTVM_SOURCE_REVISION)")
         XCTAssertEqual(values["RiftVMSourceTreeState"] as? String, "$(RIFTVM_SOURCE_TREE_STATE)")
         XCTAssertEqual(values["ITSAppUsesNonExemptEncryption"] as? Bool, false)

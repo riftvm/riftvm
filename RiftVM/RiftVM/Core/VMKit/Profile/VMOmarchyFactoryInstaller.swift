@@ -191,18 +191,18 @@ public struct VMOmarchyFactoryInstaller {
     public static let maximumManifestBytes = 256 * 1_024
     public let profile: VMOmarchyProfile
     public let cacheDirectory: URL
-    public let publicKey: Data
+    public let publicKeys: [Data]
     public let transport: any VMOmarchyFactoryTransport
 
     public init(
         profile: VMOmarchyProfile,
         cacheDirectory: URL,
-        publicKey: Data,
+        publicKeys: [Data],
         transport: any VMOmarchyFactoryTransport
     ) {
         self.profile = profile
         self.cacheDirectory = cacheDirectory
-        self.publicKey = publicKey
+        self.publicKeys = publicKeys
         self.transport = transport
     }
 
@@ -313,7 +313,7 @@ public struct VMOmarchyFactoryInstaller {
         } catch {
             throw VMOmarchyFactoryInstallError.invalidManifestEncoding
         }
-        try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKey: publicKey)
+        try VMOmarchyFactoryValidator.validateManifest(manifest, profile: profile, publicKeys: publicKeys)
         return manifest
     }
 }
