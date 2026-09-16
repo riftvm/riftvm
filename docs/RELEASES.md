@@ -121,6 +121,38 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.1.27
+
+RiftVM 0.1.27 makes the command line able to see the workspaces the app creates.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- `riftvm list` and `riftvm inspect` now find Omarchy workspaces. Discovery only
+  looked for `config.json` in a bundle root, while an Omarchy workspace keeps its
+  configuration, guest disk and machine identity under `Workspace/`, so the
+  command reported an empty list on a Mac that had the featured workspace
+  installed.
+- `riftvm start`, `status` and `stop` no longer describe a healthy Omarchy
+  workspace as `config.json is missing or invalid JSON`. Those commands drive
+  general machines only, because an Omarchy workspace needs the guest agent and
+  the Omarchy machine builder that the headless path does not provide; they now
+  exit 69 with `unsupported_layout` and point at the app.
+
+### Validation
+
+- Four new `RiftVMCLIKitTests` cases cover both layouts: a workspace listed
+  beside a general machine, an inspected workspace descriptor, a missing
+  workspace disk, and the lifecycle rejection. The suite is 16 cases with no
+  failures.
+- Checked against a real workspace on disk, not only fixtures: `riftvm list`
+  reports `Omarchy.riftvm` as a valid `linux` machine with its CPU and memory,
+  and the lifecycle commands return `unsupported_layout`.
+
+This release does not change the app, the guest agent, or the Omarchy factory
+image.
+
 ## 0.1.26
 
 RiftVM 0.1.26 fixes Omarchy workspace creation, which every build since 0.1.18
