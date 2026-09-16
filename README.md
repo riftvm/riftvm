@@ -78,14 +78,20 @@ For setup, display, input, and signing problems, see the
 
 The Homebrew cask links `riftvm` into Homebrew's executable prefix. Every
 command writes one schema-versioned JSON object and uses deterministic exit
-codes. These commands operate on general VM bundles containing `config.json`;
-the dedicated Omarchy workspace layout (`Workspace/Configuration.json`) is not
-currently supported by CLI discovery or lifecycle commands. Use the app to
-manage Omarchy workspaces created from the home screen. For a general VM:
+codes.
+
+Discovery and inspection commands cover both bundle layouts, so `list` shows the
+Omarchy workspace you actually created:
+
+- a general VM bundle with `config.json` in its root, which is what
+  `install-image` produces;
+- an Omarchy workspace with `Workspace/Configuration.json`, its `Disk.asif` and
+  its `MachineIdentifier` one level down.
 
 ```sh
 riftvm list
 riftvm inspect "My macOS VM"
+riftvm inspect "Omarchy"
 riftvm validate "/path/to/My VM.riftvm"
 riftvm doctor
 riftvm start "My macOS VM" --timeout 90
@@ -94,6 +100,12 @@ riftvm stop "My macOS VM" --timeout 30
 riftvm install-image preinstalled-image.json --image disk.raw \
   --destination "$HOME/RiftVM Virtual Machines/Imported Linux.riftvm" --timeout 300
 ```
+
+`start`, `status`, and `stop` drive general machines only. An Omarchy workspace
+needs the guest agent and the Omarchy-specific machine builder, which the
+headless path does not provide, so those three commands exit 69 with
+`unsupported_layout` for that bundle rather than pretending to control it. Start
+and stop Omarchy workspaces in the app.
 
 Use `--root /path/to/library` one or more times when machines are stored outside
 `~/RiftVM Virtual Machines`. Headless mode runs the signed RiftVM virtualization
