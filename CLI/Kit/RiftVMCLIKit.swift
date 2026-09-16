@@ -210,11 +210,55 @@ private struct RiftVMSharedRuntimeRecord: Codable {
     let mode: String
 }
 
+/// The two on-disk layouts the CLI understands.
+///
+/// A generic machine keeps `config.json`, `state.json` and its guest disk in the
+/// bundle root. That is what `install-image` produces and what the release
+/// fixtures use. An Omarchy workspace created in the app keeps its
+/// configuration and disk one level down, under `Workspace/`, with the
+/// enrollment, shared folders and diagnostics next to them. Reading either one
+/// matters because `list` is how a user finds the machines they actually have.
+public struct RiftVMMachineLayout: Equatable, Sendable {
+    public enum Kind: String, Sendable {
+        case machine
+        case omarchyWorkspace
+    }
+
+    public let kind: Kind
+    /// The `.riftvm` bundle, which is the path a user recognises.
+    public let bundle: URL
+    /// The directory holding the configuration file and the guest disk.
+    public let root: URL
+    public let configuration: URL
+
+    public init(kind: Kind, bundle: URL, root: URL, configuration: URL) {
+        self.kind = kind
+        self.bundle = bundle
+        self.root = root
+        self.configuration = configuration
+    }
+}
+
 public struct RiftVMMachineInspector {
     public static let bundleExtensions = ["riftvm"]
     private let fileManager: FileManager
 
     public init(fileManager: FileManager = .default) { self.fileManager = fileManager }
+
+    /// The layout of a bundle, or `nil` when it is neither layout.
+    public func layout(of bundleURL: URL) -> RiftVMMachineLayout? {
+        let bundle = bundleURL.standardizedFileURL
+        let machineConfig = bundle.appendingPathComponent("config.json")
+        if fileManager.fileExists(atPath: machineConfig.path) {
+            return RiftVMMachineLayout(kind: .machine, bundle: bundle, root: bundle, configuration: machineConfig)
+        }
+        let workspace = bundle.appendingPathComponent("Workspace", isDirectory: true)
+        let workspaceConfig = workspace.appendingPathComponent("Configuration.json")
+        if fileManager.fileExists(atPath: workspaceConfig.path) {
+            return RiftVMMachineLayout(kind: .omarchyWorkspace, bundle: bundle, root: workspace, configuration: workspaceConfig)
+        }
+        return nil
+    }
 
     public func discover(roots: [URL]) -> [URL] {
         var seen = Set<String>()
@@ -228,7 +272,7 @@ public struct RiftVMMachineInspector {
             for child in children {
                 guard let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
                       values.isDirectory == true, values.isSymbolicLink != true,
-                      fileManager.fileExists(atPath: child.appendingPathComponent("config.json").path) else { continue }
+                      layout(of: child) != nil else { continue }
                 let path = child.standardizedFileURL.path
                 if seen.insert(path).inserted { machines.append(child.standardizedFileURL) }
             }
@@ -240,8 +284,21 @@ public struct RiftVMMachineInspector {
         let url = machineURL.standardizedFileURL
         var problems: [String] = []
         if isSymbolicLink(url) { problems.append("machine path is a symbolic link") }
-        let configURL = url.appendingPathComponent("config.json")
-        guard let data = try? Data(contentsOf: configURL),
+        guard let layout = layout(of: url) else {
+            return RiftVMMachineSummary(name: url.deletingPathExtension().lastPathComponent, path: url.path,
+                                        osType: "unknown", cpuCount: nil, memoryBytes: nil,
+                                        valid: false, problems: problems + ["config.json is missing or invalid JSON"])
+        }
+        switch layout.kind {
+        case .machine: return inspectMachine(layout, problems: problems)
+        case .omarchyWorkspace: return inspectWorkspace(layout, problems: problems)
+        }
+    }
+
+    private func inspectMachine(_ layout: RiftVMMachineLayout, problems initialProblems: [String]) -> RiftVMMachineSummary {
+        let url = layout.bundle
+        var problems = initialProblems
+        guard let data = try? Data(contentsOf: layout.configuration),
               let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return RiftVMMachineSummary(name: url.deletingPathExtension().lastPathComponent, path: url.path,
                                         osType: "unknown", cpuCount: nil, memoryBytes: nil,
@@ -256,6 +313,38 @@ public struct RiftVMMachineInspector {
         if memory == nil || memory == 0 { problems.append("memory size is missing or zero") }
         validateReferencedFiles(raw: raw, root: url, problems: &problems)
         return RiftVMMachineSummary(name: name, path: url.path, osType: type, cpuCount: cpu,
+                                    memoryBytes: memory, valid: problems.isEmpty, problems: problems.sorted())
+    }
+
+    /// An Omarchy workspace carries a smaller descriptor than a generic machine:
+    /// the guest type comes from the product identifier rather than a `type`
+    /// field, the resources are flat keys, and the guest disk has a fixed name
+    /// beside the configuration.
+    private func inspectWorkspace(_ layout: RiftVMMachineLayout, problems initialProblems: [String]) -> RiftVMMachineSummary {
+        let bundle = layout.bundle
+        let name = bundle.deletingPathExtension().lastPathComponent
+        var problems = initialProblems
+        guard let data = try? Data(contentsOf: layout.configuration),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return RiftVMMachineSummary(name: name, path: bundle.path, osType: "unknown", cpuCount: nil,
+                                        memoryBytes: nil, valid: false,
+                                        problems: (problems + ["Workspace/Configuration.json is invalid JSON"]).sorted())
+        }
+        let productID = raw["productID"] as? String
+        let type = productID == "com.riftvm.app.omarchy" ? "linux" : "unknown"
+        if type == "unknown" {
+            problems.append("unsupported workspace product: \(productID ?? "productID is missing")")
+        }
+        let cpu = integer(in: raw["cpuCount"])
+        let memory = unsignedInteger(in: raw["memoryBytes"])
+        if cpu == nil || cpu == 0 { problems.append("CPU count is missing or zero") }
+        if memory == nil || memory == 0 { problems.append("memory size is missing or zero") }
+        let disk = layout.root.appendingPathComponent("Disk.asif")
+        if isSymbolicLink(disk) { problems.append("storage path contains a symbolic link: Disk.asif") }
+        else if !fileManager.fileExists(atPath: disk.path) { problems.append("storage file is missing: Disk.asif") }
+        let identifier = layout.root.appendingPathComponent("MachineIdentifier")
+        if !fileManager.fileExists(atPath: identifier.path) { problems.append("machine identifier is missing") }
+        return RiftVMMachineSummary(name: name, path: bundle.path, osType: type, cpuCount: cpu,
                                     memoryBytes: memory, valid: problems.isEmpty, problems: problems.sorted())
     }
 
@@ -546,6 +635,9 @@ public struct RiftVMCLI {
         guard let target = parsed.target else { return missingTarget("start") }
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
+            if inspector.layout(of: machine)?.kind == .omarchyWorkspace {
+                return unsupportedWorkspaceLayout("start", machine: machine)
+            }
             let summary = inspector.inspect(machine)
             guard summary.valid else {
                 return (.invalidMachine, .init(command: "start", code: "invalid_machine", message: summary.problems.joined(separator: "; ")))
@@ -593,6 +685,9 @@ public struct RiftVMCLI {
         guard let target = parsed.target else { return missingTarget("status") }
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
+            if inspector.layout(of: machine)?.kind == .omarchyWorkspace {
+                return unsupportedWorkspaceLayout("status", machine: machine)
+            }
             guard let record = readHeadlessState(headlessStateURL(for: machine)), isExpectedHeadlessProcess(record, machine: machine) else {
                 if let shared = readActiveSharedRuntime(for: machine) {
                     return (.success, .init(command: "status", result: sharedRuntimeJSON(shared)))
@@ -613,6 +708,9 @@ public struct RiftVMCLI {
         guard let target = parsed.target else { return missingTarget("stop") }
         do {
             let machine = try inspector.resolve(target, roots: parsed.roots)
+            if inspector.layout(of: machine)?.kind == .omarchyWorkspace {
+                return unsupportedWorkspaceLayout("stop", machine: machine)
+            }
             let stateURL = headlessStateURL(for: machine)
             guard let record = readHeadlessState(stateURL), isExpectedHeadlessProcess(record, machine: machine) else {
                 try? FileManager.default.removeItem(at: stateURL)
@@ -640,6 +738,21 @@ public struct RiftVMCLI {
         } catch {
             return (.internalError, .init(command: "stop", code: "internal_error", message: error.localizedDescription))
         }
+    }
+
+    /// The app owns the lifecycle of an Omarchy workspace: starting one needs the
+    /// guest agent and the Omarchy-specific machine builder, which the headless
+    /// path does not provide. Saying so is better than the previous
+    /// "config.json is missing" for a bundle that is perfectly healthy.
+    private func unsupportedWorkspaceLayout(_ command: String, machine: URL) -> (RiftVMCLIExit, RiftVMCLIResponse) {
+        (
+            .unavailable,
+            .init(
+                command: command,
+                code: "unsupported_layout",
+                message: "\(machine.lastPathComponent) is an Omarchy workspace. The CLI starts and stops generic machines; control Omarchy workspaces in the RiftVM app."
+            )
+        )
     }
 
     private func missingTarget(_ command: String) -> (RiftVMCLIExit, RiftVMCLIResponse) {

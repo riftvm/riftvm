@@ -77,6 +77,53 @@ final class RiftVMCLIKitTests: XCTestCase {
         XCTAssertFalse(RiftVMMachineInspector().inspect(machine).valid)
     }
 
+    func testListReportsOmarchyWorkspacesAlongsideGenericMachines() throws {
+        try makeMachine("Plateau.riftvm", name: "Plateau")
+        try makeOmarchyWorkspace("Omarchy.riftvm")
+        let (code, response) = RiftVMCLI().run(arguments: ["list", "--root", root.path])
+        XCTAssertEqual(code, .success)
+        guard case .array(let machines) = response.result else { return XCTFail("expected array") }
+        XCTAssertEqual(machines.count, 2)
+        guard case .object(let workspace) = machines[0], case .object(let machine) = machines[1] else {
+            return XCTFail("expected objects")
+        }
+        XCTAssertEqual(workspace["name"], .string("Omarchy"))
+        XCTAssertEqual(workspace["osType"], .string("linux"))
+        XCTAssertEqual(workspace["cpuCount"], .number(4))
+        XCTAssertEqual(workspace["valid"], .bool(true))
+        XCTAssertEqual(machine["name"], .string("Plateau"))
+    }
+
+    func testInspectReadsTheOmarchyWorkspaceLayout() throws {
+        let bundle = try makeOmarchyWorkspace("Omarchy.riftvm", cpuCount: 6, memoryBytes: 6_442_450_944)
+        let (code, response) = RiftVMCLI().run(arguments: ["inspect", bundle.path])
+        XCTAssertEqual(code, .success)
+        guard case .object(let summary) = response.result else { return XCTFail("expected object") }
+        XCTAssertEqual(summary["osType"], .string("linux"))
+        XCTAssertEqual(summary["cpuCount"], .number(6))
+        XCTAssertEqual(summary["memoryBytes"], .number(6_442_450_944))
+        XCTAssertEqual(summary["valid"], .bool(true))
+        XCTAssertEqual(summary["path"], .string(bundle.standardizedFileURL.path))
+    }
+
+    func testValidateReportsAMissingWorkspaceDisk() throws {
+        let bundle = try makeOmarchyWorkspace("Broken.riftvm", createDisk: false)
+        let (code, response) = RiftVMCLI().run(arguments: ["validate", bundle.path])
+        XCTAssertEqual(code, .invalidMachine)
+        XCTAssertEqual(response.error?.code, "invalid_machine")
+        XCTAssertTrue(response.error?.message.contains("storage file is missing") == true)
+    }
+
+    func testLifecycleCommandsRejectTheOmarchyWorkspaceLayout() throws {
+        let bundle = try makeOmarchyWorkspace("Omarchy.riftvm")
+        for command in ["start", "status", "stop"] {
+            let (code, response) = RiftVMCLI().run(arguments: [command, bundle.path])
+            XCTAssertEqual(code, .unavailable, command)
+            XCTAssertEqual(response.error?.code, "unsupported_layout", command)
+            XCTAssertTrue(response.error?.message.contains("Omarchy workspace") == true, command)
+        }
+    }
+
     func testOutputSchemaIsStableSortedJSONWithNewline() throws {
         let cli = RiftVMCLI()
         let data = try cli.encode(.init(command: "list", result: .array([])))
@@ -229,6 +276,33 @@ final class RiftVMCLIKitTests: XCTestCase {
         try JSONSerialization.data(withJSONObject: config).write(to: machine.appendingPathComponent("config.json"))
         if createDisk { FileManager.default.createFile(atPath: machine.appendingPathComponent("Disk.img").path, contents: Data()) }
         return machine
+    }
+
+    @discardableResult
+    private func makeOmarchyWorkspace(
+        _ relative: String,
+        createDisk: Bool = true,
+        cpuCount: Int = 4,
+        memoryBytes: UInt64 = 8_589_934_592
+    ) throws -> URL {
+        let bundle = root.appendingPathComponent(relative)
+        let workspace = bundle.appendingPathComponent("Workspace")
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        let config: [String: Any] = [
+            "schemaVersion": 2,
+            "productID": "com.riftvm.app.omarchy",
+            "createdAt": 810_886_380.48,
+            "factoryImageVersion": "v4.0.3-riftvm.7",
+            "cpuCount": cpuCount,
+            "memoryBytes": memoryBytes,
+        ]
+        try JSONSerialization.data(withJSONObject: config, options: [.sortedKeys])
+            .write(to: workspace.appendingPathComponent("Configuration.json"))
+        try Data("machine-identity".utf8).write(to: workspace.appendingPathComponent("MachineIdentifier"))
+        if createDisk {
+            FileManager.default.createFile(atPath: workspace.appendingPathComponent("Disk.asif").path, contents: Data())
+        }
+        return bundle
     }
 
     private func makeManifest(disk: Data) throws -> URL {
