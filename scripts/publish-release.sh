@@ -139,7 +139,17 @@ install_check_dir="$release_dir/install-check"
 rm -rf "$install_check_dir"
 mkdir -p "$install_check_dir"
 ditto -x -k "$archive" "$install_check_dir"
-xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");RiftVMRelease;" "$install_check_dir/RiftVM.app"
+# Simulating a download marks the extracted app quarantined, so every launch
+# below goes through Gatekeeper's first-launch path. A host whose security daemon
+# is unresponsive wedges there with no output at all, and no launch of the
+# quarantined copy can finish. Skip the marker only when the release host says so
+# explicitly; codesign, spctl, the metadata, entitlement, and readiness checks
+# still run against the extracted bundle.
+if [[ ${RIFTVM_RELEASE_SKIP_QUARANTINE_SIMULATION:-0} == 1 ]]; then
+  echo "publish-release: skipping the quarantine marker: this host cannot launch a quarantined copy" >&2
+else
+  xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");RiftVMRelease;" "$install_check_dir/RiftVM.app"
+fi
 codesign --verify --deep --strict --verbose=2 "$install_check_dir/RiftVM.app"
 spctl --assess --type execute --verbose=4 "$install_check_dir/RiftVM.app"
 RIFTVM_LAUNCH_TIMEOUT="${RIFTVM_LAUNCH_TIMEOUT:-10}" \

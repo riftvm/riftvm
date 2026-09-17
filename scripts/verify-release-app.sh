@@ -25,7 +25,26 @@ executable="$app_path/Contents/MacOS/RiftVM"
 [[ -x "$executable" ]] || fail "application executable not found: $executable"
 cli="$app_path/Contents/Helpers/riftvm"
 [[ -x "$cli" ]] || fail "CLI executable not found: $cli"
-"$cli" doctor | ruby -rjson -e 'JSON.parse(STDIN.read)'
+
+# Launching a quarantined copy exercises Gatekeeper's first-launch path, which
+# consults the host security daemon before the process reaches main(). On a host
+# whose daemon is unresponsive the probe blocks forever with no output, which
+# reads as a release failure when it is an environment failure: `spctl` below
+# still has to accept the bundle either way. Bound the probe so that host fails
+# visibly instead of hanging.
+doctor_timeout="${RIFTVM_DOCTOR_TIMEOUT:-60}"
+[[ "$doctor_timeout" =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_DOCTOR_TIMEOUT must be a positive integer"
+doctor_out="$(mktemp "${TMPDIR:-/tmp}/riftvm-doctor.XXXXXX")"
+doctor_err="$(mktemp "${TMPDIR:-/tmp}/riftvm-doctor-err.XXXXXX")"
+doctor_status=0
+timeout "$doctor_timeout" "$cli" doctor >"$doctor_out" 2>"$doctor_err" || doctor_status=$?
+if (( doctor_status != 0 )); then
+  cat "$doctor_err" >&2
+  rm -f "$doctor_out" "$doctor_err"
+  fail "the CLI probe failed with status $doctor_status after ${doctor_timeout}s"
+fi
+ruby -rjson -e 'JSON.parse(STDIN.read)' <"$doctor_out"
+rm -f "$doctor_out" "$doctor_err"
 
 codesign --verify --deep --strict --verbose=2 "$app_path"
 spctl --assess --type execute --verbose=4 "$app_path"
