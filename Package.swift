@@ -38,6 +38,7 @@ let package = Package(
             sources: [
                 "Common/VMOSResultVoid.swift",
                 "Common/VMOSHelper.swift",
+                "Common/VMDisplayCursorPolicy.swift",
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
                 "GuestAgent/VMGuestAgentProtocol.swift",

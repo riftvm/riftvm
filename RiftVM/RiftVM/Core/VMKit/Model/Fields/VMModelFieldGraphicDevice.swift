@@ -271,6 +271,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
+    private var cursorPresentation = VMGuestCursorPresentationPolicy()
     private var pressedKeys = Set<UInt16>()
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
@@ -374,6 +375,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         presentationDemand.cancel()
         presentationInFlight = false
         cursorLayer.isHidden = true
+        cursorPresentation.reset()
         runtimeIssueHandler?(nil)
         releaseInputCapture()
     }
@@ -695,6 +697,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             for: point,
             in: metalLayer.frame
         ) else { return }
+        cursorPresentation.noteAbsolutePointerEvent()
         guestInputHandler?(VMAbsolutePointerMapper.events(x: coordinates.x, y: coordinates.y))
     }
 
@@ -706,6 +709,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         // guest position. Hide the separately composited GPU cursor to avoid
         // a delayed duplicate while preserving natural boundary crossing.
         cursorLayer.isHidden = enabled || cursorLayer.contents == nil
+        // Leaving absolute mode restores the system cursor that stood in for
+        // the guest's own.
+        window?.invalidateCursorRects(for: self)
         RiftVMLog.info("VirGL absolute pointer enabled=\(enabled)", logger: RiftVMLog.graphics)
     }
 
@@ -873,9 +879,40 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                 cursorImageSize = .zero
             }
         }
+        cursorPlaneUpdateReceived()
         cursorLayer.isHidden = absolutePointerEnabled || !update.isVisible
         updateCursorGeometry()
     }
+
+    /// A guest that drives virtio-gpu's cursor plane can never be painting its
+    /// own cursor into the scanout, so this also releases the macOS cursor when
+    /// the guest switched strategies mid-session.
+    private func cursorPlaneUpdateReceived() {
+        let wasHiding = cursorPresentation.hidesSystemCursor
+        cursorPresentation.noteCursorPlaneUpdate()
+        if wasHiding != cursorPresentation.hidesSystemCursor {
+            window?.invalidateCursorRects(for: self)
+        }
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        // Absolute mode keeps the macOS cursor as the pointer unless the guest
+        // already drew one into the frame; relative mode manages the cursor
+        // through capture instead.
+        guard absolutePointerEnabled, cursorPresentation.hidesSystemCursor else { return }
+        addCursorRect(bounds, cursor: Self.blankCursor)
+    }
+
+    /// A fully transparent cursor used to yield to a cursor the guest drew.
+    private static let blankCursor: NSCursor = {
+        let image = NSImage(size: NSSize(width: 1, height: 1), flipped: false) { rect in
+            NSColor.clear.setFill()
+            rect.fill()
+            return true
+        }
+        return NSCursor(image: image, hotSpot: .zero)
+    }()
 
     func present(
         resourceID: UInt32,
@@ -969,6 +1006,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                         self.presentationDurationsInWindow.append(duration)
                         self.presentedFrames &+= 1
                         self.presentedFramesInWindow &+= 1
+                        self.notePresentedFrameForCursor()
                         if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
                             RiftVMLog.info("VirGL zero-copy frames presented: \(self.presentedFrames)", logger: RiftVMLog.graphics)
                         }
@@ -983,6 +1021,17 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                     if succeeded { self.drainLatestPresentation() }
                 }
             }
+        }
+    }
+
+    /// A guest that draws its own cursor repaints in response to pointer
+    /// events while never driving the cursor plane; the first such repaint
+    /// hands the pointer over from the macOS cursor to the guest's own.
+    private func notePresentedFrameForCursor() {
+        let wasHiding = cursorPresentation.hidesSystemCursor
+        cursorPresentation.notePresentedFrame()
+        if wasHiding != cursorPresentation.hidesSystemCursor {
+            window?.invalidateCursorRects(for: self)
         }
     }
 
