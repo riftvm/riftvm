@@ -1100,7 +1100,7 @@
 				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				DEVELOPMENT_ASSET_PATHS = "\"RiftVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1114,7 +1114,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.28;
+				MARKETING_VERSION = 0.1.29;
 				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1131,7 +1131,7 @@
 				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				DEVELOPMENT_ASSET_PATHS = "\"RiftVM/Preview Content\"";
 				DEVELOPMENT_TEAM = YPV49M8592;
 				ENABLE_CODE_COVERAGE = NO;
@@ -1146,7 +1146,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.28;
+				MARKETING_VERSION = 0.1.29;
 				PRODUCT_BUNDLE_IDENTIFIER = com.riftvm.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
