@@ -121,6 +121,44 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.1.28
+
+RiftVM 0.1.28 makes a workspace whose folder is already gone removable again.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **A workspace whose folder was deleted outside RiftVM can be removed from the
+  list.** The registry and the disk can disagree — the workspace folder may have
+  been deleted in Finder, or wiped when Application Support was reset — and
+  "Move to Trash" then failed with `The file “Omarchy.riftvm” doesn't exist.`
+  before the registry record was removed. The card stayed in the list and every
+  attempt failed the same way, so the only way out was editing
+  `WorkspaceRegistry.json` by hand. A missing folder now removes the record
+  instead; the menu and the confirmation dialog say "Remove from List" and
+  explain that there is nothing left to trash.
+- **A workspace that is still on disk behaves as before.** The bundle is moved
+  to the Trash first, and a failure to do so (a locked volume, a permission
+  problem) still reports the error and keeps the entry, so a workspace is never
+  dropped from the list while its files are still there.
+
+### Validation
+
+- 413 `RiftVMCoreTests` and 16 `RiftVMCLIKitTests` cases passed with 0 failures
+  and one existing conditional skip. Three of them are new
+  `RiftWorkspaceBundleRemovalTests` cases: a missing bundle is not an error and
+  its record stays removable, an existing bundle is trashed and its new location
+  reported, and an unrelated Trash failure still propagates.
+- The `RiftVM` app target and the `RiftVMIntegrationTests` target both built with
+  the released Xcode 27.0 (27A266a).
+
+This release changes the workspace deletion path only. It does not change
+workspace creation, the guest agent, the Omarchy factory image, or the
+integration package, and it does not re-run the macOS restore-image acceptance,
+physical display hot-plug, real Host sleep, or 120 Hz latency work; those remain
+open in [TODO](TODO.md).
+
 ## 0.1.27
 
 RiftVM 0.1.27 makes the command line able to see the workspaces the app creates.
