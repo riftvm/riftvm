@@ -123,7 +123,8 @@ out of the app, so neither can drift from what the check exercises.
 
 ## 0.1.28
 
-RiftVM 0.1.28 makes a workspace whose folder is already gone removable again.
+RiftVM 0.1.28 fixes workspace removal, the doubled cursor on the Omarchy desktop,
+and the workspace card layout.
 
 Requires **macOS 27 or later and Apple silicon**.
 
@@ -142,20 +143,44 @@ Requires **macOS 27 or later and Apple silicon**.
   to the Trash first, and a failure to do so (a locked volume, a permission
   problem) still reports the error and keeps the entry, so a workspace is never
   dropped from the list while its files are still there.
+- **A desktop that paints its own cursor no longer shows two of them.** Absolute
+  pointer mode keeps the macOS cursor as the pointer and hides the image the app
+  composites from virtio-gpu's cursor plane. A guest compositor that falls back
+  to software cursors draws its cursor into the frame instead, where it cannot be
+  hidden separately, so the macOS cursor and the guest's own overlapped. The app
+  now yields the system cursor to a cursor the guest painted into its own frames,
+  and takes it back as soon as the guest drives the cursor plane.
+- **Absolute pointer input is claimed only when the running desktop uses it.**
+  The agent advertised `input-uinput-absolute-v1` whenever the uinput device
+  existed, and the app switches to absolute pointer events on that capability. A
+  device node is not evidence that anything reads it: with the wrong udev class
+  libinput drops the node, so absolute events were written where nothing
+  consumed them and the cursor never moved while the wheel kept working. The
+  agent now also requires the compositor to hold the device's event node, so a
+  guest in that state degrades to the relative pointer instead of a frozen
+  cursor.
+
+### Changes
+
+- The workspace card anchors its Open/Start button to the card's bottom edge.
+  Cards keep a minimum height so a grid row lines up, and the leftover space used
+  to collect below the button.
 
 ### Validation
 
-- 413 `RiftVMCoreTests` and 16 `RiftVMCLIKitTests` cases passed with 0 failures
-  and one existing conditional skip. Three of them are new
-  `RiftWorkspaceBundleRemovalTests` cases: a missing bundle is not an error and
-  its record stays removable, an existing bundle is trashed and its new location
-  reported, and an unrelated Trash failure still propagates.
+- 419 `RiftVMCoreTests` and 16 `RiftVMCLIKitTests` cases passed with 0 failures
+  and one existing conditional skip, including three new
+  `RiftWorkspaceBundleRemovalTests` cases and six new
+  `VMDisplayCursorPolicyTests` cases. The Go Guest Agent suite passed, and the
+  Linux arm64 Agent cross-build succeeded.
 - The `RiftVM` app target and the `RiftVMIntegrationTests` target both built with
   the released Xcode 27.0 (27A266a).
 
-This release changes the workspace deletion path only. It does not change
-workspace creation, the guest agent, the Omarchy factory image, or the
-integration package, and it does not re-run the macOS restore-image acceptance,
+This release is not claimed to restore pointer movement on a workspace created
+from an earlier factory image: that needs the paired image release, which
+corrects the `RiftVM Absolute Pointer` udev class and carries the updated agent.
+The cursor change is covered by unit tests and a build, not by a booted guest
+yet. This release also does not re-run the macOS restore-image acceptance,
 physical display hot-plug, real Host sleep, or 120 Hz latency work; those remain
 open in [TODO](TODO.md).
 
