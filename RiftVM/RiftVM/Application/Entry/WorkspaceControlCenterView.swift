@@ -697,6 +697,11 @@ private struct WorkspaceCardView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Manage the host folders available to this workspace")
+            // Cards share a minimum height so a grid row lines up, so the
+            // slack belongs above the action row: letting the VStack end at
+            // the button left the empty space *below* it, which read as a
+            // rendering mistake rather than as padding.
+            Spacer(minLength: 0)
             HStack {
                 if let date = workspace.lastOpenedAt {
                     Text("Opened \(date, format: .relative(presentation: .named))")
