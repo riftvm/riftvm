@@ -52,14 +52,16 @@ struct WorkspaceControlCenterView: View {
             Text("This changes the display name. The workspace folder is not renamed.")
         }
         .confirmationDialog(
-            "Move \(deleteWorkspace?.name ?? "this workspace") to the Trash?",
+            deleteConfirmationTitle,
             isPresented: deletePresented,
             titleVisibility: .visible
         ) {
-            Button("Move to Trash", role: .destructive) { moveWorkspaceToTrash() }
+            Button(deleteTargetIsMissing ? "Remove from List" : "Move to Trash", role: .destructive) { moveWorkspaceToTrash() }
             Button("Cancel", role: .cancel) { deleteWorkspace = nil }
         } message: {
-            Text("The virtual machine bundle can be recovered from the Trash.")
+            Text(deleteTargetIsMissing
+                ? "The workspace folder is already missing from disk, so only this entry is removed."
+                : "The virtual machine bundle can be recovered from the Trash.")
         }
         .confirmationDialog(
             "Add \(pendingFolderDrop?.urls.count ?? 0) folder\((pendingFolderDrop?.urls.count ?? 0) == 1 ? "" : "s")?",
@@ -296,7 +298,11 @@ struct WorkspaceControlCenterView: View {
     private func moveWorkspaceToTrash() {
         guard let workspace = deleteWorkspace else { return }
         do {
-            _ = try FileManager.default.trashItem(at: workspace.bundleURL, resultingItemURL: nil)
+            // A bundle that is already gone has nothing to trash, but its
+            // registry record must still be removable. Otherwise the card
+            // stays in the list and every removal attempt reports
+            // "The file … doesn't exist." forever.
+            try RiftWorkspaceBundleRemoval.moveToTrashIfPresent(workspace.bundleURL)
             snapshot = try registry.unregister(workspace.id)
             deleteWorkspace = nil
         } catch { errorMessage = error.localizedDescription }
@@ -340,6 +346,18 @@ struct WorkspaceControlCenterView: View {
     }
     private var deletePresented: Binding<Bool> {
         Binding(get: { deleteWorkspace != nil }, set: { if !$0 { deleteWorkspace = nil } })
+    }
+    /// A registered workspace can lose its bundle without RiftVM noticing: the
+    /// folder may have been removed in Finder, or wiped when Application
+    /// Support was reset. Such an entry can only be removed from the list,
+    /// because there is nothing left to move to the Trash.
+    private var deleteTargetIsMissing: Bool {
+        guard let bundleURL = deleteWorkspace?.bundleURL else { return false }
+        return !FileManager.default.fileExists(atPath: bundleURL.path)
+    }
+    private var deleteConfirmationTitle: String {
+        let name = deleteWorkspace?.name ?? "this workspace"
+        return deleteTargetIsMissing ? "Remove \"\(name)\" from the list?" : "Move \(name) to the Trash?"
     }
     private var folderDropPresented: Binding<Bool> {
         Binding(get: { pendingFolderDrop != nil }, set: { if !$0 { pendingFolderDrop = nil } })
@@ -729,7 +747,7 @@ private struct WorkspaceCardView: View {
             Button("Show in Finder", systemImage: "folder", action: reveal)
             Button("Rename", systemImage: "pencil", action: rename)
             Divider()
-            Button("Move to Trash", systemImage: "trash", role: .destructive, action: delete)
+            Button(bundleIsMissing ? "Remove from List" : "Move to Trash", systemImage: "trash", role: .destructive, action: delete)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(workspace.name), \(statusTitle)")
@@ -738,6 +756,7 @@ private struct WorkspaceCardView: View {
     private var statusTitle: String { runPhase?.cardLabel ?? (isRunning ? "Running" : summary.needsAttention ? "Needs Attention" : "Stopped") }
     private var statusImage: String { isRunning ? "circle.fill" : summary.needsAttention ? "exclamationmark.triangle.fill" : "circle" }
     private var statusColor: Color { isRunning ? .green : summary.needsAttention ? .orange : .secondary }
+    private var bundleIsMissing: Bool { !FileManager.default.fileExists(atPath: workspace.bundleURL.path) }
 }
 
 private struct WorkspaceCardAtmosphere: View {

@@ -232,3 +232,31 @@ public struct RiftWorkspaceRegistryStore {
 extension Notification.Name {
     static let riftWorkspaceRegistryDidChange = Notification.Name("RiftWorkspaceRegistryDidChange")
 }
+
+/// Moves a workspace bundle to the Trash on behalf of the workspace UI.
+///
+/// The registry and the disk can disagree: a workspace folder may have been
+/// deleted in Finder, or wiped when Application Support was reset, while its
+/// record survives. Trashing a path that no longer exists fails with
+/// "The file … doesn't exist.", so treating a missing bundle as an error would
+/// strand the entry in the list with no way to remove it.
+public enum RiftWorkspaceBundleRemoval {
+    /// Trashes `bundleURL` when it is still on disk and reports where macOS put
+    /// it. A bundle that is already gone returns `nil` instead of throwing, so
+    /// the caller can still remove its registry record.
+    ///
+    /// Failures other than a missing bundle (a locked volume, a permission
+    /// problem) are rethrown, because the bundle is still there and the entry
+    /// must not silently disappear from the list.
+    @discardableResult
+    public static func moveToTrashIfPresent(_ bundleURL: URL, fileManager: FileManager = .default) throws -> URL? {
+        var resultingURL: NSURL?
+        do {
+            try fileManager.trashItem(at: bundleURL, resultingItemURL: &resultingURL)
+        } catch let error as NSError
+            where error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError {
+            return nil
+        }
+        return resultingURL as URL?
+    }
+}
