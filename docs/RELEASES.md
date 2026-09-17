@@ -121,6 +121,63 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.1.29
+
+RiftVM 0.1.29 keeps the Omarchy wallpaper through a display mode change and
+replaces the workspace-creation animation with a progress meter.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Features
+
+- **Workspace creation shows a live progress meter instead of the lightning
+  rift.** The rift pulled the eye to the middle of the window and read as a light
+  smudge rather than a state. One row of vertical blocks now carries the progress:
+  the lit blocks are the bytes already transferred, the block at the frontier
+  bounces hardest, the blocks behind it settle, and the finished row is held for
+  a beat before the ready icon takes its place. Heights come from a pure
+  `(index, progress, time)` function, so a paused window, Reduce Motion, and a
+  screenshot all render the same frame, and the meter stays out of the
+  accessibility tree while the existing progress text keeps reporting the value.
+- **The preparation screen is tightened around the meter.** The stage and the
+  transferred bytes share one line inside a progress card, the status is centred
+  in the window instead of hugging its top, and **Continue in Background** is now
+  the prominent action for a long download.
+
+### Fixes
+
+- **The Omarchy desktop keeps its wallpaper when the display mode changes.** A
+  virtio-gpu mode change replaces the compositor's output surfaces, and Omarchy's
+  background layer can come back without its committed buffer. The wallpaper is
+  static, so nothing redrew it by itself: the bar and the dock stayed, the desktop
+  behind them went bare, and it returned only when an unrelated window resize
+  forced a repaint or the shell restarting did. Omarchy cannot repair that from
+  inside, because its own background IPC deliberately does nothing while the
+  wallpaper path is unchanged. The display watcher now re-applies the active theme
+  through the one IPC entry point that forces a repaint, once the compositor
+  confirms a new mode: the desktop repaints itself, and the appearance is
+  unchanged.
+
+### Changes
+
+- New Omarchy workspaces are created from factory image `v4.0.3-riftvm.9`, which
+  carries the display watcher described above. Workspaces created from earlier
+  images keep working; update an existing Guest with the paired integration
+  package to get the fix there (see
+  [Updates and recovery](UPDATES_AND_RECOVERY.md)).
+
+### Validation
+
+- The image contract suite drives the watcher against a fake compositor and a fake
+  shell IPC and asserts the exact repaint payload, exactly one repaint for a
+  settled mode change, and no repaint while the mode is unchanged.
+- The app test suite (426 core tests with 1 skipped, plus 16 CLI tests), the Guest
+  Agent tests, the Release build, the factory trust check, and the
+  preinstalled-image smoke test run as part of this release.
+- Not claimed: live first-boot wallpaper retention observed on hardware other than
+  the Mac that reported the issue, and 3D or sleep/wake behaviour this release
+  does not touch.
+
 ## 0.1.28
 
 RiftVM 0.1.28 fixes workspace removal, the doubled cursor on the Omarchy desktop,

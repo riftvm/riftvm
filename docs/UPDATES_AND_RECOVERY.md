@@ -29,20 +29,21 @@ in-place disk replacement or automatic migration.
 ## Update RiftVM integration inside an existing Guest
 
 Omarchy's normal package update does not replace RiftVM's separately installed
-Agent and display watcher. To receive demand rendering on an existing workspace,
-first create the protected recovery point described above, then download the
-paired integration package from the [`.7` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.8).
+Agent and display watcher. To keep the desktop background through a display mode
+change, or to receive demand rendering, on an existing workspace, first create
+the protected recovery point described above, then download the paired
+integration package from the [`.9` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.9).
 Use RiftVM 0.1.21 or later. Inside the Guest terminal:
 
 ```sh
-mkdir -p ~/Downloads/riftvm-integration-6
-cd ~/Downloads/riftvm-integration-6
-base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.8
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.8.tar.gz" &&
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.8.tar.gz.sha256" &&
-sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.8.tar.gz.sha256 &&
+mkdir -p ~/Downloads/riftvm-integration-9
+cd ~/Downloads/riftvm-integration-9
+base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.9
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz" &&
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz.sha256" &&
+sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz.sha256 &&
 mkdir package &&
-tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.8.tar.gz -C package &&
+tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz -C package &&
 sudo python3 package/update-integration.py install
 ```
 
