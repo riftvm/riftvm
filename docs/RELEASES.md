@@ -162,6 +162,11 @@ Requires **macOS 27 or later and Apple silicon**.
 
 ### Changes
 
+- New Omarchy workspaces are created from factory image `v4.0.3-riftvm.8`, which
+  classifies the `RiftVM Absolute Pointer` device as the absolute mouse it is and
+  carries the Agent that gates absolute pointer input on the live desktop. The
+  previous factory left the cursor frozen because the misclassified device never
+  reached the compositor.
 - The workspace card anchors its Open/Start button to the card's bottom edge.
   Cards keep a minimum height so a grid row lines up, and the leftover space used
   to collect below the button.
@@ -176,13 +181,13 @@ Requires **macOS 27 or later and Apple silicon**.
 - The `RiftVM` app target and the `RiftVMIntegrationTests` target both built with
   the released Xcode 27.0 (27A266a).
 
-This release is not claimed to restore pointer movement on a workspace created
-from an earlier factory image: that needs the paired image release, which
-corrects the `RiftVM Absolute Pointer` udev class and carries the updated agent.
-The cursor change is covered by unit tests and a build, not by a booted guest
-yet. This release also does not re-run the macOS restore-image acceptance,
-physical display hot-plug, real Host sleep, or 120 Hz latency work; those remain
-open in [TODO](TODO.md).
+This release does not change workspaces created from an earlier factory image:
+they keep their disks, and an existing workspace gains the corrected pointer class
+only from the paired image release or from applying the same one-line correction
+inside the guest. The cursor change is covered by unit tests and a build, not by
+a booted guest in this release's own validation. This release does not re-run the
+macOS restore-image acceptance, physical display hot-plug, real Host sleep, or
+120 Hz latency work; those remain open in [TODO](TODO.md).
 
 ## 0.1.27
 
