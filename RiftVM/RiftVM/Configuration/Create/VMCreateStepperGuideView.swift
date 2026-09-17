@@ -119,18 +119,27 @@ struct WorkspaceCreationView: View {
     @State private var showSharing = false
     @State private var showDetails = false
     @State private var launchError: String?
+    /// The meter holds the finished row for a beat before the ready icon takes
+    /// the slot over.
+    @State private var meterOpacity: Double = 1
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                Group {
-                    if session.phase == .setup { setup }
-                    else { progress }
+            GeometryReader { proxy in
+                ScrollView {
+                    Group {
+                        if session.phase == .setup { setup }
+                        else { progress }
+                    }
+                    .frame(maxWidth: 680)
+                    .frame(maxWidth: .infinity)
+                    .padding(32)
+                    // Centering the short preparation status keeps it from
+                    // hugging the top of the window; the taller setup form
+                    // still grows past the viewport and scrolls.
+                    .frame(minHeight: proxy.size.height, alignment: .center)
+                    .transition(.opacity)
                 }
-                .frame(maxWidth: 680)
-                .frame(maxWidth: .infinity)
-                .padding(32)
-                .transition(.opacity)
             }
             Divider()
             footer
@@ -139,8 +148,19 @@ struct WorkspaceCreationView: View {
         .disclosureGroupStyle(WorkspaceCreationDisclosureStyle())
         .environment(session.form)
         .environment(session.config)
-        .frame(minWidth: 680, idealWidth: 760, minHeight: 590, idealHeight: 650)
+        .frame(minWidth: 680, idealWidth: 760, minHeight: 590, idealHeight: 620)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: session.phase)
+        .onChange(of: session.phase) { _, phase in
+            guard phase == .ready else {
+                meterOpacity = 1
+                return
+            }
+            // The row is full and settled here; let it sit for a beat, then hand
+            // the slot to the workspace icon.
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3).delay(0.55)) {
+                meterOpacity = 0
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Close") { close() }
@@ -223,56 +243,114 @@ struct WorkspaceCreationView: View {
     }
 
     private var progress: some View {
-        VStack(spacing: 18) {
-            // A failed preparation shows only the explanation, so the seam does
-            // not keep 190 points of empty space above it.
+        VStack(spacing: 20) {
+            // A failed preparation shows only the explanation, so the meter does
+            // not keep an empty row above it.
             if session.phase != .failed {
-                RiftCreationEffect(
-                    isReady: session.phase == .ready,
-                    isActive: session.phase == .creating,
-                    isOmarchy: session.isOmarchy,
-                    progress: session.form.installingProgress
-                )
-                .frame(height: 190)
-                .transition(.opacity)
-            }
-            Text(session.phase == .ready ? "\(session.config.name) is ready." : session.phase == .failed ? "Let’s get this back on track." : "Preparing \(session.config.name)")
-                .font(.largeTitle.weight(.semibold)).multilineTextAlignment(.center)
-            Text(session.phase == .ready ? "Your other world starts here." : session.phase == .failed ? "Your choices are saved. Review the details below." : "You can keep using RiftVM while this finishes.")
-                .foregroundStyle(.secondary).multilineTextAlignment(.center)
-            if session.phase == .creating {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(session.form.creationStage).font(.headline)
-                    if let received = session.form.downloadBytesReceived, let expected = session.form.downloadBytesExpected, received < expected {
-                        ProgressView(value: Double(received), total: Double(max(expected, 1)))
-                        Text("\(ByteCountFormatter.string(fromByteCount: received, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: expected, countStyle: .file))")
-                            .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                    } else {
-                        ProgressView().controlSize(.small)
+                ZStack {
+                    CreateProgressMeter(
+                        progress: session.phase == .ready ? 1 : session.form.installingProgress,
+                        isOmarchy: session.isOmarchy,
+                        isActive: session.phase == .creating,
+                        isSettled: session.phase == .ready
+                    )
+                    .opacity(meterOpacity)
+                    if session.phase == .ready {
+                        WorkspaceSystemIcon(isOmarchy: session.isOmarchy, size: 112)
+                            .transition(.opacity.combined(with: .scale(scale: 0.86)))
                     }
-                }.frame(maxWidth: 420).padding(.vertical, 12)
+                }
+                .frame(height: session.phase == .ready ? 112 : VMCreateProgressMeterGeometry.rowHeight)
             }
+            VStack(spacing: 6) {
+                Text(progressHeadline)
+                    .font(.largeTitle.weight(.semibold)).multilineTextAlignment(.center)
+                Text(progressSubheadline)
+                    .foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            if session.phase == .creating { progressCard }
             if let error = session.errorMessage { errorView(error) }
-            if session.phase == .ready {
-                Button("Launch \(session.config.name)", systemImage: "arrow.up.right") { launch() }
-                    .buttonStyle(RiftCreationButtonStyle())
-                    .tint(.blue).keyboardShortcut(.defaultAction)
-                    .accessibilityIdentifier("workspace-create-launch")
-                Text(NSString(string: savePath).abbreviatingWithTildeInPath)
-                    .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            if session.phase == .ready { readyActions }
+            if !session.form.logs.isEmpty { detailsDisclosure }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var progressHeadline: String {
+        switch session.phase {
+        case .ready: "\(session.config.name) is ready."
+        case .failed: "Let’s get this back on track."
+        default: "Preparing \(session.config.name)"
+        }
+    }
+
+    private var progressSubheadline: String {
+        switch session.phase {
+        case .ready: "Your other world starts here."
+        case .failed: "Your choices are saved. Review the details below."
+        default: "You can keep using RiftVM while this finishes."
+        }
+    }
+
+    /// One card carries the live progress: the stage on the left, the transferred
+    /// bytes and percentage on the right, the bar underneath.
+    private var progressCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(session.form.creationStage).font(.headline)
+                Spacer(minLength: 0)
+                if let received = session.form.downloadBytesReceived,
+                   let expected = session.form.downloadBytesExpected, received < expected {
+                    Text("\(Self.byteCount(received)) of \(Self.byteCount(expected)) · \(Self.percentage(received, of: expected))")
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
             }
-            if !session.form.logs.isEmpty {
-                DisclosureGroup(isExpanded: $showDetails) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(session.form.logs) { entry in
-                            Text("\(entry.time)  \(entry.log)").font(.caption).textSelection(.enabled)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-                } label: {
-                    Label("Details", systemImage: "text.alignleft")
-                }.padding(.top, 12)
+            if let received = session.form.downloadBytesReceived,
+               let expected = session.form.downloadBytesExpected, received < expected {
+                ProgressView(value: Double(received), total: Double(max(expected, 1)))
+            } else {
+                ProgressView().controlSize(.small)
             }
         }
+        .padding(14)
+        .frame(maxWidth: 340, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 1)
+        }
+    }
+
+    private var readyActions: some View {
+        VStack(spacing: 8) {
+            Button("Launch \(session.config.name)", systemImage: "arrow.up.right") { launch() }
+                .buttonStyle(RiftCreationButtonStyle())
+                .tint(.blue).keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("workspace-create-launch")
+            Text(NSString(string: savePath).abbreviatingWithTildeInPath)
+                .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+        }
+    }
+
+    private var detailsDisclosure: some View {
+        DisclosureGroup(isExpanded: $showDetails) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(session.form.logs) { entry in
+                    Text("\(entry.time)  \(entry.log)").font(.caption).textSelection(.enabled)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+        } label: {
+            Label("Details", systemImage: "text.alignleft")
+        }
+        .frame(maxWidth: 340)
+    }
+
+    private static func byteCount(_ value: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
+    }
+
+    private static func percentage(_ received: Int64, of expected: Int64) -> String {
+        guard expected > 0 else { return "0%" }
+        return "\(Int((Double(received) / Double(expected) * 100).rounded()))%"
     }
 
     private var footer: some View {
@@ -291,7 +369,10 @@ struct WorkspaceCreationView: View {
                 if session.form.canCancelCreation {
                     Button(VMCreationCancellationPolicy.buttonTitle(for: session.form.creationCancellationKind)) { session.cancel() }
                 }
+                // Long downloads are meant to continue unattended, so leaving the
+                // window is the primary action here.
                 Button("Continue in Background") { close() }
+                    .buttonStyle(.borderedProminent)
             case .failed:
                 Button("Dismiss") {
                     WorkspaceCreationStore.shared.remove(session)

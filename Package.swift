@@ -39,6 +39,7 @@ let package = Package(
                 "Common/VMOSResultVoid.swift",
                 "Common/VMOSHelper.swift",
                 "Common/VMDisplayCursorPolicy.swift",
+                "Common/VMCreateProgressMeterPolicy.swift",
                 "Common/VMPortabilityManager.swift",
                 "Common/VMRunningRegistry.swift",
                 "GuestAgent/VMGuestAgentProtocol.swift",
