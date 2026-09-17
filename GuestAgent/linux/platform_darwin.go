@@ -22,6 +22,7 @@ func newGuestInput() guestInput                         { return unavailableInpu
 func inputDiagnostics() string                          { return "RiftVM input unavailable" }
 func hyprlandDeviceDiagnostics() string                 { return "Hyprland unavailable" }
 func desktopInputReady() bool                           { return false }
+func desktopPointerInputReady() bool                    { return false }
 func desktopSessionActive() bool                        { return false }
 func (unavailableInput) Available() bool                { return false }
 func (unavailableInput) AbsolutePointerAvailable() bool { return false }

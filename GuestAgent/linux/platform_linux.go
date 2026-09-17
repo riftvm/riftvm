@@ -181,6 +181,27 @@ func desktopInputReady() bool {
 	return intersects(riftvmKeyboardEventDevices(), desktopCompositorInputDevices())
 }
 
+// desktopPointerInputReady reports whether the desktop compositor holds the
+// RiftVM absolute pointer open.
+//
+// The device node exists whenever the Agent could create it, including when a
+// wrong udev class makes libinput drop it, so "the device exists" cannot stand
+// in for "the desktop reads it". While this is false the Agent must not claim
+// absolute pointer input: the Host would send absolute coordinates into a node
+// nothing consumes and the cursor would never move. Relative pointer, wheel,
+// and button input stay available either way.
+func desktopPointerInputReady() bool {
+	data, err := os.ReadFile("/proc/bus/input/devices")
+	if err != nil {
+		return false
+	}
+	return riftvmInputOwnedByCompositor(
+		string(data),
+		"RiftVM Absolute Pointer",
+		desktopCompositorInputDevices(),
+	)
+}
+
 func desktopSessionActive() bool {
 	sessions := activeUserHyprlandSessions()
 	if len(sessions) == 0 || len(desktopLockerPIDs()) > 0 {
@@ -355,13 +376,28 @@ func desktopCompositorInputDevices() []string {
 }
 
 func riftvmKeyboardEventDevices() []string {
+	return riftvmInputEventDevices("RiftVM Keyboard")
+}
+
+func riftvmAbsolutePointerEventDevices() []string {
+	return riftvmInputEventDevices("RiftVM Absolute Pointer")
+}
+
+func riftvmInputEventDevices(name string) []string {
 	data, err := os.ReadFile("/proc/bus/input/devices")
 	if err != nil {
 		return nil
 	}
+	return parseInputEventDevices(string(data), name)
+}
+
+// parseInputEventDevices returns the event handlers of every device that
+// reports the given kernel name in /proc/bus/input/devices.
+func parseInputEventDevices(procDevices, name string) []string {
+	marker := `N: Name="` + name + `"`
 	var devices []string
-	for _, block := range strings.Split(string(data), "\n\n") {
-		if !strings.Contains(block, `N: Name="RiftVM Keyboard"`) {
+	for _, block := range strings.Split(procDevices, "\n\n") {
+		if !strings.Contains(block, marker) {
 			continue
 		}
 		for _, line := range strings.Split(block, "\n") {
@@ -376,6 +412,12 @@ func riftvmKeyboardEventDevices() []string {
 		}
 	}
 	return devices
+}
+
+// riftvmInputOwnedByCompositor reports whether the compositor holds one of the
+// event nodes belonging to the named RiftVM device.
+func riftvmInputOwnedByCompositor(procDevices, name string, compositorDevices []string) bool {
+	return intersects(parseInputEventDevices(procDevices, name), compositorDevices)
 }
 
 func intersects(left, right []string) bool {

@@ -471,7 +471,11 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 		capabilities = append(capabilities, "shared-folders-v1")
 	}
 	capabilities = append(capabilities, activeSessionCapabilities(time.Now())...)
-	if absolutePointerAvailable {
+	// The Host switches to absolute pointer events on this capability, so it
+	// must mean the running desktop actually reads the node. During firmware
+	// and login no user desktop exists yet, and there the device is the only
+	// path available.
+	if absolutePointerAvailable && (!desktopActive || desktopPointerInputReady()) {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
 	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: installedOmarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
