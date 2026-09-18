@@ -169,11 +169,7 @@ struct VMOSMainVirtualMachineView: View {
                     let graphicsNeedsAttention = backend == .customVirGL
                         && runtimeState.graphicsBackendDetail != nil
                     Menu {
-                        Text(graphicsNeedsAttention
-                             ? String(localized: "Custom VirGL needs attention")
-                             : (backend == .customVirGL
-                                ? String(localized: "Custom VirGL active")
-                                : (backend == .appleMac ? "Apple Graphics active" : "Apple Virtio active")))
+                        Text(graphicsStatusTitle(backend: backend, needsAttention: graphicsNeedsAttention))
                         if let detail = runtimeState.graphicsBackendDetail {
                             Divider()
                             Text(detail)
@@ -186,10 +182,7 @@ struct VMOSMainVirtualMachineView: View {
                                 : "display"
                         )
                     }
-                    .help(runtimeState.graphicsBackendDetail
-                          ?? (backend == .customVirGL
-                              ? String(localized: "Custom VirGL acceleration is active")
-                              : (backend == .appleMac ? "Apple Graphics is active" : "Apple Virtio graphics is active")))
+                    .help(graphicsStatusHelp(backend: backend))
                     .accessibilityLabel(
                         graphicsNeedsAttention
                             ? String(localized: "Graphics needs attention")
@@ -356,24 +349,7 @@ struct VMOSMainVirtualMachineView: View {
             }
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
-        .background {
-            // Every workspace window opens full screen: the guest keeps one
-            // display mode for the session, and full screen is what shows it at
-            // native size instead of scaling it into a smaller window. The release
-            // readiness probe measures a window, so it opts out.
-            VMWindowCloseObserver(
-                rootPath: rootPath,
-                entersFullScreenOnAttach: ProcessInfo.processInfo.environment["RIFTVM_GUI_READY_FILE"] == nil
-            ) {
-                // Quitting already drains the machines through its own panel, so
-                // only a deliberate window close asks here.
-                !VMLiveMachineCenter.shared.isTerminating && runtimeState.needsCloseConfirmation
-            } shouldBlock: {
-                runtimeState.isCloseInProgress
-            } onCloseAttempt: {
-                isShowingCloseConfirmation = true
-            }
-        }
+        .background { windowCloseObserver }
         .alert(
             runtimeState.canPersistMachineState ? "Save State and Close?" : "Shut Down and Close?",
             isPresented: $isShowingCloseConfirmation
@@ -497,6 +473,46 @@ struct VMOSMainVirtualMachineView: View {
             liveMachine.hasStopped = true
             unregisterLiveMachine()
         }
+    }
+
+    private var windowCloseObserver: VMWindowCloseObserver {
+        var observer = VMWindowCloseObserver(rootPath: rootPath) {
+            // Quitting already drains the machines through its own panel, so
+            // only a deliberate window close asks here.
+            !VMLiveMachineCenter.shared.isTerminating && runtimeState.needsCloseConfirmation
+        } shouldBlock: {
+            runtimeState.isCloseInProgress
+        } onCloseAttempt: {
+            isShowingCloseConfirmation = true
+        }
+        observer.entersFullScreenOnAttach = opensFullScreen
+        return observer
+    }
+
+    /// Every workspace window opens full screen: the guest keeps one display mode
+    /// for the session, and full screen is what shows it at native size instead of
+    /// scaling it into a smaller window. The release readiness probe measures a
+    /// window, so it opts out through its own marker.
+    private func graphicsStatusTitle(backend: VMGraphicsBackendKind, needsAttention: Bool) -> String {
+        if needsAttention { return String(localized: "Custom VirGL needs attention") }
+        switch backend {
+        case .customVirGL: return String(localized: "Custom VirGL active")
+        case .appleMac: return "Apple Graphics active"
+        case .appleVirtio: return "Apple Virtio active"
+        }
+    }
+
+    private func graphicsStatusHelp(backend: VMGraphicsBackendKind) -> String {
+        if let detail = runtimeState.graphicsBackendDetail { return detail }
+        switch backend {
+        case .customVirGL: return String(localized: "Custom VirGL acceleration is active")
+        case .appleMac: return "Apple Graphics is active"
+        case .appleVirtio: return "Apple Virtio graphics is active"
+        }
+    }
+
+    private var opensFullScreen: Bool {
+        ProcessInfo.processInfo.environment["RIFTVM_GUI_READY_FILE"] == nil
     }
 
     private var workspaceName: String {
