@@ -299,13 +299,39 @@ struct VMWindowCloseObserver: NSViewRepresentable {
             window.delegate = self
             if entersFullScreenOnAttach, !requestedFullScreen {
                 requestedFullScreen = true
-                // Let the window be on screen before the transition; asking for
-                // full screen during the first layout is ignored by AppKit.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self, weak window] in
-                    guard let self, let window, self.window === window else { return }
-                    guard !window.styleMask.contains(.fullScreen) else { return }
-                    window.toggleFullScreen(nil)
+                // Give the window a beat to be on screen first: a transition
+                // requested during the first layout is ignored.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
+                    guard let self, let window else { return }
+                    self.requestFullScreen(window, attempt: 0)
                 }
+            }
+        }
+
+        /// Asking for full screen before the window is on screen is ignored, so
+        /// retry briefly instead of firing once into the void.
+        private func requestFullScreen(_ window: NSWindow, attempt: Int) {
+            guard self.window === window, !window.styleMask.contains(.fullScreen) else { return }
+            guard attempt < 12 else {
+                RiftVMLog.info(
+                    "Workspace window did not become visible for the full-screen request",
+                    logger: RiftVMLog.graphics
+                )
+                return
+            }
+            let onScreen = window.isVisible && window.occlusionState.contains(.visible)
+            if onScreen || attempt >= 6 {
+                window.collectionBehavior.insert(.fullScreenPrimary)
+                RiftVMLog.info(
+                    "Workspace window entering full screen (attempt \(attempt) onScreen=\(onScreen))",
+                    logger: RiftVMLog.graphics
+                )
+                window.toggleFullScreen(nil)
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self, weak window] in
+                guard let self, let window else { return }
+                self.requestFullScreen(window, attempt: attempt + 1)
             }
         }
 
