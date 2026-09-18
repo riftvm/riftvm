@@ -271,10 +271,14 @@ struct WorkspaceCreationView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// `~/.riftvm/Omarchy.riftvm/Shared`, abbreviated for display.
+    /// `~/.riftvm/RiftVM Shared`, abbreviated for display: the exchange folder
+    /// sits beside the machine, not inside it.
     private var sharedFolderPath: String {
-        let path = NSString(string: savePath).appendingPathComponent("Shared")
-        return NSString(string: path).abbreviatingWithTildeInPath
+        let path = NSString(string: savePath)
+            .deletingLastPathComponent
+        let shared = NSString(string: path)
+            .appendingPathComponent(VMOmarchyWorkspaceLayout.sharedFolderName)
+        return NSString(string: shared).abbreviatingWithTildeInPath
     }
 
     private var progress: some View {

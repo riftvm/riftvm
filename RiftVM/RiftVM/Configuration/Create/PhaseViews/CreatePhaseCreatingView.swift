@@ -57,8 +57,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context: VMCreateStepperGuidePhaseContext
     ) async -> VMOSResultVoid {
         let profile = VMOmarchyProfile.production
-        let layout = VMOmarchyWorkspaceLayout(
-            applicationSupportRoot: URL(filePath: context.formData.rootPath, directoryHint: .isDirectory)
+        let layout = VMOmarchyWorkspaceLayout.appWorkspace(
+            bundleURL: URL(filePath: context.formData.rootPath, directoryHint: .isDirectory)
         )
         let manager = VMOmarchyWorkspaceManager(layout: layout)
 

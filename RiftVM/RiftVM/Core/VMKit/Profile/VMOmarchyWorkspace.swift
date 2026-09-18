@@ -44,9 +44,54 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
 
 public struct VMOmarchyWorkspaceLayout: Equatable {
     public let applicationSupportRoot: URL
+    /// Host folder shared with the guest, when it is not the machine's own
+    /// `Shared` subfolder. `nil` keeps the folder inside the machine, which is
+    /// what tests and the acceptance tools want.
+    public let sharedRoot: URL?
 
-    public init(applicationSupportRoot: URL) {
+    public init(applicationSupportRoot: URL, sharedRoot: URL? = nil) {
         self.applicationSupportRoot = applicationSupportRoot.standardizedFileURL
+        self.sharedRoot = sharedRoot?.standardizedFileURL
+    }
+
+    /// The layout the app uses for a machine. The exchange folder is the
+    /// friendly `RiftVM Shared` beside the machine bundle — still inside the
+    /// hidden ~/.riftvm, but named what the UI calls it — instead of a `Shared`
+    /// folder buried inside the bundle.
+    ///
+    /// A machine written by an earlier build kept its exchange folder in the
+    /// bundle. That folder is adopted on first open so files already exchanged
+    /// stay visible; if it cannot be moved (a machine on another volume keeps
+    /// its own folder) the old path is used instead of an empty new one.
+    public static func appWorkspace(bundleURL: URL, fileManager: FileManager = .default) -> Self {
+        let bundle = bundleURL.standardizedFileURL
+        let preferred = bundle.deletingLastPathComponent()
+            .appending(path: sharedFolderName, directoryHint: .isDirectory)
+        let legacy = bundle.appending(path: "Shared", directoryHint: .isDirectory)
+        return Self(
+            applicationSupportRoot: bundle,
+            sharedRoot: resolveSharedRoot(preferred: preferred, legacy: legacy, fileManager: fileManager)
+        )
+    }
+
+    /// The name of the exchange folder next to a machine bundle.
+    public static let sharedFolderName = "RiftVM Shared"
+
+    static func resolveSharedRoot(preferred: URL, legacy: URL, fileManager: FileManager) -> URL {
+        if fileManager.fileExists(atPath: preferred.path) { return preferred }
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: legacy.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return preferred }
+        do {
+            try fileManager.createDirectory(
+                at: preferred.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try fileManager.moveItem(at: legacy, to: preferred)
+            return preferred
+        } catch {
+            return legacy
+        }
     }
 
     public static func userDomain(fileManager: FileManager = .default) throws -> Self {
@@ -64,7 +109,9 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var efiVariableStore: URL { boot.appending(path: "EFIVariableStore") }
     public var snapshots: URL { workspace.appending(path: "Snapshots", directoryHint: .isDirectory) }
     public var enrollment: URL { applicationSupportRoot.appending(path: "Enrollment", directoryHint: .isDirectory) }
-    public var shared: URL { applicationSupportRoot.appending(path: "Shared", directoryHint: .isDirectory) }
+    public var shared: URL {
+        sharedRoot ?? applicationSupportRoot.appending(path: "Shared", directoryHint: .isDirectory)
+    }
     public var cache: URL { applicationSupportRoot.appending(path: "Cache", directoryHint: .isDirectory) }
     public var diagnostics: URL { applicationSupportRoot.appending(path: "Diagnostics", directoryHint: .isDirectory) }
     public var recovery: URL { applicationSupportRoot.appending(path: "Recovery", directoryHint: .isDirectory) }

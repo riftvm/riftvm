@@ -108,7 +108,7 @@ private struct WorkspaceRuntimeView: View {
         OmarchyRootView(
             profile: .production,
             workspaceManager: VMOmarchyWorkspaceManager(
-                layout: VMOmarchyWorkspaceLayout(applicationSupportRoot: record.bundleURL)
+                layout: VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: record.bundleURL)
             ),
             workspace: record,
             actions: WorkspaceWindowActions(remove: remove)

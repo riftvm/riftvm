@@ -55,6 +55,9 @@ is always Omarchy.
 ## Wireframes
 
 **A · Prepare** (no Omarchy yet). Storage and resources are the whole form.
+The exchange folder is `~/.riftvm/RiftVM Shared` — beside the machine bundle,
+not inside it, so the folder carries the name the UI uses and survives removing
+the machine.
 
 ```
 ┌─ RiftVM ────────────────────────────────────────────[ Prepare Omarchy ]─┐
@@ -68,7 +71,7 @@ is always Omarchy.
 │  ─────────────────────────────────────────────────────────────────    │
 │  ▸ Resources       8 CPU · 16 GB memory · 64 GB disk                  │
 │  ─────────────────────────────────────────────────────────────────    │
-│  ▸ File exchange   RiftVM Shared · ready                              │
+│  ▸ File exchange   RiftVM Shared (beside the machine)                 │
 │                                                                       │
 │                        [ Prepare Omarchy ]                            │
 └───────────────────────────────────────────────────────────────────────┘
@@ -137,7 +140,8 @@ builds.
 
 **Remove Omarchy…** asks first, stops a live guest before touching the disk,
 moves the bundle to the Trash, clears the record, and returns the window to
-state A. There is no rename: the name is always Omarchy.
+state A. `RiftVM Shared` sits beside the bundle, so the files you exchanged
+with Omarchy stay on the Mac. There is no rename: the name is always Omarchy.
 
 ## What the window deliberately does not have
 

@@ -27,6 +27,48 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         ))
     }
 
+    func testAppWorkspaceSharesAFolderBesideTheMachine() {
+        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
+
+        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
+
+        XCTAssertEqual(
+            layout.shared.path,
+            temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory).path
+        )
+        XCTAssertFalse(layout.shared.path.hasPrefix(bundle.path), "the exchange folder must not live inside the machine")
+    }
+
+    func testAppWorkspaceAdoptsAnInBundleSharedFolder() throws {
+        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
+        let legacyShared = bundle.appending(path: "Shared", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: legacyShared, withIntermediateDirectories: true)
+        try Data("kept".utf8).write(to: legacyShared.appending(path: "notes.txt"))
+
+        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
+
+        let moved = temporaryRoot.appending(path: ".riftvm/RiftVM Shared/notes.txt")
+        XCTAssertEqual(layout.shared.path, temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory).path)
+        XCTAssertEqual(try Data(contentsOf: moved), Data("kept".utf8))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyShared.path))
+    }
+
+    func testAppWorkspaceKeepsAnExistingSharedFolderAndLeavesTheLegacyOneAlone() throws {
+        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
+        let legacyShared = bundle.appending(path: "Shared", directoryHint: .isDirectory)
+        let shared = temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: legacyShared, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: legacyShared.appending(path: "old.txt"))
+        try Data("current".utf8).write(to: shared.appending(path: "current.txt"))
+
+        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
+
+        XCTAssertEqual(layout.shared.path, shared.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: legacyShared.appending(path: "old.txt").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: shared.appending(path: "current.txt").path))
+    }
+
     private var temporaryRoot: URL!
 
     override func setUpWithError() throws {

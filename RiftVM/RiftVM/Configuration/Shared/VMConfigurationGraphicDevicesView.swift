@@ -67,7 +67,7 @@ struct OmarchyGraphicsSettingsView: View {
     @State private var revision = UUID()
 
     private var layout: VMOmarchyWorkspaceLayout {
-        VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
+        VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: workspace.bundleURL)
     }
     private var restriction: String? {
         _ = revision

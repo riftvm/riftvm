@@ -1608,7 +1608,7 @@ private struct WorkspaceWindowPresentations: ViewModifier {
                 Button("Move to Trash", role: .destructive) { remove() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Omarchy and everything inside it go to the Trash. RiftVM then starts over with Prepare Omarchy.")
+                Text("Omarchy and its disk go to the Trash. RiftVM Shared — the folder you and Omarchy exchange files through — stays on your Mac. RiftVM then starts over with Prepare Omarchy.")
             }
     }
 }
