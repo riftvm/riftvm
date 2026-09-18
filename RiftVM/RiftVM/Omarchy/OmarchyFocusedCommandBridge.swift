@@ -129,6 +129,7 @@ final class OmarchyFocusedCommandBridge {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
+    private var loggedInitialState = false
     private var activationObserver: NSObjectProtocol?
     private var permissionRequestedAt: Date?
     private var reportedState: OmarchyKeyboardIntegrationState?
@@ -185,6 +186,19 @@ final class OmarchyFocusedCommandBridge {
             RunLoop.main.add(timer, forMode: .common)
         }
         refreshCaptureState()
+        // The state guard in reportState() is silent when the first computed
+        // state equals the default, which is exactly the "Accessibility was
+        // never granted for this copy" case. Log the starting state once per
+        // run so the unified log always answers why Command chords are not
+        // reaching Omarchy.
+        if !loggedInitialState {
+            loggedInitialState = true
+            NSLog(
+                "Omarchy keyboard capture initial: %@ (AX trusted: %@)",
+                String(describing: reportedState),
+                AXIsProcessTrusted() ? "yes" : "no"
+            )
+        }
     }
 
     private func reportState(_ state: OmarchyKeyboardIntegrationState) {
