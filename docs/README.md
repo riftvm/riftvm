@@ -1,7 +1,8 @@
 # RiftVM documentation
 
 For installation, requirements, and creating your first workspace, start with the
-[project README](../README.md). RiftVM requires **macOS 27 or later and Apple silicon**.
+[project README](../README.md). RiftVM prepares Omarchy workspaces from a signed,
+verified factory image and requires **macOS 27 or later and Apple silicon**.
 
 ## Using and distributing RiftVM
 
@@ -10,7 +11,7 @@ For installation, requirements, and creating your first workspace, start with th
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
 - [Chinese input in Omarchy](OMARCHY_INPUT.md): user-installed Pinyin or Xiaohe and Shift-toggle configuration.
 - [Homebrew distribution](HOMEBREW.md): installation and maintaining the release cask.
-- [Preinstalled-image manifest](PREINSTALLED_IMAGE_MANIFEST.md): the raw ARM64 image import contract.
+- [Preinstalled-image manifest](PREINSTALLED_IMAGE_MANIFEST.md): the CLI's raw ARM64 image import contract.
 
 ## Engineering references
 

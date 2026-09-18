@@ -19,33 +19,48 @@ and notarized app with Homebrew:
 brew install --cask riftvm/tap/riftvm
 ```
 
-Create an **Omarchy workspace** from a verified preinstalled image, or a
-**macOS virtual machine** from an Apple restore image. Both run locally using
-Apple's [Virtualization.framework](https://developer.apple.com/documentation/virtualization).
+RiftVM prepares **Omarchy workspaces**: a focused Arch Linux desktop in a real
+virtual machine, created from a signed and verified factory image and running
+locally through Apple's
+[Virtualization.framework](https://developer.apple.com/documentation/virtualization).
+Omarchy is the one workspace RiftVM prepares, so the whole app is arranged
+around it.
 
 Prefer a direct download? Get the signed and notarized app from
 [GitHub Releases](https://github.com/riftvm/riftvm/releases/latest).
 
 ## Create your first workspace
 
-1. Open RiftVM and choose **Omarchy** or **macOS** from the home screen or the **+** menu. Your selection carries into the creation form.
-2. Choose a name, location, and hardware settings. The default location is `~/RiftVM Virtual Machines`; RiftVM remembers a custom location when you choose one.
-3. Click **Create Omarchy** or **Create Workspace** to download and verify the required image. You can continue in the background, then launch from the workspace list. Omarchy guides you through owner setup on first boot.
+1. Open RiftVM. The home screen has one action, **Prepare Omarchy**; the same
+   action is in the toolbar and in the menu bar menu.
+2. Choose a name, a location, and hardware settings. The default location is
+   `~/RiftVM Virtual Machines`; RiftVM remembers a custom location when you
+   choose one.
+3. Click **Create Omarchy**. RiftVM downloads the factory image, verifies its
+   signed manifest and its digest, and creates the workspace. You can continue
+   in the background, then launch from the workspace list. Omarchy guides you
+   through owner setup on first boot.
 
-Each workspace has its own writable disk and machine identity. Downloaded
-images are cached for reuse; Omarchy still needs a connection to verify its
-release manifest when creating a workspace, even with a cached image.
+Each workspace has its own writable disk and machine identity. The verified
+factory image is cached for reuse; creating a workspace still needs a connection
+to fetch and verify the signed release manifest. The workspace window opens full
+screen, and **Graphics → Fit Display to Window** re-offers the guest the window's
+current size when you want a different one.
 
 ## What it does
 
-- Runs Omarchy and macOS locally through Apple's native virtualization stack
+- Runs Omarchy locally through Apple's native virtualization stack
 - Creates Omarchy from a signed, verified factory image with guided owner setup
-- Creates macOS machines from a local IPSW, a selected release, or Apple's latest compatible restore image
-- Reuses downloaded images and gives each workspace its own writable disk and machine identity
+- Starts, pauses, resumes, and stops each workspace from the card, the workspace
+  window, or the menu bar
+- Reuses the verified image and gives each workspace its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, dynamic display sizing, text and image clipboard exchange, and notifications through an authenticated guest agent
 - Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
-- Provides macOS machine configuration, stopped-machine snapshots, cloning, and checksum-verified `.riftvmexport` import/export in the general VM flow
+- Keeps one display mode per session, so resizing the window never rebuilds the
+  guest's outputs
+- Takes stopped-workspace snapshots and keeps checksum-verified `.riftvmexport`
+  import/export
 
 ### Update and recover Omarchy
 
@@ -61,11 +76,11 @@ factory does not replace your existing guest disk. See [Updates and recovery](do
 
 - An Apple silicon Mac
 - macOS 27 or later
-- A supported macOS restore image, or the verified Omarchy image downloaded by RiftVM
+- A network connection when you create a workspace, to fetch the signed image
 
 ## Limits to know
 
-- Apple silicon and macOS 27 or later are required. Intel Macs and generic Linux ISO installation are outside the supported creation flow.
+- Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported workspace.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
 - Omarchy defaults to Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
 - Omarchy shares only its managed exchange folder by default. Other host folders are not exposed automatically. A guest with read-write access to a deliberately shared folder can change its contents.
@@ -90,13 +105,12 @@ Omarchy workspace you actually created:
 
 ```sh
 riftvm list
-riftvm inspect "My macOS VM"
 riftvm inspect "Omarchy"
-riftvm validate "/path/to/My VM.riftvm"
+riftvm validate "/path/to/Omarchy.riftvm"
 riftvm doctor
-riftvm start "My macOS VM" --timeout 90
-riftvm status "My macOS VM"
-riftvm stop "My macOS VM" --timeout 30
+riftvm start "Imported Linux" --timeout 90
+riftvm status "Imported Linux"
+riftvm stop "Imported Linux" --timeout 30
 riftvm install-image preinstalled-image.json --image disk.raw \
   --destination "$HOME/RiftVM Virtual Machines/Imported Linux.riftvm" --timeout 300
 ```
@@ -137,14 +151,12 @@ startup reports an error instead of switching to Apple Virtio.
 | Workspace / configuration | Graphics path |
 | --- | --- |
 | Omarchy created from the home screen | Custom VirGL by default; Apple Virtio is an explicit per-workspace option |
-| macOS guest | Apple native Mac graphics |
-| Other Linux VMs | Custom VirGL for prepared guests; select Apple Virtio for installation or compatibility |
+| Imported or general Linux VMs | Custom VirGL for prepared guests; select Apple Virtio for installation or compatibility |
 
 Choose **Settings → Display → Graphics Backend** for each Linux workspace. Shut
 down before switching. A saved machine state must first be resumed and shut down,
 or discarded. The choice is stored with the VM and is never silently changed after
-a startup failure. macOS always uses **Apple Graphics** and has no backend picker.
-Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent;
+a startup failure. Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent;
 Apple Virtio may use software rendering for Linux 3D.
 
 Custom VirGL supports zero-copy scanout presentation and dynamic resolution.
@@ -165,15 +177,13 @@ loops, or a release repeatedly asks for Keychain access, start with the
 problems, guest Agent/compositor problems, image compatibility, and release
 signing problems so that one workaround does not hide a different failure.
 
-## Guest images
+## Guest image
 
-### macOS
-
-Pick a macOS version from the built-in list in the creation flow (or use the latest supported restore image), or select a compatible `.ipsw` restore image from disk. Apple publishes current restore images through `Virtualization.framework`; third-party indexes such as [ipsw.me](https://ipsw.me/product/Mac) can help locate older versions.
-
-### Omarchy
-
-Choose **Omarchy** from the home screen or **+** menu. RiftVM downloads the pinned Factory release, verifies its signed manifest and image digest, creates a private writable disk and machine identity, then guides you through owner setup. Generic Linux distributions and custom ISO installation are intentionally outside RiftVM's product scope.
+Choose **Prepare Omarchy**. RiftVM downloads the pinned Factory release, verifies
+its signed manifest and image digest, creates a private writable disk and machine
+identity, then guides you through owner setup. Generic Linux distributions,
+custom ISO installation, and macOS guests are intentionally outside RiftVM's
+product scope.
 
 ## Direction
 

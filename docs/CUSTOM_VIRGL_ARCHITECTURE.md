@@ -16,12 +16,11 @@ RiftVM requires macOS 27. Graphics selection still fails safely:
 | --- | --- | --- |
 | General Linux VM with Custom VirGL selected | Custom Virtio GPU + VirGL | None; report missing prerequisites or initialization failure |
 | Dedicated Omarchy workspace | Custom VirGL by default; Apple Virtio optional | None; initialization failure stops startup |
-| macOS guest | Apple Mac graphics | Custom VirGL is never selected |
 
 The Linux backend is stored per VM. Settings → Display permits changes only while
 stopped, under the same cross-process lease used by startup. Saved machine state
-blocks backend changes. macOS always uses Apple Graphics. The VM window identifies
-the chosen backend, and startup failures do not silently change the choice.
+blocks backend changes. The VM window identifies the chosen backend, and startup
+failures do not silently change the choice.
 
 ## Data paths
 

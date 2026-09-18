@@ -113,6 +113,7 @@ struct VMCreateStepperGuideView: View {
 struct WorkspaceCreationView: View {
     let session: WorkspaceCreationSession
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showResources = false
@@ -357,7 +358,7 @@ struct WorkspaceCreationView: View {
             case .failed:
                 Button("Dismiss") {
                     WorkspaceCreationStore.shared.remove(session)
-                    dismiss()
+                    dismissOwnWindow()
                 }
                 Button("Edit Settings") { session.phase = .setup }
                 Button("Retry") { session.start() }.buttonStyle(.borderedProminent)
@@ -379,6 +380,12 @@ struct WorkspaceCreationView: View {
     private func close() {
         if session.phase == .ready || session.phase == .setup { WorkspaceCreationStore.shared.remove(session) }
         openWindow(id: "control-center")
+        dismissOwnWindow()
+    }
+    /// The preparation window is a single `Window` scene, so close it by id as
+    /// well: the session window this view also serves keeps the generic dismiss.
+    private func dismissOwnWindow() {
+        dismissWindow(id: "create-machine-guide")
         dismiss()
     }
     private func launch() {

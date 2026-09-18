@@ -51,7 +51,10 @@ struct MainApp: App {
         .windowToolbarStyle(.unifiedCompact)
         .restorationBehavior(.disabled)
         
-        WindowGroup("Prepare Omarchy", id: "create-machine-guide") {
+        // One preparation window: the toolbar action, the welcome card, and the
+        // menu bar item all bring this window forward instead of stacking copies,
+        // and the store already refuses a second concurrent creation.
+        Window("Prepare Omarchy", id: "create-machine-guide") {
             VMCreateStepperGuideView()
         }
         .defaultPosition(.center)
@@ -263,7 +266,7 @@ private struct VirtualizationFeaturesSettingsView: View {
             } header: {
                 Text("Feature configuration")
             } footer: {
-                Text("Snapshot storage depends on the machine configuration; an ASIF file alone does not establish that layered snapshots are active. The graphics backend is saved per VM and changes only after shutdown. Startup failures never silently switch backends. macOS guests use Apple's graphics stack; graphics support depends on the host, guest, and hardware. This page does not verify guest Metal support or iCloud sign-in eligibility.")
+                Text("Snapshot storage depends on the machine configuration; an ASIF file alone does not establish that layered snapshots are active. The graphics backend is saved per VM and changes only after shutdown. Startup failures never silently switch backends. Guest graphics support depends on the host, the guest, and the hardware; this page does not verify guest Metal support or sign-in eligibility.")
             }
 
             Section {

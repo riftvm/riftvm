@@ -121,6 +121,77 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.2.0
+
+RiftVM 0.2.0 prepares Omarchy and nothing else, and gives the guest one display
+mode per session so the desktop stops rebuilding itself.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- **RiftVM only prepares Omarchy workspaces.** The create flow no longer offers a
+  second system: the macOS restore-image download, its version list, and its
+  first-boot provisioning form are gone, the Ubuntu/Debian/Fedora ISO catalog is
+  gone, and the local-image, remote-URL, and cached-image paths are gone with
+  them. A workspace is one thing — the signed Omarchy factory image — and the
+  preparation window is a name, the resources, and **Create Omarchy**.
+- **One action starts everything.** The control center opens on a single
+  **Prepare Omarchy** card, with the same action in the toolbar and the menu bar.
+  The All/Running/Omarchy/macOS sidebar and its counts are gone; the window is
+  the workspace grid and the preparation banner.
+- **A workspace is an independent Arch Linux machine.** Start, pause, resume,
+  stop, snapshots, rename, and move-to-trash are unchanged, and Pause, Resume,
+  and Stop are now on the workspace card as well as in the workspace window and
+  the menu bar. Dropping files on a card still copies them into RiftVM Shared.
+- **Workspace windows open full screen, and the guest keeps one display mode.**
+  The scanout is the screen the window is on, the host scales it into the window,
+  and a resize or a full-screen transition costs host-side scaling only — it no
+  longer re-publishes a mode and rebuilds the guest's outputs. **Graphics → Fit
+  Display to Window** re-offers the guest the window's current size and holds it;
+  **Graphics → Use Screen Size** returns to the screen canvas, and entering full
+  screen does too.
+- The workspace registry no longer records a guest kind. Existing records load
+  unchanged, and the `kind` field is simply no longer written.
+
+### Fixes
+
+- **The desktop no longer flickers, and the wallpaper no longer disappears on a
+  display-mode change.** Every size that reached the guest's DRM rebuilt its
+  outputs: the desktop flashed, the background layer lost its committed buffer,
+  and the bar could go with it. With one mode per session that path is not
+  reached. (The 0.1.29 guest-side repair remains in the current factory image for
+  workspaces that change mode for another reason.)
+
+### Validation
+
+- The app builds and the shared core suite passes (425 tests, 1 skipped), the
+  Omarchy integration test bundle builds, and the CLI suite passes.
+- The release pipeline runs the signing, notarization, staple, entitlement,
+  visible-window, and factory-trust checks, plus a real preinstalled-image import
+  and boot smoke test.
+- Not claimed: flicker is only reported fixed by the 0.2.0 display rule on the
+  Macs that reported it; sleep/wake, external displays with different scales, and
+  the guest input defect below are not part of this release's checks.
+
+### Known issues
+
+- An intermittent guest input defect remains open: shortly after pausing and
+  resuming, typed characters can repeat or a line can be lost.
+- Workspaces created from an image older than `v4.0.3-riftvm.9` do not carry the
+  display watcher. New workspaces use the current factory image; update an
+  existing Guest with the paired integration package (see
+  [Updates and recovery](UPDATES_AND_RECOVERY.md)).
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.1.29
 
 RiftVM 0.1.29 keeps the Omarchy wallpaper through a display mode change and

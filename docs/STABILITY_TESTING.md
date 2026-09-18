@@ -72,8 +72,7 @@ Use disposable workspaces and retain the app revision and image manifest hash:
 2. Close the running Omarchy window, cancel once, and confirm it still accepts
    input. Close again and confirm the window remains until shutdown completes.
 3. Start two disposable workspaces and quit from the menu bar. Verify both stop
-   before the process exits. For a disposable macOS guest, verify save and restore
-   separately; an Omarchy shutdown cannot qualify saved-state restoration.
+   before the process exits.
 4. Create a protected pre-update recovery point. Record package versions, run the
    guest's normal update command, retain its exit status, then reboot and check
    the desktop, input, clipboard, and file exchange.
