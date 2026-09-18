@@ -130,8 +130,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 guestAgentVersion: factory.manifest.payload.guestAgentVersion,
                 guestCapabilities: factory.manifest.payload.guestCapabilities.sorted(),
                 cpuCount: context.configData.cpuCount,
-                memoryBytes: context.configData.memorySize,
-                graphicsBackend: context.configData.graphicsBackend
+                memoryBytes: context.configData.memorySize
             ))
             try manager.prepare(
                 factoryDisk: factory.diskURL,

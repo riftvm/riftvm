@@ -85,7 +85,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.injectVisibleGuestInput)
         XCTAssertFalse(configuration.requireAbsoluteGuestPointer)
         XCTAssertFalse(configuration.requireKVM)
-        XCTAssertFalse(configuration.requireVirGL)
         XCTAssertFalse(configuration.requireMemoryBalloon)
         XCTAssertFalse(configuration.requireEntropy)
         XCTAssertFalse(configuration.requireVirtioSocket)
@@ -95,7 +94,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertFalse(configuration.requireGuestIPv4)
         XCTAssertFalse(configuration.requireMachineStateSupport)
         XCTAssertFalse(configuration.saveMachineState)
-        XCTAssertFalse(configuration.forceAppleGraphics)
         XCTAssertEqual(configuration.holdSeconds, 0)
         XCTAssertNil(configuration.holdReadyURL)
         XCTAssertNil(configuration.guestAgentEnrollmentURL)
@@ -110,7 +108,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.injectVisibleGuestInputEnvironmentKey: "1",
             VMReleaseSmokeTest.requireAbsoluteGuestPointerEnvironmentKey: "1",
             VMReleaseSmokeTest.requireKVMEnvironmentKey: "1",
-            VMReleaseSmokeTest.requireVirGLEnvironmentKey: "1",
             VMReleaseSmokeTest.requireMemoryBalloonEnvironmentKey: "1",
             VMReleaseSmokeTest.requireEntropyEnvironmentKey: "1",
             VMReleaseSmokeTest.requireVirtioSocketEnvironmentKey: "1",
@@ -120,7 +117,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
             VMReleaseSmokeTest.requireGuestIPv4EnvironmentKey: "1",
             VMReleaseSmokeTest.requireMachineStateSupportEnvironmentKey: "1",
             VMReleaseSmokeTest.saveMachineStateEnvironmentKey: "1",
-            VMReleaseSmokeTest.forceAppleGraphicsEnvironmentKey: "1",
             VMReleaseSmokeTest.holdSecondsEnvironmentKey: "30",
             VMReleaseSmokeTest.holdReadyEnvironmentKey: "/tmp/hold/../ready.txt",
             VMReleaseSmokeTest.guestAgentEnrollmentEnvironmentKey: "/tmp/agent.json",
@@ -130,7 +126,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.injectVisibleGuestInput)
         XCTAssertTrue(configuration.requireAbsoluteGuestPointer)
         XCTAssertTrue(configuration.requireKVM)
-        XCTAssertTrue(configuration.requireVirGL)
         XCTAssertTrue(configuration.requireMemoryBalloon)
         XCTAssertTrue(configuration.requireEntropy)
         XCTAssertTrue(configuration.requireVirtioSocket)
@@ -140,7 +135,6 @@ final class VMReleaseSmokeTestTests: XCTestCase {
         XCTAssertTrue(configuration.requireGuestIPv4)
         XCTAssertTrue(configuration.requireMachineStateSupport)
         XCTAssertTrue(configuration.saveMachineState)
-        XCTAssertTrue(configuration.forceAppleGraphics)
         XCTAssertEqual(configuration.holdSeconds, 30)
         XCTAssertEqual(configuration.holdReadyURL?.path, "/tmp/ready.txt")
         XCTAssertEqual(configuration.guestAgentEnrollmentURL?.path, "/tmp/agent.json")

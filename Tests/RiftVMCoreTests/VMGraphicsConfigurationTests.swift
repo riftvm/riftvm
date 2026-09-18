@@ -4,35 +4,19 @@ import XCTest
 @testable import RiftVMCore
 
 final class VMGraphicsConfigurationTests: XCTestCase {
-    func testLegacyOmarchyMetadataDefaultsToCustomAndExplicitChoiceRoundTrips() throws {
-        let old = VMOmarchyWorkspaceMetadata(productID: VMOmarchyProfile.production.productID, createdAt: .distantPast)
-        let data = try JSONEncoder().encode(old)
+    func testMetadataCarriesNoGraphicsChoiceAndIgnoresLegacyOnes() throws {
+        let metadata = VMOmarchyWorkspaceMetadata(productID: VMOmarchyProfile.production.productID, createdAt: .distantPast)
+        let data = try JSONEncoder().encode(metadata)
         XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("graphicsBackend"))
-        XCTAssertEqual(try JSONDecoder().decode(VMOmarchyWorkspaceMetadata.self, from: data).effectiveGraphicsBackend, .customVirGL)
-        for backend in VMLinuxGraphicsBackend.allCases {
-            var metadata = old
-            metadata.graphicsBackend = backend
-            XCTAssertEqual(try JSONDecoder().decode(VMOmarchyWorkspaceMetadata.self, from: JSONEncoder().encode(metadata)), metadata)
-        }
-        let invalid = String(decoding: data, as: UTF8.self).dropLast() + ",\"graphicsBackend\":\"unsupported\"}"
-        XCTAssertThrowsError(try JSONDecoder().decode(VMOmarchyWorkspaceMetadata.self, from: Data(invalid.utf8)))
+
+        // A workspace written when the app still recorded Apple Virtio decodes,
+        // and the stale choice has no effect: Custom VirGL is the only backend.
+        let legacy = String(decoding: data, as: UTF8.self).dropLast() + ",\"graphicsBackend\":\"appleVirtio\"}"
+        let decoded = try JSONDecoder().decode(VMOmarchyWorkspaceMetadata.self, from: Data(legacy.utf8))
+        XCTAssertEqual(decoded.productID, metadata.productID)
     }
 
-    func testExplicitAppleChoiceDoesNotRequireVirGLOrGuestAgent() {
-        let choice = VMGraphicsBackendSelection.resolve(isLinux: true,
-            hostSupportsCustomVirtio: false, requested: .appleVirtio,
-            customBackendImplemented: false, hasInstallationMedia: true, guestInputReady: false)
-        XCTAssertEqual(choice.active, .appleVirtio)
-        XCTAssertNil(choice.unavailabilityReason)
-    }
-
-    func testRunningAndSavedStateBlockBackendChanges() {
-        XCTAssertNil(VMLinuxGraphicsBackend.changeRestriction(isRunning: false, hasSavedState: false))
-        XCTAssertNotNil(VMLinuxGraphicsBackend.changeRestriction(isRunning: true, hasSavedState: false))
-        XCTAssertNotNil(VMLinuxGraphicsBackend.changeRestriction(isRunning: false, hasSavedState: true))
-    }
-
-    func testExplicitAppleChoiceBuildsNativeDeviceAndSurvivesGuestMetadataUpdate() throws {
+    func testALegacyAppleChoiceStillBuildsTheCustomDevice() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("riftvm-graphics-settings-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
@@ -41,16 +25,24 @@ final class VMGraphicsConfigurationTests: XCTestCase {
         }
         try Data(count: 1_048_576).write(to: layout.disk)
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
-        let metadata = VMOmarchyWorkspaceMetadata(productID: VMOmarchyProfile.production.productID,
-            createdAt: Date(), graphicsBackend: .appleVirtio)
-        try JSONEncoder().encode(metadata).write(to: layout.configuration)
-        let configuration = try VMOmarchyVirtualMachineBuilder.makeUnvalidatedConfigurationForTesting(layout: layout, profile: .production, hostMemoryBytes: 24 * 1024 * 1024 * 1024, activeProcessorCount: 10)
-        XCTAssertEqual(configuration.graphicsDevices.count, 1)
-        XCTAssertTrue(configuration.graphicsDevices.first is VZVirtioGraphicsDeviceConfiguration)
-        XCTAssertTrue(configuration.customVirtioDevices.isEmpty)
-        let manager = VMOmarchyWorkspaceManager(layout: layout)
-        try manager.recordGuestIntegration(omarchyRevision: "new", agentVersion: "test", capabilities: ["desktop-input-v1"])
-        XCTAssertEqual(try manager.metadata().effectiveGraphicsBackend, .appleVirtio)
+        let legacyJSON = """
+        {"schemaVersion":2,"productID":"\(VMOmarchyProfile.production.productID)","createdAt":0,"graphicsBackend":"appleVirtio"}
+        """
+        try Data(legacyJSON.utf8).write(to: layout.configuration)
+
+        let devices = [VZCustomVirtioDeviceConfiguration()]
+        let configuration = try VMOmarchyVirtualMachineBuilder.makeUnvalidatedConfigurationForTesting(
+            layout: layout,
+            profile: .production,
+            customGraphicsDevices: devices,
+            hostMemoryBytes: 24 * 1024 * 1024 * 1024,
+            activeProcessorCount: 10
+        )
+
+        // The recorded Apple choice is ignored: no Apple graphics device, and the
+        // custom device is what the machine gets.
+        XCTAssertTrue(configuration.graphicsDevices.isEmpty)
+        XCTAssertEqual(configuration.customVirtioDevices.count, devices.count)
     }
 
     @MainActor

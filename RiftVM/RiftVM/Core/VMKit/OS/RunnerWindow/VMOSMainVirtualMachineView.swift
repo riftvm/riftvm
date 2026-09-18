@@ -505,21 +505,15 @@ struct VMOSMainVirtualMachineView: View {
     /// scaling it into a smaller window. The release readiness probe measures a
     /// window, so it opts out through its own marker.
     private func graphicsStatusTitle(backend: VMGraphicsBackendKind, needsAttention: Bool) -> String {
+        _ = backend
         if needsAttention { return String(localized: "Custom VirGL needs attention") }
-        switch backend {
-        case .customVirGL: return String(localized: "Custom VirGL active")
-        case .appleMac: return "Apple Graphics active"
-        case .appleVirtio: return "Apple Virtio active"
-        }
+        return String(localized: "Custom VirGL active")
     }
 
     private func graphicsStatusHelp(backend: VMGraphicsBackendKind) -> String {
+        _ = backend
         if let detail = runtimeState.graphicsBackendDetail { return detail }
-        switch backend {
-        case .customVirGL: return String(localized: "Custom VirGL acceleration is active")
-        case .appleMac: return "Apple Graphics is active"
-        case .appleVirtio: return "Apple Virtio graphics is active"
-        }
+        return String(localized: "Custom VirGL acceleration is active")
     }
 
     private var opensFullScreen: Bool {

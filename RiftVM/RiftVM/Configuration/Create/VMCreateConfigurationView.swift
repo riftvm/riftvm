@@ -24,8 +24,10 @@ struct VMCreateConfigurationView: View {
             }
             
             Section("Graphics") {
-                @Bindable var configData = configData
-                VMGraphicsBackendPicker(selection: $configData.graphicsBackend)
+                LabeledContent("Graphics Backend", value: VMGraphicsBackendKind.customVirGL.displayName)
+                Text("RiftVM renders the guest desktop through its own VirGL device. There is no other backend to choose.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             Section ("Display / Storage / Network") {
                 VMConfigurationGraphicDevicesView()

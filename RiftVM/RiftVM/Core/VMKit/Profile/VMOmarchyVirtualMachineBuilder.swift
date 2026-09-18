@@ -116,17 +116,11 @@ public enum VMOmarchyVirtualMachineBuilder {
         )
         configuration.storageDevices = [VZVirtioBlockDeviceConfiguration(attachment: diskAttachment)]
 
-        // Both paths are explicit per-workspace choices; never silently fall back.
-        if (metadata?.effectiveGraphicsBackend ?? .customVirGL) == .appleVirtio {
-            let graphics = VZVirtioGraphicsDeviceConfiguration()
-            graphics.scanouts = [VZVirtioGraphicsScanoutConfiguration(widthInPixels: 1920, heightInPixels: 1200)]
-            configuration.graphicsDevices = [graphics]
-        } else {
-            configuration.graphicsDevices = []
-            configuration.customVirtioDevices = customGraphicsDevices
-            if validatesConfiguration && !customGraphicsDevices.contains(where: { $0.deviceID == 16 }) {
-                throw VMOmarchyVirtualMachineBuilderError.customGraphicsRequired
-            }
+        // Custom VirGL is the only backend: never fall back to Apple's device.
+        configuration.graphicsDevices = []
+        configuration.customVirtioDevices = customGraphicsDevices
+        if validatesConfiguration && !customGraphicsDevices.contains(where: { $0.deviceID == 16 }) {
+            throw VMOmarchyVirtualMachineBuilderError.customGraphicsRequired
         }
         configuration.keyboards = [VZUSBKeyboardConfiguration()]
         configuration.pointingDevices = [VZUSBScreenCoordinatePointingDeviceConfiguration()]

@@ -49,7 +49,9 @@ class VMOSRunnerForLinux : VMOSRunner {
         }
         
         // graphicsDevices
-        let graphicsBackend = graphicsBackend ?? VMAppleGraphicsBackend()
+        guard let graphicsBackend else {
+            return .failure("RiftVM could not create its graphics device for this machine.")
+        }
         if case let .failure(error) = graphicsBackend.applyGraphics(
             from: model.config.graphicsDevices,
             to: virtualMachineConfiguration

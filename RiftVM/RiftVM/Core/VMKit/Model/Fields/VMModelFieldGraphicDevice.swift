@@ -95,62 +95,6 @@ protocol VMGraphicsBackend {
     func shutdown()
 }
 
-final class VMAppleGraphicsBackend: VMGraphicsBackend {
-    let kind: VMGraphicsBackendKind
-    let supportsMachineSaveRestore = true
-    let virtualMachineView: VZVirtualMachineView
-    var displayView: NSView { virtualMachineView }
-
-    init(displayView: VZVirtualMachineView = VZVirtualMachineView(), kind: VMGraphicsBackendKind = .appleVirtio) {
-        self.kind = kind
-        virtualMachineView = displayView
-        if #available(macOS 14.0, *) {
-            virtualMachineView.automaticallyReconfiguresDisplay = true
-        }
-    }
-
-    func applyGraphics(
-        from devices: [VMModelFieldGraphicDevice],
-        to configuration: VZVirtualMachineConfiguration
-    ) -> VMOSResultVoid {
-        configuration.graphicsDevices = devices.map { $0.createConfiguration() }
-        return .success
-    }
-
-    func bind(virtualMachine: VZVirtualMachine?) {
-        virtualMachineView.virtualMachine = virtualMachine
-    }
-
-    func refreshDisplayConfiguration() {
-        guard #available(macOS 14.0, *) else { return }
-        virtualMachineView.automaticallyReconfiguresDisplay = false
-        virtualMachineView.automaticallyReconfiguresDisplay = true
-    }
-
-    func matchDisplayToWindow() {}
-
-    func useScreenCanvas() {}
-
-    func setDynamicDisplayReady(_ ready: Bool) {}
-
-    func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {}
-
-    func setKeyboardIntegrationStateHandler(_ handler: ((VMKeyboardIntegrationState) -> Void)?) {
-        handler?(.unavailable)
-    }
-
-    func requestKeyboardIntegrationPermission() {}
-
-    func setAbsolutePointerEnabled(_ enabled: Bool) {}
-
-    func setRuntimeIssueHandler(_ handler: ((String?) -> Void)?) {}
-
-    func shutdown() {
-        virtualMachineView.virtualMachine = nil
-    }
-}
-
-@available(macOS 27.0, *)
 private final class VMFocusedCommandEventTap {
     typealias FocusProbe = () -> Bool
     typealias EventHandler = ([VMGuestAgentInputEvent]) -> Void
@@ -1501,37 +1445,22 @@ enum VMGraphicsBackendFactory {
     // presenter, and lifecycle implementation are linked into the app target.
     static let customBackendImplemented = true
 
-    static func make(
-        forLinux: Bool = true,
-        devices: [VMModelFieldGraphicDevice],
-        requested: VMLinuxGraphicsBackend = .customVirGL,
-        hasInstallationMedia: Bool = false,
-        guestInputReady: Bool = true,
-        forceAppleGraphics: Bool = false
-    ) throws -> VMGraphicsBackendCreation {
-        guard forLinux else {
-            return VMGraphicsBackendCreation(backend: VMAppleGraphicsBackend(kind: .appleMac), detail: nil)
+    /// RiftVM runs Linux guests through its own VirGL device and nothing else.
+    /// There is no second backend to fall back to, so every unmet requirement is
+    /// reported instead of a silent switch to Apple's device.
+    static func make(devices: [VMModelFieldGraphicDevice]) throws -> VMGraphicsBackendCreation {
+        guard VirtualizationCapability.customVirtio.isAvailable else {
+            throw VMOSError.regularFailure("Custom VirGL requires macOS 27 or later.")
         }
-        if forceAppleGraphics || requested == .appleVirtio {
-            return VMGraphicsBackendCreation(backend: VMAppleGraphicsBackend(), detail: nil)
-        }
-        let selection = VMGraphicsBackendSelection.resolve(
-            isLinux: true,
-            hostSupportsCustomVirtio: VirtualizationCapability.customVirtio.isAvailable,
-            requested: requested,
-            customBackendImplemented: customBackendImplemented,
-            hasInstallationMedia: hasInstallationMedia,
-            guestInputReady: guestInputReady
-        )
-        guard selection.active == .customVirGL else {
-            throw VMOSError.regularFailure("\(selection.unavailabilityReason ?? "Custom VirGL is unavailable.") Shut down and open Settings → Display to change the backend.")
+        guard customBackendImplemented else {
+            throw VMOSError.regularFailure("The Custom VirGL runtime is not included in this build.")
         }
         do {
             return VMGraphicsBackendCreation(
                 backend: try VMCustomVirGLGraphicsBackend(devices: devices), detail: nil
             )
         } catch {
-            throw VMOSError.regularFailure("Custom VirGL could not start: \(error.localizedDescription). Verify the bundled runtime, or shut down and choose Apple Virtio in Settings → Display.")
+            throw VMOSError.regularFailure("Custom VirGL could not start: \(error.localizedDescription). Verify the bundled runtime.")
         }
     }
 }

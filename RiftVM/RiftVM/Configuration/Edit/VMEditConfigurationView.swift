@@ -96,15 +96,11 @@ struct VMEditConfigurationView: View {
             }
         case .display:
             settingsPage("Display", subtitle: "Graphics backend and guest displays", symbol: "display") {
-                @Bindable var configData = configData
                 Form {
                     Section {
-                        if configData.osType == .linux {
-                            VMGraphicsBackendPicker(selection: $configData.graphicsBackend, restriction: graphicsRestriction)
-                        } else {
-                            LabeledContent("Graphics Backend", value: "Apple Graphics")
-                            Text("Native Apple graphics for macOS virtual machines.").foregroundStyle(.secondary)
-                        }
+                        LabeledContent("Graphics Backend", value: VMGraphicsBackendKind.customVirGL.displayName)
+                        Text("RiftVM renders the guest desktop through its own VirGL device. There is no other backend to choose.")
+                            .foregroundStyle(.secondary)
                     }
                     Section("Displays") { VMConfigurationGraphicDevicesView() }
                 }.formStyle(.grouped)
@@ -173,30 +169,9 @@ struct VMEditConfigurationView: View {
         configData.osType == .linux ? Category.allCases : Category.allCases.filter { $0 != .linux }
     }
 
-    private var graphicsRestriction: String? {
-        _ = runRevision
-        return VMLinuxGraphicsBackend.changeRestriction(
-            isRunning: VMRunningRegistry.shared.isRunning(rootPath: model.rootPath),
-            hasSavedState: FileManager.default.fileExists(atPath: model.savedMachineStateURL.path)
-        )
-    }
-
     private func saveConfig() {
         let configuration = configData.getConfigModel()
-        let result: VMOSResultVoid
-        if configuration.type == .linux && configuration.effectiveGraphicsBackend != model.config.effectiveGraphicsBackend {
-            do {
-                result = try VMRunningRegistry.shared.withStoppedMachine(rootPath: model.rootPath) {
-                    if let reason = VMLinuxGraphicsBackend.changeRestriction(isRunning: false,
-                        hasSavedState: FileManager.default.fileExists(atPath: model.savedMachineStateURL.path)) {
-                        throw VMOSError.regularFailure(reason)
-                    }
-                    return configuration.writeConfigToFile(path: model.configURL)
-                }
-            } catch { saveError = error.localizedDescription; return }
-        } else {
-            result = configuration.writeConfigToFile(path: model.configURL)
-        }
+        let result: VMOSResultVoid = configuration.writeConfigToFile(path: model.configURL)
         switch result {
         case .success:
             NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)

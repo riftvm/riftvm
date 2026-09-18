@@ -3,7 +3,6 @@
 set -euo pipefail
 
 candidate="${1:-}"
-baseline="${2:-}"
 
 fail() {
     echo "verify-virgl-performance: $*" >&2
@@ -30,7 +29,7 @@ require_number() {
     [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "$description is not a nonnegative number: $value"
 }
 
-[[ -n "$candidate" ]] || fail "usage: $0 <custom-virgl-report> [apple-virtio-baseline-report]"
+[[ -n "$candidate" ]] || fail "usage: $0 <custom-virgl-report>"
 [[ -f "$candidate" && ! -L "$candidate" ]] || fail "missing or unsafe candidate report: $candidate"
 [[ "$(metric "$candidate" Format-Version)" == "2" ]] || fail "candidate is not a version 2 capture"
 [[ "$(metric "$candidate" Backend)" == "custom-virgl" ]] || fail "candidate backend must be custom-virgl"
@@ -93,30 +92,5 @@ case "$timing_version" in
         ;;
     *) fail "capture mixes or omits extended frame timings" ;;
 esac
-
-if [[ -n "$baseline" ]]; then
-    [[ -f "$baseline" && ! -L "$baseline" ]] || fail "missing or unsafe baseline report: $baseline"
-    [[ "$(metric "$baseline" Format-Version)" == "2" ]] || fail "baseline is not a version 2 capture"
-    [[ "$(metric "$baseline" Backend)" == "apple-virtio" ]] || fail "baseline backend must be apple-virtio"
-    [[ "$(metric "$baseline" VirGL-Window-Count)" == "0" ]] || fail "baseline contains VirGL frame windows and is mislabeled"
-    [[ "$(metric "$candidate" Workload)" != "unspecified" ]] || fail "A/B reports require an explicit workload label"
-    for field in Duration Workload Hardware macOS; do
-        [[ "$(metric "$candidate" "$field")" == "$(metric "$baseline" "$field")" ]] || \
-            fail "$field differs between candidate and baseline"
-    done
-
-    candidate_cpu="$(metric "$candidate" Host-Average-CPU-Percent)"
-    baseline_cpu="$(metric "$baseline" Host-Average-CPU-Percent)"
-    candidate_rss="$(metric "$candidate" Host-Average-RSS-MiB)"
-    baseline_rss="$(metric "$baseline" Host-Average-RSS-MiB)"
-    require_number "$candidate_cpu" "candidate average CPU"
-    require_number "$baseline_cpu" "baseline average CPU"
-    require_number "$candidate_rss" "candidate average RSS"
-    require_number "$baseline_rss" "baseline average RSS"
-    cpu_delta="$(awk -v candidate="$candidate_cpu" -v baseline="$baseline_cpu" 'BEGIN { printf "%.1f", candidate - baseline }')"
-    rss_delta="$(awk -v candidate="$candidate_rss" -v baseline="$baseline_rss" 'BEGIN { printf "%.1f", candidate - baseline }')"
-    number_le "$cpu_delta" "$maximum_cpu_delta" || fail "average host CPU regression ${cpu_delta} points exceeds ${maximum_cpu_delta}"
-    number_le "$rss_delta" "$maximum_rss_delta" || fail "average host RSS regression ${rss_delta} MiB exceeds ${maximum_rss_delta} MiB"
-fi
 
 echo "VirGL performance gate passed: windows=$windows failures=$failures misses=$misses average=${average_present}ms p95=${p95_present}ms peak=${peak_present}ms"

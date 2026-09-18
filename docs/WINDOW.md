@@ -131,8 +131,8 @@ builds.
 
 | Menu | Items |
 | --- | --- |
-| `Omarchy ▾` | Snapshots… · Display Settings… · Show in Finder · Remove Omarchy… |
-| `Graphics ▾` | the active backend, any problem, Display Settings… |
+| `Omarchy ▾` | Snapshots… · Show in Finder · Remove Omarchy… |
+| `Graphics ▾` | Custom VirGL, any problem, and a note that RiftVM renders through its own VirGL device |
 | `Integration ▾` | agent status, clipboard, microphone, notifications |
 | `Updates ▾` | app version, Prepare for Omarchy Update…, signed factory channel |
 | `Recovery ▾` | recovery points, restore, create backup |

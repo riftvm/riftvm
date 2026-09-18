@@ -494,7 +494,6 @@ struct OmarchyVirtualMachineView: View {
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
     @State private var notice: UserNotice?
-    @State private var activeGraphicsBackend: VMLinuxGraphicsBackend?
     @State private var graphicsIssue: String?
     @State private var acceptanceFailure: String?
     @State private var recordedIntegrationSignature = ""
@@ -512,7 +511,6 @@ struct OmarchyVirtualMachineView: View {
     @State private var removesWhenStopped = false
     @State private var isShowingRemovalConfirmation = false
     @State private var showsSnapshots = false
-    @State private var showsDisplaySettings = false
     /// Bumped when the guest starts running, so the window takes the screen for
     /// the desktop and stays a normal window for the preparation and stopped
     /// screens.
@@ -553,7 +551,6 @@ struct OmarchyVirtualMachineView: View {
         .modifier(WorkspaceWindowPresentations(
             workspace: workspace,
             showsSnapshots: $showsSnapshots,
-            showsDisplaySettings: $showsDisplaySettings,
             isShowingRemovalConfirmation: $isShowingRemovalConfirmation,
             remove: removeWorkspace
         ))
@@ -632,7 +629,7 @@ struct OmarchyVirtualMachineView: View {
                 graphicsIssueChanged: { graphicsIssue = $0 }
             )
             .id(sessionID)
-            .onAppear { activeGraphicsBackend = try? VMOmarchyWorkspaceManager(layout: layout).metadata().effectiveGraphicsBackend }
+            
             if phase != .running {
                 statusOverlay
             }
@@ -744,15 +741,13 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
-    /// The active backend, any graphics problem, and where the backend is changed.
+    /// The backend in use and any graphics problem. There is nothing to choose:
+    /// Custom VirGL is the only backend RiftVM runs.
     private var graphicsMenu: some View {
         Menu {
-            if let activeGraphicsBackend {
-                Text("\(activeGraphicsBackend.displayName) selected")
-            }
+            Text(VMGraphicsBackendKind.customVirGL.displayName)
             if let graphicsIssue { Text(graphicsIssue) }
-            Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
-            Text("Change the backend in Display Settings after shutdown.")
+            Text("RiftVM renders the guest desktop through its own VirGL device.")
         } label: { Label("Graphics", systemImage: "display") }
     }
 
@@ -762,7 +757,6 @@ struct OmarchyVirtualMachineView: View {
     private var workspaceMenu: some View {
         Menu {
             Button("Snapshots…", systemImage: "camera.on.rectangle") { showsSnapshots = true }
-            Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL])
             }
@@ -1587,7 +1581,6 @@ struct OmarchyVirtualMachineView: View {
 private struct WorkspaceWindowPresentations: ViewModifier {
     let workspace: ActiveWorkspaceRecord
     @Binding var showsSnapshots: Bool
-    @Binding var showsDisplaySettings: Bool
     @Binding var isShowingRemovalConfirmation: Bool
     let remove: () -> Void
 
@@ -1596,9 +1589,6 @@ private struct WorkspaceWindowPresentations: ViewModifier {
             .sheet(isPresented: $showsSnapshots) {
                 MachineSnapshotsView(machineName: workspace.name, rootPath: workspace.bundleURL)
                     .frame(minWidth: 820, minHeight: 620)
-            }
-            .sheet(isPresented: $showsDisplaySettings) {
-                OmarchyGraphicsSettingsView(workspace: workspace)
             }
             .confirmationDialog(
                 "Move Omarchy to the Trash?",
@@ -1813,10 +1803,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> VZVirtualMachineView {
         context.coordinator.runLease = VMRunningRegistry.shared.acquire(rootPath: layout.applicationSupportRoot)
         let metadata = Result { try VMOmarchyWorkspaceManager(layout: layout).metadata() }
-        let usesCustomGraphics = (try? metadata.get().effectiveGraphicsBackend) != .appleVirtio
-        let view = OmarchyVirtualMachineInputView(usesCustomGraphics: usesCustomGraphics)
+        let view = OmarchyVirtualMachineInputView()
         view.capturesSystemKeys = true
-        view.automaticallyReconfiguresDisplay = !usesCustomGraphics
         view.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.machineView = view
         // Stop/recovery must remain available even when graphics or VM
@@ -1827,24 +1815,19 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 throw VMOSError.regularFailure("Omarchy is already running or its settings are being changed.")
             }
             _ = try metadata.get()
-            let backend: any VMGraphicsBackend
-            if usesCustomGraphics {
-                // Boot straight into the mode the session will keep. The guest
-                // starts on this scanout, and the host publishes the same size
-                // once the desktop is up, so the display never changes mode while
-                // the session runs: a mode change rebuilds every output, which is
-                // what flickers the desktop and leaves its background layer
-                // without a committed buffer.
-                let canvas = VMDisplayGeometry.guestResolution(
-                    for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
-                )
-                backend = try VMCustomVirGLGraphicsBackend(
-                    devices: [.init(type: .Virtio, width: Int(canvas.width), height: Int(canvas.height), pixelsPerInch: 0)],
-                    displayView: view
-                )
-            } else {
-                backend = VMAppleGraphicsBackend(displayView: view)
-            }
+            // Boot straight into the mode the session will keep. The guest starts
+            // on this scanout, and the host publishes the same size once the
+            // desktop is up, so the display never changes mode while the session
+            // runs: a mode change rebuilds every output, which is what flickers
+            // the desktop and leaves its background layer without a committed
+            // buffer.
+            let canvas = VMDisplayGeometry.guestResolution(
+                for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
+            )
+            let backend: any VMGraphicsBackend = try VMCustomVirGLGraphicsBackend(
+                devices: [.init(type: .Virtio, width: Int(canvas.width), height: Int(canvas.height), pixelsPerInch: 0)],
+                displayView: view
+            )
             context.coordinator.graphicsBackend = backend
             backend.setRuntimeIssueHandler(context.coordinator.graphicsIssueChanged)
             view.displayConfigurationChanged = { [weak coordinator = context.coordinator] in coordinator?.graphicsBackend?.refreshDisplayConfiguration() }

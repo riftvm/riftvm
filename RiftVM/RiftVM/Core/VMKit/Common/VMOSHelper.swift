@@ -779,7 +779,6 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let injectVisibleGuestInput: Bool
     let requireAbsoluteGuestPointer: Bool
     let requireKVM: Bool
-    let requireVirGL: Bool
     let requireMemoryBalloon: Bool
     let requireEntropy: Bool
     let requireVirtioSocket: Bool
@@ -789,7 +788,6 @@ struct VMReleaseSmokeTestConfiguration: Equatable {
     let requireGuestIPv4: Bool
     let requireMachineStateSupport: Bool
     let saveMachineState: Bool
-    let forceAppleGraphics: Bool
     let holdSeconds: Int
     let holdReadyURL: URL?
     let guestAgentEnrollmentURL: URL?
@@ -804,7 +802,6 @@ enum VMReleaseSmokeTest {
     static let injectVisibleGuestInputEnvironmentKey = "RIFTVM_RELEASE_INJECT_VISIBLE_INPUT"
     static let requireAbsoluteGuestPointerEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_ABSOLUTE_POINTER"
     static let requireKVMEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_KVM"
-    static let requireVirGLEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_VIRGL"
     static let requireMemoryBalloonEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_MEMORY_BALLOON"
     static let requireEntropyEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_ENTROPY"
     static let requireVirtioSocketEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_VIRTIO_SOCKET"
@@ -814,7 +811,6 @@ enum VMReleaseSmokeTest {
     static let requireGuestIPv4EnvironmentKey = "RIFTVM_RELEASE_REQUIRE_GUEST_IPV4"
     static let requireMachineStateSupportEnvironmentKey = "RIFTVM_RELEASE_REQUIRE_MACHINE_STATE_SUPPORT"
     static let saveMachineStateEnvironmentKey = "RIFTVM_RELEASE_SAVE_MACHINE_STATE"
-    static let forceAppleGraphicsEnvironmentKey = "RIFTVM_RELEASE_FORCE_APPLE_GRAPHICS"
     static let holdSecondsEnvironmentKey = "RIFTVM_RELEASE_HOLD_SECONDS"
     static let holdReadyEnvironmentKey = "RIFTVM_RELEASE_HOLD_READY"
     static let guestAgentEnrollmentEnvironmentKey = "RIFTVM_RELEASE_AGENT_ENROLLMENT_FILE"
@@ -845,7 +841,6 @@ enum VMReleaseSmokeTest {
             injectVisibleGuestInput: environment[injectVisibleGuestInputEnvironmentKey] == "1",
             requireAbsoluteGuestPointer: environment[requireAbsoluteGuestPointerEnvironmentKey] == "1",
             requireKVM: environment[requireKVMEnvironmentKey] == "1",
-            requireVirGL: environment[requireVirGLEnvironmentKey] == "1",
             requireMemoryBalloon: environment[requireMemoryBalloonEnvironmentKey] == "1",
             requireEntropy: environment[requireEntropyEnvironmentKey] == "1",
             requireVirtioSocket: environment[requireVirtioSocketEnvironmentKey] == "1",
@@ -855,7 +850,6 @@ enum VMReleaseSmokeTest {
             requireGuestIPv4: environment[requireGuestIPv4EnvironmentKey] == "1",
             requireMachineStateSupport: environment[requireMachineStateSupportEnvironmentKey] == "1",
             saveMachineState: environment[saveMachineStateEnvironmentKey] == "1",
-            forceAppleGraphics: environment[forceAppleGraphicsEnvironmentKey] == "1",
             holdSeconds: holdSeconds,
             holdReadyURL: environment[holdReadyEnvironmentKey].flatMap {
                 $0.isEmpty ? nil : URL(filePath: $0).standardizedFileURL
@@ -1031,29 +1025,18 @@ enum VirtualizationCapability: String, CaseIterable, Identifiable {
     }
 }
 
-/// Persisted per-machine Linux graphics choice. macOS always uses Apple Graphics.
-public enum VMLinuxGraphicsBackend: String, Codable, CaseIterable, Sendable {
+/// The one graphics backend RiftVM runs. The type stays for the status plumbing
+/// that reports which backend a running machine is using.
+enum VMGraphicsBackendKind: String, Codable, Equatable {
     case customVirGL
-    case appleVirtio
-
-    public var displayName: String {
-        switch self {
-        case .customVirGL: "Custom VirGL"
-        case .appleVirtio: "Apple Virtio"
-        }
-    }
-
-    public static func changeRestriction(isRunning: Bool, hasSavedState: Bool) -> String? {
-        if isRunning { return "Shut down this virtual machine before changing its graphics backend." }
-        if hasSavedState { return "Resume and shut down this virtual machine, or discard its saved state, before changing its graphics backend." }
-        return nil
-    }
 }
 
-enum VMGraphicsBackendKind: String, Codable, Equatable {
-    case appleMac
-    case appleVirtio
-    case customVirGL
+extension VMGraphicsBackendKind {
+    var displayName: String {
+        switch self {
+        case .customVirGL: "Custom VirGL"
+        }
+    }
 }
 
 enum VMMachineStateSupport {
@@ -1076,41 +1059,6 @@ enum VMMachineStateSupport {
             return "This virtual machine configuration cannot save state: \(configurationValidationFailure)"
         }
         return nil
-    }
-}
-
-struct VMGraphicsBackendSelection: Equatable {
-    let requested: VMGraphicsBackendKind
-    let active: VMGraphicsBackendKind?
-    let unavailabilityReason: String?
-
-    static func resolve(
-        isLinux: Bool,
-        hostSupportsCustomVirtio: Bool,
-        requested: VMLinuxGraphicsBackend = .customVirGL,
-        customBackendImplemented: Bool,
-        hasInstallationMedia: Bool = false,
-        guestInputReady: Bool = true
-    ) -> Self {
-        guard isLinux else {
-            return Self(requested: .appleMac, active: .appleMac, unavailabilityReason: nil)
-        }
-        guard requested == .customVirGL else {
-            return Self(requested: .appleVirtio, active: .appleVirtio, unavailabilityReason: nil)
-        }
-        let reason: String?
-        if !hostSupportsCustomVirtio {
-            reason = "Custom VirGL requires macOS 27 or later."
-        } else if !customBackendImplemented {
-            reason = "The Custom VirGL runtime is not included in this build."
-        } else if hasInstallationMedia {
-            reason = "Eject installation media before using Custom VirGL. Select Apple Virtio to run the installer."
-        } else if !guestInputReady {
-            reason = "The RiftVM Guest Agent has not confirmed input readiness. Select Apple Virtio to install or repair the Guest Agent."
-        } else {
-            reason = nil
-        }
-        return Self(requested: .customVirGL, active: reason == nil ? .customVirGL : nil, unavailabilityReason: reason)
     }
 }
 

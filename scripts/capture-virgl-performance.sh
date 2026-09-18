@@ -17,9 +17,9 @@ if ! [[ "$duration" =~ ^[0-9]+$ ]] || (( duration < 5 || duration > 600 )); then
 fi
 
 case "$backend" in
-    custom-virgl|apple-virtio) ;;
+    custom-virgl) ;;
     *)
-        echo "RIFTVM_VIRGL_BACKEND must be custom-virgl or apple-virtio." >&2
+        echo "RIFTVM_VIRGL_BACKEND must be custom-virgl: RiftVM runs no other backend." >&2
         exit 2
         ;;
 esac

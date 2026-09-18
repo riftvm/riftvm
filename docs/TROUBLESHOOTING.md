@@ -4,27 +4,28 @@ _Graphics guidance reflects the Custom VirGL Omarchy implementation in this sour
 
 This guide records failures found while bringing Omarchy from bootable to
 usable on RiftVM. Start with the symptom, preserve the first useful log, and
-avoid changing the host, guest image, display backend, and Agent at the same
+avoid changing the host, guest image, graphics path, and Agent at the same
 time.
 
 ## First identify the active path
 
 Before debugging, record the host macOS version, guest OS/image version, RiftVM
-version, CPU/memory allocation, and whether the VM is using Custom VirGL or
-Apple graphics.
+version, CPU/memory allocation, and the graphics status the VM window reports.
 
 | Host and guest | Expected graphics path |
 | --- | --- |
-| Omarchy created from the home screen | Custom VirGL by default; Apple Virtio available in Settings → Display |
-| General Linux VM with Custom VirGL enabled | Custom Virtio GPU with VirGL/ANGLE; explicit error on initialization failure |
+| Omarchy created from the home screen | Custom VirGL (Custom Virtio GPU with VirGL/ANGLE); explicit startup error on initialization failure |
+| General Linux VM | Custom VirGL (Custom Virtio GPU with VirGL/ANGLE); explicit startup error on initialization failure |
 
-The RiftVM deployment target is macOS 27. Omarchy defaults to Custom VirGL.
-A missing or broken runtime produces a startup error, never a silent fallback.
-To change backends, shut down and open **Settings → Display → Graphics Backend**.
-Select **Apple Virtio** for Linux compatibility or installation. It may render
-Linux 3D in software. Before selecting Custom VirGL on a general Linux VM, install
-the supported guest drivers and RiftVM Guest Agent and eject installation media.
-Resume and shut down (or discard) any saved machine state before switching.
+The RiftVM deployment target is macOS 27. Every machine uses Custom VirGL; there
+is no graphics picker. If VirGL cannot initialize, startup stops with an error
+and a diagnostic instead of falling back to another backend. Fix the cause — a
+missing or broken runtime, missing guest drivers, or Guest Agent readiness —
+rather than looking for a different graphics path. Before starting a general
+Linux VM, install the supported guest drivers and RiftVM Guest Agent and eject
+installation media. Resume and shut down (or discard) any saved machine state
+first: Custom VirGL cannot reconstruct renderer contexts and resources from
+restored RAM.
 
 Use the Omarchy window's **Integration**, **Updates**, and **Recovery** menus for
 its status and recovery controls. `riftvm doctor` reports host information;
@@ -99,10 +100,9 @@ separate behaviors.
 
 ## Full screen is stretched, oversized, or surrounded by black bars
 
-Resizing the host view is not the same as changing the guest mode. Dedicated
-Omarchy uses native automatic display reconfiguration and a guest display
-watcher. The separate Custom VirGL path publishes a generation-tagged mode and
-retains the display event until the guest acknowledges display-info/EDID.
+Resizing the host view is not the same as changing the guest mode. Omarchy uses
+the Custom VirGL path, which publishes a generation-tagged mode and retains the
+display event until the guest acknowledges display-info/EDID.
 
 - Test window resize completion, enter full screen, exit full screen, and
   repeated transitions.
@@ -189,9 +189,9 @@ Settings reports host OS eligibility separately from signed entitlements.
 Neither is an end-to-end validation of a particular VM. Check the guest OS,
 hardware, VM configuration, and runtime status as well.
 
-- Omarchy always constructs Custom VirGL at startup. General Linux VMs also
-  expose a graphics preference; initialization failure in that separate flow
-  can select Apple graphics instead.
+- Omarchy always constructs Custom VirGL at startup, and so do general Linux
+  VMs. Initialization failure stops startup with a diagnostic; there is no
+  alternate graphics device to select.
 - DiskImageKit layering requires a supported ASIF machine configuration. Do not
   infer the snapshot backend from a `.asif` extension alone.
 - EFI Secure Boot is an explicit per-VM setting, not a global enabled state.

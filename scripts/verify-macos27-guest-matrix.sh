@@ -88,7 +88,6 @@ run_linux_guest_gate() {
   local require_asif="$3"
   [[ -f "$enrollment" ]] || fail "missing Guest Agent enrollment for $fixture"
   RIFTVM_RELEASE_SMOKE_ENROLLMENT="$enrollment" \
-  RIFTVM_RELEASE_REQUIRE_VIRGL=1 \
   RIFTVM_RELEASE_REQUIRE_MEMORY_BALLOON=1 \
   RIFTVM_RELEASE_REQUIRE_ENTROPY=1 \
   RIFTVM_RELEASE_REQUIRE_VIRTIO_SOCKET=1 \

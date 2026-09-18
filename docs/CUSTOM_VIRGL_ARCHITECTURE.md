@@ -4,23 +4,23 @@ _Omarchy integration updated September 13, 2026; historical validation is dated 
 
 This document records the architecture, invariants, observed failure modes,
 and validation baseline for the Custom VirGL backend. Dedicated Omarchy
-constructs its selected backend directly. Custom VirGL is the default; Apple
-Virtio is a persisted, explicit compatibility choice. Neither path silently falls back.
+constructs Custom VirGL directly, and Custom VirGL is the only graphics path
+RiftVM configures. It never silently falls back to another backend.
 It is intentionally more durable than the chronological prototype notes.
 
 ## Scope and compatibility
 
-RiftVM requires macOS 27. Graphics selection still fails safely:
+RiftVM requires macOS 27. Graphics initialization fails safely:
 
-| Host / guest | Requested backend | Fallback |
+| Host / guest | Graphics path | Fallback |
 | --- | --- | --- |
-| General Linux VM with Custom VirGL selected | Custom Virtio GPU + VirGL | None; report missing prerequisites or initialization failure |
-| Dedicated Omarchy machine | Custom VirGL by default; Apple Virtio optional | None; initialization failure stops startup |
+| General Linux VM | Custom VirGL (Custom Virtio GPU + VirGL) | None; report missing prerequisites or initialization failure |
+| Dedicated Omarchy machine | Custom VirGL | None; initialization failure stops startup |
 
-The Linux backend is stored per VM. Settings → Display permits changes only while
-stopped, under the same cross-process lease used by startup. Saved machine state
-blocks backend changes. The VM window identifies the chosen backend, and startup
-failures do not silently change the choice.
+Custom VirGL is the backend for every VM. The VM window's Graphics menu shows the
+active backend and any problem. A startup failure is reported as an error and
+never silently changes the graphics path. Saved machine state is not restorable
+because host VirGL renderer state is not serializable.
 
 ## Data paths
 
@@ -145,13 +145,12 @@ them explicitly during reset/stop.
 
 ### Backend initialization fails explicitly
 
-The selected Custom VirGL path constructs the renderer and custom device before
+The Custom VirGL path constructs the renderer and custom device before
 creating the virtual machine. Missing dependencies and initialization failures
-abort startup and explain how to repair the runtime or manually select Apple
-Virtio after shutdown. Omarchy's builder requires the custom GPU only when
-Custom VirGL is selected. An explicit Apple Virtio choice attaches a native
-`VZVirtioGraphicsDeviceConfiguration` and a native VZ display, retaining Omarchy's
-authenticated keyboard, clipboard, owner setup, and recovery integrations.
+abort startup and explain how to repair the runtime or the bundled VirGL device.
+Guest driver and Guest Agent readiness still determine whether the guest reaches
+a usable desktop. Omarchy's builder always requires the custom GPU; there is no
+alternate graphics device to attach.
 
 ### Runtime presentation health is visible
 
@@ -364,8 +363,9 @@ Before merging changes to the Custom VirGL path:
 5. Resize the window, enter/exit full screen, and verify the display ACK chain.
 6. Confirm zero presentation failures and no illegal-resource/DRAW_VBO errors.
 7. Pause/resume and stop/restart; confirm resources and cadence are released.
-8. Verify Custom VirGL startup fails explicitly when unavailable. Verify manual
-   Apple Virtio selection, persistence, native input/display, and switching back.
+8. Verify Custom VirGL startup fails explicitly when the runtime is unavailable,
+   and that VirGL lifecycle persistence, native input/display, and reconnect
+   after restart still hold.
 9. Build the pinned runtime from source; do not depend on mutable Homebrew libs.
 10. Audit bundled licenses and source checksums before distribution.
 

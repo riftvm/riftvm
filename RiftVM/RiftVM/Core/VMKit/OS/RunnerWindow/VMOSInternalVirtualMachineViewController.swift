@@ -261,23 +261,10 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         }
         
         let runner = VMOSRunnerFactory.getRunner(model.config.type)
-        let machineIdentifierData = try? Data(contentsOf: model.machineIdentifierURL)
-        let hasInstallationMedia = model.config.storageDevices.contains { $0.type == .USB }
-        let guestInputReady = machineIdentifierData.map {
-            VMGuestAgentEnrollmentStore.isInputReady(machineIdentifierData: $0)
-        } ?? false
         let releaseSmokeConfiguration = VMReleaseSmokeTest.configuration(for: rootPath)
-        let releaseSmokeRequiresVirGL = releaseSmokeConfiguration?.requireVirGL == true
         let graphicsCreation: VMGraphicsBackendCreation
         do {
-            graphicsCreation = try VMGraphicsBackendFactory.make(
-                forLinux: model.config.type == .linux,
-                devices: model.config.graphicsDevices,
-                requested: model.config.effectiveGraphicsBackend,
-                hasInstallationMedia: hasInstallationMedia,
-                guestInputReady: guestInputReady || releaseSmokeRequiresVirGL,
-                forceAppleGraphics: releaseSmokeConfiguration?.forceAppleGraphics == true
-            )
+            graphicsCreation = try VMGraphicsBackendFactory.make(devices: model.config.graphicsDevices)
         } catch {
             fail(error.localizedDescription)
             return
@@ -770,11 +757,8 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         _ smoke: VMReleaseSmokeTestConfiguration,
         model: VMModel
     ) -> String? {
-        if smoke.requireVirGL, graphicsBackend?.kind != .customVirGL {
-            return "Release test requires Custom VirGL, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
-        }
-        if smoke.forceAppleGraphics, graphicsBackend?.kind != .appleVirtio {
-            return "Release test requires Apple Virtio graphics, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
+        if graphicsBackend?.kind != .customVirGL {
+            return "RiftVM requires Custom VirGL, but the active backend is \(graphicsBackend?.kind.rawValue ?? "unknown")."
         }
         if smoke.requireMemoryBalloon, virtualMachineConfiguration?.memoryBalloonDevices.isEmpty != false {
             return "Release test requires a Virtio memory balloon device."

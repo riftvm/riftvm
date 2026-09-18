@@ -35,46 +35,36 @@ write_report() {
 }
 
 candidate="$temporary_directory/candidate.txt"
-baseline="$temporary_directory/baseline.txt"
 write_report "$candidate" custom-virgl 0 1 0.7 2.2 25.0 35 900
-write_report "$baseline" apple-virtio 0 0 unavailable unavailable unavailable 20 700
-sed -i '' 's/VirGL-Window-Count: 5/VirGL-Window-Count: 0/' "$baseline"
-"$verifier" "$candidate" "$baseline" >/dev/null
+"$verifier" "$candidate" >/dev/null
 
 write_report "$candidate" custom-virgl 1 1 0.7 2.2 25.0 35 900
-if "$verifier" "$candidate" "$baseline" >/dev/null 2>&1; then
+if "$verifier" "$candidate" >/dev/null 2>&1; then
     echo "A report with presentation failures passed unexpectedly." >&2
     exit 1
 fi
 
-write_report "$candidate" custom-virgl 0 1 0.7 2.2 25.0 50.1 900
-if "$verifier" "$candidate" "$baseline" >/dev/null 2>&1; then
-    echo "A report over the CPU regression budget passed unexpectedly." >&2
-    exit 1
-fi
-
-write_report "$candidate" custom-virgl 0 1 0.7 2.2 25.0 35 900
-sed 's/hyprland-idle-1920x1080/browser-scroll/' "$baseline" > "$temporary_directory/wrong-workload.txt"
-if "$verifier" "$candidate" "$temporary_directory/wrong-workload.txt" >/dev/null 2>&1; then
-    echo "Reports with different workloads were compared unexpectedly." >&2
-    exit 1
-fi
-
-write_report "$temporary_directory/mislabeled-baseline.txt" apple-virtio 0 0 unavailable unavailable unavailable 20 700
-if "$verifier" "$candidate" "$temporary_directory/mislabeled-baseline.txt" >/dev/null 2>&1; then
-    echo "An Apple Virtio baseline containing VirGL windows passed unexpectedly." >&2
+write_report "$candidate" custom-virgl 0 1 0.7 2.2 50.1 35 900
+if "$verifier" "$candidate" >/dev/null 2>&1; then
+    echo "A report over the peak presentation budget passed unexpectedly." >&2
     exit 1
 fi
 
 write_report "$candidate" custom-virgl 0 1 0.7 8.1 25.0 35 900
-if "$verifier" "$candidate" "$baseline" >/dev/null 2>&1; then
+if "$verifier" "$candidate" >/dev/null 2>&1; then
     echo "A report over the P95 presentation budget passed unexpectedly." >&2
     exit 1
 fi
 
-write_report "$candidate" custom-virgl 0 1 0.7 2.2 50.1 35 900
-if "$verifier" "$candidate" "$baseline" >/dev/null 2>&1; then
-    echo "A report over the absolute presentation budget passed unexpectedly." >&2
+write_report "$candidate" custom-virgl 0 9 0.7 2.2 25.0 35 900
+if "$verifier" "$candidate" >/dev/null 2>&1; then
+    echo "A report over the drawable miss budget passed unexpectedly." >&2
+    exit 1
+fi
+
+write_report "$temporary_directory/other-backend.txt" apple-virtio 0 0 unavailable unavailable unavailable 20 700
+if "$verifier" "$temporary_directory/other-backend.txt" >/dev/null 2>&1; then
+    echo "A report from a backend RiftVM no longer runs passed unexpectedly." >&2
     exit 1
 fi
 

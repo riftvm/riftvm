@@ -472,26 +472,6 @@
     "App Default" : {
 
     },
-    "Apple Virtio active" : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Apple Virtio 已启用" } }
-      }
-    },
-    "Apple Virtio graphics is active" : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Apple Virtio 图形已启用" } }
-      }
-    },
-    "Apple Virtio is used until the RiftVM Guest Agent confirms reliable keyboard and pointer input." : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "在 RiftVM 客体代理确认键盘和指针输入可靠之前，将使用 Apple Virtio。" } }
-      }
-    },
-    "Apple Virtio is used while installation media is attached so the installer has reliable keyboard and pointer input." : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接安装介质期间将使用 Apple Virtio，以确保安装程序获得可靠的键盘和指针输入。" } }
-      }
-    },
     "ASIF is optimized for macOS 27 and supports efficient snapshots." : {
 
     },
@@ -500,16 +480,6 @@
     },
     "ASIF layers" : {
 
-    },
-    "ASIF machines automatically use DiskImageKit layered snapshots. Linux virtual machines use the Custom Virtio GPU by default and can fall back to Apple graphics by turning this off. macOS virtual machines always use Apple's graphics stack." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ASIF 虚拟机会自动使用 DiskImageKit 分层快照。Linux 虚拟机默认使用自定义 Virtio GPU；关闭此选项即可回退到 Apple 图形。macOS 虚拟机始终使用 Apple 图形栈。"
-          }
-        }
-      }
     },
     "At least one display is required." : {
 
@@ -2058,11 +2028,6 @@
     "Open settings for this virtual machine" : {
 
     },
-    "Open settings to select Apple Virtio graphics for the next start" : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "打开设置，为下次启动选择 Apple Virtio 图形" } }
-      }
-    },
     "Open source under the MIT license" : {
 
     },
@@ -3308,11 +3273,6 @@
             "value" : "Version %1$@ (%2$@)"
           }
         }
-      }
-    },
-    "Virtio displays are intended for Linux guests and can use Apple graphics or VirGL." : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Virtio 显示设备适用于 Linux 客体，可使用 Apple 图形或 VirGL。" } }
       }
     },
     "Virtio entropy source" : {
