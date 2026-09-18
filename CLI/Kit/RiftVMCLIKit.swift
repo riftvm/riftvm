@@ -529,7 +529,10 @@ public struct RiftVMCLI {
         }
         if roots.isEmpty {
             let home = environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
-            roots = [URL(fileURLWithPath: home).appendingPathComponent("RiftVM Virtual Machines")]
+            roots = [
+                URL(fileURLWithPath: home).appendingPathComponent(".riftvm"),
+                URL(fileURLWithPath: home).appendingPathComponent("RiftVM Virtual Machines"),
+            ]
         }
         return Parsed(command: command, target: target, roots: roots, timeout: timeout,
                       image: image, thumbnail: thumbnail, destination: destination, name: name)

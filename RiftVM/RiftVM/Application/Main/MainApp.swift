@@ -15,9 +15,12 @@ struct MainApp: App {
     
 #if arch(arm64)
     var body: some Scene {
-        Window("RiftVM Control Center", id: "control-center") {
+        // The app has one window. It prepares the workspace while there is none
+        // and drives the Omarchy workspace afterwards, so there is no control
+        // center, no separate creation window, and no second workspace window.
+        Window("RiftVM", id: "workspace") {
             if HeadlessLaunchConfiguration.current == nil {
-                WorkspaceControlCenterView()
+                WorkspaceHomeView()
                     .frame(minWidth: 800, minHeight: 600)
             } else {
                 EmptyView()
@@ -28,80 +31,17 @@ struct MainApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommunityCommands()
+            WorkspaceCommands()
         }
 
-        // Persistent status for the running machines, and the way back to the
-        // app once every workspace window is closed.
+        // Persistent status for the running workspace, and the way back to the
+        // app once its window is closed.
         MenuBarExtra {
             VMWorkspaceMenu()
         } label: {
             VMWorkspaceMenuLabel()
         }
         .menuBarExtraStyle(.menu)
-
-        WindowGroup("Workspace", id: "workspace", for: UUID.self) { $workspaceID in
-            if let workspaceID {
-                WorkspaceWindowView(workspaceID: workspaceID)
-            } else {
-                ContentUnavailableView("Workspace unavailable", systemImage: "exclamationmark.triangle")
-            }
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 1024, height: 768)
-        .windowToolbarStyle(.unifiedCompact)
-        .restorationBehavior(.disabled)
-        
-        // One preparation window: the toolbar action, the welcome card, and the
-        // menu bar item all bring this window forward instead of stacking copies,
-        // and the store already refuses a second concurrent creation.
-        Window("Prepare Omarchy", id: "create-machine-guide") {
-            VMCreateStepperGuideView()
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 760, height: 650)
-        .windowResizability(.contentMinSize)
-        .restorationBehavior(.disabled)
-        
-        WindowGroup("Creating Workspace", id: "workspace-creation", for: UUID.self) { $sessionID in
-            if let session = WorkspaceCreationStore.shared.sessions.first(where: { $0.id == sessionID }) {
-                WorkspaceCreationView(session: session)
-            } else {
-                ContentUnavailableView("Creation Finished", systemImage: "checkmark.circle", description: Text("Find your workspace in the control center."))
-            }
-        }
-        .defaultSize(width: 760, height: 650)
-        .restorationBehavior(.disabled)
-
-        WindowGroup(id: "start-machine", for: URL.self) { $modelRootPath in
-            if let rootPath = modelRootPath {
-                VMOSMainVirtualMachineView(rootPath: rootPath, recoveryMode: false)
-            } else {
-                Text("Invalid , just close")
-            }
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 1024, height: 768)
-        .windowToolbarStyle(.unifiedCompact)
-        .restorationBehavior(.disabled)
-        .commands {
-            ControlCenterCommands()
-        }
-        
-        
-        WindowGroup(id: "start-machine-recovery", for: URL.self) { $modelRootPath in
-            if let rootPath = modelRootPath {
-                VMOSMainVirtualMachineView(rootPath: rootPath, recoveryMode: true)
-            } else {
-                Text("Invalid , just close")
-            }
-        }
-        .defaultPosition(.center)
-        .defaultSize(width: 1024, height: 768)
-        .windowToolbarStyle(.unifiedCompact)
-        .restorationBehavior(.disabled)
-        .commands {
-            ControlCenterCommands()
-        }
 
         Settings {
             VirtualizationFeaturesSettingsView()
@@ -161,12 +101,9 @@ private struct VMWorkspaceMenu: View {
 
         Divider()
 
-        Button("Open Control Center") {
+        Button("Open RiftVM") {
             NSApp.activate(ignoringOtherApps: true)
-            openWindow(id: "control-center")
-        }
-        Button("Prepare Omarchy Workspace", systemImage: "sparkles.rectangle.stack") {
-            openWindow(id: "create-machine-guide")
+            openWindow(id: "workspace")
         }
 
         Divider()
@@ -175,11 +112,9 @@ private struct VMWorkspaceMenu: View {
     }
 
     private func show(_ machine: VMLiveMachine) {
+        _ = machine
         NSApp.activate(ignoringOtherApps: true)
-        guard let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first(where: {
-            $0.bundleURL.standardizedFileURL == machine.rootPath
-        }) else { return }
-        openWindow(id: "workspace", value: record.id)
+        openWindow(id: "workspace")
     }
 }
 
@@ -203,14 +138,14 @@ private struct CommunityCommands: Commands {
 #endif
 
 #if arch(arm64)
-private struct ControlCenterCommands: Commands {
+private struct WorkspaceCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         if HeadlessLaunchConfiguration.current == nil {
             CommandGroup(before: .windowList) {
-                Button("Show RiftVM Control Center") {
-                    openWindow(id: "control-center")
+                Button("Show RiftVM") {
+                    openWindow(id: "workspace")
                 }
                 .keyboardShortcut("0", modifiers: .command)
 

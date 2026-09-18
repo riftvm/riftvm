@@ -8,6 +8,7 @@ verified factory image and requires **macOS 27 or later and Apple silicon**.
 
 - [Release notes](RELEASES.md): what each release contains, and how to write new notes.
 - [Updates and recovery](UPDATES_AND_RECOVERY.md): latest images, protected pre-update backups, and rollback.
+- [The workspace window](WORKSPACE_WINDOW.md): the one-window states, toolbar, and wireframes.
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
 - [Chinese input in Omarchy](OMARCHY_INPUT.md): user-installed Pinyin or Xiaohe and Shift-toggle configuration.
 - [Homebrew distribution](HOMEBREW.md): installation and maintaining the release cask.

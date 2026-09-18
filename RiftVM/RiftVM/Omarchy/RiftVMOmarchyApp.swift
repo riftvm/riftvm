@@ -62,6 +62,10 @@ enum OmarchyWorkspaceConfiguration {
 struct OmarchyRootView: View {
     let profile: VMOmarchyProfile
     let workspaceManager: VMOmarchyWorkspaceManager
+    /// The recorded workspace this window belongs to, and the actions the
+    /// window offers for it (rename, remove).
+    let workspace: ActiveWorkspaceRecord
+    let actions: WorkspaceWindowActions
     @State private var workspaceRevision = UUID()
     @State private var recoveryError: String?
     @State private var showsRecoveryConfirmation = false
@@ -77,7 +81,12 @@ struct OmarchyRootView: View {
             )
             .id(workspaceRevision)
         case .ready:
-            OmarchyVirtualMachineView(layout: workspaceManager.layout, profile: profile)
+            OmarchyVirtualMachineView(
+                layout: workspaceManager.layout,
+                profile: profile,
+                workspace: workspace,
+                actions: actions
+            )
         case .migrationRequired(let fromVersion):
             VStack(spacing: 18) {
                 ContentUnavailableView(

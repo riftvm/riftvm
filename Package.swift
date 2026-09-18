@@ -54,7 +54,7 @@ let package = Package(
                 "Profile/VMOmarchySharedFolderImporter.swift",
                 "Profile/VMOmarchyVirtualMachineBuilder.swift",
                 "Profile/VMOmarchyGuestAgentClient.swift",
-                "Profile/RiftWorkspaceRegistry.swift",
+                "Profile/ActiveWorkspace.swift",
                 "Snapshot/VMSnapshotManager.swift",
             ],
             linkerSettings: [

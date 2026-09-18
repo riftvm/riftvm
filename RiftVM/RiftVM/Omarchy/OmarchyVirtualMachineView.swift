@@ -475,6 +475,10 @@ struct OmarchyVirtualMachineView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
+    /// The single window shows one recorded workspace; these actions let it be
+    /// renamed or removed from inside the window.
+    let workspace: ActiveWorkspaceRecord
+    let actions: WorkspaceWindowActions
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
     @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
     @AppStorage("omarchyNotificationsEnabled") private var notificationsEnabled = false
@@ -505,10 +509,107 @@ struct OmarchyVirtualMachineView: View {
     @State private var liveMachine: VMLiveMachine?
     @State private var isShowingCloseConfirmation = false
     @State private var closesWhenStopped = false
+    @State private var removesWhenStopped = false
+    @State private var isShowingRemovalConfirmation = false
+    @State private var isShowingRename = false
+    @State private var renameDraft = ""
+    @State private var showsSnapshots = false
+    @State private var showsDisplaySettings = false
+    /// Bumped when the guest starts running, so the window takes the screen for
+    /// the desktop and stays a normal window for the preparation and stopped
+    /// screens.
+    @State private var fullScreenRequest = 0
 
     private var phase: Phase { lifecycle.phase }
 
     var body: some View {
+        machineLayer
+        .background(.black)
+        .onAppear {
+            OmarchyReleaseReadinessReporter.reportWhenReady(
+                workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
+            )
+            registerLiveMachine()
+        }
+        .onDisappear { unregisterLiveMachine() }
+        .onChange(of: lifecycle.phase) { _, _ in
+            syncLiveMachine()
+            closeWindowOnceStopped()
+        }
+        .background {
+            VMWindowCloseObserver(
+                rootPath: layout.applicationSupportRoot,
+                shouldConfirm: {
+                    phase.needsCloseConfirmation(isTerminating: VMLiveMachineCenter.shared.isTerminating)
+                },
+                shouldBlock: {
+                    phase.blocksWindowClose
+                },
+                onCloseAttempt: {
+                    isShowingCloseConfirmation = true
+                },
+                appliesGuestWindowChrome: false,
+                fullScreenRequest: fullScreenRequest
+            )
+        }
+        .modifier(WorkspaceWindowPresentations(
+            workspace: workspace,
+            showsSnapshots: $showsSnapshots,
+            showsDisplaySettings: $showsDisplaySettings,
+            isShowingRename: $isShowingRename,
+            renameDraft: $renameDraft,
+            isShowingRemovalConfirmation: $isShowingRemovalConfirmation,
+            rename: actions.rename,
+            remove: removeWorkspace
+        ))
+        .alert("Stop Omarchy and Close?", isPresented: $isShowingCloseConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Stop Omarchy and Close") {
+                closesWhenStopped = true
+                handle(.stopRequested)
+            }
+        } message: {
+            Text("RiftVM will ask Omarchy to shut down, force stop it only if it does not respond, and then close this window. Linux guests cannot save machine state, so the next start is a full boot.")
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            importFiles(urls)
+            return !urls.isEmpty
+        }
+        .toolbar { workspaceToolbar }
+        .safeAreaInset(edge: .top) { topBanners }
+        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil; graphicsIssue = nil }
+        .onDisappear {
+            stopTimeoutTask?.cancel()
+            stopTimeoutTask = nil
+        }
+        .onAppear { refreshRecoveryPoints() }
+        .confirmationDialog(
+            restoreConfirmationTitle,
+            isPresented: restoreConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Restore Omarchy", role: .destructive) {
+                guard let point = pendingRestore else { return }
+                pendingRestore = nil
+                restore(point)
+            }
+            Button("Cancel", role: .cancel) { pendingRestore = nil }
+        } message: {
+            Text("Changes made inside Omarchy since this recovery point will be replaced. Create a backup first if you need to keep them. Omarchy must remain stopped until recovery finishes.")
+        }
+        .alert(item: $notice) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+
+    /// The guest canvas plus the stopped/paused/failed overlay and the owner
+    /// setup form. Kept out of `body` so the type checker does not have to solve
+    /// the representable's closure list together with every modifier.
+    private var machineLayer: some View {
         ZStack {
             OmarchyVirtualMachineRepresentable(
                 layout: layout,
@@ -549,155 +650,138 @@ struct OmarchyVirtualMachineView: View {
                 )
             }
         }
-        .background(.black)
-        .onAppear {
-            OmarchyReleaseReadinessReporter.reportWhenReady(
-                workspaceManager: VMOmarchyWorkspaceManager(layout: layout)
-            )
-            registerLiveMachine()
-        }
-        .onDisappear { unregisterLiveMachine() }
-        .onChange(of: lifecycle.phase) { _, _ in
-            syncLiveMachine()
-            closeWindowOnceStopped()
-        }
-        .background {
-            VMWindowCloseObserver(
-                rootPath: layout.applicationSupportRoot,
-                shouldConfirm: {
-                    phase.needsCloseConfirmation(isTerminating: VMLiveMachineCenter.shared.isTerminating)
-                },
-                shouldBlock: {
-                    phase.blocksWindowClose
-                },
-                onCloseAttempt: {
-                    isShowingCloseConfirmation = true
-                },
-                appliesGuestWindowChrome: false
-            )
-        }
-        .alert("Stop Omarchy and Close?", isPresented: $isShowingCloseConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Stop Omarchy and Close") {
-                closesWhenStopped = true
-                handle(.stopRequested)
-            }
-        } message: {
-            Text("RiftVM will ask Omarchy to shut down, force stop it only if it does not respond, and then close this window. Linux guests cannot save machine state, so the next start is a full boot.")
-        }
-        .dropDestination(for: URL.self) { urls, _ in
-            importFiles(urls)
-            return !urls.isEmpty
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Menu {
-                    if let activeGraphicsBackend {
-                        Text("\(activeGraphicsBackend.displayName) selected")
-                    }
-                    if let graphicsIssue { Text(graphicsIssue) }
-                    Text("Change the backend in workspace Settings → Display after shutdown.")
-                } label: { Label("Graphics", systemImage: "display") }
-                integrationMenu
-                updatesMenu
-                recoveryMenu
-                Button("Open Shared Folder", systemImage: "folder") {
-                    NSWorkspace.shared.open(layout.shared)
-                }
-                Button("Import Files", systemImage: "square.and.arrow.down") {
-                    chooseFilesToImport()
-                }
-                .disabled(importingFiles)
-                if phase == .running {
-                    Button("Pause Omarchy", systemImage: "pause.fill") {
-                        handle(.pauseRequested)
-                    }
-                    Button("Restart Omarchy", systemImage: "arrow.clockwise") {
-                        handle(.restartRequested)
-                    }
-                    Button("Stop Omarchy", systemImage: "stop.fill") {
-                        handle(.stopRequested)
-                    }
-                }
-                if phase == .paused {
-                    Button("Resume Omarchy", systemImage: "play.fill") {
-                        handle(.resumeRequested)
-                    }
-                }
-            }
-        }
-        .safeAreaInset(edge: .top) {
-            if let graphicsIssue {
-                Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.orange.opacity(0.18))
-            }
-            if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
-                        .font(.headline)
-                    Text(acceptanceFailure ?? "This temporary workspace may type, lock, and restart automatically. Keep this window focused while testing.")
-                    if acceptanceFailure != nil {
-                        Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
-                    }
-                }
+    }
+
+    /// Status banners above the guest canvas: a graphics problem, an acceptance
+    /// workspace, or the Accessibility permission the Command shortcuts need.
+    /// Kept out of `body` for the type checker.
+    @ViewBuilder
+    private var topBanners: some View {
+        if let graphicsIssue {
+            Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(.orange.opacity(0.18))
-            }
-            if keyboardIntegration != .enabled {
-                HStack {
-                    if keyboardIntegration == .requestingAccessibility {
-                        ProgressView()
-                            .controlSize(.small)
-                            .accessibilityLabel("Waiting for Accessibility permission")
-                        Text("Turn on RiftVM in System Settings, then return here. If it is already on, remove its old entry and add the current RiftVM app again.")
-                    } else if keyboardIntegration == .eventTapUnavailable {
-                        Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
-                    } else {
-                        Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
-                    }
-                    Spacer()
-                    Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : keyboardIntegration == .eventTapUnavailable ? "Retry" : "Enable") {
-                        NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
-                    }
+        }
+        if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
+                    .font(.headline)
+                Text(acceptanceFailure ?? "This temporary workspace may type, lock, and restart automatically. Keep this window focused while testing.")
+                if acceptanceFailure != nil {
+                    Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.orange.opacity(0.18))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(.orange.opacity(0.18))
+        }
+        if keyboardIntegration != .enabled {
+            HStack {
+                if keyboardIntegration == .requestingAccessibility {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Waiting for Accessibility permission")
+                    Text("Turn on RiftVM in System Settings, then return here. If it is already on, remove its old entry and add the current RiftVM app again.")
+                } else if keyboardIntegration == .eventTapUnavailable {
+                    Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
+                } else {
+                    Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                }
+                Spacer()
+                Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : keyboardIntegration == .eventTapUnavailable ? "Retry" : "Enable") {
+                    NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.orange.opacity(0.18))
+        }
+    }
+
+    /// The recovery-point confirmation is built from explicit values: a large
+    /// interpolation inside the window body is what tips the type checker over.
+    private var restoreConfirmationTitle: String {
+        let name = pendingRestore?.name ?? "this recovery point"
+        return "Restore \(name)?"
+    }
+
+    private var restoreConfirmationPresented: Binding<Bool> {
+        Binding(
+            get: { pendingRestore != nil },
+            set: { if !$0 { pendingRestore = nil } }
+        )
+    }
+
+    /// Every control the window offers. Extracted from `body` so the type
+    /// checker does not have to solve the toolbar together with the modifiers.
+    @ToolbarContentBuilder
+    private var workspaceToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            workspaceMenu
+            graphicsMenu
+            integrationMenu
+            updatesMenu
+            recoveryMenu
+            Button("Open Shared Folder", systemImage: "folder") {
+                NSWorkspace.shared.open(layout.shared)
+            }
+            Button("Import Files", systemImage: "square.and.arrow.down") {
+                chooseFilesToImport()
+            }
+            .disabled(importingFiles)
+            if phase == .running {
+                Button("Pause Omarchy", systemImage: "pause.fill") {
+                    handle(.pauseRequested)
+                }
+                Button("Restart Omarchy", systemImage: "arrow.clockwise") {
+                    handle(.restartRequested)
+                }
+                Button("Stop Omarchy", systemImage: "stop.fill") {
+                    handle(.stopRequested)
+                }
+            }
+            if phase == .paused {
+                Button("Resume Omarchy", systemImage: "play.fill") {
+                    handle(.resumeRequested)
+                }
             }
         }
-        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil; graphicsIssue = nil }
-        .onDisappear {
-            stopTimeoutTask?.cancel()
-            stopTimeoutTask = nil
-        }
-        .onAppear { refreshRecoveryPoints() }
-        .confirmationDialog(
-            "Restore \(pendingRestore?.name ?? "this recovery point")?",
-            isPresented: Binding(
-                get: { pendingRestore != nil },
-                set: { if !$0 { pendingRestore = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Restore Omarchy", role: .destructive) {
-                guard let point = pendingRestore else { return }
-                pendingRestore = nil
-                restore(point)
+    }
+
+    /// The active backend, any graphics problem, and where the backend is changed.
+    private var graphicsMenu: some View {
+        Menu {
+            if let activeGraphicsBackend {
+                Text("\(activeGraphicsBackend.displayName) selected")
             }
-            Button("Cancel", role: .cancel) { pendingRestore = nil }
-        } message: {
-            Text("Changes made inside Omarchy since this recovery point will be replaced. Create a backup first if you need to keep them. Omarchy must remain stopped until recovery finishes.")
-        }
-        .alert(item: $notice) { notice in
-            Alert(
-                title: Text(notice.title),
-                message: Text(notice.message),
-                dismissButton: .default(Text("OK"))
-            )
-        }
+            if let graphicsIssue { Text(graphicsIssue) }
+            Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
+            Text("Change the backend in workspace Settings → Display after shutdown.")
+        } label: { Label("Graphics", systemImage: "display") }
+    }
+
+    /// Snapshots, display settings, rename, and removal for the one workspace.
+    /// Extracted from the toolbar so the type checker does not have to solve it
+    /// together with every other toolbar item.
+    private var workspaceMenu: some View {
+        Menu {
+            Button("Snapshots…", systemImage: "camera.on.rectangle") { showsSnapshots = true }
+            Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
+            Divider()
+            Button("Rename…", systemImage: "pencil") {
+                renameDraft = workspace.name
+                isShowingRename = true
+            }
+            Button("Show in Finder", systemImage: "folder") {
+                NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL])
+            }
+            Divider()
+            Button("Remove Workspace…", systemImage: "trash", role: .destructive) {
+                isShowingRemovalConfirmation = true
+            }
+        } label: { Label("Workspace", systemImage: "square.grid.2x2") }
+        .help("Snapshots, display, rename, and removal for this workspace")
     }
 
     @ViewBuilder
@@ -1238,6 +1322,13 @@ struct OmarchyVirtualMachineView: View {
         case .stopped:
             VStack(spacing: 14) {
                 Text("Omarchy is stopped").font(.headline)
+                Text(workspaceHardwareSummary)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Text(NSString(string: layout.applicationSupportRoot.path(percentEncoded: false)).abbreviatingWithTildeInPath)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
                 if case .working(let message) = recoveryOperation {
                     ProgressView(message)
                 }
@@ -1274,7 +1365,16 @@ struct OmarchyVirtualMachineView: View {
 
     private func handlePhaseChange(_ phase: Phase) {
         switch phase {
-        case .running: handle(.machineStarted)
+        case .running:
+            handle(.machineStarted)
+            // The guest keeps one display mode — the screen the window is on — so
+            // full screen is what shows the running desktop at native size. The
+            // preparation and stopped screens stay normal windows. The release
+            // readiness probe measures a window and never starts a guest, but it
+            // opts out explicitly as well.
+            if ProcessInfo.processInfo.environment["RIFTVM_GUI_READY_FILE"] == nil {
+                fullScreenRequest += 1
+            }
         case .paused: handle(.machinePaused)
         case .stopped:
             handle(.machineStopped)
@@ -1391,12 +1491,42 @@ struct OmarchyVirtualMachineView: View {
     }
 
     /// The user chose "Stop Omarchy and Close": wait for the guest to stop, then
-    /// close the window the close attempt left open.
+    /// close the window the close attempt left open. Removing the workspace uses
+    /// the same wait, so the disk is never pulled out from under a live guest.
     private func closeWindowOnceStopped() {
-        guard closesWhenStopped, phase.hasStopped else { return }
+        guard phase.hasStopped else { return }
+        if removesWhenStopped {
+            removesWhenStopped = false
+            actions.remove()
+            return
+        }
+        guard closesWhenStopped else { return }
         closesWhenStopped = false
-        guard let workspaceID = workspaceRecord?.id else { return }
-        dismissWindow(id: "workspace", value: workspaceID)
+        dismissWindow(id: "workspace")
+    }
+
+    private func removeWorkspace() {
+        switch phase {
+        case .running, .paused, .starting, .pausing, .resuming:
+            removesWhenStopped = true
+            handle(.stopRequested)
+        case .stopping, .stopped, .failed:
+            actions.remove()
+        }
+    }
+
+    private var workspaceHardwareSummary: String {
+        let resources = profile.resources(
+            forHostMemory: ProcessInfo.processInfo.physicalMemory,
+            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+        )
+        let metadata = try? VMOmarchyWorkspaceManager(layout: layout).metadata()
+        let memory = ByteCountFormatter.string(
+            fromByteCount: Int64(clamping: metadata?.memoryBytes ?? resources.memoryBytes),
+            countStyle: .memory
+        )
+        let disk = ByteCountFormatter.string(fromByteCount: Int64(clamping: profile.diskCapacityBytes), countStyle: .file)
+        return "\(metadata?.cpuCount ?? resources.cpuCount) CPU · \(memory) memory · \(disk) disk"
     }
 
     private func syncLiveMachine() {
@@ -1414,16 +1544,7 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
-    private var workspaceName: String {
-        workspaceRecord?.name ?? "Omarchy"
-    }
-
-    private var workspaceRecord: RiftWorkspaceRecord? {
-        let root = layout.applicationSupportRoot.standardizedFileURL
-        return (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
-            $0.bundleURL.standardizedFileURL == root
-        }
-    }
+    private var workspaceName: String { workspace.name }
 
     enum Phase: Equatable {
         case starting
@@ -1472,6 +1593,48 @@ struct OmarchyVirtualMachineView: View {
         let id = UUID()
         let title: String
         let message: String
+    }
+}
+
+/// Sheets and confirmations the one workspace window can present. They live in
+/// their own modifier so the window body stays inside the type-checker budget.
+private struct WorkspaceWindowPresentations: ViewModifier {
+    let workspace: ActiveWorkspaceRecord
+    @Binding var showsSnapshots: Bool
+    @Binding var showsDisplaySettings: Bool
+    @Binding var isShowingRename: Bool
+    @Binding var renameDraft: String
+    @Binding var isShowingRemovalConfirmation: Bool
+    let rename: (String) -> Void
+    let remove: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showsSnapshots) {
+                MachineSnapshotsView(machineName: workspace.name, rootPath: workspace.bundleURL)
+                    .frame(minWidth: 820, minHeight: 620)
+            }
+            .sheet(isPresented: $showsDisplaySettings) {
+                OmarchyGraphicsSettingsView(workspace: workspace)
+            }
+            .alert("Rename Workspace", isPresented: $isShowingRename) {
+                TextField("Workspace name", text: $renameDraft)
+                Button("Cancel", role: .cancel) {}
+                Button("Rename") { rename(renameDraft) }
+                    .disabled(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } message: {
+                Text("This changes the display name. The workspace folder is not renamed.")
+            }
+            .confirmationDialog(
+                "Move \(workspace.name) to the Trash?",
+                isPresented: $isShowingRemovalConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Move to Trash", role: .destructive) { remove() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Everything inside the workspace goes with it. RiftVM then starts over with Prepare Omarchy.")
+            }
     }
 }
 

@@ -265,7 +265,7 @@ desktop D-Bus session for timezone selection, and retry display-watcher startup
 until the compositor/device state is real. Host and guest changes must be
 versioned and tested together.
 
-### A notarized app starts but no Control Center appears
+### A notarized app starts but no window appears
 
 Process launch, a valid Developer ID signature, Gatekeeper acceptance, and a
 responsive SwiftUI event loop are separate release properties. SwiftUI can

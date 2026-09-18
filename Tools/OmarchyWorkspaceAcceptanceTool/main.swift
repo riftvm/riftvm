@@ -92,10 +92,7 @@ private enum OmarchyWorkspaceAcceptanceTool {
         }
 
         if let name = arguments.registerName {
-            _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
-                name: name,
-                bundleURL: arguments.root
-            )
+            _ = try ActiveWorkspaceStore.standard.adopt(bundleURL: arguments.root, name: name)
         }
         let result: [String: Any] = [
             "factoryImageVersion": arguments.imageVersion,

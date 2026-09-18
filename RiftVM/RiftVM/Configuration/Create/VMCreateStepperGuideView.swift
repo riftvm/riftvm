@@ -105,16 +105,12 @@ final class WorkspaceCreationSession: Identifiable {
     func cancel() { creator.cancel(context: context) }
 }
 
-struct VMCreateStepperGuideView: View {
-    @State private var session = WorkspaceCreationSession()
-    var body: some View { WorkspaceCreationView(session: session) }
-}
-
+/// The preparation half of the one window: the form, the verified download, and
+/// the transition to the workspace once it exists.
 struct WorkspaceCreationView: View {
     let session: WorkspaceCreationSession
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.openWindow) private var openWindow
+    /// Called when the workspace exists and the window should show it.
+    let onCreated: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showResources = false
     @State private var showSharing = false
@@ -160,13 +156,6 @@ struct WorkspaceCreationView: View {
             // the slot to the workspace icon.
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3).delay(0.55)) {
                 meterOpacity = 0
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Close") { close() }
-                    .help(session.phase == .creating ? "Creation continues in the background" : "Close this window")
-                    .accessibilityIdentifier("create-guide-close")
             }
         }
         .task { await session.initialize() }
@@ -304,7 +293,7 @@ struct WorkspaceCreationView: View {
 
     private var readyActions: some View {
         VStack(spacing: 8) {
-            Button("Launch \(session.config.name)", systemImage: "arrow.up.right") { launch() }
+            Button("Open Omarchy", systemImage: "arrow.up.right") { launch() }
                 .buttonStyle(RiftCreationButtonStyle())
                 .tint(.blue).keyboardShortcut(.defaultAction)
                 .accessibilityIdentifier("workspace-create-launch")
@@ -337,7 +326,13 @@ struct WorkspaceCreationView: View {
 
     private var footer: some View {
         HStack(spacing: 14) {
-            Text(session.phase == .setup ? "64 GB disk · Image downloads only if needed." : session.phase == .creating ? "Keep RiftVM open. Follow progress on the home screen." : session.phase == .failed ? "Your settings are saved for this session." : "Available from your workspace list.")
+            Text(session.phase == .setup
+                 ? "64 GB disk · Image downloads only if needed."
+                 : session.phase == .creating
+                    ? "Creation continues if you close this window."
+                    : session.phase == .failed
+                        ? "Your settings are saved for this session."
+                        : "Omarchy is ready.")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
             switch session.phase {
@@ -351,19 +346,16 @@ struct WorkspaceCreationView: View {
                 if session.form.canCancelCreation {
                     Button(VMCreationCancellationPolicy.buttonTitle(for: session.form.creationCancellationKind)) { session.cancel() }
                 }
-                // Long downloads are meant to continue unattended, so leaving the
-                // window is the primary action here.
-                Button("Continue in Background") { close() }
-                    .buttonStyle(.borderedProminent)
+                // A long download continues in the background: the window can be
+                // closed and the menu bar item keeps reporting it.
+                Text("Creation continues if you close this window.")
+                    .font(.caption).foregroundStyle(.secondary)
             case .failed:
-                Button("Dismiss") {
-                    WorkspaceCreationStore.shared.remove(session)
-                    dismissOwnWindow()
-                }
                 Button("Edit Settings") { session.phase = .setup }
                 Button("Retry") { session.start() }.buttonStyle(.borderedProminent)
             case .ready:
-                Button("Back to Workspaces") { close() }
+                // The ready action sits with the finished meter above.
+                EmptyView()
             }
         }.padding(22)
     }
@@ -377,30 +369,17 @@ struct WorkspaceCreationView: View {
             session.form.baseDirectory = url.path(percentEncoded: false)
         }
     }
-    private func close() {
-        if session.phase == .ready || session.phase == .setup { WorkspaceCreationStore.shared.remove(session) }
-        openWindow(id: "control-center")
-        dismissOwnWindow()
-    }
-    /// The preparation window is a single `Window` scene, so close it by id as
-    /// well: the session window this view also serves keeps the generic dismiss.
-    private func dismissOwnWindow() {
-        dismissWindow(id: "create-machine-guide")
-        dismiss()
-    }
     private func launch() {
         do {
-            let rootPath = URL(filePath: session.form.rootPath)
-            let record = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(name: session.config.name, bundleURL: rootPath)
-            guard let workspace = record.workspaces.first(where: { $0.bundleURL.standardizedFileURL == rootPath.standardizedFileURL }) else {
-                launchError = "The workspace could not be found. Open it from the control center."
-                return
-            }
-            openWindow(id: "workspace", value: workspace.id)
+            try ActiveWorkspaceStore.standard.adopt(
+                bundleURL: URL(filePath: session.form.rootPath),
+                name: session.config.name
+            )
             WorkspaceCreationStore.shared.remove(session)
-            dismiss()
+            onCreated()
         } catch { launchError = error.localizedDescription }
     }
+
     private func errorView(_ message: String) -> some View {
         Label(message, systemImage: "exclamationmark.triangle")
             .font(.callout).foregroundStyle(.orange).textSelection(.enabled)

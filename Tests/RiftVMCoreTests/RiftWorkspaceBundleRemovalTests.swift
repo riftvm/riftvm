@@ -6,18 +6,17 @@ final class RiftWorkspaceBundleRemovalTests: XCTestCase {
     func testMissingBundleIsNotAnErrorSoItsRecordStaysRemovable() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root.appending(path: "Support"))
+        let store = ActiveWorkspaceStore(applicationSupportRoot: root.appending(path: "Support"))
         let bundle = root.appending(path: "Vanished.riftvm", directoryHint: .isDirectory)
-        let record = try RiftWorkspaceRecord(name: "Vanished", bundleURL: bundle)
-        _ = try store.register(record)
+        _ = try store.adopt(bundleURL: bundle, name: "Vanished")
 
         // The bundle was deleted behind RiftVM's back. Moving it to the Trash
         // used to fail with "The file … doesn't exist.", which aborted the
-        // removal and left an undeletable entry in the control center.
+        // removal and left an undeletable entry in the workspace list.
         XCTAssertNil(try RiftWorkspaceBundleRemoval.moveToTrashIfPresent(bundle))
 
-        let snapshot = try store.unregister(record.id)
-        XCTAssertTrue(snapshot.workspaces.isEmpty)
+        try store.clear()
+        XCTAssertNil(try store.load())
     }
 
     func testExistingBundleIsTrashedAndItsNewLocationReported() throws {

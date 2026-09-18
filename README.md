@@ -19,7 +19,7 @@ and notarized app with Homebrew:
 brew install --cask riftvm/tap/riftvm
 ```
 
-RiftVM prepares **Omarchy workspaces**: a focused Arch Linux desktop in a real
+RiftVM prepares **an Omarchy workspace**: a focused Arch Linux desktop in a real
 virtual machine, created from a signed and verified factory image and running
 locally through Apple's
 [Virtualization.framework](https://developer.apple.com/documentation/virtualization).
@@ -31,36 +31,38 @@ Prefer a direct download? Get the signed and notarized app from
 
 ## Create your first workspace
 
-1. Open RiftVM. The home screen has one action, **Prepare Omarchy**; the same
-   action is in the toolbar and in the menu bar menu.
+1. Open RiftVM. The app has one window: it shows **Prepare Omarchy** until a
+   workspace exists, and that workspace afterwards.
 2. Choose a name, a location, and hardware settings. The default location is
-   `~/RiftVM Virtual Machines`; RiftVM remembers a custom location when you
-   choose one.
+   the hidden `~/.riftvm` folder, so the workspace does not sit in your visible
+   home folder; RiftVM remembers a custom location when you choose one.
 3. Click **Create Omarchy**. RiftVM downloads the factory image, verifies its
-   signed manifest and its digest, and creates the workspace. You can continue
-   in the background, then launch from the workspace list. Omarchy guides you
-   through owner setup on first boot.
+   signed manifest and its digest, and creates the workspace. The window then
+   shows the workspace: press **Start Omarchy**, and the window takes the screen
+   while the guest runs. Omarchy guides you through owner setup on first boot.
 
-Each workspace has its own writable disk and machine identity. The verified
+The workspace has its own writable disk and machine identity. The verified
 factory image is cached for reuse; creating a workspace still needs a connection
-to fetch and verify the signed release manifest. The workspace window opens full
-screen, and **Graphics → Fit Display to Window** re-offers the guest the window's
-current size when you want a different one.
+to fetch and verify the signed release manifest. The guest keeps one display mode
+per session and the window goes full screen while it runs; **Graphics → Fit
+Display to Window** re-offers the guest the window's current size when you want a
+different one.
 
 ## What it does
 
 - Runs Omarchy locally through Apple's native virtualization stack
 - Creates Omarchy from a signed, verified factory image with guided owner setup
-- Starts, pauses, resumes, and stops each workspace from the card, the workspace
-  window, or the menu bar
-- Reuses the verified image and gives each workspace its own writable disk and machine identity
+- Starts, pauses, resumes, and stops the workspace from its window or the menu bar
+- Reuses the verified image and gives the workspace its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, dynamic display sizing, text and image clipboard exchange, and notifications through an authenticated guest agent
 - Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
-  guest's outputs
+  guest's outputs, and opens full screen while the guest runs
 - Takes stopped-workspace snapshots and keeps checksum-verified `.riftvmexport`
   import/export
+- Keeps the workspace in the hidden `~/.riftvm` folder, with rename, removal, and
+  snapshots inside the one window
 
 ### Update and recover Omarchy
 
@@ -112,17 +114,18 @@ riftvm start "Imported Linux" --timeout 90
 riftvm status "Imported Linux"
 riftvm stop "Imported Linux" --timeout 30
 riftvm install-image preinstalled-image.json --image disk.raw \
-  --destination "$HOME/RiftVM Virtual Machines/Imported Linux.riftvm" --timeout 300
+  --destination "$HOME/.riftvm/Imported Linux.riftvm" --timeout 300
 ```
 
 `start`, `status`, and `stop` drive general machines only. An Omarchy workspace
 needs the guest agent and the Omarchy-specific machine builder, which the
 headless path does not provide, so those three commands exit 69 with
 `unsupported_layout` for that bundle rather than pretending to control it. Start
-and stop Omarchy workspaces in the app.
+and stop the Omarchy workspace in the app.
 
 Use `--root /path/to/library` one or more times when machines are stored outside
-`~/RiftVM Virtual Machines`. Headless mode runs the signed RiftVM virtualization
+`~/.riftvm` (the CLI also looks in `~/RiftVM Virtual Machines` for bundles
+created by earlier releases). Headless mode runs the signed RiftVM virtualization
 process without presenting a VM window. Stop first requests a guest shutdown
 and uses a bounded force-stop fallback.
 

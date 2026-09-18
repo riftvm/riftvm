@@ -31,10 +31,11 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
         "North America", "Omega"
     ]
 
-    // Each new guide starts at the standard location. A custom choice applies
-    // only to that guide, so temporary test paths cannot become future defaults.
+    // New workspaces go in the hidden ~/.riftvm folder, so a 64 GB virtual
+    // machine does not sit in the visible home folder. A custom choice applies
+    // only to that workspace.
     static func defaultStorageDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser.appending(path: "RiftVM Virtual Machines")
+        ActiveWorkspaceLocation.defaultBaseDirectory()
     }
 
     static func bundlePath(baseDirectory: String, name: String) -> String {
@@ -100,7 +101,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
             }
         }
 
-        // make sure the base directory exists (e.g. the default ~/RiftVM Virtual Machines)
+        // make sure the base directory exists (e.g. the default ~/.riftvm)
         let baseDir = URL(filePath: context.formData.baseDirectory)
         if !FileManager.default.fileExists(atPath: baseDir.path(percentEncoded: false)) {
             do {
@@ -185,7 +186,7 @@ struct CreatePhaseNameLocationView: View {
                         }
 
                         HStack {
-                            Text("By default machines are stored in ~/RiftVM Virtual Machines. Pick another directory only if you want a different location.")
+                            Text("By default the workspace is stored in ~/.riftvm. Pick another directory only if you want a different location.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()

@@ -32,7 +32,7 @@ its status and recovery controls. `riftvm doctor` reports host information;
 top-level `config.json`, not dedicated Omarchy workspaces. Do not attach disks,
 enrollment files, or logs containing credentials to a bug report.
 
-## App runs but no Control Center appears
+## App runs but no window appears
 
 A PID, valid signature, successful notarization, and Gatekeeper acceptance do
 not prove that a SwiftUI window is visible. The app can restore the persisted

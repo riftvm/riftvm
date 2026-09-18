@@ -323,8 +323,8 @@ struct VMOSMainVirtualMachineView: View {
                 }
 
                 Menu("More", systemImage: "ellipsis.circle") {
-                    Button("Show RiftVM Control Center", systemImage: "rectangle.grid.1x2") {
-                        openWindow(id: "control-center")
+                    Button("Show RiftVM", systemImage: "rectangle.grid.1x2") {
+                        openWindow(id: "workspace")
                     }
                     .keyboardShortcut("0", modifiers: .command)
 
@@ -528,10 +528,11 @@ struct VMOSMainVirtualMachineView: View {
 
     private var workspaceName: String {
         let target = rootPath.standardizedFileURL
-        let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
-            $0.bundleURL.standardizedFileURL == target
+        if let record = try? ActiveWorkspaceStore.standard.load(),
+           record.bundleURL.standardizedFileURL == target {
+            return record.name
         }
-        return record?.name ?? rootPath.deletingPathExtension().lastPathComponent
+        return rootPath.deletingPathExtension().lastPathComponent
     }
 
     private func memoryDescription(_ bytes: UInt64) -> String {

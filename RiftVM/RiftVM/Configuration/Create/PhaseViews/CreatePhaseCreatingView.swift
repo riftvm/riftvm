@@ -174,11 +174,10 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         let rootPath = URL(filePath: context.formData.rootPath)
         sharedAppConfigManager.addVMPathWithRefresh(url: rootPath)
         do {
-            _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
-                name: context.configData.name,
-                bundleURL: rootPath
+            _ = try ActiveWorkspaceStore.standard.adopt(
+                bundleURL: rootPath,
+                name: context.configData.name
             )
-            NotificationCenter.default.post(name: .riftWorkspaceRegistryDidChange, object: rootPath)
         } catch {
             let message = "Workspace registry update failed: \(error.localizedDescription)"
             context.formData.addLog("⚠️ \(message)")

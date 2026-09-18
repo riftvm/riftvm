@@ -34,7 +34,7 @@ python3 Tools/OmarchyAcceptanceHarness/run.py \
 ```
 
 The launcher prompts for the temporary guest password without echoing it. Start
-only that named workspace in the Control Center. It refuses a non-temporary
+only that named workspace in the RiftVM window. It refuses a non-temporary
 workspace, a normal app, an already-running RiftVM instance, or nonempty
 Diagnostics. Archive the previous Diagnostics before each run. Each launch gets
 its own environment; no global defaults or launch environment are changed.

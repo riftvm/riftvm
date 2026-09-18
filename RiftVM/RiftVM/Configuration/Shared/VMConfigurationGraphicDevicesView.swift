@@ -58,7 +58,7 @@ struct VMGraphicsBackendPicker: View {
 }
 
 struct OmarchyGraphicsSettingsView: View {
-    let workspace: RiftWorkspaceRecord
+    let workspace: ActiveWorkspaceRecord
     @Environment(\.dismiss) private var dismiss
     @State private var selection: VMLinuxGraphicsBackend = .customVirGL
     @State private var original: VMLinuxGraphicsBackend = .customVirGL

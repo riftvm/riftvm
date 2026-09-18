@@ -32,7 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if WorkspaceCreationStore.shared.isCreating {
             let alert = NSAlert()
             alert.messageText = "A workspace is still being created"
-            alert.informativeText = "Keep RiftVM open until creation finishes. You can close the creation window and follow progress in the control center."
+            alert.informativeText = "Keep RiftVM open until creation finishes. Closing the window lets the download continue in the background."
             alert.addButton(withTitle: "Keep Creating")
             alert.runModal()
             return .terminateCancel
@@ -448,10 +448,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startHeadless(_ launch: HeadlessLaunchConfiguration) {
-        // SwiftUI creates the Control Center scene before the app delegate is
+        // SwiftUI creates the window scene before the app delegate is
         // told to enter headless mode. Its content is intentionally EmptyView
         // in this process, so leaving that scene visible produces a second,
-        // blank "Control Center" window beside a windowed VM launch.
+        // blank window beside a windowed VM launch.
         for window in NSApp.windows { window.orderOut(nil) }
         if launch.showsWindow {
             NSApp.setActivationPolicy(.regular)

@@ -224,6 +224,11 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     /// window has. Opening full screen is what makes that mode native instead of
     /// scaled, so the window takes the screen once when it appears.
     var entersFullScreenOnAttach = false
+    /// Bumped when the caller wants the window taken full screen now — the
+    /// moment a guest starts running, for example. The attach-time flag above
+    /// cannot do that, because a window that is already attached never re-runs
+    /// its attach path.
+    var fullScreenRequest = 0
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -246,10 +251,15 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         context.coordinator.rootPath = rootPath
         context.coordinator.appliesGuestWindowChrome = appliesGuestWindowChrome
         context.coordinator.entersFullScreenOnAttach = entersFullScreenOnAttach
+        let requestsFullScreen = context.coordinator.fullScreenRequest != fullScreenRequest
+        context.coordinator.fullScreenRequest = fullScreenRequest
         context.coordinator.shouldConfirm = shouldConfirm
         context.coordinator.shouldBlock = shouldBlock
         context.coordinator.onCloseAttempt = onCloseAttempt
-        DispatchQueue.main.async { context.coordinator.attach(to: nsView.window) }
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: nsView.window)
+            if requestsFullScreen { context.coordinator.enterFullScreenWhenReady() }
+        }
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
@@ -260,6 +270,7 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         var rootPath: URL
         var appliesGuestWindowChrome: Bool
         var entersFullScreenOnAttach: Bool
+        var fullScreenRequest = 0
         var requestedFullScreen = false
         var shouldConfirm: () -> Bool
         var shouldBlock: () -> Bool
@@ -299,14 +310,20 @@ struct VMWindowCloseObserver: NSViewRepresentable {
             self.window = window
             previousDelegate = window.delegate
             window.delegate = self
-            if entersFullScreenOnAttach, !requestedFullScreen {
-                requestedFullScreen = true
-                // Give the window a beat to be on screen first: a transition
-                // requested during the first layout is ignored.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
-                    guard let self, let window else { return }
-                    self.requestFullScreen(window, attempt: 0)
-                }
+            if entersFullScreenOnAttach { enterFullScreenWhenReady() }
+        }
+
+        /// Takes the window full screen once it is on screen. Repeats a request
+        /// that arrived while the window was already attached, and forgets the
+        /// earlier attempt so a restarted guest can ask again.
+        func enterFullScreenWhenReady() {
+            guard let window else { return }
+            requestedFullScreen = true
+            // Give the window a beat to be on screen first: a transition
+            // requested during the first layout is ignored.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak window] in
+                guard let self, let window else { return }
+                self.requestFullScreen(window, attempt: 0)
             }
         }
 
