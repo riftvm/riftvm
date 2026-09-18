@@ -1174,6 +1174,16 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private var requestedResolution: (width: UInt32, height: UInt32)?
     private var pendingDisplayRequest: DispatchWorkItem?
     private var dynamicDisplayReady = false
+    /// The size the window has to hold before it becomes a DRM mode, and the
+    /// bookkeeping that keeps a burst of samples or an alternating host from
+    /// turning into a burst of guest output rebuilds.
+    private var stableDisplayCandidate: (width: UInt32, height: UInt32)?
+    private var stableDisplayCandidateSince: TimeInterval = 0
+    private var publishedDisplayModes: [(width: UInt32, height: UInt32, at: TimeInterval)] = []
+    private static let displayStabilityWindow: TimeInterval = 2.0
+    private static let displayPublishWindow: TimeInterval = 30
+    private static let displayPublishLimit = 6
+    private static let displayHoldWindow: TimeInterval = 10
     private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
         "RIFTVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
     ] != "1"
@@ -1258,31 +1268,104 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         // Agent reports a real desktop session; otherwise the setup UI becomes
         // cropped even though host-side mode negotiation succeeded.
         guard dynamicDisplayReady else { return }
-        // A macOS full-screen transition exposes several short-lived content
-        // sizes (including the toolbar-safe-area width). Sending each one to
-        // DRM makes Hyprland destroy and recreate its triple buffers multiple
-        // times in under a second. Coalesce the whole transition and sample
-        // the view again only after its final geometry has settled.
         pendingDisplayRequest?.cancel()
-        let request = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            let size = self.virglView.bounds.size
-            let candidate = VMDisplayGeometry.guestResolution(for: size)
-            let resolution = VMDisplayGeometry.stabilizedResolution(
-                candidate: candidate,
-                current: self.requestedResolution ?? candidate
-            )
+        scheduleDisplaySample(after: 0.35)
+    }
+
+    /// A resize, a full-screen transition, and the macOS toolbar or safe area
+    /// moving all expose a burst of different view sizes, and every size that
+    /// reaches DRM makes the guest destroy and rebuild its outputs: a burst of
+    /// samples becomes a burst of flashes. Sample the window rather than the
+    /// display view, let the size hold still before it becomes a mode, and keep
+    /// a candidate off DRM while the window is still moving.
+    private func scheduleDisplaySample(after delay: TimeInterval) {
+        let request = DispatchWorkItem { [weak self] in self?.sampleStableDisplaySize() }
+        pendingDisplayRequest = request
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: request)
+    }
+
+    private func sampleStableDisplaySize() {
+        // The window frame only changes when the window changes. `virglView.bounds`
+        // also shrinks while an auto-hidden full-screen toolbar slides in, which is
+        // presentation, not a new display size.
+        let size = virglView.window?.frame.size ?? virglView.bounds.size
+        let candidate = VMDisplayGeometry.guestResolution(for: size)
+        let now = Date().timeIntervalSinceReferenceDate
+        if let stable = stableDisplayCandidate,
+           VMDisplayGeometry.isSameResolution(stable, candidate) {
+            let held = now - stableDisplayCandidateSince
+            guard held >= Self.displayStabilityWindow else {
+                scheduleDisplaySample(after: Self.displayStabilityWindow - held)
+                return
+            }
+        } else {
+            stableDisplayCandidate = candidate
+            stableDisplayCandidateSince = now
+            scheduleDisplaySample(after: Self.displayStabilityWindow)
+            return
+        }
+        stableDisplayCandidate = nil
+        publishDisplaySize(candidate: candidate, sampled: size)
+    }
+
+    private func publishDisplaySize(
+        candidate: (width: UInt32, height: UInt32),
+        sampled: CGSize
+    ) {
+        let resolution = VMDisplayGeometry.stabilizedResolution(
+            candidate: candidate,
+            current: requestedResolution ?? candidate
+        )
+        let now = Date().timeIntervalSinceReferenceDate
+        publishedDisplayModes.removeAll { now - $0.at > Self.displayPublishWindow }
+        RiftVMLog.info(
+            "VirGL display sample: window=\(Int(sampled.width))x\(Int(sampled.height))"
+                + " view=\(Int(virglView.bounds.width))x\(Int(virglView.bounds.height))"
+                + " candidate=\(candidate.width)x\(candidate.height)"
+                + " guest=\(resolution.width)x\(resolution.height)"
+                + " recentModes=\(publishedDisplayModes.count)",
+            logger: RiftVMLog.graphics
+        )
+        guard requestedResolution?.width != resolution.width
+                || requestedResolution?.height != resolution.height else { return }
+
+        // A↔B flapping is the case that makes the desktop unusable: the host
+        // keeps offering the two sizes, and the guest switches outputs for each
+        // step. Hold the current mode instead of following it.
+        if let previous = publishedDisplayModes.dropLast().last,
+           previous.width == resolution.width,
+           previous.height == resolution.height {
             RiftVMLog.info(
-                "VirGL stable display request: logical=\(Int(size.width))x\(Int(size.height)) candidate=\(candidate.width)x\(candidate.height) guest=\(resolution.width)x\(resolution.height)",
+                "VirGL display request held: \(resolution.width)x\(resolution.height) was the"
+                    + " previous mode \(Int(now - previous.at))s ago; the host is alternating",
                 logger: RiftVMLog.graphics
             )
-            guard self.requestedResolution?.width != resolution.width
-                    || self.requestedResolution?.height != resolution.height else { return }
-            self.requestedResolution = resolution
-            self.runtime?.requestDisplaySize(width: resolution.width, height: resolution.height)
+            holdDisplayPublishing(candidate: candidate, now: now)
+            return
         }
-        pendingDisplayRequest = request
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: request)
+        guard publishedDisplayModes.count < Self.displayPublishLimit else {
+            RiftVMLog.info(
+                "VirGL display request held: \(publishedDisplayModes.count) modes in"
+                    + " \(Int(Self.displayPublishWindow))s",
+                logger: RiftVMLog.graphics
+            )
+            holdDisplayPublishing(candidate: candidate, now: now)
+            return
+        }
+        publishedDisplayModes.append((width: resolution.width, height: resolution.height, at: now))
+        requestedResolution = resolution
+        runtime?.requestDisplaySize(width: resolution.width, height: resolution.height)
+    }
+
+    /// Re-offer the size once the hold expires, so a genuine resize is applied
+    /// after a burst instead of being dropped.
+    private func holdDisplayPublishing(
+        candidate: (width: UInt32, height: UInt32),
+        now: TimeInterval
+    ) {
+        stableDisplayCandidate = candidate
+        stableDisplayCandidateSince = now
+        scheduleDisplaySample(after: Self.displayHoldWindow)
     }
 
     func setDynamicDisplayReady(_ ready: Bool) {

@@ -32,6 +32,22 @@ enum VMDisplayGeometry {
         return widthDelta <= tolerance && heightDelta <= tolerance ? current : candidate
     }
 
+    /// Whether two advertised modes are the same mode. Sampling a window while
+    /// macOS lays it out repeats near-identical sizes, and the eight-pixel
+    /// rounding already absorbs the rest.
+    static func isSameResolution(
+        _ lhs: (width: UInt32, height: UInt32),
+        _ rhs: (width: UInt32, height: UInt32),
+        tolerance: Double = 0.01
+    ) -> Bool {
+        guard lhs.width > 0, lhs.height > 0, rhs.width > 0, rhs.height > 0 else {
+            return lhs.width == rhs.width && lhs.height == rhs.height
+        }
+        let widthDelta = abs(Double(lhs.width) - Double(rhs.width)) / Double(lhs.width)
+        let heightDelta = abs(Double(lhs.height) - Double(rhs.height)) / Double(lhs.height)
+        return widthDelta <= tolerance && heightDelta <= tolerance
+    }
+
     static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
         guard size.width.isFinite, size.height.isFinite,
               size.width > 0, size.height > 0 else { return (1280, 720) }

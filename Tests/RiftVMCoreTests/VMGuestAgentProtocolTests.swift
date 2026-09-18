@@ -101,6 +101,22 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(changed.height, 1600)
     }
 
+    func testResolutionSamenessAbsorbsLayoutJitterButNotADifferentMode() {
+        let held = (width: UInt32(1728), height: UInt32(1112))
+        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1112)))
+        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1116)))
+        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1080)))
+        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1512, height: 1112)))
+        XCTAssertTrue(VMDisplayGeometry.isSameResolution(
+            (width: 0, height: 0),
+            (width: 0, height: 0)
+        ))
+        XCTAssertFalse(VMDisplayGeometry.isSameResolution(
+            (width: 0, height: 0),
+            (width: 1280, height: 720)
+        ))
+    }
+
     func testGuestResolutionUsesLogicalWindowSizeWhileMetalRetainsRetinaPixels() {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)
