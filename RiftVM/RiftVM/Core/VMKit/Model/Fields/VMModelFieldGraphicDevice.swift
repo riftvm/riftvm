@@ -1177,6 +1177,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     /// The size the window has to hold before it becomes a DRM mode, and the
     /// bookkeeping that keeps a burst of samples or an alternating host from
     /// turning into a burst of guest output rebuilds.
+    private var stableDisplayFrame: CGSize?
     private var stableDisplayCandidate: (width: UInt32, height: UInt32)?
     private var stableDisplayCandidateSince: TimeInterval = 0
     private var publishedDisplayModes: [(width: UInt32, height: UInt32, at: TimeInterval)] = []
@@ -1285,32 +1286,44 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     private func sampleStableDisplaySize() {
-        // The window frame only changes when the window changes. `virglView.bounds`
-        // also shrinks while an auto-hidden full-screen toolbar slides in, which is
-        // presentation, not a new display size.
-        let size = virglView.window?.frame.size ?? virglView.bounds.size
-        let candidate = VMDisplayGeometry.guestResolution(for: size)
+        // The guest has to fill the area the display view actually covers, so the
+        // published size comes from the view. The window frame decides *when* the
+        // geometry has settled: an auto-hidden full-screen toolbar or a title bar
+        // moving changes the view without the user resizing the window, and every
+        // such sample used to become a DRM mode the guest had to switch to.
+        let frame = virglView.window?.frame.size ?? virglView.bounds.size
+        let view = virglView.bounds.size
+        let candidate = VMDisplayGeometry.guestResolution(for: view)
         let now = Date().timeIntervalSinceReferenceDate
-        if let stable = stableDisplayCandidate,
-           VMDisplayGeometry.isSameResolution(stable, candidate) {
+        if let heldFrame = stableDisplayFrame,
+           let heldCandidate = stableDisplayCandidate,
+           isSameSize(heldFrame, frame),
+           VMDisplayGeometry.isSameResolution(heldCandidate, candidate) {
             let held = now - stableDisplayCandidateSince
             guard held >= Self.displayStabilityWindow else {
                 scheduleDisplaySample(after: Self.displayStabilityWindow - held)
                 return
             }
         } else {
+            stableDisplayFrame = frame
             stableDisplayCandidate = candidate
             stableDisplayCandidateSince = now
             scheduleDisplaySample(after: Self.displayStabilityWindow)
             return
         }
+        stableDisplayFrame = nil
         stableDisplayCandidate = nil
-        publishDisplaySize(candidate: candidate, sampled: size)
+        publishDisplaySize(candidate: candidate, sampled: view, frame: frame)
+    }
+
+    private func isSameSize(_ lhs: CGSize, _ rhs: CGSize, tolerance: CGFloat = 1) -> Bool {
+        abs(lhs.width - rhs.width) <= tolerance && abs(lhs.height - rhs.height) <= tolerance
     }
 
     private func publishDisplaySize(
         candidate: (width: UInt32, height: UInt32),
-        sampled: CGSize
+        sampled: CGSize,
+        frame: CGSize
     ) {
         let resolution = VMDisplayGeometry.stabilizedResolution(
             candidate: candidate,
@@ -1319,8 +1332,8 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         let now = Date().timeIntervalSinceReferenceDate
         publishedDisplayModes.removeAll { now - $0.at > Self.displayPublishWindow }
         RiftVMLog.info(
-            "VirGL display sample: window=\(Int(sampled.width))x\(Int(sampled.height))"
-                + " view=\(Int(virglView.bounds.width))x\(Int(virglView.bounds.height))"
+            "VirGL display sample: view=\(Int(sampled.width))x\(Int(sampled.height))"
+                + " frame=\(Int(frame.width))x\(Int(frame.height))"
                 + " candidate=\(candidate.width)x\(candidate.height)"
                 + " guest=\(resolution.width)x\(resolution.height)"
                 + " recentModes=\(publishedDisplayModes.count)",
