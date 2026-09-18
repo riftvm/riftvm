@@ -350,6 +350,14 @@ public class VMOSInternalVirtualMachineViewController: NSViewController {
         RiftVMLog.info("VM display first responder accepted=\(focused)")
     }
 
+    func matchDisplayToWindow() {
+        graphicsBackend?.matchDisplayToWindow()
+    }
+
+    func useScreenCanvas() {
+        graphicsBackend?.useScreenCanvas()
+    }
+
     func updateRuntimeSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
         guard let configuration = virtualMachineConfiguration,
               let virtualMachine else {

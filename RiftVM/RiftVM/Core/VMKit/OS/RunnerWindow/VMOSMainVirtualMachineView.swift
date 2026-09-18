@@ -174,6 +174,17 @@ struct VMOSMainVirtualMachineView: View {
                             Divider()
                             Text(detail)
                         }
+                        Divider()
+                        Button("Fit Display to Window", systemImage: "arrow.down.right.and.arrow.up.left") {
+                            runtimeState.matchDisplayToWindow()
+                        }
+                        .disabled(backend != .customVirGL)
+                        .help("Re-negotiate the guest resolution to this window's current size")
+                        Button("Use Screen Size", systemImage: "display") {
+                            runtimeState.useScreenCanvas()
+                        }
+                        .disabled(backend != .customVirGL)
+                        .help("Return the guest to the screen-sized canvas the session keeps")
                     } label: {
                         Label(
                             "Graphics",

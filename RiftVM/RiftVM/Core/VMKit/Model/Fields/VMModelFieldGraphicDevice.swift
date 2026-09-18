@@ -80,6 +80,12 @@ protocol VMGraphicsBackend {
     ) -> VMOSResultVoid
     func bind(virtualMachine: VZVirtualMachine?)
     func refreshDisplayConfiguration()
+    /// Re-offer the guest display at the window's current size, on request. The
+    /// session keeps one mode otherwise, so this is the only way a window resize
+    /// reaches the guest.
+    func matchDisplayToWindow()
+    /// Return to the fixed session canvas: the screen the window is on.
+    func useScreenCanvas()
     func setDynamicDisplayReady(_ ready: Bool)
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?)
     func setKeyboardIntegrationStateHandler(_ handler: ((VMKeyboardIntegrationState) -> Void)?)
@@ -120,6 +126,10 @@ final class VMAppleGraphicsBackend: VMGraphicsBackend {
         virtualMachineView.automaticallyReconfiguresDisplay = false
         virtualMachineView.automaticallyReconfiguresDisplay = true
     }
+
+    func matchDisplayToWindow() {}
+
+    func useScreenCanvas() {}
 
     func setDynamicDisplayReady(_ ready: Bool) {}
 
@@ -1181,6 +1191,9 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private var stableDisplayCandidate: (width: UInt32, height: UInt32)?
     private var stableDisplayCandidateSince: TimeInterval = 0
     private var publishedDisplayModes: [(width: UInt32, height: UInt32, at: TimeInterval)] = []
+    /// Set when the user asked for the window's size explicitly; cleared when the
+    /// window goes full screen or the user asks for the screen canvas again.
+    private var displayCanvasOverride: CGSize?
     private static let displayStabilityWindow: TimeInterval = 2.0
     private static let displayPublishWindow: TimeInterval = 30
     private static let displayPublishLimit = 6
@@ -1291,13 +1304,42 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     /// which is what flickers the desktop and leaves its background layer without
     /// a committed buffer.
     private func displayCanvasSize() -> CGSize {
+        if let override = displayCanvasOverride { return override }
         if let screen = virglView.window?.screen, screen.frame.width > 0, screen.frame.height > 0 {
             return screen.frame.size
         }
         return virglView.bounds.size
     }
 
+    /// An explicit request from the user: take the window's current size as the
+    /// guest's mode now, and keep it until the window goes full screen or the user
+    /// asks for the screen canvas again.
+    func matchDisplayToWindow() {
+        pendingDisplayRequest?.cancel()
+        pendingDisplayRequest = nil
+        let size = virglView.bounds.size
+        guard size.width >= 1, size.height >= 1 else { return }
+        displayCanvasOverride = size
+        stableDisplayFrame = nil
+        stableDisplayCandidate = nil
+        publishDisplaySize(
+            candidate: VMDisplayGeometry.guestResolution(for: size),
+            sampled: size,
+            frame: virglView.window?.frame.size ?? size,
+            forcing: true
+        )
+    }
+
+    func useScreenCanvas() {
+        displayCanvasOverride = nil
+        refreshDisplayConfiguration()
+    }
+
     private func sampleStableDisplaySize() {
+        // Full screen is the native-size case, so it always uses the screen.
+        if virglView.window?.styleMask.contains(.fullScreen) == true {
+            displayCanvasOverride = nil
+        }
         let frame = virglView.window?.frame.size ?? virglView.bounds.size
         let canvas = displayCanvasSize()
         let candidate = VMDisplayGeometry.guestResolution(for: canvas)
@@ -1330,7 +1372,8 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private func publishDisplaySize(
         candidate: (width: UInt32, height: UInt32),
         sampled: CGSize,
-        frame: CGSize
+        frame: CGSize,
+        forcing: Bool = false
     ) {
         let resolution = VMDisplayGeometry.stabilizedResolution(
             candidate: candidate,
@@ -1351,8 +1394,12 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
 
         // A↔B flapping is the case that makes the desktop unusable: the host
         // keeps offering the two sizes, and the guest switches outputs for each
-        // step. Hold the current mode instead of following it.
-        if let previous = publishedDisplayModes.dropLast().last,
+        // step. Hold the current mode instead of following it. An explicit
+        // request from the user skips both guards.
+        if forcing {
+            publishedDisplayModes.removeAll()
+        }
+        if !forcing, let previous = publishedDisplayModes.dropLast().last,
            previous.width == resolution.width,
            previous.height == resolution.height {
             RiftVMLog.info(
@@ -1363,7 +1410,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
             holdDisplayPublishing(candidate: candidate, now: now)
             return
         }
-        guard publishedDisplayModes.count < Self.displayPublishLimit else {
+        guard forcing || publishedDisplayModes.count < Self.displayPublishLimit else {
             RiftVMLog.info(
                 "VirGL display request held: \(publishedDisplayModes.count) modes in"
                     + " \(Int(Self.displayPublishWindow))s",

@@ -204,6 +204,8 @@ final class VMRuntimeState {
     func requestKeyboardIntegrationPermission() {
         controller?.requestKeyboardIntegrationPermission()
     }
+    func matchDisplayToWindow() { controller?.matchDisplayToWindow() }
+    func useScreenCanvas() { controller?.useScreenCanvas() }
     func updateSharedFolders(_ devices: [VMModelFieldDirectorySharingDevice]) -> String? {
         controller?.updateRuntimeSharedFolders(devices)
     }
