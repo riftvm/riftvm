@@ -237,14 +237,19 @@ struct WorkspaceCreationView: View {
         }
     }
 
-    /// What the shared folder is, on both sides, and what it is not.
+    /// What the shared folder is, on both sides, and where it actually lives.
+    /// "RiftVM Shared" is a name, not a folder: the folder is the `Shared`
+    /// subfolder of the machine, which sits in the hidden ~/.riftvm.
     private var fileExchangeExplanation: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("On your Mac").font(.caption.weight(.semibold))
-                    Text("RiftVM Shared")
-                        .font(.callout.monospaced())
+                    Text(VMManagedSharedFolder.displayName)
+                        .font(.callout.weight(.medium))
+                    Text(sharedFolderPath)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
                 Image(systemName: "arrow.left.arrow.right")
@@ -258,12 +263,18 @@ struct WorkspaceCreationView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text("It is one folder, shared both ways: add files on either side and the other sees them. Open Shared Folder reveals it on your Mac, and Import Files or dropping files on the window copies them in. Your other Mac folders stay private.")
+            Text("It is one folder, shared both ways: add files on either side and the other sees them. **Open Shared Folder** in the window reveals it in Finder (drag it into the sidebar to keep it there), and **Import Files** or dropping files on the window copies them in. Your other Mac folders stay private.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// `~/.riftvm/Omarchy.riftvm/Shared`, abbreviated for display.
+    private var sharedFolderPath: String {
+        let path = NSString(string: savePath).appendingPathComponent("Shared")
+        return NSString(string: path).abbreviatingWithTildeInPath
     }
 
     private var progress: some View {
