@@ -217,11 +217,17 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     /// Guest canvases extend under the titlebar. Windows that keep their normal
     /// toolbar — the Omarchy workspace — opt out.
     var appliesGuestWindowChrome = true
+    /// The Omarchy workspace keeps one display mode for the whole session — the
+    /// screen the window is on — and scales that canvas into whatever size the
+    /// window has. Opening full screen is what makes that mode native instead of
+    /// scaled, so the window takes the screen once when it appears.
+    var entersFullScreenOnAttach = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             rootPath: rootPath,
             appliesGuestWindowChrome: appliesGuestWindowChrome,
+            entersFullScreenOnAttach: entersFullScreenOnAttach,
             shouldConfirm: shouldConfirm,
             shouldBlock: shouldBlock,
             onCloseAttempt: onCloseAttempt
@@ -237,6 +243,7 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.rootPath = rootPath
         context.coordinator.appliesGuestWindowChrome = appliesGuestWindowChrome
+        context.coordinator.entersFullScreenOnAttach = entersFullScreenOnAttach
         context.coordinator.shouldConfirm = shouldConfirm
         context.coordinator.shouldBlock = shouldBlock
         context.coordinator.onCloseAttempt = onCloseAttempt
@@ -250,6 +257,8 @@ struct VMWindowCloseObserver: NSViewRepresentable {
     final class Coordinator: NSObject, NSWindowDelegate {
         var rootPath: URL
         var appliesGuestWindowChrome: Bool
+        var entersFullScreenOnAttach: Bool
+        var requestedFullScreen = false
         var shouldConfirm: () -> Bool
         var shouldBlock: () -> Bool
         var onCloseAttempt: () -> Void
@@ -259,12 +268,14 @@ struct VMWindowCloseObserver: NSViewRepresentable {
         init(
             rootPath: URL,
             appliesGuestWindowChrome: Bool,
+            entersFullScreenOnAttach: Bool,
             shouldConfirm: @escaping () -> Bool,
             shouldBlock: @escaping () -> Bool,
             onCloseAttempt: @escaping () -> Void
         ) {
             self.rootPath = rootPath
             self.appliesGuestWindowChrome = appliesGuestWindowChrome
+            self.entersFullScreenOnAttach = entersFullScreenOnAttach
             self.shouldConfirm = shouldConfirm
             self.shouldBlock = shouldBlock
             self.onCloseAttempt = onCloseAttempt
@@ -286,12 +297,23 @@ struct VMWindowCloseObserver: NSViewRepresentable {
             self.window = window
             previousDelegate = window.delegate
             window.delegate = self
+            if entersFullScreenOnAttach, !requestedFullScreen {
+                requestedFullScreen = true
+                // Let the window be on screen before the transition; asking for
+                // full screen during the first layout is ignored by AppKit.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self, weak window] in
+                    guard let self, let window, self.window === window else { return }
+                    guard !window.styleMask.contains(.fullScreen) else { return }
+                    window.toggleFullScreen(nil)
+                }
+            }
         }
 
         func detach() {
             if window?.delegate === self {
                 window?.delegate = previousDelegate
             }
+            if self.window !== nil { requestedFullScreen = false }
             window = nil
             previousDelegate = nil
         }
