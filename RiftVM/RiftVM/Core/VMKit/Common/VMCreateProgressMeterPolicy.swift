@@ -9,13 +9,20 @@ import Foundation
 /// `(index, progress, time)` so a paused frame — a background window, Reduce
 /// Motion, or a screenshot — is reproducible instead of arbitrary.
 public enum VMCreateProgressMeterGeometry {
-    public static let barCount = 26
-    public static let barWidth: Double = 6
-    public static let gap: Double = 4
-    public static let minimumHeight: Double = 10
-    public static let maximumHeight: Double = 44
+    public static let barCount = 40
+    public static let barWidth: Double = 8
+    public static let gap: Double = 5
+    public static let minimumHeight: Double = 12
+    public static let maximumHeight: Double = 58
     /// Baseline drawn under the row; the row occupies `maximumHeight + gap`.
     public static let rowHeight: Double = maximumHeight + gap
+
+    /// Width the whole row occupies. The preparation screen centres the row in a
+    /// 680-point-wide content column, so the meter has to read as the subject of
+    /// that space instead of a small strip in the middle of it.
+    public static var rowWidth: Double {
+        Double(barCount) * barWidth + Double(barCount - 1) * gap
+    }
 
     /// Number of lit blocks, fractional while the frontier is inside a block.
     public static func litBars(progress: Double) -> Double {

@@ -39,7 +39,7 @@ struct CreateProgressMeter: View {
                             index: index, progress: progress, isReady: isSettled
                           )
                         : VMCreateProgressMeterGeometry.height(index: index, progress: progress, time: time)
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .fill(VMCreateProgressMeterGeometry.isLit(index: index, progress: progress)
                               ? accent
                               : Color(nsColor: .quaternaryLabelColor))

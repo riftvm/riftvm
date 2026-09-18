@@ -2,6 +2,19 @@ import XCTest
 @testable import RiftVMCore
 
 final class VMCreateProgressMeterGeometryTests: XCTestCase {
+    func testRowFillsThePreparationColumnWithoutOverflowingIt() {
+        // The preparation screen centres this row in a 680-point content column
+        // with 32-point page padding: wide enough to carry the screen, still
+        // clear of both edges on the narrowest supported window.
+        let row = VMCreateProgressMeterGeometry.rowWidth
+        XCTAssertGreaterThanOrEqual(row, 480, "the meter has to read as the subject of the column")
+        XCTAssertLessThanOrEqual(row, 616, "the meter must not reach the page padding")
+        XCTAssertEqual(row,
+                       Double(VMCreateProgressMeterGeometry.barCount) * VMCreateProgressMeterGeometry.barWidth
+                           + Double(VMCreateProgressMeterGeometry.barCount - 1) * VMCreateProgressMeterGeometry.gap,
+                       accuracy: 0.001)
+    }
+
     func testUnlitBlocksStayAtTheMinimumHeight() {
         for progress in [0.0, 0.25, 0.5, 0.99] {
             let lit = VMCreateProgressMeterGeometry.litBars(progress: progress)
@@ -34,7 +47,11 @@ final class VMCreateProgressMeterGeometryTests: XCTestCase {
 
     func testFrontierBlockBouncesWiderThanSettledBlocks() {
         let progress = 0.6
-        let frontier = Int(VMCreateProgressMeterGeometry.litBars(progress: progress))
+        // The frontier is the last lit block. `progress * barCount` can land on a
+        // whole number, and the block at that exact index is the first unlit one.
+        let lit = VMCreateProgressMeterGeometry.litBars(progress: progress)
+        let frontier = max(0, min(VMCreateProgressMeterGeometry.barCount - 1, Int(lit.rounded(.up)) - 1))
+        XCTAssertTrue(VMCreateProgressMeterGeometry.isLit(index: frontier, progress: progress))
         func range(_ index: Int) -> Double {
             let samples = stride(from: 0.0, through: 2.0, by: 0.05).map {
                 VMCreateProgressMeterGeometry.height(index: index, progress: progress, time: $0)
