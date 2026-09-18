@@ -890,7 +890,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             }
         }
         cursorPlaneUpdateReceived()
-        cursorLayer.isHidden = absolutePointerEnabled || !update.isVisible
+        // Absolute mode lets the guest own the cursor: the plane is composited
+        // here and the macOS cursor is blanked, so exactly one pointer shows.
+        cursorLayer.isHidden = !update.isVisible
         updateCursorGeometry()
     }
 
@@ -1114,7 +1116,13 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             drawableTiming.averageMilliseconds, drawableTiming.p95Milliseconds, drawableTiming.maximumMilliseconds,
             frameTiming.averageMilliseconds, frameTiming.p95Milliseconds, frameTiming.maximumMilliseconds
         )
-        RiftVMLog.info(completeSummary, logger: RiftVMLog.graphics)
+        RiftVMLog.info(
+            completeSummary
+                + " cursorPlaneUpdates=\(cursorPresentation.cursorPlaneUpdates)"
+                + " absolutePointerEvents=\(cursorPresentation.absolutePointerEvents)"
+                + " guestOwnsCursor=\(cursorPresentation.hidesSystemCursor)",
+            logger: RiftVMLog.graphics
+        )
         if ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1",
            let file = fopen("/tmp/riftvm-virgl-presentation.log", "a") {
             fputs("\(completeSummary) bounds=\(Int(bounds.width))x\(Int(bounds.height)) guest=\(Int(guestSize.width))x\(Int(guestSize.height)) layer=\(Int(metalLayer.frame.width))x\(Int(metalLayer.frame.height))\n", file)

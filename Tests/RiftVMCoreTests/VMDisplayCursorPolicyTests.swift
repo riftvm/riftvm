@@ -2,14 +2,17 @@ import XCTest
 @testable import RiftVMCore
 
 final class VMDisplayCursorPolicyTests: XCTestCase {
-    func testGuestThatDrivesTheCursorPlaneKeepsTheSystemCursor() {
+    func testGuestThatDrivesTheCursorPlaneYieldsTheSystemCursor() {
         var policy = VMGuestCursorPresentationPolicy()
         policy.noteCursorPlaneUpdate()
         policy.noteAbsolutePointerEvent()
 
         for _ in 0..<200 { policy.notePresentedFrame() }
 
-        XCTAssertFalse(policy.hidesSystemCursor)
+        // The plane is composited by the view, so the macOS cursor must yield
+        // immediately instead of waiting for a software-cursor repaint.
+        XCTAssertTrue(policy.hidesSystemCursor)
+        XCTAssertEqual(policy.cursorPlaneUpdates, 1)
     }
 
     func testGuestThatRepaintsWithoutTheCursorPlaneYieldsTheSystemCursor() {
@@ -50,7 +53,7 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
         XCTAssertTrue(policy.hidesSystemCursor)
     }
 
-    func testACursorPlaneUpdateHandsThePointerBack() {
+    func testACursorPlaneUpdateKeepsTheSystemCursorHidden() {
         var policy = VMGuestCursorPresentationPolicy()
         policy.noteAbsolutePointerEvent()
         for _ in 0..<VMGuestCursorPresentationPolicy.repaintFrameThreshold {
@@ -60,9 +63,9 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
         policy.noteCursorPlaneUpdate()
 
-        XCTAssertFalse(policy.hidesSystemCursor)
+        XCTAssertTrue(policy.hidesSystemCursor)
         for _ in 0..<500 { policy.notePresentedFrame() }
-        XCTAssertFalse(policy.hidesSystemCursor, "a guest known to drive the plane must not hide the system cursor again")
+        XCTAssertTrue(policy.hidesSystemCursor, "a guest that draws a cursor keeps the macOS cursor blanked")
     }
 
     func testResetReturnsToAnUnknownCursorSource() {
