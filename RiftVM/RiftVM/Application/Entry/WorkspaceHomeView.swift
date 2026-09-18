@@ -3,9 +3,8 @@ import Foundation
 import SwiftUI
 
 #if arch(arm64)
-/// Actions the single window offers for the workspace it is showing.
+/// Actions the single window offers for the Omarchy it is showing.
 struct WorkspaceWindowActions {
-    var rename: (String) -> Void
     var remove: () -> Void
 }
 
@@ -50,11 +49,6 @@ final class WorkspaceHomeModel {
         load()
     }
 
-    func rename(_ name: String) {
-        do { state = .workspace(try store.rename(to: name)) }
-        catch { errorMessage = error.localizedDescription }
-    }
-
     /// Records the visit without republishing state, so the running view is not
     /// rebuilt just because a timestamp changed.
     func markOpened() {
@@ -87,7 +81,6 @@ struct WorkspaceHomeView: View {
             case .workspace(let record):
                 WorkspaceRuntimeView(
                     record: record,
-                    rename: model.rename,
                     remove: model.remove,
                     markOpened: model.markOpened
                 )
@@ -108,7 +101,6 @@ struct WorkspaceHomeView: View {
 /// The prepared workspace, driven by the Omarchy runtime.
 private struct WorkspaceRuntimeView: View {
     let record: ActiveWorkspaceRecord
-    let rename: (String) -> Void
     let remove: () -> Void
     let markOpened: () -> Void
 
@@ -119,7 +111,7 @@ private struct WorkspaceRuntimeView: View {
                 layout: VMOmarchyWorkspaceLayout(applicationSupportRoot: record.bundleURL)
             ),
             workspace: record,
-            actions: WorkspaceWindowActions(rename: rename, remove: remove)
+            actions: WorkspaceWindowActions(remove: remove)
         )
         .onAppear { markOpened() }
     }

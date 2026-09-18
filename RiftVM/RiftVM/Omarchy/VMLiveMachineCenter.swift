@@ -96,7 +96,7 @@ final class VMLiveMachineCenter {
         reportStopFailure: @escaping @MainActor () -> Void = {
             let alert = NSAlert()
             alert.messageText = "RiftVM Could Not Quit"
-            alert.informativeText = "A workspace has not finished stopping. RiftVM stayed open to protect it. Check the workspace and try stopping it again."
+            alert.informativeText = "Omarchy has not finished stopping. RiftVM stayed open to protect it. Try stopping it again."
             alert.addButton(withTitle: "OK")
             alert.runModal()
         },
@@ -193,7 +193,7 @@ final class VMLiveMachineCenter {
 
     private static func progressMessage(for machines: [VMLiveMachine]) -> String {
         guard let machine = machines.first else { return "Stopping RiftVM…" }
-        guard machines.count == 1 else { return "Stopping \(machines.count) workspaces…" }
+        guard machines.count == 1 else { return "Stopping \(machines.count) machines…" }
         return machine.canSaveAndStop ? "Saving \(machine.name)…" : "Stopping \(machine.name)…"
     }
 }

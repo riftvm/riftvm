@@ -475,8 +475,8 @@ struct OmarchyVirtualMachineView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     let layout: VMOmarchyWorkspaceLayout
     let profile: VMOmarchyProfile
-    /// The single window shows one recorded workspace; these actions let it be
-    /// renamed or removed from inside the window.
+    /// The single window shows the one Omarchy; this action removes it from
+    /// inside the window, returning the window to preparation.
     let workspace: ActiveWorkspaceRecord
     let actions: WorkspaceWindowActions
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
@@ -511,8 +511,6 @@ struct OmarchyVirtualMachineView: View {
     @State private var closesWhenStopped = false
     @State private var removesWhenStopped = false
     @State private var isShowingRemovalConfirmation = false
-    @State private var isShowingRename = false
-    @State private var renameDraft = ""
     @State private var showsSnapshots = false
     @State private var showsDisplaySettings = false
     /// Bumped when the guest starts running, so the window takes the screen for
@@ -556,10 +554,7 @@ struct OmarchyVirtualMachineView: View {
             workspace: workspace,
             showsSnapshots: $showsSnapshots,
             showsDisplaySettings: $showsDisplaySettings,
-            isShowingRename: $isShowingRename,
-            renameDraft: $renameDraft,
             isShowingRemovalConfirmation: $isShowingRemovalConfirmation,
-            rename: actions.rename,
             remove: removeWorkspace
         ))
         .alert("Stop Omarchy and Close?", isPresented: $isShowingCloseConfirmation) {
@@ -667,7 +662,7 @@ struct OmarchyVirtualMachineView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
                     .font(.headline)
-                Text(acceptanceFailure ?? "This temporary workspace may type, lock, and restart automatically. Keep this window focused while testing.")
+                Text(acceptanceFailure ?? "This temporary copy of Omarchy may type, lock, and restart automatically. Keep this window focused while testing.")
                 if acceptanceFailure != nil {
                     Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
                 }
@@ -757,31 +752,26 @@ struct OmarchyVirtualMachineView: View {
             }
             if let graphicsIssue { Text(graphicsIssue) }
             Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
-            Text("Change the backend in workspace Settings → Display after shutdown.")
+            Text("Change the backend in Display Settings after shutdown.")
         } label: { Label("Graphics", systemImage: "display") }
     }
 
-    /// Snapshots, display settings, rename, and removal for the one workspace.
-    /// Extracted from the toolbar so the type checker does not have to solve it
-    /// together with every other toolbar item.
+    /// Snapshots, display settings, and removal for Omarchy. Extracted from the
+    /// toolbar so the type checker does not have to solve it together with every
+    /// other toolbar item.
     private var workspaceMenu: some View {
         Menu {
             Button("Snapshots…", systemImage: "camera.on.rectangle") { showsSnapshots = true }
             Button("Display Settings…", systemImage: "display") { showsDisplaySettings = true }
-            Divider()
-            Button("Rename…", systemImage: "pencil") {
-                renameDraft = workspace.name
-                isShowingRename = true
-            }
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL])
             }
             Divider()
-            Button("Remove Workspace…", systemImage: "trash", role: .destructive) {
+            Button("Remove Omarchy…", systemImage: "trash", role: .destructive) {
                 isShowingRemovalConfirmation = true
             }
-        } label: { Label("Workspace", systemImage: "square.grid.2x2") }
-        .help("Snapshots, display, rename, and removal for this workspace")
+        } label: { Label("Omarchy", systemImage: "square.grid.2x2") }
+        .help("Snapshots, display settings, and removal for Omarchy")
     }
 
     @ViewBuilder
@@ -1049,24 +1039,20 @@ struct OmarchyVirtualMachineView: View {
                 Text("Installed from current factory \(version)")
                 Button("Check Again") { checkFactoryChannel() }
             case .untracked(let available):
-                Text("Current workspace has no recorded factory version")
+                Text("This copy of Omarchy has no recorded factory version")
                 Text("Signed channel factory: \(available)")
                 Text("Factory images are only used for new installs and recovery.")
                 Button("Check Again") { checkFactoryChannel() }
             case .different(let installed, let available):
-                Text("Workspace factory: \(installed)")
+                Text("Installed factory: \(installed)")
                 Text("Signed channel factory: \(available)")
-                Text("Use a fresh workspace to try the channel image. Your existing workspace is kept.")
+                Text("Remove Omarchy to create a fresh one from the channel image.")
                 Button("Check Again") { checkFactoryChannel() }
             case .failed(let message):
                 Text(message)
                 Button("Try Again") { checkFactoryChannel() }
             }
             Divider()
-            Button("Create Workspace from Latest Image…", systemImage: "plus.rectangle.on.folder") {
-                openWindow(id: "create-machine-guide")
-            }
-            Text("Downloads and verifies the signed image during creation. Move your files using Shared Folder after checking the new workspace.")
         } label: {
             Label("Updates", systemImage: factoryChannel.needsAttention ? "arrow.down.circle.fill" : "arrow.triangle.2.circlepath")
         }
@@ -1433,7 +1419,7 @@ struct OmarchyVirtualMachineView: View {
                     recoveryOperation = .idle
                     refreshRecoveryPoints()
                     factoryChannel = .idle
-                    notice = UserNotice(title: "Recovery Complete", message: "Your workspace has been restored. Choose Start Omarchy to use it.")
+                    notice = UserNotice(title: "Recovery Complete", message: "Omarchy has been restored. Choose Start Omarchy to use it.")
                 case .failure(let error):
                     recoveryOperation = .failed(error.localizedDescription)
                 }
@@ -1602,10 +1588,7 @@ private struct WorkspaceWindowPresentations: ViewModifier {
     let workspace: ActiveWorkspaceRecord
     @Binding var showsSnapshots: Bool
     @Binding var showsDisplaySettings: Bool
-    @Binding var isShowingRename: Bool
-    @Binding var renameDraft: String
     @Binding var isShowingRemovalConfirmation: Bool
-    let rename: (String) -> Void
     let remove: () -> Void
 
     func body(content: Content) -> some View {
@@ -1617,23 +1600,15 @@ private struct WorkspaceWindowPresentations: ViewModifier {
             .sheet(isPresented: $showsDisplaySettings) {
                 OmarchyGraphicsSettingsView(workspace: workspace)
             }
-            .alert("Rename Workspace", isPresented: $isShowingRename) {
-                TextField("Workspace name", text: $renameDraft)
-                Button("Cancel", role: .cancel) {}
-                Button("Rename") { rename(renameDraft) }
-                    .disabled(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            } message: {
-                Text("This changes the display name. The workspace folder is not renamed.")
-            }
             .confirmationDialog(
-                "Move \(workspace.name) to the Trash?",
+                "Move Omarchy to the Trash?",
                 isPresented: $isShowingRemovalConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Move to Trash", role: .destructive) { remove() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Everything inside the workspace goes with it. RiftVM then starts over with Prepare Omarchy.")
+                Text("Omarchy and everything inside it go to the Trash. RiftVM then starts over with Prepare Omarchy.")
             }
     }
 }
@@ -1849,7 +1824,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         context.coordinator.beginObservingCommands()
         do {
             guard context.coordinator.runLease != nil else {
-                throw VMOSError.regularFailure("This workspace is already running or its settings are being changed.")
+                throw VMOSError.regularFailure("Omarchy is already running or its settings are being changed.")
             }
             _ = try metadata.get()
             let backend: any VMGraphicsBackend
@@ -1882,7 +1857,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             guard let lease = context.coordinator.runLease,
                   let assessment = VMRunningRegistry.shared.configureResources(lease,
                     cpuCount: configuration.cpuCount, memoryBytes: configuration.memorySize) else {
-                throw VMOSError.regularFailure("Could not reserve resources for this workspace.")
+                throw VMOSError.regularFailure("Could not reserve resources for Omarchy.")
             }
             guard assessment.allowed else {
                 throw VMOSError.regularFailure(assessment.denialReason ?? "Insufficient host resources.")

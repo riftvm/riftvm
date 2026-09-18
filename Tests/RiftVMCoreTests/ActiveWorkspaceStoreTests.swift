@@ -35,21 +35,6 @@ final class ActiveWorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(try store.load()?.bundleURL.standardizedFileURL, second.standardizedFileURL)
     }
 
-    func testRenameKeepsTheBundleAndRejectsAnEmptyName() throws {
-        let root = temporaryRoot()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let store = ActiveWorkspaceStore(applicationSupportRoot: root.appending(path: "Support"))
-        let bundle = root.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
-        _ = try store.adopt(bundleURL: bundle, name: "Omarchy")
-
-        let renamed = try store.rename(to: " Daily Driver ")
-        XCTAssertEqual(renamed.name, "Daily Driver")
-        XCTAssertEqual(renamed.bundleURL.standardizedFileURL, bundle.standardizedFileURL)
-        XCTAssertThrowsError(try store.rename(to: "   ")) {
-            XCTAssertEqual($0 as? ActiveWorkspaceError, .invalidName)
-        }
-    }
-
     func testCurrentFindsTheWorkspaceInTheDefaultDirectory() throws {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }

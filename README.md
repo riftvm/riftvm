@@ -19,30 +19,32 @@ and notarized app with Homebrew:
 brew install --cask riftvm/tap/riftvm
 ```
 
-RiftVM prepares **an Omarchy workspace**: a focused Arch Linux desktop in a real
+RiftVM prepares **an Omarchy machine**: a focused Arch Linux desktop in a real
 virtual machine, created from a signed and verified factory image and running
 locally through Apple's
 [Virtualization.framework](https://developer.apple.com/documentation/virtualization).
-Omarchy is the one workspace RiftVM prepares, so the whole app is arranged
+Omarchy is the one machine RiftVM prepares, so the whole app is arranged
 around it.
 
 Prefer a direct download? Get the signed and notarized app from
 [GitHub Releases](https://github.com/riftvm/riftvm/releases/latest).
 
-## Create your first workspace
+## Prepare Omarchy
 
-1. Open RiftVM. The app has one window: it shows **Prepare Omarchy** until a
-   workspace exists, and that workspace afterwards.
-2. Choose a name, a location, and hardware settings. The default location is
-   the hidden `~/.riftvm` folder, so the workspace does not sit in your visible
-   home folder; RiftVM remembers a custom location when you choose one.
-3. Click **Create Omarchy**. RiftVM downloads the factory image, verifies its
-   signed manifest and its digest, and creates the workspace. The window then
-   shows the workspace: press **Start Omarchy**, and the window takes the screen
-   while the guest runs. Omarchy guides you through owner setup on first boot.
+1. Open RiftVM. The app has one window: it shows the **Prepare Omarchy** form
+   until Omarchy exists, and shows Omarchy afterwards.
+2. Adjust the disk location and resources. The disk defaults to the hidden
+   `~/.riftvm/Omarchy.riftvm` path, so it does not sit in your visible home
+   folder; choose **Change…** to pick another location, and RiftVM remembers it.
+   There is no name to choose: the machine is always Omarchy.
+3. Click **Prepare Omarchy**. RiftVM downloads the factory image, verifies its
+   signed manifest and its digest, and creates the machine. The window then
+   shows **Omarchy is stopped**: press **▶ Start Omarchy**, and the window takes
+   the screen while the guest runs. Omarchy guides you through owner setup on
+   first boot.
 
-The workspace has its own writable disk and machine identity. The verified
-factory image is cached for reuse; creating a workspace still needs a connection
+The machine has its own writable disk and machine identity. The verified
+factory image is cached for reuse; preparing Omarchy still needs a connection
 to fetch and verify the signed release manifest. The guest keeps one display mode
 per session and the window goes full screen while it runs; **Graphics → Fit
 Display to Window** re-offers the guest the window's current size when you want a
@@ -52,16 +54,16 @@ different one.
 
 - Runs Omarchy locally through Apple's native virtualization stack
 - Creates Omarchy from a signed, verified factory image with guided owner setup
-- Starts, pauses, resumes, and stops the workspace from its window or the menu bar
-- Reuses the verified image and gives the workspace its own writable disk and machine identity
+- Starts, pauses, resumes, and stops Omarchy from its window or the menu bar
+- Reuses the verified image and gives the machine its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, dynamic display sizing, text and image clipboard exchange, and notifications through an authenticated guest agent
 - Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
   guest's outputs, and opens full screen while the guest runs
-- Takes stopped-workspace snapshots and keeps checksum-verified `.riftvmexport`
+- Takes stopped-machine snapshots and keeps checksum-verified `.riftvmexport`
   import/export
-- Keeps the workspace in the hidden `~/.riftvm` folder, with rename, removal, and
+- Keeps Omarchy in the hidden `~/.riftvm` folder by default, with removal and
   snapshots inside the one window
 
 ### Update and recover Omarchy
@@ -70,19 +72,21 @@ Use **Updates → Prepare for Omarchy Update…** to stop the guest and create a
 protected recovery point. Start Omarchy and update it from its own menu. If the
 update causes problems, stop it and restore the saved point from **Recovery**.
 
-**Updates → Create Workspace from Latest Image…** creates a separate workspace
-from the signed factory channel. Updating RiftVM itself or downloading a newer
-factory does not replace your existing guest disk. See [Updates and recovery](docs/UPDATES_AND_RECOVERY.md).
+To try a newer signed channel image, open **Omarchy ▾ → Remove Omarchy…**. That
+moves the existing machine and its data to the Trash and returns the window to
+**Prepare Omarchy**, where you prepare again from the current signed factory
+channel. There is no side-by-side copy, and updating RiftVM itself or downloading
+a newer factory does not replace your guest disk. See [Updates and recovery](docs/UPDATES_AND_RECOVERY.md).
 
 ## Requirements
 
 - An Apple silicon Mac
 - macOS 27 or later
-- A network connection when you create a workspace, to fetch the signed image
+- A network connection when you prepare Omarchy, to fetch the signed image
 
 ## Limits to know
 
-- Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported workspace.
+- Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported machine.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
 - Omarchy defaults to Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
 - Omarchy shares only its managed exchange folder by default. Other host folders are not exposed automatically. A guest with read-write access to a deliberately shared folder can change its contents.
@@ -98,11 +102,11 @@ command writes one schema-versioned JSON object and uses deterministic exit
 codes.
 
 Discovery and inspection commands cover both bundle layouts, so `list` shows the
-Omarchy workspace you actually created:
+Omarchy machine you actually created:
 
 - a general VM bundle with `config.json` in its root, which is what
   `install-image` produces;
-- an Omarchy workspace with `Workspace/Configuration.json`, its `Disk.asif` and
+- an Omarchy machine with `Workspace/Configuration.json`, its `Disk.asif` and
   its `MachineIdentifier` one level down.
 
 ```sh
@@ -117,11 +121,11 @@ riftvm install-image preinstalled-image.json --image disk.raw \
   --destination "$HOME/.riftvm/Imported Linux.riftvm" --timeout 300
 ```
 
-`start`, `status`, and `stop` drive general machines only. An Omarchy workspace
+`start`, `status`, and `stop` drive general machines only. An Omarchy machine
 needs the guest agent and the Omarchy-specific machine builder, which the
 headless path does not provide, so those three commands exit 69 with
 `unsupported_layout` for that bundle rather than pretending to control it. Start
-and stop the Omarchy workspace in the app.
+and stop Omarchy in the app.
 
 Use `--root /path/to/library` one or more times when machines are stored outside
 `~/.riftvm` (the CLI also looks in `~/RiftVM Virtual Machines` for bundles
@@ -151,12 +155,12 @@ Omarchy defaults to Custom VirGL: Guest Mesa VirGL commands are rendered
 through virglrenderer and ANGLE on Metal. If the runtime cannot initialize,
 startup reports an error instead of switching to Apple Virtio.
 
-| Workspace / configuration | Graphics path |
+| Machine / configuration | Graphics path |
 | --- | --- |
-| Omarchy created from the home screen | Custom VirGL by default; Apple Virtio is an explicit per-workspace option |
+| Omarchy created from the home screen | Custom VirGL by default; Apple Virtio is an explicit per-machine option |
 | Imported or general Linux VMs | Custom VirGL for prepared guests; select Apple Virtio for installation or compatibility |
 
-Choose **Settings → Display → Graphics Backend** for each Linux workspace. Shut
+Choose **Settings → Display → Graphics Backend** for each Linux machine. Shut
 down before switching. A saved machine state must first be resumed and shut down,
 or discarded. The choice is stored with the VM and is never silently changed after
 a startup failure. Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent;
@@ -165,7 +169,7 @@ Apple Virtio may use software rendering for Linux 3D.
 Custom VirGL supports zero-copy scanout presentation and dynamic resolution.
 It does not support memory-state save/restore because guest RAM alone cannot
 reconstruct renderer contexts and resources. Stopped-VM file snapshots remain
-supported. Omarchy recovery points protect the stopped disk and workspace
+supported. Omarchy recovery points protect the stopped disk and machine
 configuration; they do not restore running GPU state.
 
 Implementation and validation details are in the

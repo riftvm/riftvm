@@ -62,8 +62,8 @@ enum OmarchyWorkspaceConfiguration {
 struct OmarchyRootView: View {
     let profile: VMOmarchyProfile
     let workspaceManager: VMOmarchyWorkspaceManager
-    /// The recorded workspace this window belongs to, and the actions the
-    /// window offers for it (rename, remove).
+    /// The recorded Omarchy this window belongs to, and the actions the window
+    /// offers for it (removal).
     let workspace: ActiveWorkspaceRecord
     let actions: WorkspaceWindowActions
     @State private var workspaceRevision = UUID()
@@ -74,12 +74,13 @@ struct OmarchyRootView: View {
     var body: some View {
         switch workspaceManager.inspect() {
         case .notPrepared:
-            OmarchyWelcomeView(
-                profile: profile,
-                workspaceManager: workspaceManager,
-                workspacePrepared: { workspaceRevision = UUID() }
+            // The window prepares Omarchy before it shows this view, so this is
+            // the defensive branch for a bundle that vanished underneath it.
+            ContentUnavailableView(
+                "Omarchy is not ready",
+                systemImage: "externaldrive.badge.questionmark",
+                description: Text("Prepare Omarchy from the RiftVM window.")
             )
-            .id(workspaceRevision)
         case .ready:
             OmarchyVirtualMachineView(
                 layout: workspaceManager.layout,
@@ -90,9 +91,9 @@ struct OmarchyRootView: View {
         case .migrationRequired(let fromVersion):
             VStack(spacing: 18) {
                 ContentUnavailableView(
-                    "Omarchy workspace update required",
+                    "Omarchy needs an update",
                     systemImage: "externaldrive.badge.timemachine",
-                    description: Text("Workspace format \(fromVersion) must be migrated before Omarchy can start.")
+                    description: Text("The on-disk format (\(fromVersion)) must be migrated before Omarchy can start.")
                 )
                 if let recoveryError {
                     Text(recoveryError).foregroundStyle(.red).multilineTextAlignment(.center)
@@ -132,14 +133,14 @@ struct OmarchyRootView: View {
             }
             .padding(40)
             .confirmationDialog(
-                "Preserve the broken workspace and reinstall Omarchy?",
+                "Preserve the broken Omarchy and reinstall it?",
                 isPresented: $showsRecoveryConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Preserve and Reinstall") { preserveAndReinstall() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("The existing workspace will be moved into the Recovery folder. It will not be deleted.")
+                Text("The existing data will be moved into the Recovery folder. It will not be deleted.")
             }
         }
     }
@@ -180,139 +181,6 @@ struct OmarchyRootView: View {
                     recoveryError = error.localizedDescription
                 }
             }
-        }
-    }
-}
-
-private struct OmarchyWelcomeView: View {
-    let profile: VMOmarchyProfile
-    let workspaceManager: VMOmarchyWorkspaceManager
-    let workspacePrepared: () -> Void
-    @State private var installState: InstallState = .idle
-
-    var body: some View {
-        VStack(spacing: 22) {
-            Image(systemName: "desktopcomputer")
-                .font(.system(size: 58))
-                .foregroundStyle(.tint)
-            Text("Welcome to RiftVM Omarchy")
-                .font(.largeTitle.weight(.semibold))
-            Text("One Omarchy workspace, deeply integrated with macOS.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-            Divider().frame(maxWidth: 420)
-            Text("Factory image download and first-owner setup are required before this workspace can start.")
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 520)
-            LabeledContent("Planned disk capacity", value: ByteCountFormatter.string(fromByteCount: Int64(profile.diskCapacityBytes), countStyle: .file))
-                .frame(maxWidth: 420)
-            installControls
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private var installControls: some View {
-        switch installState {
-        case .idle:
-            Button("Prepare Omarchy") { prepare() }
-                .buttonStyle(.borderedProminent)
-        case .checkingSpace:
-            ProgressView("Checking available storage…")
-        case .downloading(let fraction):
-            VStack(spacing: 8) {
-                ProgressView(value: fraction)
-                    .frame(maxWidth: 360)
-                Text("Downloading and verifying Omarchy… \(Int(fraction * 100))%")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .creatingWorkspace:
-            ProgressView("Creating your Omarchy workspace…")
-        case .failed(let message):
-            VStack(spacing: 10) {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                Button("Try Again") { prepare() }
-            }
-            .frame(maxWidth: 520)
-        }
-    }
-
-    private func prepare() {
-        installState = .checkingSpace
-        Task {
-            do {
-                let forecast = try VMOmarchyStorageForecast.inspect(
-                    volumeContaining: workspaceManager.layout.applicationSupportRoot.deletingLastPathComponent(),
-                    downloadBytes: profile.factoryImage.maximumDownloadBytes,
-                    workspaceBytes: profile.factoryImage.maximumDownloadBytes
-                )
-                guard forecast.hasEnoughSpace else {
-                    throw OnboardingError.insufficientSpace(required: forecast.requiredBytes, available: forecast.availableBytes)
-                }
-                let publicKeys = FactoryTrustConfiguration.publicKeys()
-                guard !publicKeys.isEmpty else {
-                    throw OnboardingError.releaseChannelNotConfigured
-                }
-                let installer = VMOmarchyFactoryInstaller(
-                    profile: profile,
-                    cacheDirectory: workspaceManager.layout.cache,
-                    publicKeys: publicKeys,
-                    transport: VMOmarchyURLSessionTransport()
-                )
-                let factory = try await installer.install { received, expected in
-                    let denominator = max(expected, 1)
-                    let fraction = min(max(Double(received) / Double(denominator), 0), 1)
-                    Task { @MainActor in installState = .downloading(fraction) }
-                }
-                installState = .creatingWorkspace
-                let identifier = VZGenericMachineIdentifier().dataRepresentation
-                let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
-                    productID: profile.productID,
-                    createdAt: Date(),
-                    factoryImageVersion: factory.manifest.payload.imageVersion,
-                    omarchyRevision: factory.manifest.payload.omarchyRevision,
-                    guestAgentVersion: factory.manifest.payload.guestAgentVersion,
-                    guestCapabilities: factory.manifest.payload.guestCapabilities.sorted()
-                ))
-                try workspaceManager.prepare(
-                    factoryDisk: factory.diskURL,
-                    configuration: metadata,
-                    machineIdentifier: identifier
-                )
-                workspacePrepared()
-            } catch {
-                installState = .failed(error.localizedDescription)
-            }
-        }
-    }
-
-    private enum InstallState: Equatable {
-        case idle
-        case checkingSpace
-        case downloading(Double)
-        case creatingWorkspace
-        case failed(String)
-    }
-
-    private enum OnboardingError: LocalizedError {
-        case releaseChannelNotConfigured
-        case insufficientSpace(required: UInt64, available: UInt64)
-
-        var errorDescription: String? {
-            switch self {
-            case .releaseChannelNotConfigured:
-                "This build has no trusted Omarchy factory signing key. Install an official build or configure the development release channel."
-            case .insufficientSpace(let required, let available):
-                "Omarchy needs \(Self.bytes(required)) free; this volume currently has \(Self.bytes(available))."
-            }
-        }
-
-        private static func bytes(_ value: UInt64) -> String {
-            ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .file)
         }
     }
 }

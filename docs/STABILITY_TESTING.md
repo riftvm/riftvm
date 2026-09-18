@@ -8,7 +8,7 @@ remain available.
 The implementations live in `Tools/OmarchyAcceptanceHarness`. Only an explicit
 `RIFTVM_ACCEPTANCE_HARNESS` Swift build includes them. The local harness has a
 separate app name, displays a testing banner, and accepts only an explicitly
-selected temporary workspace. It must never be installed or distributed as
+selected temporary acceptance bundle. It must never be installed or distributed as
 RiftVM. Production packaging and installation verification reject the harness
 marker and executable probe signatures.
 
@@ -25,7 +25,7 @@ using the installed app's matching provisioning profile. The harness retains
 the app identifier for local permission continuity; the executable is explicitly
 marked as a harness and fails the production release gate.
 
-Create a disposable workspace with `omarchy-workspace-acceptance-tool`, then run:
+Create a disposable Omarchy machine with `omarchy-workspace-acceptance-tool`, then run:
 
 ```sh
 python3 Tools/OmarchyAcceptanceHarness/run.py \
@@ -34,8 +34,8 @@ python3 Tools/OmarchyAcceptanceHarness/run.py \
 ```
 
 The launcher prompts for the temporary guest password without echoing it. Start
-only that named workspace in the RiftVM window. It refuses a non-temporary
-workspace, a normal app, an already-running RiftVM instance, or nonempty
+only that named machine in the RiftVM window. It refuses a non-temporary
+machine, a normal app, an already-running RiftVM instance, or nonempty
 Diagnostics. Archive the previous Diagnostics before each run. Each launch gets
 its own environment; no global defaults or launch environment are changed.
 
@@ -65,13 +65,13 @@ only the selected actions manually. Do not run `lifecycle` or `stability`, since
 they deliberately lock the guest. This narrower run is not full lifecycle
 qualification.
 
-Use disposable workspaces and retain the app revision and image manifest hash:
+Use disposable Omarchy machines and retain the app revision and image manifest hash:
 
 1. Type a short and a long line without moving the pointer; pause/resume and
    repeat. Switch to a host editor and verify Command+V stays in that editor.
 2. Close the running Omarchy window, cancel once, and confirm it still accepts
    input. Close again and confirm the window remains until shutdown completes.
-3. Start two disposable workspaces and quit from the menu bar. Verify both stop
+3. Start two disposable machines and quit from the menu bar. Verify both stop
    before the process exits.
 4. Create a protected pre-update recovery point. Record package versions, run the
    guest's normal update command, retain its exit status, then reboot and check
@@ -87,7 +87,7 @@ manufacture an update or count a no-op update as an upgrade.
 
 ## Evidence and limits
 
-Retain `Diagnostics` before removing the temporary workspace. Review the first
+Retain `Diagnostics` before removing the temporary acceptance bundle. Review the first
 failure, not only the latest success file. Start a fresh evidence directory for
 each independent run; old reports do not prove that the current run passed.
 
@@ -117,7 +117,7 @@ or sleep scenario passed when its evidence is missing.
 
 ## Physical checks
 
-Use the `observe` scenario and the disposable workspace for checks that require
+Use the `observe` scenario and the disposable Omarchy machine for checks that require
 someone at the Mac. Retain timestamps and screenshots alongside the JSON reports.
 
 1. With the guest focused, hold a modifier, put the Mac to sleep, then wake and

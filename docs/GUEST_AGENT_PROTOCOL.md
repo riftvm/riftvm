@@ -8,7 +8,7 @@ requires privileged host networking.
 
 Each VM receives an independent random 256-bit token. General VM enrollment
 stores the host copy under the user's Application Support directory; dedicated
-Omarchy workspaces store it in their private `Enrollment/config.json`, exposed
+Omarchy machines store it in their private `Enrollment/config.json`, exposed
 to the guest through a read-only enrollment share. The
 enrollment directory is mode `0700` and each token file is mode `0600`, so
 normal VM launches do not trigger an interactive Keychain prompt. Installation
@@ -19,7 +19,7 @@ in the separately exported enrollment file and in the guest's root-only
 
 This storage choice preserves per-VM mutual authentication while allowing
 unattended VM launches and release smoke tests. Treat the host account and its
-Application Support data and Omarchy workspace enrollment as part of the trust boundary; enrollment files must
+Application Support data and Omarchy machine enrollment as part of the trust boundary; enrollment files must
 never be synchronized, committed, or included in support bundles.
 
 The guest starts authentication with a random nonce and an HMAC-SHA256 proof

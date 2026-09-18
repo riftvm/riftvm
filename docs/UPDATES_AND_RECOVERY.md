@@ -4,17 +4,18 @@ RiftVM, the factory image, and the running Omarchy system have separate update p
 
 ## Try the latest factory image
 
-In the workspace toolbar, open **Updates → Check Signed Factory Channel** to compare
+In the window toolbar, open **Updates → Check Signed Factory Channel** to compare
 its original factory version with the signed channel. This comparison does not
 measure updates you have installed inside Omarchy.
 
-Choose **Create Workspace from Latest Image…**. Give the new workspace a distinct
-name. Creation fetches the current signed manifest, verifies the image, and uses
-its normal download progress and retry flow. Your existing workspace is retained.
-Set up the new owner, check that the desktop works, then transfer selected files
-using each workspace's **Open Shared Folder**. Keep the old workspace until you
-have verified your files and applications. This is a fresh installation, not an
-in-place disk replacement or automatic migration.
+To try the channel image, open **Omarchy ▾ → Remove Omarchy…**. This moves the
+existing machine, including its disk and its data, to the Trash and returns the
+window to **Prepare Omarchy**. Prepare again to fetch the current signed manifest,
+verify the image, and create the machine using the normal download progress and
+retry flow. There is no side-by-side copy and no automatic migration: the old
+machine is gone once it is removed, so back up anything you still need from
+**Open Shared Folder** first. This is a fresh installation, not an in-place disk
+replacement.
 
 ## Update an existing Omarchy system
 
@@ -30,7 +31,7 @@ in-place disk replacement or automatic migration.
 
 Omarchy's normal package update does not replace RiftVM's separately installed
 Agent and display watcher. To keep the desktop background through a display mode
-change, or to receive demand rendering, on an existing workspace, first create
+change, or to receive demand rendering, on an existing Omarchy machine, first create
 the protected recovery point described above, then download the paired
 integration package from the [`.9` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.9).
 Use RiftVM 0.1.21 or later. Inside the Guest terminal:
@@ -68,20 +69,20 @@ TLS verification to work around download failures.
 
 Keep the protected recovery point throughout the retry and the first reboot.
 If the desktop no longer starts or the update leaves applications broken, use the
-recovery flow below. A newly downloaded factory image creates a separate
-workspace; it does not repair or replace the existing guest disk in place.
+recovery flow below. A newly downloaded factory image requires removing Omarchy
+first, so it does not repair or replace the existing guest disk in place.
 
 ## Recover after a failed update
 
 Stop Omarchy, then choose the dated recovery point from the **Recovery** menu.
 Confirm only after saving any newer work you need: restoring replaces changes
 inside the guest since that point. Wait for **Recovery Complete**, then start it.
-If the workspace shows an error page, use **Stop and Enable Recovery** first.
+If the window shows an error page, use **Stop and Enable Recovery** first.
 RiftVM enables disk recovery only after stopping the VM. Interrupted restores use
 transactional recovery; an ambiguous filesystem state is preserved for diagnosis.
 
-Recovery points live with the workspace. They are not a substitute for an external
-backup against disk failure or deletion of the workspace.
+Recovery points live with the machine. They are not a substitute for an external
+backup against disk failure or deletion of the machine.
 
 ## Update RiftVM itself
 

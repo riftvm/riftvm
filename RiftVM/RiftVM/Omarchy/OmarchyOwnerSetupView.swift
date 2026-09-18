@@ -256,7 +256,7 @@ struct OmarchyOwnerSetupView: View {
             case .submitting:
                 ProgressView("Sending owner setup securely…")
             case .finishing:
-                ProgressView(provisioningDetail ?? "Omarchy is creating your workspace…")
+                ProgressView(provisioningDetail ?? "Omarchy is getting ready…")
             }
     }
 }

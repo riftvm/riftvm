@@ -23,7 +23,7 @@ the state at the time of each run.
 - Host: Apple Silicon, macOS 27 beta; input-dispatch changes committed as
   `c8a3b43`, Command/text queue correction `ca44ad8`, and background
   Command-capture correction `841b0bb`.
-- Disposable workspace: `/tmp/riftvm-p0-acceptance.riftvm`. The personal workspace
+- Disposable machine: `/tmp/riftvm-p0-acceptance.riftvm`. The personal machine
   is excluded from acceptance.
 - Disposable Guest Agent: `p0-input-dispatch-2`, containing the asynchronous
   control dispatcher and disconnect key-release cleanup.
@@ -170,7 +170,7 @@ An obsolete local signing key was correctly rejected; the established release
 key matched app trust. Commit `3221323` adds an optional signing-key preflight
 before conversion; the complete factory-tool regression script passed.
 
-Fresh temporary workspace `/tmp/riftvm-p0-factory-firstboot.riftvm` completed
+Fresh temporary machine `/tmp/riftvm-p0-factory-firstboot.riftvm` completed
 initialization and reached the desktop with Agent `c8a3b43`. Evidence is in
 `dispatch-fix/candidate-firstboot`. Actual DPMS black screen was observed, then
 Escape restored display without pointer movement. However, the immediately
@@ -199,9 +199,9 @@ and `candidate-observe-soak-diagnostics`. The test used host `ad8ea32` and the
 candidate Agent `c8a3b43`; later changes affect release/diagnostic tools only.
 
 The current harness suite passed 74 tests with no skips or failures
-(`dispatch-fix/harness19-tests.json`). The candidate's unused offline workspace
+(`dispatch-fix/harness19-tests.json`). The candidate's unused offline machine
 passed protected pre-update snapshot restoration with exact marker restoration
-and a ready workspace (`candidate-offline-rollback.json`). This is not proof
+and a ready machine (`candidate-offline-rollback.json`). This is not proof
 of an in-Guest package update rollback.
 
 Optional Chinese packages were installed only in the disposable candidate Guest:
@@ -223,7 +223,7 @@ and stage-capture artifacts are retained separately.
 
 The full system refresh candidate `v4.0.3-riftvm.4` was reconstructed with part,
 archive, and raw-image hashes verified, converted to ASIF, signed, and verified
-against the application's trusted factory key. Its disposable workspace reached
+against the application's trusted factory key. Its disposable machine reached
 the provisioned desktop. Full input acceptance and publication remain outstanding.
 
 The fresh Guest's `checkupdates` returned exit 2 with no available packages and
@@ -280,7 +280,7 @@ package inventories.
 ### Refreshed image recovery validation
 
 Candidate `.5` passed ASIF byte comparison, signing, and verification against the
-application's trusted public key. A fresh disposable workspace completed owner
+application's trusted public key. A fresh disposable machine completed owner
 initialization and reached the desktop with integration ready. The initial
 desktop showed Learn Keybindings without the former unconditional Update System
 notification; this observation does not replace a package inventory check.

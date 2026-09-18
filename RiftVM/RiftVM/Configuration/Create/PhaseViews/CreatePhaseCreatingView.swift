@@ -120,8 +120,8 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.creationCancellationKind = nil
             context.formData.downloadBytesReceived = nil
             context.formData.downloadBytesExpected = nil
-            context.formData.creationStage = "Creating Omarchy workspace"
-            context.formData.addLog("Factory image verified; creating the workspace and integration identity")
+            context.formData.creationStage = "Creating Omarchy"
+            context.formData.addLog("Factory image verified; creating the disk and integration identity")
             let metadata = try JSONEncoder().encode(VMOmarchyWorkspaceMetadata(
                 productID: profile.productID,
                 createdAt: Date(),
@@ -179,7 +179,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 name: context.configData.name
             )
         } catch {
-            let message = "Workspace registry update failed: \(error.localizedDescription)"
+            let message = "The Omarchy record could not be saved: \(error.localizedDescription)"
             context.formData.addLog("⚠️ \(message)")
             RiftVMLog.error(message, logger: RiftVMLog.lifecycle)
         }
@@ -200,7 +200,7 @@ struct CreatePhaseCreatingView: View {
             Text(formData.creationStage)
                 .font(.title2.weight(.semibold))
 
-            Text("RiftVM downloads and verifies the signed Omarchy image, then creates and installs your workspace. You can leave this window open and wait once.")
+            Text("RiftVM downloads and verifies the signed Omarchy image, then creates the machine. You can leave this window open and wait once.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

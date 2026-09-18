@@ -5,9 +5,9 @@ checklist, read [Custom VirGL architecture and engineering notes](CUSTOM_VIRGL_A
 first.
 
 Omarchy defaults to Custom VirGL. Use Settings → Display to choose Apple Virtio
-on a stopped, disposable workspace for a same-build comparison, then switch back.
+on a stopped, disposable machine for a same-build comparison, then switch back.
 The legacy general-VM commands below require fixtures with a top-level
-`config.json`; they are not Omarchy workspace commands. Keep CPU, memory, guest
+`config.json`; they are not Omarchy machine commands. Keep CPU, memory, guest
 packages, resolution, and workload identical, and record the actual renderer.
 
 RiftVM records two low-overhead graphics streams while a Custom VirGL virtual

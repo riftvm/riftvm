@@ -92,8 +92,8 @@ public enum ActiveWorkspaceLocation {
     }
 }
 
-/// Reads and writes the single workspace record, and makes sure it matches what
-/// is actually on disk.
+/// Reads and writes the one Omarchy record, and makes sure it matches what is
+/// actually on disk.
 public struct ActiveWorkspaceStore {
     public static var standard: Self {
         let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -150,14 +150,6 @@ public struct ActiveWorkspaceStore {
                 ? existing?.lastOpenedAt
                 : nil
         )
-        try save(record)
-        return record
-    }
-
-    @discardableResult
-    public func rename(to name: String) throws -> ActiveWorkspaceRecord {
-        guard var record = try load() else { throw ActiveWorkspaceError.persistenceFailed("no workspace is recorded") }
-        record.name = try ActiveWorkspaceRecord(name: name, bundleURL: record.bundleURL).name
         try save(record)
         return record
     }

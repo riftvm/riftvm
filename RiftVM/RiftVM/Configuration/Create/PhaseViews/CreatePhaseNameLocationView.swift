@@ -9,95 +9,40 @@ import SwiftUI
 
 #if arch(arm64)
 
+/// Where Omarchy is stored, and the name it carries.
+///
+/// There is one Omarchy and no name to choose: the folder, the display name, and
+/// the guest's own name are all "Omarchy". This handler still owns the storage
+/// decision, because a 64 GB machine may need to live off the system volume.
 class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
+    static let workspaceName = "Omarchy"
 
-    // A compact, offline catalog of filesystem-safe astronomical names. The
-    // names are intentionally bundled with the app so suggestions never depend
-    // on network availability or an app update service.
-    static let suggestedNames = [
-        "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
-        "Ceres", "Pluto", "Haumea", "Makemake", "Eris", "Luna", "Europa", "Ganymede",
-        "Callisto", "Io", "Titan", "Enceladus", "Triton", "Charon",
-        "Sirius", "Canopus", "Arcturus", "Vega", "Capella", "Rigel", "Procyon", "Betelgeuse",
-        "Achernar", "Hadar", "Altair", "Acrux", "Aldebaran", "Antares", "Spica", "Pollux",
-        "Fomalhaut", "Deneb", "Regulus", "Castor", "Bellatrix", "Elnath", "Alnilam", "Alnair",
-        "Alioth", "Dubhe", "Mirfak", "Wezen", "Sargas", "Kaus", "Avior", "Alkaid",
-        "Menkalinan", "Atria", "Alhena", "Peacock", "Mirzam", "Alphard", "Hamal", "Diphda",
-        "Andromeda", "Milky Way", "Triangulum", "Whirlpool", "Sombrero", "Pinwheel", "Sunflower",
-        "Cartwheel", "Black Eye", "Cigar", "Bode", "Sculptor", "Centaurus", "Tadpole", "Condor",
-        "Comet", "Fireworks", "Malin", "Mayall", "Hoag",
-        "Orion", "Carina", "Helix", "Crab", "Eagle", "Lagoon", "Trifid", "Rosette", "Veil",
-        "Horsehead", "Catseye", "Ring", "Tarantula", "Bubble", "Butterfly", "Pelican",
-        "North America", "Omega"
-    ]
-
-    // New workspaces go in the hidden ~/.riftvm folder, so a 64 GB virtual
-    // machine does not sit in the visible home folder. A custom choice applies
-    // only to that workspace.
+    // New machines go in the hidden ~/.riftvm folder, so a 64 GB virtual machine
+    // does not sit in the visible home folder. A custom choice applies only to
+    // this machine.
     static func defaultStorageDirectory() -> URL {
         ActiveWorkspaceLocation.defaultBaseDirectory()
     }
 
-    static func bundlePath(baseDirectory: String, name: String) -> String {
+    static func bundlePath(baseDirectory: String, name: String = workspaceName) -> String {
         let baseURL = URL(filePath: baseDirectory)
         return baseURL.appending(path: "\(name).riftvm").path(percentEncoded: false)
     }
 
-    private static func bundleOccupied(path: String) -> Bool {
-        guard FileManager.default.fileExists(atPath: path) else {
-            return false
-        }
-        let items = (try? FileManager.default.contentsOfDirectory(atPath: path)) ?? []
-        return items.count >= 2
-    }
-
-    // "RiftVM Machine (macOS)" -> "RiftVM Machine (macOS) 2" ... until free
-    static func uniqueName(baseDirectory: String, name: String) -> String {
-        if !bundleOccupied(path: bundlePath(baseDirectory: baseDirectory, name: name)) {
-            return name
-        }
-        for index in 2...100 {
-            let candidate = "\(name) \(index)"
-            if !bundleOccupied(path: bundlePath(baseDirectory: baseDirectory, name: candidate)) {
-                return candidate
-            }
-        }
-        return name
-    }
-
-    static func randomName(baseDirectory: String, excluding currentName: String? = nil) -> String {
-        for name in suggestedNames.shuffled() where name != currentName {
-            if !bundleOccupied(path: bundlePath(baseDirectory: baseDirectory, name: name)) {
-                return name
-            }
-        }
-
-        // This is only reached when every catalog name is already occupied.
-        return uniqueName(baseDirectory: baseDirectory, name: suggestedNames.randomElement() ?? "Nova")
-    }
-
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        let name = context.configData.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.isEmpty {
-            return .failure("Name is empty")
-        }
-        guard name.utf8.count <= 128, name != ".", name != "..",
-              !name.contains("/"), !name.contains(":"), !name.contains("\0") else {
-            return .failure("Use a name up to 128 bytes without slashes or colons.")
-        }
-        context.configData.name = name
+        context.configData.name = Self.workspaceName
 
         if context.formData.baseDirectory.isEmpty {
-            return .failure("Directory can not be empty")
+            return .failure("Choose where Omarchy should be stored.")
         }
 
-        let rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory, name: name)
+        let rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
         context.formData.rootPath = rootPath
 
         if FileManager.default.fileExists(atPath: rootPath) {
             let items = (try? FileManager.default.contentsOfDirectory(atPath: rootPath)) ?? []
-            if (items.count >= 2) {
-                return .failure("A machine already exists at \(rootPath). Please use another name or location.")
+            if items.count >= 2 {
+                return .failure("Omarchy already exists at \(rootPath). Choose another location, or remove that copy first.")
             }
         }
 
@@ -118,125 +63,11 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
         await MainActor.run {
             if context.formData.baseDirectory.isEmpty {
                 context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
-                context.configData.name = Self.uniqueName(
-                    baseDirectory: context.formData.baseDirectory,
-                    name: context.configData.name
-                )
-
             }
-
-            if !context.formData.hasGeneratedNameSuggestion {
-                context.configData.name = Self.randomName(baseDirectory: context.formData.baseDirectory)
-                context.formData.hasGeneratedNameSuggestion = true
-            }
-
-            context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory, name: context.configData.name)
+            context.configData.name = Self.workspaceName
+            context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
         }
         return .success
-    }
-}
-
-
-struct CreatePhaseNameLocationView: View {
-    @Environment(VMCreateViewStateObject.self) var formData
-    @Environment(VMConfigurationViewStateObject.self) var configData
-
-    var body: some View {
-        @Bindable var configData = configData
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Name your virtual machine")
-                    .font(.title2.weight(.semibold))
-                Text("Choose a memorable name and where its files should live.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Form {
-                Section("Basic") {
-                    HStack {
-                        TextField("Name", text: $configData.name).lineLimit(1)
-                        Button {
-                            let baseDirectory = formData.baseDirectory.isEmpty
-                                ? CreatePhaseNameLocationViewHandler.defaultStorageDirectory().path(percentEncoded: false)
-                                : formData.baseDirectory
-                            configData.name = CreatePhaseNameLocationViewHandler.randomName(
-                                baseDirectory: baseDirectory,
-                                excluding: configData.name
-                            )
-                        } label: {
-                            Image(systemName: "dice")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Suggest another astronomical name")
-                        .accessibilityLabel("Suggest another name")
-                        .accessibilityIdentifier("randomize-vm-name")
-                    }
-
-                    TextField("Description", text: $configData.remark).lineLimit(3, reservesSpace: true)
-                }
-
-                Section("Location") {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text("Save to")
-                            Spacer()
-                            Text(displayRootPath)
-                                .lineLimit(4)
-                        }
-
-                        HStack {
-                            Text("By default the workspace is stored in ~/.riftvm. Pick another directory only if you want a different location.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button {
-                                MacKitUtil.selectDirectory(title: "Select a directory") { path in
-                                    guard let path = path else {
-                                        return
-                                    }
-
-                                    let baseDirectory = path.path(percentEncoded: false)
-                                    formData.baseDirectory = baseDirectory
-                                    refreshRootPath()
-                                }
-                            } label: {
-                                Image(systemName: "folder.badge.plus")
-                                Text("Change")
-                            }
-                        }
-                    }
-                }
-            }
-            .formStyle(.grouped)
-        }
-        .frame(maxWidth: 720, alignment: .leading)
-        .onChange(of: configData.name) {
-            refreshRootPath()
-        }
-    }
-
-    func refreshRootPath() {
-        if formData.baseDirectory.isEmpty {
-            return
-        }
-        formData.rootPath = CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: formData.baseDirectory, name: configData.name)
-    }
-
-    private var displayRootPath: String {
-        NSString(string: formData.rootPath).abbreviatingWithTildeInPath
-    }
-}
-
-struct CreatePhaseNameLocationView_Previews: PreviewProvider {
-    static let formData = VMCreateViewStateObject()
-    static let configData = VMConfigurationViewStateObject()
-
-    static var previews: some View {
-        CreatePhaseNameLocationView()
-            .frame(width: 600, height: 500)
-            .environment(formData)
-            .environment(configData)
     }
 }
 

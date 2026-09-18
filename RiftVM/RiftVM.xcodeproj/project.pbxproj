@@ -41,7 +41,6 @@
 		CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */; };
 		CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */; };
 		CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */; };
-		CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */; };
 		CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */; };
 		CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */; };
 		CA5E5AFE000000000000D008 /* VMPortabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */; };
@@ -165,7 +164,6 @@
 		CA5E5AFE000000000000A002 /* VMOSDownloaderForLinux.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSDownloaderForLinux.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A003 /* VMSnapshotManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMSnapshotManager.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A004 /* MachineSnapshotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineSnapshotsView.swift; sourceTree = "<group>"; };
-		CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseSystemView.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePhaseNameLocationView.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A007 /* VMRunningRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMRunningRegistry.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A008 /* VMPortabilityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMPortabilityManager.swift; sourceTree = "<group>"; };
@@ -474,7 +472,6 @@
 			isa = PBXGroup;
 			children = (
 				D19EC93228CEE9F6004564B7 /* CreatePhaseConfigurationView.swift */,
-				CA5E5AFE000000000000A005 /* CreatePhaseSystemView.swift */,
 				CA5E5AFE000000000000A006 /* CreatePhaseNameLocationView.swift */,
 				D19EC93828CEEAEB004564B7 /* CreatePhaseCreatingView.swift */,
 			);
@@ -817,7 +814,6 @@
 				CA5E5AFE000000000000D002 /* VMOSDownloaderForLinux.swift in Sources */,
 				CA5E5AFE000000000000D003 /* VMSnapshotManager.swift in Sources */,
 				CA5E5AFE000000000000D004 /* MachineSnapshotsView.swift in Sources */,
-				CA5E5AFE000000000000D005 /* CreatePhaseSystemView.swift in Sources */,
 				CA5E5AFE000000000000D006 /* CreatePhaseNameLocationView.swift in Sources */,
 				CA5E5AFE000000000000D007 /* VMRunningRegistry.swift in Sources */,
 				D1196EA328E5E2BE00CCC04D /* VMConfigurationCPUView.swift in Sources */,

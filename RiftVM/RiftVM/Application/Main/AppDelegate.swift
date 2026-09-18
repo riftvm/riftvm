@@ -31,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 #if arch(arm64)
         if WorkspaceCreationStore.shared.isCreating {
             let alert = NSAlert()
-            alert.messageText = "A workspace is still being created"
+            alert.messageText = "Omarchy is still being prepared"
             alert.informativeText = "Keep RiftVM open until creation finishes. Closing the window lets the download continue in the background."
             alert.addButton(withTitle: "Keep Creating")
             alert.runModal()

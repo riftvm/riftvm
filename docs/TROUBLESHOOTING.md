@@ -29,7 +29,7 @@ Resume and shut down (or discard) any saved machine state before switching.
 Use the Omarchy window's **Integration**, **Updates**, and **Recovery** menus for
 its status and recovery controls. `riftvm doctor` reports host information;
 `riftvm validate "/path/to/Machine.riftvm"` validates general VM bundles with a
-top-level `config.json`, not dedicated Omarchy workspaces. Do not attach disks,
+top-level `config.json`, not a dedicated Omarchy machine. Do not attach disks,
 enrollment files, or logs containing credentials to a bug report.
 
 ## App runs but no window appears
@@ -212,8 +212,8 @@ See [Stability acceptance](STABILITY_TESTING.md) for test isolation.
 A factory image records packages at its build time. New upstream updates can
 appear afterward; an update notification alone does not mean the image download
 failed. Use [Updates and recovery](UPDATES_AND_RECOVERY.md) to create a protected
-point before updating. A fresh factory workspace and an in-place guest update
-are separate operations.
+point before updating. Preparing Omarchy from a fresh factory image and an
+in-place guest update are separate operations.
 
 ## Definition of fixed
 

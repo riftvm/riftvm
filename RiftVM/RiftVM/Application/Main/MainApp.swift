@@ -67,8 +67,8 @@ private struct VMWorkspaceMenuLabel: View {
     var body: some View {
         Image(systemName: center.machines.isEmpty ? "rectangle.stack" : "rectangle.stack.fill")
             .accessibilityLabel(center.machines.isEmpty
-                ? "RiftVM: no workspace running"
-                : "RiftVM: \(center.machines.count) workspace running")
+                ? "RiftVM: Omarchy is not running"
+                : "RiftVM: Omarchy is running")
     }
 }
 
@@ -80,7 +80,7 @@ private struct VMWorkspaceMenu: View {
 
     var body: some View {
         if center.machines.isEmpty {
-            Text("No workspace is running")
+            Text("Omarchy is not running")
         } else {
             ForEach(center.machines) { machine in
                 Menu("\(machine.name) · \(machine.status)") {
@@ -177,7 +177,7 @@ private struct VirtualizationFeaturesSettingsView: View {
             } header: {
                 Text("Host OS requirements")
             } footer: {
-                Text("These rows check the host OS version only. They do not show whether a feature is enabled or verified in a particular VM. Hardware, guest OS, disk format, and VM configuration may impose additional requirements. Check the workspace configuration and runtime status for the active VM.")
+                Text("These rows check the host OS version only. They do not show whether a feature is enabled or verified in a particular VM. Hardware, guest OS, disk format, and VM configuration may impose additional requirements. Check the runtime status of the running VM.")
             }
 
             Section {

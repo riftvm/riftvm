@@ -32,8 +32,8 @@ final class WorkspaceCreationStore {
     }
 }
 
-/// One Omarchy preparation run: the resource choices, the verified factory
-/// download, and the workspace it produces. The session outlives its window so a
+/// One Omarchy preparation run: the resource and storage choices, the verified
+/// factory download, and the machine it produces. The session outlives its window so a
 /// long download keeps going after the window is closed.
 @MainActor @Observable
 final class WorkspaceCreationSession: Identifiable {
@@ -59,8 +59,8 @@ final class WorkspaceCreationSession: Identifiable {
         )
         config.cpuCount = resources.cpuCount
         config.memorySize = resources.memoryBytes
-        // Omarchy exchanges files through the workspace-owned shared folder, so
-        // no host directory is exposed to the guest.
+        // Omarchy exchanges files through its own shared folder, so no host
+        // directory is exposed to the guest.
         config.directorySharingDevices.removeAll()
     }
 
@@ -74,11 +74,10 @@ final class WorkspaceCreationSession: Identifiable {
         guard phase != .creating else { return }
         errorMessage = nil
         if WorkspaceCreationStore.shared.sessions.contains(where: { $0.id != id && $0.phase == .creating }) {
-            errorMessage = "Another workspace is being created. Wait for it to finish, then try again."
+            errorMessage = "Omarchy is already being prepared. Wait for it to finish, then try again."
             return
         }
         let checks: [any VMCreateStepperGuidePhaseHandler] = [
-            CreatePhaseSystemViewHandler(),
             CreatePhaseNameLocationViewHandler(),
             CreatePhaseConfigurationViewHandler()
         ]
@@ -115,7 +114,6 @@ struct WorkspaceCreationView: View {
     @State private var showResources = false
     @State private var showSharing = false
     @State private var showDetails = false
-    @State private var launchError: String?
     /// The meter holds the finished row for a beat before the ready icon takes
     /// the slot over.
     @State private var meterOpacity: Double = 1
@@ -153,41 +151,45 @@ struct WorkspaceCreationView: View {
                 return
             }
             // The row is full and settled here; let it sit for a beat, then hand
-            // the slot to the workspace icon.
+            // the slot to the Omarchy icon and switch the window to Omarchy's own
+            // controls. There is nothing to choose between, so nothing waits for
+            // a click.
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3).delay(0.55)) {
                 meterOpacity = 0
             }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.2))
+                guard session.phase == .ready else { return }
+                finishPreparation()
+            }
         }
         .task { await session.initialize() }
-        .alert("Unable to Open Workspace", isPresented: Binding(get: { launchError != nil }, set: { if !$0 { launchError = nil } })) {
-            Button("OK") { launchError = nil }
-        } message: { Text(launchError ?? "") }
     }
 
     private var setup: some View {
-        @Bindable var config = session.config
         return VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 18) {
                 workspaceIcon(size: 60)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("YOUR NEXT WORKSPACE").font(.caption2).tracking(2).foregroundStyle(.secondary)
-                    Text("Make room for Omarchy.")
+                    Text("Omarchy")
                         .font(.largeTitle.weight(.semibold))
-                    Text("Recommended settings. Your name. Ready to create.").foregroundStyle(.secondary)
+                    Text("A focused Arch Linux desktop, ready on first boot.").foregroundStyle(.secondary)
                 }
             }
-            CreatePhaseSystemView()
-                .frame(height: 220)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "checkmark.seal")
+                    .foregroundStyle(.tint)
+                Text("The signed Omarchy image is downloaded, verified, and cached when you prepare it.")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Workspace name").font(.callout).foregroundStyle(.secondary)
-                TextField("Workspace name", text: $config.name)
-                    .textFieldStyle(.roundedBorder).controlSize(.large)
-                    .accessibilityIdentifier("workspace-create-name")
+                Text("Stored in").font(.callout).foregroundStyle(.secondary)
                 HStack(alignment: .top) {
                     Image(systemName: "folder")
                     Text(NSString(string: savePath).abbreviatingWithTildeInPath)
                         .textSelection(.enabled).lineLimit(3)
-                        .accessibilityIdentifier("workspace-create-path")
+                        .accessibilityIdentifier("omarchy-storage-path")
                     Spacer(minLength: 8)
                     Button("Change…") { chooseLocation() }.buttonStyle(.link)
                 }.font(.caption).foregroundStyle(.secondary)
@@ -241,7 +243,6 @@ struct WorkspaceCreationView: View {
             }
             if session.phase == .creating { progressCard }
             if let error = session.errorMessage { errorView(error) }
-            if session.phase == .ready { readyActions }
             if !session.form.logs.isEmpty { detailsDisclosure }
         }
         .frame(maxWidth: .infinity)
@@ -249,7 +250,7 @@ struct WorkspaceCreationView: View {
 
     private var progressHeadline: String {
         switch session.phase {
-        case .ready: "\(session.config.name) is ready."
+        case .ready: "Omarchy is ready."
         case .failed: "Let’s get this back on track."
         default: "Preparing \(session.config.name)"
         }
@@ -257,7 +258,7 @@ struct WorkspaceCreationView: View {
 
     private var progressSubheadline: String {
         switch session.phase {
-        case .ready: "Your other world starts here."
+        case .ready: "Start it whenever you are ready."
         case .failed: "Your choices are saved. Review the details below."
         default: "You can keep using RiftVM while this finishes."
         }
@@ -291,17 +292,6 @@ struct WorkspaceCreationView: View {
         }
     }
 
-    private var readyActions: some View {
-        VStack(spacing: 8) {
-            Button("Open Omarchy", systemImage: "arrow.up.right") { launch() }
-                .buttonStyle(RiftCreationButtonStyle())
-                .tint(.blue).keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("workspace-create-launch")
-            Text(NSString(string: savePath).abbreviatingWithTildeInPath)
-                .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-        }
-    }
-
     private var detailsDisclosure: some View {
         DisclosureGroup(isExpanded: $showDetails) {
             VStack(alignment: .leading, spacing: 6) {
@@ -327,7 +317,7 @@ struct WorkspaceCreationView: View {
     private var footer: some View {
         HStack(spacing: 14) {
             Text(session.phase == .setup
-                 ? "64 GB disk · Image downloads only if needed."
+                 ? "64 GB disk · The signed image is downloaded and verified once."
                  : session.phase == .creating
                     ? "Creation continues if you close this window."
                     : session.phase == .failed
@@ -337,11 +327,11 @@ struct WorkspaceCreationView: View {
             Spacer()
             switch session.phase {
             case .setup:
-                Button("Create Omarchy", systemImage: "arrow.up.right") { session.start() }
+                Button("Prepare Omarchy", systemImage: "arrow.up.right") { session.start() }
                     .buttonStyle(RiftCreationButtonStyle())
                     .keyboardShortcut(.defaultAction)
                     .disabled(!session.initialized)
-                    .accessibilityIdentifier("workspace-create-start")
+                    .accessibilityIdentifier("omarchy-prepare-start")
             case .creating:
                 if session.form.canCancelCreation {
                     Button(VMCreationCancellationPolicy.buttonTitle(for: session.form.creationCancellationKind)) { session.cancel() }
@@ -364,26 +354,22 @@ struct WorkspaceCreationView: View {
         CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: session.form.baseDirectory, name: session.config.name)
     }
     private func chooseLocation() {
-        MacKitUtil.selectDirectory(title: "Save Workspace In") { url in
+        MacKitUtil.selectDirectory(title: "Choose Where Omarchy Is Stored") { url in
             guard let url else { return }
             session.form.baseDirectory = url.path(percentEncoded: false)
         }
     }
-    private func launch() {
-        do {
-            try ActiveWorkspaceStore.standard.adopt(
-                bundleURL: URL(filePath: session.form.rootPath),
-                name: session.config.name
-            )
-            WorkspaceCreationStore.shared.remove(session)
-            onCreated()
-        } catch { launchError = error.localizedDescription }
+    /// The preparation finished: let the store forget the session and let the
+    /// window show Omarchy itself.
+    private func finishPreparation() {
+        WorkspaceCreationStore.shared.remove(session)
+        onCreated()
     }
 
     private func errorView(_ message: String) -> some View {
         Label(message, systemImage: "exclamationmark.triangle")
             .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-            .accessibilityIdentifier("workspace-create-error")
+            .accessibilityIdentifier("omarchy-prepare-error")
     }
     private func workspaceIcon(size: CGFloat) -> some View {
         WorkspaceSystemIcon(size: size)

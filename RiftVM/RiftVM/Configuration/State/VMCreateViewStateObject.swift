@@ -35,7 +35,6 @@ class VMCreateViewStateObject {
     // phase
     var rootPath: String = ""
     var baseDirectory: String = ""
-    var hasGeneratedNameSuggestion = false
 
     var logs: [LogModel] = []
 
