@@ -308,7 +308,7 @@ import Testing
         lastLevel: 0, sampleCount: 0
     ) == 64 * 1024)
 
-    let baseTexture = UInt64(1280 * 720 * 16)
+    let baseTexture = UInt64(1280 * 720) * VirtioGPU.rendererBytesPerPixel
     #expect(VirtioGPU.estimatedRendererResourceBytes(
         target: 2,
         width: 1280, height: 720, depth: 1, arraySize: 1,
@@ -324,6 +324,28 @@ import Testing
         width: UInt32.max, height: UInt32.max, depth: UInt32.max,
         arraySize: UInt32.max, lastLevel: UInt32.max, sampleCount: UInt32.max
     ) == nil)
+}
+
+/// A Hyprland desktop keeps tens of buffers alive. The budget must leave room
+/// for them: at the old 16-bytes-per-pixel estimate one 1920x1080 mipmapped
+/// buffer counted as 66 MB, so a normal session exhausted the budget after a
+/// couple of minutes and RESOURCE_CREATE_3D started failing with OUT_OF_MEMORY.
+@Test func rendererResourceEstimateLeavesRoomForADesktopBufferPool() {
+    let framebuffer = VirtioGPU.estimatedRendererResourceBytes(
+        target: 2,
+        width: 1920, height: 1080, depth: 1, arraySize: 1,
+        lastLevel: 0, sampleCount: 0
+    )
+    let mipmapped = VirtioGPU.estimatedRendererResourceBytes(
+        target: 2,
+        width: 1920, height: 1080, depth: 1, arraySize: 1,
+        lastLevel: 1, sampleCount: 0
+    )
+    #expect(framebuffer == UInt64(1920 * 1080) * VirtioGPU.rendererBytesPerPixel)
+    #expect(mipmapped == framebuffer! * 2)
+
+    let buffersWithinBudget = VirtioGPU.Limits.maxRendererResourceBytes / mipmapped!
+    #expect(buffersWithinBudget >= 250, "the budget must hold a large desktop buffer pool")
 }
 
 @Test func rendererResourceBudgetIsAggregateReversibleAndOverflowSafe() {

@@ -19,7 +19,10 @@ enum VirtioGPU {
         static let maxSampleCount: UInt32 = 16
         static let maxResourceTexels: UInt64 = 256 * 1024 * 1024
         static let maxBufferBytes: UInt32 = 256 * 1024 * 1024
-        static let maxRendererResourceBytes: UInt64 = 2 * 1024 * 1024 * 1024
+        /// Host-side ceiling for renderer (3D) resources. The estimate below
+        /// counts real bytes per pixel, so this is close to real memory: a
+        /// Hyprland desktop holds tens of buffers, not hundreds.
+        static let maxRendererResourceBytes: UInt64 = 4 * 1024 * 1024 * 1024
         static let maxResources = 4_096
         static let maxContexts = 256
         static let maxResourcePixelBytes = 256 * 1024 * 1024
@@ -246,6 +249,9 @@ enum VirtioGPU {
     /// mip chains are bounded by twice the base allocation, and multisampling
     /// scales storage by the declared sample count. PIPE_BUFFER width is
     /// already a byte count.
+    /// Bytes per pixel used to bound renderer resources.
+    static let rendererBytesPerPixel: UInt64 = 4
+
     static func estimatedRendererResourceBytes(
         target: UInt32,
         width: UInt32,
@@ -266,8 +272,15 @@ enum VirtioGPU {
         ) else { return nil }
         if target == 0 { return UInt64(width) }
 
+        // Bytes per pixel, not a padded worst case. Counting 16 bytes per pixel
+        // made one 1920x1080 mipmapped buffer look like 66 MB, so a normal
+        // desktop exhausted the budget after a couple of minutes of use: the
+        // next RESOURCE_CREATE_3D came back OUT_OF_MEMORY, the guest's
+        // compositor lost its buffer and fell back to a software cursor that
+        // repainted on every pointer move. Four bytes per pixel covers the
+        // R8G8B8A8/B8G8R8A8 formats the guest actually allocates.
         var estimate = UInt64(width)
-        for factor in [UInt64(height), UInt64(depth), UInt64(arraySize), 16] {
+        for factor in [UInt64(height), UInt64(depth), UInt64(arraySize), Self.rendererBytesPerPixel] {
             let result = estimate.multipliedReportingOverflow(by: factor)
             guard !result.overflow else { return nil }
             estimate = result.partialValue

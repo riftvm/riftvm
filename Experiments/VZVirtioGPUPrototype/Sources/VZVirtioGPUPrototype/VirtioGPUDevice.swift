@@ -699,11 +699,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard rendererResourceBudget.reserve(estimatedRendererBytes) else {
-            diagnosticLog(
+            // Never silent: a rejected resource leaves the guest's compositor
+            // without a buffer, which shows up as a stalled or flashing desktop
+            // rather than as an error anyone can see.
+            log(
                 "RESOURCE_CREATE_3D rejected-by-budget resource=\(resourceID) "
                     + "estimated=\(estimatedRendererBytes) "
                     + "allocated=\(rendererResourceBudget.allocatedBytes) "
-                    + "limit=\(VirtioGPU.Limits.maxRendererResourceBytes)"
+                    + "limit=\(VirtioGPU.Limits.maxRendererResourceBytes)",
+                error: true
             )
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
