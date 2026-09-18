@@ -25,9 +25,6 @@ struct VMOSMainVirtualMachineView: View {
     @State private var provisioningConfirmationUsername: String?
     @State private var isShowingManualSetupConfirmation = false
     @AppStorage(VMThumbnailPreferences.screenCaptureEnabledKey) private var screenCaptureThumbnails = false
-    /// The Omarchy workspace keeps one display mode for the session, so the
-    /// window opens full screen to show it at native size.
-    @State private var opensFullScreen = false
     
     var body: some View {
         ZStack {
@@ -360,7 +357,14 @@ struct VMOSMainVirtualMachineView: View {
         }
         .navigationTitle(rootPath.deletingPathExtension().lastPathComponent)
         .background {
-            VMWindowCloseObserver(rootPath: rootPath, entersFullScreenOnAttach: opensFullScreen) {
+            // Every workspace window opens full screen: the guest keeps one
+            // display mode for the session, and full screen is what shows it at
+            // native size instead of scaling it into a smaller window. The release
+            // readiness probe measures a window, so it opts out.
+            VMWindowCloseObserver(
+                rootPath: rootPath,
+                entersFullScreenOnAttach: ProcessInfo.processInfo.environment["RIFTVM_GUI_READY_FILE"] == nil
+            ) {
                 // Quitting already drains the machines through its own panel, so
                 // only a deliberate window close asks here.
                 !VMLiveMachineCenter.shared.isTerminating && runtimeState.needsCloseConfirmation
@@ -446,11 +450,6 @@ struct VMOSMainVirtualMachineView: View {
             if runtimeState.phase.shouldDismissMachineWindow {
                 runtimeState = VMRuntimeState()
             }
-            let target = rootPath.standardizedFileURL
-            let record = (try? RiftWorkspaceRegistryStore.standard.load())?.workspaces.first {
-                $0.bundleURL.standardizedFileURL == target
-            }
-            opensFullScreen = record?.kind == .omarchy
             registerLiveMachine()
         }
         .onDisappear { unregisterLiveMachine() }
