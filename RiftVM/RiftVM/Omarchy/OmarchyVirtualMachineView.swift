@@ -1691,7 +1691,19 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             _ = try metadata.get()
             let backend: any VMGraphicsBackend
             if usesCustomGraphics {
-                backend = try VMCustomVirGLGraphicsBackend(devices: [.init(type: .Virtio, width: 1920, height: 1200, pixelsPerInch: 0)], displayView: view)
+                // Boot straight into the mode the session will keep. The guest
+                // starts on this scanout, and the host publishes the same size
+                // once the desktop is up, so the display never changes mode while
+                // the session runs: a mode change rebuilds every output, which is
+                // what flickers the desktop and leaves its background layer
+                // without a committed buffer.
+                let canvas = VMDisplayGeometry.guestResolution(
+                    for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
+                )
+                backend = try VMCustomVirGLGraphicsBackend(
+                    devices: [.init(type: .Virtio, width: Int(canvas.width), height: Int(canvas.height), pixelsPerInch: 0)],
+                    displayView: view
+                )
             } else {
                 backend = VMAppleGraphicsBackend(displayView: view)
             }

@@ -1285,15 +1285,22 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: request)
     }
 
+    /// One mode for the whole session: the screen the window is on. A window
+    /// resize, an auto-hidden full-screen toolbar, or entering full screen then
+    /// costs host-side scaling only, and the guest never rebuilds its outputs —
+    /// which is what flickers the desktop and leaves its background layer without
+    /// a committed buffer.
+    private func displayCanvasSize() -> CGSize {
+        if let screen = virglView.window?.screen, screen.frame.width > 0, screen.frame.height > 0 {
+            return screen.frame.size
+        }
+        return virglView.bounds.size
+    }
+
     private func sampleStableDisplaySize() {
-        // The guest has to fill the area the display view actually covers, so the
-        // published size comes from the view. The window frame decides *when* the
-        // geometry has settled: an auto-hidden full-screen toolbar or a title bar
-        // moving changes the view without the user resizing the window, and every
-        // such sample used to become a DRM mode the guest had to switch to.
         let frame = virglView.window?.frame.size ?? virglView.bounds.size
-        let view = virglView.bounds.size
-        let candidate = VMDisplayGeometry.guestResolution(for: view)
+        let canvas = displayCanvasSize()
+        let candidate = VMDisplayGeometry.guestResolution(for: canvas)
         let now = Date().timeIntervalSinceReferenceDate
         if let heldFrame = stableDisplayFrame,
            let heldCandidate = stableDisplayCandidate,
@@ -1313,7 +1320,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         }
         stableDisplayFrame = nil
         stableDisplayCandidate = nil
-        publishDisplaySize(candidate: candidate, sampled: view, frame: frame)
+        publishDisplaySize(candidate: candidate, sampled: canvas, frame: frame)
     }
 
     private func isSameSize(_ lhs: CGSize, _ rhs: CGSize, tolerance: CGFloat = 1) -> Bool {
@@ -1332,7 +1339,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         let now = Date().timeIntervalSinceReferenceDate
         publishedDisplayModes.removeAll { now - $0.at > Self.displayPublishWindow }
         RiftVMLog.info(
-            "VirGL display sample: view=\(Int(sampled.width))x\(Int(sampled.height))"
+            "VirGL display sample: canvas=\(Int(sampled.width))x\(Int(sampled.height))"
                 + " frame=\(Int(frame.width))x\(Int(frame.height))"
                 + " candidate=\(candidate.width)x\(candidate.height)"
                 + " guest=\(resolution.width)x\(resolution.height)"
