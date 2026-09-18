@@ -13,39 +13,9 @@ import Virtualization
 class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
     
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        return .success
-        guard context.configData.osType == .macOS else {
-            return .failure("Guest provisioning is available only for macOS virtual machines.")
-        }
-        guard #available(macOS 27.0, *) else {
-            return .failure("macOS guest provisioning requires a macOS 27 host.")
-        }
-        if case .catalog(let item) = context.formData.systemImageSelection,
-           let version = item.version,
-           !VMGuestProvisioningCompatibility.supportsGuest(version: version) {
-            return .failure(VMGuestProvisioningCompatibility.unsupportedGuestMessage(version: version))
-        }
-        guard context.formData.provisioningPassword == context.formData.provisioningPasswordConfirmation else {
-            return .failure("The guest account passwords do not match.")
-        }
-        do {
-            let options = VZMacGuestProvisioningOptions()
-            options.fullName = context.formData.provisioningFullName
-            options.username = context.formData.provisioningUsername
-            options.password = context.formData.provisioningPassword
-            options.logsInAutomatically = context.formData.provisioningAutomaticLogin
-            options.enablesRemoteLogin = context.formData.provisioningRemoteLogin
-            try options.validate()
-        } catch {
-            let error = error as NSError
-            RiftVMLog.error(
-                "Guest provisioning validation failed: \(error.domain) (\(error.code)).",
-                logger: RiftVMLog.lifecycle
-            )
-            return .failure(VMGuestProvisioningValidationGuidance.message(for: error))
-        }
-        return .success
+        .success
     }
+
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         return .success
     }

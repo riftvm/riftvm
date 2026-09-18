@@ -189,10 +189,6 @@ struct WorkspaceCreationView: View {
             if !session.form.hasChosenSystem {
                 CreatePhaseSystemView()
                     .frame(height: 260)
-            } else if !session.isOmarchy {
-                DisclosureGroup("System image · \(session.form.systemImageSelection.title)", isExpanded: $showImage) {
-                    CreatePhaseSystemView(initiallyShowingMacOSVersions: true).frame(height: 330)
-                }
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Workspace name").font(.callout).foregroundStyle(.secondary)
