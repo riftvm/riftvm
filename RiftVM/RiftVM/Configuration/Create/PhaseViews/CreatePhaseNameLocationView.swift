@@ -11,15 +11,15 @@ import SwiftUI
 
 /// Where Omarchy is stored, and the name it carries.
 ///
-/// There is one Omarchy and no name to choose: the folder, the display name, and
-/// the guest's own name are all "Omarchy". This handler still owns the storage
-/// decision, because a 64 GB machine may need to live off the system volume.
+/// There is one Omarchy, so nothing here is a choice: the folder, the display
+/// name, and the guest's own name are all "Omarchy", and the disk lives in the
+/// hidden ~/.riftvm folder. The handler still builds the path and refuses to
+/// prepare on top of an existing machine.
 class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
     static let workspaceName = "Omarchy"
 
-    // New machines go in the hidden ~/.riftvm folder, so a 64 GB virtual machine
-    // does not sit in the visible home folder. A custom choice applies only to
-    // this machine.
+    // The machine goes in the hidden ~/.riftvm folder, so a 64 GB virtual
+    // machine does not sit in the visible home folder.
     static func defaultStorageDirectory() -> URL {
         ActiveWorkspaceLocation.defaultBaseDirectory()
     }
@@ -31,10 +31,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
         context.configData.name = Self.workspaceName
-
-        if context.formData.baseDirectory.isEmpty {
-            return .failure("Choose where Omarchy should be stored.")
-        }
+        context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
 
         let rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
         context.formData.rootPath = rootPath
@@ -42,7 +39,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
         if FileManager.default.fileExists(atPath: rootPath) {
             let items = (try? FileManager.default.contentsOfDirectory(atPath: rootPath)) ?? []
             if items.count >= 2 {
-                return .failure("Omarchy already exists at \(rootPath). Choose another location, or remove that copy first.")
+                return .failure("Omarchy already exists at \(rootPath). Remove it from the Omarchy menu first.")
             }
         }
 
@@ -61,9 +58,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
 
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         await MainActor.run {
-            if context.formData.baseDirectory.isEmpty {
-                context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
-            }
+            context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
             context.configData.name = Self.workspaceName
             context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
         }

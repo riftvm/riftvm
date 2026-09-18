@@ -166,54 +166,104 @@ struct WorkspaceCreationView: View {
         .task { await session.initialize() }
     }
 
+    /// The window is the whole product, so this screen is a centred statement of
+    /// what Omarchy is, two settings it is worth choosing, and one button. There
+    /// is no name and no location to pick: both are fixed.
     private var setup: some View {
-        return VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 18) {
-                workspaceIcon(size: 60)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Omarchy")
-                        .font(.largeTitle.weight(.semibold))
-                    Text("A focused Arch Linux desktop, ready on first boot.").foregroundStyle(.secondary)
+        VStack(spacing: 20) {
+            VStack(spacing: 12) {
+                workspaceIcon(size: 96)
+                Text("Omarchy")
+                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                Text("A focused Arch Linux desktop, ready on first boot.")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+
+            VStack(spacing: 0) {
+                DisclosureGroup(isExpanded: $showResources) {
+                    CreateResourceControlsView().padding(.top, 14)
+                } label: {
+                    settingsRow(
+                        title: "Resources",
+                        detail: "\(session.config.cpuCount) CPU · \(session.config.memorySize / (1024 * 1024 * 1024)) GB memory · \(storageGiB) GB disk",
+                        systemImage: "cpu"
+                    )
+                }
+                Divider()
+                DisclosureGroup(isExpanded: $showSharing) {
+                    fileExchangeExplanation.padding(.top, 14)
+                } label: {
+                    settingsRow(
+                        title: "File exchange",
+                        detail: "One shared folder, both directions",
+                        systemImage: "folder.badge.arrow.up"
+                    )
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "checkmark.seal")
-                    .foregroundStyle(.tint)
-                Text("The signed Omarchy image is downloaded, verified, and cached when you prepare it.")
+            .padding(18)
+            .frame(maxWidth: 520)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14).stroke(.separator.opacity(0.5), lineWidth: 1)
             }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Stored in").font(.callout).foregroundStyle(.secondary)
-                HStack(alignment: .top) {
-                    Image(systemName: "folder")
-                    Text(NSString(string: savePath).abbreviatingWithTildeInPath)
-                        .textSelection(.enabled).lineLimit(3)
-                        .accessibilityIdentifier("omarchy-storage-path")
-                    Spacer(minLength: 8)
-                    Button("Change…") { chooseLocation() }.buttonStyle(.link)
-                }.font(.caption).foregroundStyle(.secondary)
+
+            VStack(spacing: 6) {
+                Label("The signed image is downloaded, verified, and cached when you prepare.", systemImage: "checkmark.seal")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Stored in \(NSString(string: savePath).abbreviatingWithTildeInPath)")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+                    .accessibilityIdentifier("omarchy-storage-path")
             }
-            Divider()
-            DisclosureGroup(isExpanded: $showResources) {
-                CreateResourceControlsView().padding(.top, 14)
-            } label: {
-                HStack {
-                    Label("Resources", systemImage: "cpu")
-                    Spacer()
-                    Text("\(session.config.cpuCount) CPU · \(session.config.memorySize / (1024 * 1024 * 1024)) GB memory")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Divider()
-            DisclosureGroup(isExpanded: $showSharing) {
-                Text("After creation, open RiftVM Shared on your Mac to add files. In Omarchy, open /mnt/riftvm-shared to use those same files. Your other Mac folders stay private.")
-                    .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
-            } label: {
-                Label("File exchange with your Mac · Ready to use", systemImage: "folder.badge.arrow.up")
-            }
+            .multilineTextAlignment(.center)
+
             if let error = session.errorMessage { errorView(error) }
         }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func settingsRow(title: String, detail: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: systemImage)
+            Spacer(minLength: 12)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    /// What the shared folder is, on both sides, and what it is not.
+    private var fileExchangeExplanation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("On your Mac").font(.caption.weight(.semibold))
+                    Text("RiftVM Shared")
+                        .font(.callout.monospaced())
+                        .textSelection(.enabled)
+                }
+                Image(systemName: "arrow.left.arrow.right")
+                    .foregroundStyle(.tint)
+                    .padding(.top, 12)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("In Omarchy").font(.caption.weight(.semibold))
+                    Text("/mnt/riftvm-shared")
+                        .font(.callout.monospaced())
+                        .textSelection(.enabled)
+                }
+                Spacer(minLength: 0)
+            }
+            Text("It is one folder, shared both ways: add files on either side and the other sees them. Open Shared Folder reveals it on your Mac, and Import Files or dropping files on the window copies them in. Your other Mac folders stay private.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var progress: some View {
@@ -353,11 +403,11 @@ struct WorkspaceCreationView: View {
     private var savePath: String {
         CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: session.form.baseDirectory, name: session.config.name)
     }
-    private func chooseLocation() {
-        MacKitUtil.selectDirectory(title: "Choose Where Omarchy Is Stored") { url in
-            guard let url else { return }
-            session.form.baseDirectory = url.path(percentEncoded: false)
-        }
+
+    private var storageGiB: UInt64 {
+        let bytes = session.config.storageDevices.first(where: { $0.data.type == .Block })?.data.size
+            ?? VMModelFieldStorageDevice.default().size
+        return bytes / (1024 * 1024 * 1024)
     }
     /// The preparation finished: let the store forget the session and let the
     /// window show Omarchy itself.
