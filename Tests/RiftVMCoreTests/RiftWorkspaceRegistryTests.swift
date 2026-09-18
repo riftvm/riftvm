@@ -7,8 +7,8 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
-        let first = try workspace(name: "Work", kind: .omarchy)
-        let second = try workspace(name: "Personal", kind: .omarchy)
+        let first = try workspace(name: "Work")
+        let second = try workspace(name: "Personal")
 
         _ = try store.register(first)
         _ = try store.register(second)
@@ -21,14 +21,13 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
-        let first = try workspace(name: "Work", kind: .omarchy)
+        let first = try workspace(name: "Work")
         _ = try store.register(first)
         let original = try Data(contentsOf: store.registryURL)
 
         let duplicateIdentity = try RiftWorkspaceRecord(
             id: first.id,
             name: "Other",
-            kind: .macOS,
             bundleURL: root.appending(path: "Other.riftvm")
         )
         XCTAssertThrowsError(try store.register(duplicateIdentity)) {
@@ -37,7 +36,6 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
 
         let duplicateBundle = try RiftWorkspaceRecord(
             name: "Other",
-            kind: .macOS,
             bundleURL: first.bundleURL
         )
         XCTAssertThrowsError(try store.register(duplicateBundle)) {
@@ -53,7 +51,7 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
         let marker = bundle.appending(path: "do-not-delete")
         try Data("kept".utf8).write(to: marker)
-        let record = try RiftWorkspaceRecord(name: "Keep", kind: .omarchy, bundleURL: bundle)
+        let record = try RiftWorkspaceRecord(name: "Keep", bundleURL: bundle)
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root.appending(path: "Support"))
         _ = try store.register(record)
 
@@ -67,10 +65,10 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
-        let bundle = root.appending(path: "macOS.riftvm", directoryHint: .isDirectory)
+        let bundle = root.appending(path: "Work.riftvm", directoryHint: .isDirectory)
 
-        let first = try store.registerIfNeeded(name: "macOS", kind: .macOS, bundleURL: bundle)
-        let second = try store.registerIfNeeded(name: "Renamed", kind: .omarchy, bundleURL: bundle)
+        let first = try store.registerIfNeeded(name: "Work", bundleURL: bundle)
+        let second = try store.registerIfNeeded(name: "Renamed", bundleURL: bundle)
 
         XCTAssertEqual(first.workspaces.count, 1)
         XCTAssertEqual(second.workspaces, first.workspaces)
@@ -80,7 +78,7 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         let root = temporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root)
-        let record = try workspace(name: "Original", kind: .macOS)
+        let record = try workspace(name: "Original")
         _ = try store.register(record)
         let openedAt = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -93,10 +91,9 @@ final class RiftWorkspaceRegistryTests: XCTestCase {
         XCTAssertEqual(updated.workspaces[0].lastOpenedAt, openedAt)
     }
 
-    private func workspace(name: String, kind: RiftWorkspaceKind) throws -> RiftWorkspaceRecord {
+    private func workspace(name: String) throws -> RiftWorkspaceRecord {
         try RiftWorkspaceRecord(
             name: name,
-            kind: kind,
             bundleURL: URL(filePath: "/tmp/\(UUID().uuidString).riftvm")
         )
     }

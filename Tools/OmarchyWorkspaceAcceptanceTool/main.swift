@@ -94,7 +94,6 @@ private enum OmarchyWorkspaceAcceptanceTool {
         if let name = arguments.registerName {
             _ = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(
                 name: name,
-                kind: .omarchy,
                 bundleURL: arguments.root
             )
         }

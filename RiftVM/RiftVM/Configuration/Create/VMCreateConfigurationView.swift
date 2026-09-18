@@ -12,7 +12,6 @@ import Virtualization
 #if arch(arm64)
 struct VMCreateConfigurationView: View {
     @Environment(VMConfigurationViewStateObject.self) private var configData
-    @Environment(VMCreateViewStateObject.self) private var formData
     var includePrimaryResources = true
     
     var body: some View {
@@ -25,16 +24,8 @@ struct VMCreateConfigurationView: View {
             }
             
             Section("Graphics") {
-                if configData.osType == .macOS {
-                    LabeledContent("Graphics Backend", value: "Apple Graphics")
-                } else if case .preinstalled = formData.systemImageSelection {
-                    @Bindable var configData = configData
-                    VMGraphicsBackendPicker(selection: $configData.graphicsBackend)
-                } else {
-                    LabeledContent("Graphics Backend", value: "Apple Virtio")
-                    Text("Installation uses Apple Virtio. After installing the Guest Agent and ejecting the installer, shut down and select Custom VirGL in Settings → Display.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
+                @Bindable var configData = configData
+                VMGraphicsBackendPicker(selection: $configData.graphicsBackend)
             }
             Section ("Display / Storage / Network") {
                 VMConfigurationGraphicDevicesView()

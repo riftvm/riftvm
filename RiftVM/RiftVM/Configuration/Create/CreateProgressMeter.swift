@@ -10,7 +10,6 @@ import SwiftUI
 /// settled row instead of an arbitrary frame.
 struct CreateProgressMeter: View {
     let progress: Double
-    let isOmarchy: Bool
     let isActive: Bool
     /// The workspace is ready: hold the finished row still while it fades.
     var isSettled: Bool = false
@@ -20,12 +19,8 @@ struct CreateProgressMeter: View {
 
     private var animates: Bool { isActive && !isSettled && !reduceMotion && scenePhase == .active }
 
-    /// Fire for Omarchy, ice for macOS, matching the workspace cards.
-    private var accent: Color {
-        isOmarchy
-            ? Color(red: 1.0, green: 0.42, blue: 0.17)
-            : Color(red: 0.42, green: 0.78, blue: 1.0)
-    }
+    /// Omarchy's fire accent, matching the workspace card.
+    private let accent = Color(red: 1.0, green: 0.42, blue: 0.17)
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animates)) { context in

@@ -9,59 +9,12 @@ import SwiftUI
 import Observation
 
 #if arch(arm64)
+/// Form state for the one preparation flow RiftVM has: a signed Omarchy
+/// factory image. There is no image picker, so nothing here describes a
+/// system other than Omarchy.
 @MainActor
 @Observable
 class VMCreateViewStateObject {
-    enum SystemImageSelection: Hashable {
-        case latestMacOS
-        case catalog(VMSystemImageCatalogItem)
-        case preinstalled(VMPreinstalledImageCatalogItem)
-        case remoteURL(URL)
-        case localFile(URL)
-
-        var title: String {
-            switch self {
-            case .latestMacOS:
-                return "Latest compatible macOS"
-            case .catalog(let item):
-                return item.name
-            case .preinstalled(let item):
-                return item.name
-            case .remoteURL(let url):
-                return url.lastPathComponent.isEmpty ? url.absoluteString : url.lastPathComponent
-            case .localFile(let url):
-                return url.lastPathComponent
-            }
-        }
-
-        var detail: String {
-            switch self {
-            case .latestMacOS:
-                return "Downloaded from Apple when you create the virtual machine"
-            case .catalog(let item):
-                return VMImageStore.exists(fileName: Self.fileName(for: item))
-                    ? "Ready in the image cache"
-                    : "Downloaded when you create the virtual machine"
-            case .preinstalled(let item):
-                return "Preinstalled image · downloaded and verified when you create the virtual machine · \(Self.formattedSize(item.downloadSize))"
-            case .remoteURL(let url):
-                return url.absoluteString
-            case .localFile(let url):
-                return url.path(percentEncoded: false)
-            }
-        }
-
-        private static func fileName(for item: VMSystemImageCatalogItem) -> String {
-            let fallbackExtension = "iso"
-            let ext = item.url.pathExtension.isEmpty ? fallbackExtension : item.url.pathExtension
-            return "\(item.id).\(ext)"
-        }
-
-        private static func formattedSize(_ bytes: Int64?) -> String {
-            guard let bytes else { return "size unavailable" }
-            return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-        }
-    }
 
     struct LogModel : Identifiable {
         let id = UUID()
@@ -83,20 +36,6 @@ class VMCreateViewStateObject {
     var rootPath: String = ""
     var baseDirectory: String = ""
     var hasGeneratedNameSuggestion = false
-
-    // phase
-    var imagePath: String = ""
-    var systemImageSelection: SystemImageSelection = .latestMacOS
-    var hasChosenSystem = false
-
-    // macOS 27 first-boot provisioning. The password lives only in this
-    // in-memory form and is moved to Keychain after the VM is installed.
-    var provisioningFullName = "RiftVM User"
-    var provisioningUsername = "riftvm"
-    var provisioningPassword = ""
-    var provisioningPasswordConfirmation = ""
-    var provisioningAutomaticLogin = false
-    var provisioningRemoteLogin = false
 
     var logs: [LogModel] = []
 

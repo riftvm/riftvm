@@ -980,7 +980,7 @@ struct OmarchyVirtualMachineView: View {
             }
             Divider()
             Button("Create Workspace from Latest Image…", systemImage: "plus.rectangle.on.folder") {
-                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy)
+                openWindow(id: "create-machine-guide")
             }
             Text("Downloads and verifies the signed image during creation. Move your files using Shared Folder after checking the new workspace.")
         } label: {

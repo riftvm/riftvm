@@ -23,83 +23,25 @@ class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
 
 
 struct CreatePhaseConfigurationView: View {
-    @Environment(VMCreateViewStateObject.self) private var formData
-    @Environment(VMConfigurationViewStateObject.self) private var configData
 
     var body: some View {
-        Group {
-            VStack(alignment: .leading, spacing: 22) {
-                CreateResourceControlsView()
+        VStack(alignment: .leading, spacing: 22) {
+            CreateResourceControlsView()
 
-                DisclosureGroup("Advanced hardware") {
-                    VMCreateConfigurationView(includePrimaryResources: false)
-                        .padding(.top, 8)
-                }
-
+            DisclosureGroup("Advanced hardware") {
+                VMCreateConfigurationView(includePrimaryResources: false)
+                    .padding(.top, 8)
             }
-            .frame(maxWidth: 720, alignment: .leading)
-            .padding(.bottom, 12)
         }
-    }
-
-    private var guestProvisioningAvailable: Bool {
-        VirtualizationCapability.guestProvisioning.isAvailable
-    }
-
-    private var guestProvisioningSection: some View {
-        @Bindable var formData = formData
-        return GroupBox {
-            VStack(alignment: .leading, spacing: 10) {
-                EmptyView()
-                    .disabled(!guestProvisioningAvailable)
-
-                if !guestProvisioningAvailable {
-                    Text("Requires a macOS 27 host.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if false {
-                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                        GridRow {
-                            Text("Full name")
-                            TextField("RiftVM User", text: $formData.provisioningFullName)
-                        }
-                        GridRow {
-                            Text("Username")
-                            TextField("riftvm", text: $formData.provisioningUsername)
-                                .textContentType(.username)
-                        }
-                        GridRow {
-                            Text("Password")
-                            SecureField("Required", text: $formData.provisioningPassword)
-                                .textContentType(.newPassword)
-                        }
-                        GridRow {
-                            Text("Confirm")
-                            SecureField("Repeat password", text: $formData.provisioningPasswordConfirmation)
-                                .textContentType(.newPassword)
-                        }
-                    }
-                    Toggle("Log in automatically", isOn: $formData.provisioningAutomaticLogin)
-                    Toggle("Enable Remote Login (SSH)", isOn: $formData.provisioningRemoteLogin)
-                    Text("The password stays in this Mac’s Keychain until you confirm that macOS setup completed. It is never stored in the virtual machine bundle.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text("Requires both a macOS 27 host and a macOS 27 or later restore image. RiftVM verifies the IPSW before installation.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(4)
-        } label: {
-            Label("macOS 27 First-Boot Provisioning", systemImage: "person.crop.circle.badge.checkmark")
-        }
+        .frame(maxWidth: 720, alignment: .leading)
+        .padding(.bottom, 12)
     }
 }
 
+/// Processor, memory, and storage for the Omarchy workspace. The factory disk
+/// is fixed for a release, so its row reports the size instead of offering a
+/// slider that the image would ignore.
 struct CreateResourceControlsView: View {
-    @Environment(VMCreateViewStateObject.self) private var formData
     @Environment(VMConfigurationViewStateObject.self) private var configData
 
     private let gibibyte = UInt64(1024 * 1024 * 1024)
@@ -132,15 +74,13 @@ struct CreateResourceControlsView: View {
 
             resourceRow(
                 title: "Storage",
-                detail: isOmarchy
-                    ? "Factory disk · fixed for this release"
-                    : "\(primaryDiskFormat) · grows as needed",
+                detail: "Factory disk · fixed for this release",
                 value: "\(storageGiB) GB"
             ) {
                 Slider(value: storageBinding, in: minimumStorageGiB...maximumStorageGiB, step: 8)
                     .accessibilityLabel("Storage")
                     .accessibilityValue("\(storageGiB) gigabytes")
-                    .disabled(isOmarchy)
+                    .disabled(true)
             }
         }
         .padding(.horizontal, 18)
@@ -220,10 +160,6 @@ struct CreateResourceControlsView: View {
 
     private var memoryGiB: UInt64 { configData.memorySize / gibibyte }
     private var storageGiB: UInt64 { primaryStorage.size / gibibyte }
-    private var primaryDiskFormat: String { primaryStorage.format.rawValue.uppercased() }
-    private var isOmarchy: Bool {
-        formData.systemImageSelection == .preinstalled(.omarchy)
-    }
 
     private var hostMemoryDescription: String {
         ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory)
@@ -250,135 +186,9 @@ struct CreateResourceControlsView: View {
     }
 }
 
-final class CreatePhaseReviewViewHandler: VMCreateStepperGuidePhaseHandler {
-    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid { .success }
-    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid { .success }
-}
-
-struct CreatePhaseReviewView: View {
-    @Environment(VMCreateViewStateObject.self) private var formData
-    @Environment(VMConfigurationViewStateObject.self) private var configData
-
-    private let gibibyte = UInt64(1024 * 1024 * 1024)
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Ready to create \(configData.name)")
-                        .font(.title2.weight(.semibold))
-                    Text("Review your choices. Nothing downloads until you click Create.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                reviewSection("System", systemImage: "pc") {
-                    reviewRow("Image", formData.systemImageSelection.title)
-                    reviewRow("Source", formData.systemImageSelection.detail)
-                }
-
-                reviewSection("Machine", systemImage: "desktopcomputer") {
-                    reviewRow("Name", configData.name)
-                    reviewRow("Location", formData.rootPath)
-                }
-
-                reviewSection("Resources", systemImage: "slider.horizontal.3") {
-                    reviewRow("Hardware", "\(configData.cpuCount) CPU · \(configData.memorySize / gibibyte) GB memory")
-                    reviewRow("Storage", storageSummary)
-                    reviewRow("Shared folders", sharingSummary)
-                }
-
-                if false {
-                    reviewSection("First Boot", systemImage: "person.crop.circle.badge.checkmark") {
-                        if false {
-                            reviewRow(
-                                "Account",
-                                "\(formData.provisioningFullName) · \(formData.provisioningUsername)"
-                            )
-                            reviewRow(
-                                "Automatic login",
-                                formData.provisioningAutomaticLogin ? "Enabled" : "Off"
-                            )
-                            reviewRow(
-                                "Remote Login",
-                                formData.provisioningRemoteLogin ? "SSH enabled" : "Off"
-                            )
-                            reviewRow(
-                                "Password",
-                                "Stored in this Mac’s Keychain until you confirm setup completed"
-                            )
-                        } else {
-                            reviewRow("Setup", "Complete macOS Setup Assistant manually")
-                            reviewRow("Password", "Not stored by RiftVM")
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: 720, alignment: .leading)
-            .padding(.bottom, 12)
-        }
-    }
-
-    private func reviewSection<Content: View>(
-        _ title: String,
-        systemImage: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .padding(.leading, 2)
-
-            VStack(spacing: 0) {
-                content()
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-            .overlay {
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(.separator.opacity(0.45), lineWidth: 1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func reviewRow(_ label: String, _ value: String) -> some View {
-        LabeledContent {
-            Text(value)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Text(label)
-                .fontWeight(.medium)
-        }
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var storageSummary: String {
-        guard let disk = configData.storageDevices.first(where: { $0.data.type == .Block })?.data else {
-            return "No virtual disk"
-        }
-        return "\(disk.size / gibibyte) GB · \(disk.format.rawValue.uppercased())"
-    }
-
-    private var sharingSummary: String {
-        if formData.systemImageSelection == .preinstalled(.omarchy) {
-            return "RiftVM Shared · no host folders exposed"
-        }
-        let count = configData.directorySharingDevices.reduce(0) { $0 + $1.data.items.count }
-        return count == 0 ? "None · can be added later" : "\(count) folder\(count == 1 ? "" : "s")"
-    }
-}
-
 struct CreatePhaseConfigurationView_Previews: PreviewProvider {
     static var previews: some View {
         CreatePhaseConfigurationView()
-            .environment(VMCreateViewStateObject())
             .environment(VMConfigurationViewStateObject())
     }
 }

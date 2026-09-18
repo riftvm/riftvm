@@ -2123,46 +2123,6 @@ class VMOSHelper {
     }
 }
 
-struct VMMacOSCatalogPayload: Codable, Equatable {
-    let firmwares: [Firmware]
-
-    struct Firmware: Codable, Equatable {
-        let version: String
-        let buildid: String
-        let filesize: Int64
-        let url: URL
-        let signed: Bool
-    }
-
-    var availableFirmwares: [Firmware] {
-        var seen = Set<String>()
-        return firmwares
-            .filter { firmware in
-                // IPSW.me's `signed` flag models device restore signing, but
-                // Virtualization.framework can still install an Apple-hosted
-                // VirtualMac image that the feed marks unsigned. Let Apple's
-                // installation service make the authoritative compatibility
-                // decision after we validate the download origin and shape.
-                guard firmware.filesize > 0,
-                      firmware.url.scheme?.lowercased() == "https",
-                      let host = firmware.url.host?.lowercased(),
-                      host == "apple.com" || host.hasSuffix(".apple.com") || host == "updates.cdn-apple.com",
-                      !firmware.version.isEmpty,
-                      !firmware.buildid.isEmpty else { return false }
-                return seen.insert("\(firmware.version)-\(firmware.buildid)").inserted
-            }
-            .sorted {
-                let versionOrder = $0.version.compare($1.version, options: .numeric)
-                return versionOrder == .orderedSame ? $0.buildid > $1.buildid : versionOrder == .orderedDescending
-            }
-    }
-}
-
-struct VMMacOSCatalogCache: Codable, Equatable {
-    let fetchedAt: Date
-    let payload: VMMacOSCatalogPayload
-}
-
 struct VMNetworkDeviceIssue: Equatable, Identifiable {
     let deviceIndex: Int
     let reason: String

@@ -8,7 +8,7 @@ final class RiftWorkspaceBundleRemovalTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = RiftWorkspaceRegistryStore(applicationSupportRoot: root.appending(path: "Support"))
         let bundle = root.appending(path: "Vanished.riftvm", directoryHint: .isDirectory)
-        let record = try RiftWorkspaceRecord(name: "Vanished", kind: .omarchy, bundleURL: bundle)
+        let record = try RiftWorkspaceRecord(name: "Vanished", bundleURL: bundle)
         _ = try store.register(record)
 
         // The bundle was deleted behind RiftVM's back. Moving it to the Trash

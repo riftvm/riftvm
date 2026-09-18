@@ -51,8 +51,8 @@ struct MainApp: App {
         .windowToolbarStyle(.unifiedCompact)
         .restorationBehavior(.disabled)
         
-        WindowGroup("Create Workspace", id: "create-machine-guide", for: RiftWorkspaceKind.self) { $initialKind in
-            VMCreateStepperGuideView(initialKind: initialKind)
+        WindowGroup("Prepare Omarchy", id: "create-machine-guide") {
+            VMCreateStepperGuideView()
         }
         .defaultPosition(.center)
         .defaultSize(width: 760, height: 650)
@@ -162,13 +162,8 @@ private struct VMWorkspaceMenu: View {
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "control-center")
         }
-        Menu("New Workspace") {
-            Button("Omarchy", systemImage: "sparkles.rectangle.stack") {
-                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy)
-            }
-            Button("macOS", systemImage: "macwindow") {
-                openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.macOS)
-            }
+        Button("Prepare Omarchy Workspace", systemImage: "sparkles.rectangle.stack") {
+            openWindow(id: "create-machine-guide")
         }
 
         Divider()

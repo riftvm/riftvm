@@ -32,6 +32,9 @@ final class WorkspaceCreationStore {
     }
 }
 
+/// One Omarchy preparation run: the resource choices, the verified factory
+/// download, and the workspace it produces. The session outlives its window so a
+/// long download keeps going after the window is closed.
 @MainActor @Observable
 final class WorkspaceCreationSession: Identifiable {
     enum Phase { case setup, creating, ready, failed }
@@ -43,24 +46,22 @@ final class WorkspaceCreationSession: Identifiable {
     var initialized = false
     private let creator = CreatePhaseCreatingViewHandler()
     private var task: Task<Void, Never>?
-    var isOmarchy: Bool { form.systemImageSelection == .preinstalled(.omarchy) }
     var context: VMCreateStepperGuidePhaseContext { .init(formData: form, configData: config) }
 
-    init(kind: RiftWorkspaceKind?) {
-        config = VMConfigurationViewStateObject(configModel: VMConfigModel.createWithDefaultValues(osType: kind == .omarchy ? .linux : .macOS))
-        if kind == .omarchy {
-            config.name = "Omarchy"
-            config.remark = VMPreinstalledImageCatalogItem.omarchy.detail
-            config.linuxFeatures = .recommended
-            let resources = VMOmarchyProfile.production.resources(forHostMemory: ProcessInfo.processInfo.physicalMemory, activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount)
-            config.cpuCount = resources.cpuCount
-            config.memorySize = resources.memoryBytes
-            form.systemImageSelection = .preinstalled(.omarchy)
-            form.hasChosenSystem = true
-            form.hasGeneratedNameSuggestion = true
-        } else if kind == .macOS {
-            form.hasChosenSystem = true
-        }
+    init() {
+        config = VMConfigurationViewStateObject(configModel: VMConfigModel.createWithDefaultValues(osType: .linux))
+        config.name = "Omarchy"
+        config.remark = "Preinstalled Arch Linux desktop · ready on first boot"
+        config.linuxFeatures = .recommended
+        let resources = VMOmarchyProfile.production.resources(
+            forHostMemory: ProcessInfo.processInfo.physicalMemory,
+            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+        )
+        config.cpuCount = resources.cpuCount
+        config.memorySize = resources.memoryBytes
+        // Omarchy exchanges files through the workspace-owned shared folder, so
+        // no host directory is exposed to the guest.
+        config.directorySharingDevices.removeAll()
     }
 
     func initialize() async {
@@ -76,14 +77,17 @@ final class WorkspaceCreationSession: Identifiable {
             errorMessage = "Another workspace is being created. Wait for it to finish, then try again."
             return
         }
-        let checks: [any VMCreateStepperGuidePhaseHandler] = [CreatePhaseSystemViewHandler(), CreatePhaseNameLocationViewHandler(), CreatePhaseConfigurationViewHandler()]
+        let checks: [any VMCreateStepperGuidePhaseHandler] = [
+            CreatePhaseSystemViewHandler(),
+            CreatePhaseNameLocationViewHandler(),
+            CreatePhaseConfigurationViewHandler()
+        ]
         for check in checks {
             if case .failure(let message) = check.verifyForm(context: context) {
                 errorMessage = message
                 return
             }
         }
-        if isOmarchy { config.directorySharingDevices.removeAll() }
         phase = .creating
         WorkspaceCreationStore.shared.retain(self)
         task = Task { @MainActor [self] in
@@ -102,10 +106,7 @@ final class WorkspaceCreationSession: Identifiable {
 }
 
 struct VMCreateStepperGuideView: View {
-    @State private var session: WorkspaceCreationSession
-    init(initialKind: RiftWorkspaceKind? = nil) {
-        _session = State(initialValue: WorkspaceCreationSession(kind: initialKind))
-    }
+    @State private var session = WorkspaceCreationSession()
     var body: some View { WorkspaceCreationView(session: session) }
 }
 
@@ -114,7 +115,6 @@ struct WorkspaceCreationView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openWindow) private var openWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showImage = false
     @State private var showResources = false
     @State private var showSharing = false
     @State private var showDetails = false
@@ -181,15 +181,13 @@ struct WorkspaceCreationView: View {
                 workspaceIcon(size: 60)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("YOUR NEXT WORKSPACE").font(.caption2).tracking(2).foregroundStyle(.secondary)
-                    Text(session.form.hasChosenSystem ? "Make room for \(session.isOmarchy ? "Omarchy" : "macOS")." : "Choose your next world.")
+                    Text("Make room for Omarchy.")
                         .font(.largeTitle.weight(.semibold))
                     Text("Recommended settings. Your name. Ready to create.").foregroundStyle(.secondary)
                 }
             }
-            if !session.form.hasChosenSystem {
-                CreatePhaseSystemView()
-                    .frame(height: 260)
-            }
+            CreatePhaseSystemView()
+                .frame(height: 220)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Workspace name").font(.callout).foregroundStyle(.secondary)
                 TextField("Workspace name", text: $config.name)
@@ -206,11 +204,7 @@ struct WorkspaceCreationView: View {
             }
             Divider()
             DisclosureGroup(isExpanded: $showResources) {
-                if session.isOmarchy {
-                    CreateResourceControlsView().padding(.top, 14)
-                } else {
-                    CreatePhaseConfigurationView().padding(.top, 14)
-                }
+                CreateResourceControlsView().padding(.top, 14)
             } label: {
                 HStack {
                     Label("Resources", systemImage: "cpu")
@@ -220,19 +214,11 @@ struct WorkspaceCreationView: View {
                 }
             }
             Divider()
-            if session.isOmarchy {
-                DisclosureGroup(isExpanded: $showSharing) {
-                    Text("After creation, open RiftVM Shared on your Mac to add files. In Omarchy, open /mnt/riftvm-shared to use those same files. Your other Mac folders stay private.")
-                        .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
-                } label: {
-                    Label("File exchange with your Mac · Ready to use", systemImage: "folder.badge.arrow.up")
-                }
-            } else {
-                DisclosureGroup(isExpanded: $showSharing) {
-                    CreatePhaseSharingView().padding(.top, 8)
-                } label: {
-                    Label("Share folders with your Mac", systemImage: "folder")
-                }
+            DisclosureGroup(isExpanded: $showSharing) {
+                Text("After creation, open RiftVM Shared on your Mac to add files. In Omarchy, open /mnt/riftvm-shared to use those same files. Your other Mac folders stay private.")
+                    .font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+            } label: {
+                Label("File exchange with your Mac · Ready to use", systemImage: "folder.badge.arrow.up")
             }
             if let error = session.errorMessage { errorView(error) }
         }
@@ -246,13 +232,12 @@ struct WorkspaceCreationView: View {
                 ZStack {
                     CreateProgressMeter(
                         progress: session.phase == .ready ? 1 : session.form.installingProgress,
-                        isOmarchy: session.isOmarchy,
                         isActive: session.phase == .creating,
                         isSettled: session.phase == .ready
                     )
                     .opacity(meterOpacity)
                     if session.phase == .ready {
-                        WorkspaceSystemIcon(isOmarchy: session.isOmarchy, size: 112)
+                        WorkspaceSystemIcon(size: 112)
                             .transition(.opacity.combined(with: .scale(scale: 0.86)))
                     }
                 }
@@ -351,15 +336,15 @@ struct WorkspaceCreationView: View {
 
     private var footer: some View {
         HStack(spacing: 14) {
-            Text(session.phase == .setup ? (session.isOmarchy ? "64 GB disk · Image downloads only if needed." : "The selected image downloads only if needed.") : session.phase == .creating ? "Keep RiftVM open. Follow progress on the home screen." : session.phase == .failed ? "Your settings are saved for this session." : "Available from your workspace list.")
+            Text(session.phase == .setup ? "64 GB disk · Image downloads only if needed." : session.phase == .creating ? "Keep RiftVM open. Follow progress on the home screen." : session.phase == .failed ? "Your settings are saved for this session." : "Available from your workspace list.")
                 .font(.caption).foregroundStyle(.secondary)
             Spacer()
             switch session.phase {
             case .setup:
-                Button("Create \(session.isOmarchy ? "Omarchy" : "Workspace")", systemImage: "arrow.up.right") { session.start() }
+                Button("Create Omarchy", systemImage: "arrow.up.right") { session.start() }
                     .buttonStyle(RiftCreationButtonStyle())
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!session.initialized || !session.form.hasChosenSystem)
+                    .disabled(!session.initialized)
                     .accessibilityIdentifier("workspace-create-start")
             case .creating:
                 if session.form.canCancelCreation {
@@ -398,8 +383,9 @@ struct WorkspaceCreationView: View {
     }
     private func launch() {
         do {
-            let record = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(name: session.config.name, kind: session.isOmarchy ? .omarchy : .macOS, bundleURL: URL(filePath: session.form.rootPath))
-            guard let workspace = record.workspaces.first(where: { $0.bundleURL.standardizedFileURL == URL(filePath: session.form.rootPath).standardizedFileURL }) else {
+            let rootPath = URL(filePath: session.form.rootPath)
+            let record = try RiftWorkspaceRegistryStore.standard.registerIfNeeded(name: session.config.name, bundleURL: rootPath)
+            guard let workspace = record.workspaces.first(where: { $0.bundleURL.standardizedFileURL == rootPath.standardizedFileURL }) else {
                 launchError = "The workspace could not be found. Open it from the control center."
                 return
             }
@@ -414,7 +400,7 @@ struct WorkspaceCreationView: View {
             .accessibilityIdentifier("workspace-create-error")
     }
     private func workspaceIcon(size: CGFloat) -> some View {
-        WorkspaceSystemIcon(isOmarchy: session.isOmarchy, size: size)
+        WorkspaceSystemIcon(size: size)
             .accessibilityHidden(true)
     }
 }
@@ -484,25 +470,18 @@ struct RiftCreationButtonStyle: ButtonStyle {
 
 /// Omarchy artwork: https://omarchy.org/brand/ (Omarchy trademark).
 struct WorkspaceSystemIcon: View {
-    let isOmarchy: Bool
     let size: CGFloat
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.24)
                 .fill(LinearGradient(
-                    colors: isOmarchy ? [Color(white: 0.19), Color(white: 0.10)] : [Color(white: 0.98), Color(white: 0.78)],
+                    colors: [Color(white: 0.19), Color(white: 0.10)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 ))
-            if isOmarchy {
-                Image("OmarchyLogo")
-                    .resizable().scaledToFit()
-                    .frame(width: size * 0.60, height: size * 0.60)
-            } else {
-                Image(systemName: "apple.logo")
-                    .font(.system(size: size * 0.48, weight: .regular))
-                    .foregroundStyle(Color(white: 0.20))
-            }
+            Image("OmarchyLogo")
+                .resizable().scaledToFit()
+                .frame(width: size * 0.60, height: size * 0.60)
         }
         .frame(width: size, height: size)
         .overlay {

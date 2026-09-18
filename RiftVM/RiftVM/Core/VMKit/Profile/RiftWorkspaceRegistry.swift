@@ -1,14 +1,10 @@
 import Foundation
 
-public enum RiftWorkspaceKind: String, Codable, CaseIterable, Hashable, Sendable {
-    case omarchy
-    case macOS
-}
-
+/// A registered Omarchy workspace. RiftVM prepares one kind of workspace, so
+/// nothing here records a guest operating system.
 public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
     public var name: String
-    public let kind: RiftWorkspaceKind
     public var bundleURL: URL
     public let createdAt: Date
     public var pinnedAt: Date?
@@ -17,7 +13,6 @@ public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {
     public init(
         id: UUID = UUID(),
         name: String,
-        kind: RiftWorkspaceKind,
         bundleURL: URL,
         createdAt: Date = Date(),
         pinnedAt: Date? = nil,
@@ -32,7 +27,6 @@ public struct RiftWorkspaceRecord: Codable, Equatable, Identifiable, Sendable {
         }
         self.id = id
         self.name = trimmedName
-        self.kind = kind
         self.bundleURL = bundleURL.standardizedFileURL
         self.createdAt = createdAt
         self.pinnedAt = pinnedAt
@@ -173,7 +167,6 @@ public struct RiftWorkspaceRegistryStore {
 
     public func registerIfNeeded(
         name: String,
-        kind: RiftWorkspaceKind,
         bundleURL: URL
     ) throws -> RiftWorkspaceRegistrySnapshot {
         let canonicalURL = bundleURL.standardizedFileURL
@@ -181,7 +174,7 @@ public struct RiftWorkspaceRegistryStore {
         if current.workspaces.contains(where: { $0.bundleURL.standardizedFileURL == canonicalURL }) {
             return current
         }
-        return try register(RiftWorkspaceRecord(name: name, kind: kind, bundleURL: canonicalURL))
+        return try register(RiftWorkspaceRecord(name: name, bundleURL: canonicalURL))
     }
 
     public func rename(_ workspaceID: UUID, to name: String) throws -> RiftWorkspaceRegistrySnapshot {

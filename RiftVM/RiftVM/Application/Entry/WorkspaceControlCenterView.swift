@@ -6,15 +6,12 @@ import SwiftUI
 struct WorkspaceControlCenterView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var snapshot: RiftWorkspaceRegistrySnapshot?
-    @State private var filter: WorkspaceFilter = .all
     @State private var errorMessage: String?
     @State private var graphicsWorkspace: RiftWorkspaceRecord?
-    @State private var settingsModel: VMModel?
     @State private var snapshotWorkspace: RiftWorkspaceRecord?
     @State private var renameWorkspace: RiftWorkspaceRecord?
     @State private var renameDraft = ""
     @State private var deleteWorkspace: RiftWorkspaceRecord?
-    @State private var pendingFolderDrop: WorkspaceFolderDrop?
     @State private var runStateRevision = UUID()
 
     private let registry = RiftWorkspaceRegistryStore.standard
@@ -38,7 +35,6 @@ struct WorkspaceControlCenterView: View {
         .onReceive(NotificationCenter.default.publisher(for: .riftVMRunStateDidChange)) { _ in runStateRevision = UUID() }
         .onReceive(NotificationCenter.default.publisher(for: .riftvmConfigurationSaved)) { _ in loadRegistry() }
         .sheet(item: $graphicsWorkspace) { OmarchyGraphicsSettingsView(workspace: $0) }
-        .sheet(item: $settingsModel) { VMEditConfigurationView(model: $0) }
         .sheet(item: $snapshotWorkspace) { workspace in
             MachineSnapshotsView(machineName: workspace.name, rootPath: workspace.bundleURL)
                 .frame(minWidth: 820, minHeight: 620)
@@ -63,17 +59,6 @@ struct WorkspaceControlCenterView: View {
                 ? "The workspace folder is already missing from disk, so only this entry is removed."
                 : "The virtual machine bundle can be recovered from the Trash.")
         }
-        .confirmationDialog(
-            "Add \(pendingFolderDrop?.urls.count ?? 0) folder\((pendingFolderDrop?.urls.count ?? 0) == 1 ? "" : "s")?",
-            isPresented: folderDropPresented,
-            titleVisibility: .visible
-        ) {
-            Button("Share Read Only") { finishFolderDrop(copy: false) }
-            Button("Copy into RiftVM Shared") { finishFolderDrop(copy: true) }
-            Button("Cancel", role: .cancel) { pendingFolderDrop = nil }
-        } message: {
-            Text("Sharing leaves the folders on your Mac. Copying creates independent copies inside this workspace.")
-        }
         .alert("RiftVM", isPresented: errorPresented) {
             Button("OK") { errorMessage = nil }
         } message: {
@@ -82,91 +67,53 @@ struct WorkspaceControlCenterView: View {
     }
 
     private func controlCenter(_ snapshot: RiftWorkspaceRegistrySnapshot) -> some View {
-        NavigationSplitView {
-            List(selection: $filter) {
-                Section("Workspaces") {
-                    ForEach(WorkspaceFilter.allCases) { item in
-                        Label {
-                            HStack {
-                                Text(item.title)
-                                Spacer()
-                                Text("\(count(for: item, in: snapshot))")
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
+        VStack(spacing: 0) {
+            if !WorkspaceCreationStore.shared.sessions.isEmpty {
+                VStack(spacing: 10) {
+                    ForEach(WorkspaceCreationStore.shared.sessions) { session in
+                        HStack(spacing: 14) {
+                            Image(systemName: session.phase == .ready ? "checkmark.circle" : session.phase == .failed ? "exclamationmark.triangle" : "arrow.down.circle")
+                                .foregroundStyle(session.phase == .failed ? Color.orange : Color.accentColor)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(session.config.name).font(.headline)
+                                Text(session.phase == .failed ? "Creation needs attention" : session.form.creationStage)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                if session.phase == .creating,
+                                   let received = session.form.downloadBytesReceived,
+                                   let expected = session.form.downloadBytesExpected, received < expected {
+                                    ProgressView(value: Double(received), total: Double(max(expected, 1)))
+                                        .frame(maxWidth: 300)
+                                    Text("\(ByteCountFormatter.string(fromByteCount: received, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: expected, countStyle: .file))")
+                                        .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                                }
                             }
-                        } icon: {
-                            Image(systemName: item.systemImage)
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundStyle(item.accent)
+                            Spacer()
+                            Button(session.phase == .ready ? "Open" : "View Progress") {
+                                openWindow(id: "workspace-creation", value: session.id)
+                            }
                         }
-                        .tag(item)
+                        .padding(14)
+                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
                     }
-                }
+                }.padding(20)
             }
-            .navigationTitle("RiftVM")
-            .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 280)
-        } detail: {
-            VStack(spacing: 0) {
-                if !WorkspaceCreationStore.shared.sessions.isEmpty {
-                    VStack(spacing: 10) {
-                        ForEach(WorkspaceCreationStore.shared.sessions) { session in
-                            HStack(spacing: 14) {
-                                Image(systemName: session.phase == .ready ? "checkmark.circle" : session.phase == .failed ? "exclamationmark.triangle" : "arrow.down.circle")
-                                    .foregroundStyle(session.phase == .failed ? Color.orange : Color.accentColor)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(session.config.name).font(.headline)
-                                    Text(session.phase == .failed ? "Creation needs attention" : session.form.creationStage)
-                                        .font(.caption).foregroundStyle(.secondary)
-                                    if session.phase == .creating,
-                                       let received = session.form.downloadBytesReceived,
-                                       let expected = session.form.downloadBytesExpected, received < expected {
-                                        ProgressView(value: Double(received), total: Double(max(expected, 1)))
-                                            .frame(maxWidth: 300)
-                                        Text("\(ByteCountFormatter.string(fromByteCount: received, countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: expected, countStyle: .file))")
-                                            .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
-                                    }
-                                }
-                                Spacer()
-                                Button(session.phase == .ready ? "Open" : "View Progress") {
-                                    openWindow(id: "workspace-creation", value: session.id)
-                                }
-                            }
-                            .padding(14)
-                            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
-                        }
-                    }.padding(20)
-                }
-                dashboard(snapshot).id(runStateRevision)
-            }
+            dashboard(snapshot).id(runStateRevision)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Menu("New Workspace", systemImage: "plus") {
-                    Button("Omarchy", systemImage: "sparkles.rectangle.stack") {
-                        openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy)
-                    }
-                    Button("macOS", systemImage: "macwindow") {
-                        openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.macOS)
-                    }
+                Button("Prepare Omarchy", systemImage: "sparkles.rectangle.stack") {
+                    prepareOmarchy()
                 }
+                .help("Download the verified Omarchy image and create a workspace")
+                .accessibilityIdentifier("prepare-omarchy")
             }
         }
     }
 
     @ViewBuilder
     private func dashboard(_ snapshot: RiftWorkspaceRegistrySnapshot) -> some View {
-        let workspaces = filteredWorkspaces(in: snapshot)
         if snapshot.workspaces.isEmpty {
-            WorkspaceControlCenterWelcomeView(
-                createOmarchy: { openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.omarchy) },
-                createMacOS: { openWindow(id: "create-machine-guide", value: RiftWorkspaceKind.macOS) }
-            )
-        } else if workspaces.isEmpty {
-            ContentUnavailableView(
-                "No \(filter.title) Workspaces",
-                systemImage: filter.systemImage,
-                description: Text("Choose another category or create a new workspace.")
-            )
+            WorkspaceControlCenterWelcomeView(prepareOmarchy: prepareOmarchy)
         } else {
             ZStack {
                 WorkspaceWorldBackdrop()
@@ -175,16 +122,16 @@ struct WorkspaceControlCenterView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(filter == .all ? "Your Workspaces" : filter.title)
+                            Text("Your Workspaces")
                                 .font(.largeTitle.bold())
                                 .foregroundStyle(
                                     .linearGradient(
-                                        colors: [.primary, .primary, filter.accent],
+                                        colors: [.primary, .primary, WorkspaceWorldTheme.fire.accent],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                            Text("Two worlds, one Mac. Each workspace is an independent virtual machine.")
+                            Text("Each workspace is an independent Arch Linux machine, ready on first boot.")
                                 .foregroundStyle(.secondary)
                         }
                         LazyVGrid(
@@ -192,16 +139,18 @@ struct WorkspaceControlCenterView: View {
                             alignment: .leading,
                             spacing: 18
                         ) {
-                            ForEach(workspaces) { workspace in
+                            ForEach(sortedWorkspaces(in: snapshot)) { workspace in
                                 WorkspaceCardView(
                                     workspace: workspace,
                                     summary: WorkspaceSummary(workspace: workspace),
+                                    liveMachine: VMLiveMachineCenter.shared.machines.first {
+                                        $0.rootPath == workspace.bundleURL.standardizedFileURL
+                                    },
                                     runPhase: VMRunningRegistry.shared.phase(rootPath: workspace.bundleURL),
                                     isRunning: VMRunningRegistry.shared.isRunning(rootPath: workspace.bundleURL),
                                     open: { open(workspace) },
-                                    manageSharing: { showSettings(for: workspace) },
-                                    togglePinned: { setPinned(workspace, pinned: workspace.pinnedAt == nil) },
                                     showSettings: { showSettings(for: workspace) },
+                                    togglePinned: { setPinned(workspace, pinned: workspace.pinnedAt == nil) },
                                     showSnapshots: { snapshotWorkspace = workspace },
                                     reveal: { NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL]) },
                                     rename: { beginRename(workspace) },
@@ -218,55 +167,31 @@ struct WorkspaceControlCenterView: View {
         }
     }
 
-    private func filteredWorkspaces(in snapshot: RiftWorkspaceRegistrySnapshot) -> [RiftWorkspaceRecord] {
-        snapshot.workspaces
-            .filter { workspace in
-                switch filter {
-                case .all: true
-                case .running: VMRunningRegistry.shared.isRunning(rootPath: workspace.bundleURL)
-                case .omarchy: workspace.kind == .omarchy
-                case .macOS: workspace.kind == .macOS
-                }
+    private func sortedWorkspaces(in snapshot: RiftWorkspaceRegistrySnapshot) -> [RiftWorkspaceRecord] {
+        snapshot.workspaces.sorted { lhs, rhs in
+            switch (lhs.pinnedAt, rhs.pinnedAt) {
+            case (.some(let left), .some(let right)): left > right
+            case (.some, .none): true
+            case (.none, .some): false
+            case (.none, .none): (lhs.lastOpenedAt ?? lhs.createdAt) > (rhs.lastOpenedAt ?? rhs.createdAt)
             }
-            .sorted { lhs, rhs in
-                switch (lhs.pinnedAt, rhs.pinnedAt) {
-                case (.some(let left), .some(let right)): left > right
-                case (.some, .none): true
-                case (.none, .some): false
-                case (.none, .none): (lhs.lastOpenedAt ?? lhs.createdAt) > (rhs.lastOpenedAt ?? rhs.createdAt)
-                }
-            }
+        }
     }
 
-    private func count(for filter: WorkspaceFilter, in snapshot: RiftWorkspaceRegistrySnapshot) -> Int {
-        switch filter {
-        case .all: snapshot.workspaces.count
-        case .running: snapshot.workspaces.filter { VMRunningRegistry.shared.isRunning(rootPath: $0.bundleURL) }.count
-        case .omarchy: snapshot.workspaces.filter { $0.kind == .omarchy }.count
-        case .macOS: snapshot.workspaces.filter { $0.kind == .macOS }.count
-        }
+    private func prepareOmarchy() {
+        openWindow(id: "create-machine-guide")
     }
 
     private func open(_ workspace: RiftWorkspaceRecord) {
         do {
-            if workspace.kind == .macOS {
-                try WorkspaceSharing.prepareManagedFolder(for: workspace)
-            }
+            try WorkspaceSharing.prepareManagedFolder(for: workspace)
             snapshot = try registry.markOpened(workspace.id)
             openWindow(id: "workspace", value: workspace.id)
         } catch { errorMessage = error.localizedDescription }
     }
 
     private func showSettings(for workspace: RiftWorkspaceRecord) {
-        guard workspace.kind == .macOS else {
-            graphicsWorkspace = workspace
-            return
-        }
-        switch VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) {
-        case .success(let model): settingsModel = model
-        case .failure:
-            errorMessage = "The configuration for \(workspace.name) is unavailable."
-        }
+        graphicsWorkspace = workspace
     }
 
     private func setPinned(_ workspace: RiftWorkspaceRecord, pinned: Bool) {
@@ -309,29 +234,17 @@ struct WorkspaceControlCenterView: View {
     }
 
     private func receiveDrop(_ urls: [URL], on workspace: RiftWorkspaceRecord) -> Bool {
-        let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
-        let files = urls.filter { !folders.contains($0) }
+        let candidates = urls.filter { url in
+            FileManager.default.fileExists(atPath: url.path) || (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        }
+        guard !candidates.isEmpty else { return false }
         do {
-            if workspace.kind == .omarchy {
-                try WorkspaceSharing.copy(files + folders, into: workspace)
-                return !files.isEmpty || !folders.isEmpty
-            }
-            if !files.isEmpty { try WorkspaceSharing.copy(files, into: workspace) }
-            if !folders.isEmpty { pendingFolderDrop = WorkspaceFolderDrop(workspace: workspace, urls: folders) }
-            return !files.isEmpty || !folders.isEmpty
+            try WorkspaceSharing.copy(candidates, into: workspace)
+            return true
         } catch {
             errorMessage = error.localizedDescription
             return false
         }
-    }
-
-    private func finishFolderDrop(copy: Bool) {
-        guard let drop = pendingFolderDrop else { return }
-        do {
-            if copy { try WorkspaceSharing.copy(drop.urls, into: drop.workspace) }
-            else { try WorkspaceSharing.shareReadOnly(drop.urls, with: drop.workspace) }
-            pendingFolderDrop = nil
-        } catch { errorMessage = error.localizedDescription }
     }
 
     private func loadRegistry() {
@@ -358,9 +271,6 @@ struct WorkspaceControlCenterView: View {
     private var deleteConfirmationTitle: String {
         let name = deleteWorkspace?.name ?? "this workspace"
         return deleteTargetIsMissing ? "Remove \"\(name)\" from the list?" : "Move \(name) to the Trash?"
-    }
-    private var folderDropPresented: Binding<Bool> {
-        Binding(get: { pendingFolderDrop != nil }, set: { if !$0 { pendingFolderDrop = nil } })
     }
     private var errorPresented: Binding<Bool> {
         Binding(get: { errorMessage != nil && snapshot != nil }, set: { if !$0 { errorMessage = nil } })
@@ -403,36 +313,12 @@ private struct WorkspaceRuntimeView: View {
     let workspace: RiftWorkspaceRecord
 
     var body: some View {
-        switch workspace.kind {
-        case .omarchy:
-            OmarchyRootView(
-                profile: .production,
-                workspaceManager: VMOmarchyWorkspaceManager(
-                    layout: VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
-                )
+        OmarchyRootView(
+            profile: .production,
+            workspaceManager: VMOmarchyWorkspaceManager(
+                layout: VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
             )
-        case .macOS:
-            VMOSMainVirtualMachineView(rootPath: workspace.bundleURL, recoveryMode: false)
-        }
-    }
-}
-
-private enum WorkspaceFilter: String, CaseIterable, Identifiable {
-    case all, running, omarchy, macOS
-    var id: Self { self }
-    var title: String {
-        switch self { case .all: "All"; case .running: "Running"; case .omarchy: "Omarchy"; case .macOS: "macOS" }
-    }
-    var systemImage: String {
-        switch self { case .all: "square.grid.2x2"; case .running: "play.circle"; case .omarchy: "sparkles.rectangle.stack"; case .macOS: "macwindow" }
-    }
-    var accent: Color {
-        switch self {
-        case .all: .purple
-        case .running: .green
-        case .omarchy: WorkspaceWorldTheme.fire.accent
-        case .macOS: WorkspaceWorldTheme.ice.accent
-        }
+        )
     }
 }
 
@@ -447,20 +333,16 @@ private struct WorkspaceWorldTheme {
         accent: Color(red: 1, green: 0.34, blue: 0.12),
         bright: Color(red: 1, green: 0.68, blue: 0.12),
         deep: Color(red: 0.32, green: 0.025, blue: 0.015),
-        eyebrow: "FIRE WORLD",
+        eyebrow: "OMARCHY WORKSPACE",
         symbol: "flame.fill"
     )
     static let ice = WorkspaceWorldTheme(
         accent: Color(red: 0.14, green: 0.72, blue: 1),
         bright: Color(red: 0.64, green: 0.94, blue: 1),
         deep: Color(red: 0.015, green: 0.10, blue: 0.28),
-        eyebrow: "ICE WORLD",
+        eyebrow: "RIFT WORLD",
         symbol: "snowflake"
     )
-
-    static func theme(for kind: RiftWorkspaceKind) -> WorkspaceWorldTheme {
-        kind == .omarchy ? .fire : .ice
-    }
 }
 
 private struct WorkspaceWorldBackdrop: View {
@@ -502,8 +384,7 @@ private struct WorkspaceWorldBackdrop: View {
 }
 
 private struct WorkspaceControlCenterWelcomeView: View {
-    let createOmarchy: () -> Void
-    let createMacOS: () -> Void
+    let prepareOmarchy: () -> Void
 
     var body: some View {
         ZStack {
@@ -512,7 +393,7 @@ private struct WorkspaceControlCenterWelcomeView: View {
 
             VStack(alignment: .leading, spacing: 30) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("APPLE SILICON  /  TWO WORLDS  /  ONE MAC")
+                    Text("APPLE SILICON  /  ARCH LINUX  /  ONE MAC")
                         .font(.caption2.monospaced().weight(.semibold))
                         .tracking(2.4)
                         .foregroundStyle(.white.opacity(0.58))
@@ -528,31 +409,19 @@ private struct WorkspaceControlCenterWelcomeView: View {
                                 endPoint: .trailing
                             )
                         )
-                    Text("A Workspace is an independent virtual machine. Pick a world to begin.")
+                    Text("A workspace is an independent Omarchy virtual machine. Prepare one to begin.")
                         .font(.title3)
                         .foregroundStyle(.white.opacity(0.72))
                         .padding(.top, 2)
                 }
 
-                HStack(spacing: 18) {
-                    WorkspaceControlCenterCreationCard(
-                        title: "Omarchy",
-                        description: "A focused Arch Linux desktop, ready on first boot.",
-                        badge: "RECOMMENDED",
-                        isOmarchy: true,
-                        accent: .orange,
-                        action: createOmarchy
-                    )
-                    WorkspaceControlCenterCreationCard(
-                        title: "macOS",
-                        description: "Create a clean Mac from a supported restore image.",
-                        badge: "CHOOSE VERSION",
-                        isOmarchy: false,
-                        accent: .cyan,
-                        action: createMacOS
-                    )
-                }
-                .frame(maxWidth: 880)
+                WorkspaceControlCenterCreationCard(
+                    title: "Omarchy",
+                    description: "A focused Arch Linux desktop, ready on first boot.",
+                    badge: "PREPARE",
+                    action: prepareOmarchy
+                )
+                .frame(maxWidth: 440)
             }
             .frame(maxWidth: 920, alignment: .leading)
             .padding(44)
@@ -566,14 +435,12 @@ private struct WorkspaceControlCenterCreationCard: View {
     let title: String
     let description: String
     let badge: String
-    let isOmarchy: Bool
-    let accent: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 14) {
-                WorkspaceSystemIcon(isOmarchy: isOmarchy, size: 54)
+                WorkspaceSystemIcon(size: 54)
                 Text(title)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.white)
@@ -581,10 +448,10 @@ private struct WorkspaceControlCenterCreationCard: View {
                     .font(.callout)
                     .foregroundStyle(.white.opacity(0.67))
                     .lineLimit(2, reservesSpace: true)
-                Label(badge, systemImage: "arrow.up.right")
+                Label(badge, systemImage: "arrow.down.circle")
                     .font(.caption.monospaced().weight(.bold))
                     .tracking(1.1)
-                    .foregroundStyle(accent)
+                    .foregroundStyle(WorkspaceWorldTheme.fire.bright)
                     .padding(.top, 10)
             }
             .multilineTextAlignment(.leading)
@@ -596,11 +463,12 @@ private struct WorkspaceControlCenterCreationCard: View {
         .background(Color.white.opacity(0.075), in: .rect(cornerRadius: 20))
         .overlay {
             RoundedRectangle(cornerRadius: 20)
-                .stroke(accent.opacity(0.62), lineWidth: 1.5)
+                .stroke(WorkspaceWorldTheme.fire.accent.opacity(0.62), lineWidth: 1.5)
         }
-        .shadow(color: accent.opacity(0.12), radius: 24)
-        .accessibilityLabel("Create \(title) Workspace")
+        .shadow(color: WorkspaceWorldTheme.fire.accent.opacity(0.12), radius: 24)
+        .accessibilityLabel("Prepare an Omarchy Workspace")
         .accessibilityHint(description)
+        .accessibilityIdentifier("prepare-omarchy-welcome")
     }
 }
 
@@ -655,12 +523,12 @@ private struct WorkspaceRiftBackdrop: View {
 private struct WorkspaceCardView: View {
     let workspace: RiftWorkspaceRecord
     let summary: WorkspaceSummary
+    let liveMachine: VMLiveMachine?
     let runPhase: VMRunPhase?
     let isRunning: Bool
     let open: () -> Void
-    let manageSharing: () -> Void
-    let togglePinned: () -> Void
     let showSettings: () -> Void
+    let togglePinned: () -> Void
     let showSnapshots: () -> Void
     let reveal: () -> Void
     let rename: () -> Void
@@ -668,12 +536,12 @@ private struct WorkspaceCardView: View {
     let receiveDrop: ([URL]) -> Bool
     @State private var isDropTargeted = false
 
-    private var theme: WorkspaceWorldTheme { .theme(for: workspace.kind) }
+    private var theme: WorkspaceWorldTheme { .fire }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
-                WorkspaceSystemIcon(isOmarchy: workspace.kind == .omarchy, size: 44)
+                WorkspaceSystemIcon(size: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(workspace.name).font(.title3.weight(.semibold)).lineLimit(1)
                     Label(theme.eyebrow, systemImage: theme.symbol)
@@ -690,29 +558,19 @@ private struct WorkspaceCardView: View {
             if let hardware = summary.hardware {
                 Text(hardware).font(.callout).foregroundStyle(.secondary).lineLimit(1)
             }
-            Button(action: manageSharing) {
+            Button(action: showSettings) {
                 Label(summary.sharing, systemImage: "folder")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Manage the host folders available to this workspace")
+            .help("Display and shared-folder settings for this workspace")
             // Cards share a minimum height so a grid row lines up, so the
             // slack belongs above the action row: letting the VStack end at
             // the button left the empty space *below* it, which read as a
             // rendering mistake rather than as padding.
             Spacer(minLength: 0)
-            HStack {
-                if let date = workspace.lastOpenedAt {
-                    Text("Opened \(date, format: .relative(presentation: .named))")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button(isRunning ? "Open" : "Start", systemImage: isRunning ? "macwindow.on.rectangle" : "play.fill", action: open)
-                    .buttonStyle(.borderedProminent)
-                    .tint(theme.accent)
-            }
+            actionRow
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 260, alignment: .topLeading)
@@ -724,7 +582,7 @@ private struct WorkspaceCardView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                WorkspaceCardAtmosphere(kind: workspace.kind, accent: theme.accent)
+                WorkspaceCardAtmosphere(accent: theme.accent)
             }
             .clipShape(.rect(cornerRadius: 18))
         }
@@ -758,6 +616,34 @@ private struct WorkspaceCardView: View {
         .accessibilityLabel("\(workspace.name), \(statusTitle)")
     }
 
+    /// Start or open the workspace, then pause, resume, and stop it without
+    /// leaving the control center.
+    private var actionRow: some View {
+        HStack(spacing: 8) {
+            if let date = workspace.lastOpenedAt, !isRunning {
+                Text("Opened \(date, format: .relative(presentation: .named))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+            if let liveMachine {
+                if liveMachine.canResume {
+                    Button("Resume", systemImage: "play.fill") { liveMachine.resumeAction() }
+                        .help("Resume this workspace")
+                } else if liveMachine.canPause {
+                    Button("Pause", systemImage: "pause.fill") { liveMachine.pauseAction() }
+                        .help("Pause this workspace")
+                }
+                Button("Stop", systemImage: "stop.fill", role: .destructive) { liveMachine.stopAction() }
+                    .disabled(!liveMachine.canStop)
+                    .help("Stop this workspace")
+            }
+            Button(isRunning ? "Open" : "Start", systemImage: isRunning ? "macwindow.on.rectangle" : "play.fill", action: open)
+                .buttonStyle(.borderedProminent)
+                .tint(theme.accent)
+        }
+    }
+
     private var statusTitle: String { runPhase?.cardLabel ?? (isRunning ? "Running" : summary.needsAttention ? "Needs Attention" : "Stopped") }
     private var statusImage: String { isRunning ? "circle.fill" : summary.needsAttention ? "exclamationmark.triangle.fill" : "circle" }
     private var statusColor: Color { isRunning ? .green : summary.needsAttention ? .orange : .secondary }
@@ -765,32 +651,21 @@ private struct WorkspaceCardView: View {
 }
 
 private struct WorkspaceCardAtmosphere: View {
-    let kind: RiftWorkspaceKind
     let accent: Color
 
     var body: some View {
         Canvas { context, size in
-            if kind == .omarchy {
-                for index in 0..<7 {
-                    let x = size.width * (0.58 + CGFloat(index) * 0.065)
-                    let height = size.height * (0.18 + CGFloat(index % 3) * 0.07)
-                    var ember = Path()
-                    ember.move(to: CGPoint(x: x, y: size.height))
-                    ember.addCurve(
-                        to: CGPoint(x: x + 12, y: size.height - height),
-                        control1: CGPoint(x: x - 22, y: size.height - height * 0.35),
-                        control2: CGPoint(x: x + 28, y: size.height - height * 0.7)
-                    )
-                    context.stroke(ember, with: .color(accent.opacity(0.13)), lineWidth: 2)
-                }
-            } else {
-                for index in 0..<6 {
-                    let inset = CGFloat(index) * 22
-                    var shard = Path()
-                    shard.move(to: CGPoint(x: size.width - inset, y: 0))
-                    shard.addLine(to: CGPoint(x: size.width * 0.55 - inset * 0.25, y: size.height))
-                    context.stroke(shard, with: .color(accent.opacity(0.11)), lineWidth: index == 0 ? 2 : 1)
-                }
+            for index in 0..<7 {
+                let x = size.width * (0.58 + CGFloat(index) * 0.065)
+                let height = size.height * (0.18 + CGFloat(index % 3) * 0.07)
+                var ember = Path()
+                ember.move(to: CGPoint(x: x, y: size.height))
+                ember.addCurve(
+                    to: CGPoint(x: x + 12, y: size.height - height),
+                    control1: CGPoint(x: x - 22, y: size.height - height * 0.35),
+                    control2: CGPoint(x: x + 28, y: size.height - height * 0.7)
+                )
+                context.stroke(ember, with: .color(accent.opacity(0.13)), lineWidth: 2)
             }
         }
         .allowsHitTesting(false)
@@ -804,34 +679,16 @@ private struct WorkspaceSummary {
     let needsAttention: Bool
 
     init(workspace: RiftWorkspaceRecord) {
-        if workspace.kind == .omarchy {
-            let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
-            let profile = VMOmarchyProfile.production
-            let resources = profile.resources(
-                forHostMemory: ProcessInfo.processInfo.physicalMemory,
-                activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
-            )
-            let metadata = try? VMOmarchyWorkspaceManager(layout: layout).metadata()
-            hardware = "\(metadata?.cpuCount ?? resources.cpuCount) CPU · \(Self.bytes(metadata?.memoryBytes ?? resources.memoryBytes)) memory · \(Self.bytes(profile.diskCapacityBytes)) disk"
-            sharing = "RiftVM Shared · No host folders shared"
-            needsAttention = VMOmarchyWorkspaceManager(layout: layout).inspect() != .ready
-            return
-        }
-        switch VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) {
-        case .success(let model):
-            let disk = model.config.storageDevices.first(where: { $0.type == .Block })?.size ?? 0
-            hardware = "\(model.config.cpu.count) CPU · \(Self.bytes(model.config.memory.size)) memory · \(Self.bytes(disk)) disk"
-            let managedURL = VMManagedSharedFolder.url(for: workspace.bundleURL)
-            let externalCount = model.config.directorySharingDevices.flatMap(\.items).filter {
-                $0.path.standardizedFileURL != managedURL
-            }.count
-            sharing = externalCount == 0 ? "RiftVM Shared · No host folders shared" : "RiftVM Shared · \(externalCount) additional folder\(externalCount == 1 ? "" : "s")"
-            needsAttention = false
-        case .failure:
-            hardware = nil
-            sharing = "Shared-folder status unavailable"
-            needsAttention = true
-        }
+        let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL)
+        let profile = VMOmarchyProfile.production
+        let resources = profile.resources(
+            forHostMemory: ProcessInfo.processInfo.physicalMemory,
+            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
+        )
+        let metadata = try? VMOmarchyWorkspaceManager(layout: layout).metadata()
+        hardware = "\(metadata?.cpuCount ?? resources.cpuCount) CPU · \(Self.bytes(metadata?.memoryBytes ?? resources.memoryBytes)) memory · \(Self.bytes(profile.diskCapacityBytes)) disk"
+        sharing = "RiftVM Shared · No host folders shared"
+        needsAttention = VMOmarchyWorkspaceManager(layout: layout).inspect() != .ready
     }
 
     private static func bytes(_ value: UInt64) -> String {
@@ -839,20 +696,12 @@ private struct WorkspaceSummary {
     }
 }
 
-private struct WorkspaceFolderDrop: Identifiable {
-    let id = UUID()
-    let workspace: RiftWorkspaceRecord
-    let urls: [URL]
-}
-
 private enum WorkspaceSharingError: LocalizedError {
     case unsupportedItem(String)
-    case configurationUnavailable
 
     var errorDescription: String? {
         switch self {
         case .unsupportedItem(let name): "RiftVM cannot copy the symbolic link “\(name)”."
-        case .configurationUnavailable: "This workspace does not support additional host-folder shares."
         }
     }
 }
@@ -860,26 +709,14 @@ private enum WorkspaceSharingError: LocalizedError {
 @MainActor
 private enum WorkspaceSharing {
     static func managedFolderURL(for workspace: RiftWorkspaceRecord) -> URL {
-        workspace.kind == .omarchy
-            ? VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL).shared
-            : VMManagedSharedFolder.url(for: workspace.bundleURL)
+        VMOmarchyWorkspaceLayout(applicationSupportRoot: workspace.bundleURL).shared
     }
 
     static func prepareManagedFolder(for workspace: RiftWorkspaceRecord) throws {
-        if workspace.kind == .omarchy {
-            try FileManager.default.createDirectory(
-                at: managedFolderURL(for: workspace),
-                withIntermediateDirectories: true
-            )
-            return
-        }
-        try VMManagedSharedFolder.prepare(at: workspace.bundleURL)
-        guard case .success(let model) = VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) else { return }
-        let managedURL = managedFolderURL(for: workspace)
-        guard !model.config.directorySharingDevices.contains(where: { device in
-            device.items.contains { $0.path.standardizedFileURL == managedURL }
-        }) else { return }
-        try unwrap(model.config.addingManagedSharedFolder(rootPath: workspace.bundleURL).writeConfigToFile(path: model.configURL))
+        try FileManager.default.createDirectory(
+            at: managedFolderURL(for: workspace),
+            withIntermediateDirectories: true
+        )
     }
 
     static func copy(_ sources: [URL], into workspace: RiftWorkspaceRecord) throws {
@@ -897,23 +734,6 @@ private enum WorkspaceSharing {
                 suffix += 1
             }
             try FileManager.default.copyItem(at: source, to: destination)
-        }
-    }
-
-    static func shareReadOnly(_ folders: [URL], with workspace: RiftWorkspaceRecord) throws {
-        try prepareManagedFolder(for: workspace)
-        guard case .success(let model) = VMModel.loadConfigFromFile(rootPath: workspace.bundleURL) else {
-            throw WorkspaceSharingError.configurationUnavailable
-        }
-        let state = VMConfigurationViewStateObject(configModel: model.config)
-        for folder in folders { _ = state.addSharedDirectory(folder, readOnly: true) }
-        try unwrap(state.getConfigModel().writeConfigToFile(path: model.configURL))
-        NotificationCenter.default.post(name: AppConfigManager.newVMChangedNotification, object: nil)
-    }
-
-    private static func unwrap(_ result: VMOSResultVoid) throws {
-        if case .failure(let message) = result {
-            throw NSError(domain: "RiftVM.Sharing", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
         }
     }
 }
