@@ -250,7 +250,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         log(
             "render activity trigger=\(trigger) submits=\(diagnosticWindowSubmitCount) "
                 + "flushes=\(diagnosticWindowFlushCount) totalSubmits=\(submittedCommandCount) "
-                + "totalFlushes=\(resourceFlushCount) scanout=\(scanoutResourceID ?? 0)"
+                + "totalFlushes=\(resourceFlushCount) scanout=\(scanoutResourceID ?? 0) "
+                + "resources=\(resources.count) "
+                + "rendererBytes=\(rendererResourceBudget.allocatedBytes)/\(VirtioGPU.Limits.maxRendererResourceBytes)"
         )
         diagnosticWindowStartedAt = now
         diagnosticWindowSubmitCount = 0
