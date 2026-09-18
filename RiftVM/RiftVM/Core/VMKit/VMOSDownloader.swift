@@ -18,12 +18,8 @@ protocol VMOSDownloader {
 
 class VMOSDownloaderFactory {
     static func getDownloader(_ osType: VMOSType) -> VMOSDownloader {
-        switch osType {
-        case .macOS:
-            return VMOSDownloaderForMacOS()
-        case .linux:
-            return VMOSDownloaderForLinux()
-        }
+        // macOS guests are no longer supported.
+        VMOSDownloaderForLinux()
     }
 }
 

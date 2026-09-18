@@ -20,12 +20,8 @@ protocol VMOSRunner {
 class VMOSRunnerFactory {
     
     static func getRunner(_ osType: VMOSType) -> VMOSRunner {
-        switch osType {
-        case .macOS:
-            return VMOSRunnerForMacOS()
-        case .linux:
-            return VMOSRunnerForLinux()
-        }
+        // macOS guests are no longer supported.
+        VMOSRunnerForLinux()
     }
 }
 

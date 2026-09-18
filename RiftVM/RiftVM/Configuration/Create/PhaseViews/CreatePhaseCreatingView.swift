@@ -80,15 +80,6 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         }
         context.formData.imagePath = imageURL.path(percentEncoded: false)
 
-        if context.formData.provisionsMacGuest,
-           context.configData.osType == .macOS,
-           case let .failure(error) = await VMOSCreatorForMacOS.validateGuestProvisioningImage(at: imageURL) {
-            context.formData.isCreating = false
-            context.formData.creationStage = "Unsupported macOS restore image"
-            context.formData.addLog("❌ \(error)")
-            return .failure(error)
-        }
-
         if context.configData.osType == .linux {
             attachLinuxInstaller(imagePath: context.formData.imagePath, context: context)
         }
@@ -102,25 +93,14 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         let configModel = context.configData.getConfigModel().addingManagedSharedFolder(rootPath: rootPath)
         let vmModel = VMModel(rootPath: rootPath, state: stateModel, config: configModel)
 
-        let provisioningCredential: VMGuestProvisioningCredential? = context.formData.provisionsMacGuest
-            ? VMGuestProvisioningCredential(
-                fullName: context.formData.provisioningFullName,
-                username: context.formData.provisioningUsername,
-                password: context.formData.provisioningPassword,
-                logsInAutomatically: context.formData.provisioningAutomaticLogin,
-                enablesRemoteLogin: context.formData.provisioningRemoteLogin
-            )
-            : nil
-
         // create vm from vmmodel
         RiftVMLog.info("Starting virtual machine creation", logger: RiftVMLog.lifecycle)
-        context.formData.creationStage = context.configData.osType == .macOS ? "Installing macOS" : "Creating virtual machine"
+        context.formData.creationStage = "Creating virtual machine"
         context.formData.addLog("System image is ready")
         let creator = VMOSCreateFactory.getCreator(configModel.type)
         activeCreator = creator
         let result = await creator.create(
             model: vmModel,
-            provisioningCredential: provisioningCredential,
             progress: { progressInfo in
                 switch progressInfo {
                 case .info(let log):
@@ -148,16 +128,11 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             context.formData.creationStage = "Creation failed"
             RiftVMLog.error("Failed to create VM: \(error)", logger: RiftVMLog.lifecycle)
         case .success:
-            if context.formData.provisionsMacGuest {
-                context.formData.addLog("Guest credentials retained securely in Keychain for first boot")
-                context.formData.provisioningPassword = ""
-                context.formData.provisioningPasswordConfirmation = ""
-            }
             context.formData.creationStage = "Ready"
             context.formData.changeProgress(1)
             context.formData.disablePreviousButton = true
             registerCreatedWorkspace(
-                kind: context.configData.osType == .macOS ? .macOS : .omarchy,
+                kind: .omarchy,
                 context: context
             )
         }

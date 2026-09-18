@@ -244,20 +244,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for window in NSApp.windows { window.orderOut(nil) }
         Task {
             if !FileManager.default.fileExists(atPath: fixture.imageURL.path) {
-                guard fixture.osType == .macOS else {
-                    fixture.report("failed: installer image not found: \(fixture.imageURL.path)")
-                    exit(66)
-                }
-                let download = await downloadLatestMacOSFixture(to: fixture.imageURL)
-                if case let .failure(message) = download {
-                    fixture.report("failed: \(message)")
-                    exit(69)
-                }
-            }
-            if fixture.provisionsMacGuest,
-               case let .failure(message) = await VMOSCreatorForMacOS.validateGuestProvisioningImage(at: fixture.imageURL) {
-                fixture.report("failed: \(message)")
-                exit(68)
+                fixture.report("failed: installer image not found: \(fixture.imageURL.path)")
+                exit(66)
             }
             let result = await VMOSCreateFactory.getCreator(fixture.osType).create(model: fixture.model) { progress in
                 switch progress {
@@ -270,25 +258,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             switch result {
             case .success:
-                if fixture.provisionsMacGuest {
-                    let credential = VMGuestProvisioningCredential(
-                        fullName: "RiftVM Release Test",
-                        username: "riftvmm9",
-                        password: UUID().uuidString + "aA1!",
-                        // Release fixtures use auto-login so a tester can verify
-                        // that Setup Assistant created the requested account
-                        // without ever printing or exporting the random password.
-                        logsInAutomatically: true,
-                        enablesRemoteLogin: false
-                    )
-                    if case let .failure(message) = VMGuestProvisioningCredentialStore.save(
-                        credential,
-                        vmRootPath: fixture.destinationURL
-                    ) {
-                        fixture.report("failed: \(message)")
-                        exit(71)
-                    }
-                }
                 fixture.report("created")
                 exit(0)
             case .failure(let message):
@@ -298,16 +267,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func downloadLatestMacOSFixture(to destination: URL) async -> VMOSResultVoid {
-        await withCheckedContinuation { continuation in
-            VMOSDownloaderForMacOS().downloadLatest(toLocalPath: destination) { result in
-                continuation.resume(returning: result)
-            } downloadProgressHandler: { fraction in
-                print("fixture-download-progress \(Int(fraction * 100))%")
-                fflush(stdout)
-            }
-        }
-    }
 
     private func installPreinstalledImage(_ install: PreinstalledImageInstallConfiguration) {
         NSApp.setActivationPolicy(.prohibited)
@@ -612,7 +571,6 @@ struct ReleaseFixtureCreationConfiguration {
     let imageURL: URL
     let destinationURL: URL
     let resultURL: URL
-    let provisionsMacGuest: Bool
 
     static var current: ReleaseFixtureCreationConfiguration? {
         let environment = ProcessInfo.processInfo.environment
@@ -627,26 +585,20 @@ struct ReleaseFixtureCreationConfiguration {
             osType: osType,
             imageURL: URL(filePath: imagePath).standardizedFileURL,
             destinationURL: URL(filePath: destinationPath, directoryHint: .isDirectory).standardizedFileURL,
-            resultURL: URL(filePath: resultPath).standardizedFileURL,
-            provisionsMacGuest: osType == .macOS && environment["RIFTVM_RELEASE_PROVISION_MACOS"] == "1"
+            resultURL: URL(filePath: resultPath).standardizedFileURL
         )
     }
 
     var model: VMModel {
         let defaults = VMConfigModel.createWithDefaultValues(osType: osType)
-        let storageDevices: [VMModelFieldStorageDevice]
-        switch osType {
-        case .linux:
-            storageDevices = defaults.storageDevices + [
-                VMModelFieldStorageDevice(type: .USB, size: 0, imagePath: imageURL.path)
-            ]
-        case .macOS:
-            storageDevices = defaults.storageDevices
-        }
+        // macOS guests are no longer supported.
+        let storageDevices: [VMModelFieldStorageDevice] = defaults.storageDevices + [
+            VMModelFieldStorageDevice(type: .USB, size: 0, imagePath: imageURL.path)
+        ]
         let config = VMConfigModel(
             type: osType,
-            name: osType == .linux ? "Ubuntu Release Fixture" : "macOS Release Fixture",
-            remark: "Disposable macOS 27 release fixture",
+            name: "Ubuntu Release Fixture",
+            remark: "Disposable Linux release fixture",
             cpu: defaults.cpu,
             memory: defaults.memory,
             graphicsDevices: defaults.graphicsDevices,
@@ -655,7 +607,7 @@ struct ReleaseFixtureCreationConfiguration {
             pointingDevices: defaults.pointingDevices,
             audioDevices: defaults.audioDevices,
             directorySharingDevices: defaults.directorySharingDevices,
-            graphicsBackend: osType == .linux ? .appleVirtio : nil,
+            graphicsBackend: .appleVirtio,
             linuxFeatures: defaults.linuxFeatures
         )
         return VMModel(

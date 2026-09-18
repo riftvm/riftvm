@@ -39,12 +39,8 @@ extension VMOSCreator {
 @MainActor
 class VMOSCreateFactory {
     static func getCreator(_ osType: VMOSType) -> VMOSCreator {
-        switch osType {
-        case .macOS:
-            return VMOSCreatorForMacOS()
-        case .linux:
-            return VMOSCreatorForLinux()
-        }
+        // macOS guests are no longer supported.
+        VMOSCreatorForLinux()
     }
 }
 

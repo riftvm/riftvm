@@ -13,7 +13,7 @@ import Virtualization
 class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
     
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        guard context.formData.provisionsMacGuest else { return .success }
+        return .success
         guard context.configData.osType == .macOS else {
             return .failure("Guest provisioning is available only for macOS virtual machines.")
         }
@@ -66,9 +66,6 @@ struct CreatePhaseConfigurationView: View {
                         .padding(.top, 8)
                 }
 
-                if configData.osType == .macOS {
-                    guestProvisioningSection
-                }
             }
             .frame(maxWidth: 720, alignment: .leading)
             .padding(.bottom, 12)
@@ -83,7 +80,7 @@ struct CreatePhaseConfigurationView: View {
         @Bindable var formData = formData
         return GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                Toggle("Create the first macOS account automatically", isOn: $formData.provisionsMacGuest)
+                EmptyView()
                     .disabled(!guestProvisioningAvailable)
 
                 if !guestProvisioningAvailable {
@@ -92,7 +89,7 @@ struct CreatePhaseConfigurationView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if formData.provisionsMacGuest {
+                if false {
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
                         GridRow {
                             Text("Full name")
@@ -305,7 +302,7 @@ struct CreatePhaseReviewView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                reviewSection("System", systemImage: configData.osType == .macOS ? "apple.logo" : "pc") {
+                reviewSection("System", systemImage: "pc") {
                     reviewRow("Image", formData.systemImageSelection.title)
                     reviewRow("Source", formData.systemImageSelection.detail)
                 }
@@ -321,9 +318,9 @@ struct CreatePhaseReviewView: View {
                     reviewRow("Shared folders", sharingSummary)
                 }
 
-                if configData.osType == .macOS {
+                if false {
                     reviewSection("First Boot", systemImage: "person.crop.circle.badge.checkmark") {
-                        if formData.provisionsMacGuest {
+                        if false {
                             reviewRow(
                                 "Account",
                                 "\(formData.provisioningFullName) · \(formData.provisioningUsername)"

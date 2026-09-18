@@ -52,7 +52,7 @@ class VMCreateViewStateObject {
         }
 
         private static func fileName(for item: VMSystemImageCatalogItem) -> String {
-            let fallbackExtension = item.osType == .macOS ? "ipsw" : "iso"
+            let fallbackExtension = "iso"
             let ext = item.url.pathExtension.isEmpty ? fallbackExtension : item.url.pathExtension
             return "\(item.id).\(ext)"
         }
@@ -91,7 +91,6 @@ class VMCreateViewStateObject {
 
     // macOS 27 first-boot provisioning. The password lives only in this
     // in-memory form and is moved to Keychain after the VM is installed.
-    var provisionsMacGuest = false
     var provisioningFullName = "RiftVM User"
     var provisioningUsername = "riftvm"
     var provisioningPassword = ""
