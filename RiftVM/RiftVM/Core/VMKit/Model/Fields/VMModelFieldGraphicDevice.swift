@@ -890,9 +890,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             }
         }
         cursorPlaneUpdateReceived()
-        // Absolute mode lets the guest own the cursor: the plane is composited
-        // here and the macOS cursor is blanked, so exactly one pointer shows.
-        cursorLayer.isHidden = !update.isVisible
+        // Absolute mode keeps the macOS cursor as the pointer: it is always at
+        // the true position, while a cursor the guest draws lags behind it.
+        cursorLayer.isHidden = absolutePointerEnabled || !update.isVisible
         updateCursorGeometry()
     }
 
