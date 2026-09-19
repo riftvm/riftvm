@@ -68,6 +68,10 @@ epoxy_recipe="$work_dir/homebrew-libepoxy-$RIFTVM_EPOXY_BUILD_RECIPE_COMMIT"
 
 [[ -d $virgl && -d $angle && -d $epoxy ]] || fail "an upstream archive has an unexpected root"
 patch -d "$virgl" -p1 --batch -i "$virgl_recipe/patches/virglrenderer-macos-unified.patch"
+# RiftVM's own fixes on top of the pinned recipe, applied in name order.
+for riftvm_patch in "$project_root"/scripts/virgl-patches/virglrenderer-*.patch; do
+  patch -d "$virgl" -p1 --batch -i "$riftvm_patch"
+done
 patch -d "$angle" -p1 --batch -i "$angle_recipe/patches/angle-changes-main.patch"
 # This mailbox contains consecutive changes to gen_dispatch.py, so it must be
 # applied for real rather than checked with a single non-mutating dry run.

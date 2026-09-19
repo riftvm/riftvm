@@ -135,6 +135,17 @@ compositor's open `/proc` input descriptors with the RiftVM device event node.
 
 ## Resource and protocol invariants
 
+### Multisample textures on a GLES host
+
+ANGLE on Metal is a GLES 3.0 host, so virglrenderer can multisample no texture
+format, yet its caps still advertise `texture_multisample` for the GL version
+the guest needs. A guest multisample texture (an antialiased WebGL canvas, for
+example) used to be rejected, and virglrenderer then failed the whole context:
+Chromium's window went black or drew pages without their icons.
+`scripts/virgl-patches/virglrenderer-msaa-downgrade.patch` creates such a
+texture single-sampled instead; the guest's resolve blit becomes a copy and
+only the antialiasing is lost.
+
 ### Fence completion order
 
 The device does not advertise `VIRTIO_GPU_F_CONTEXT_INIT`, so every guest
