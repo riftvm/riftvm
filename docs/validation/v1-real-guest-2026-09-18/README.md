@@ -40,3 +40,26 @@ Not exercised: the new guest agent (relative-mode click routing, horizontal
 wheel), because factory `.9` carries agent `4999f06`; Command shortcuts
 (the harness had no Accessibility permission); key repeat; real host
 sleep/wake; a 30-minute video soak.
+
+## Factory v4.0.3-riftvm.10, fresh machine
+
+A second pass ran on a machine created from the signed `.10` factory
+(raw SHA-256 `4c9a4b0b317ce1cb1a6d6fde7438bc1d4aa464a1b592b91fdfa776941704579f`,
+factory image SHA-256 `be682a8974006aa598bc44d58fbbdee9053c58884162bba18150fa3cc7963a80`,
+agent `5e6eac9`), with no manual guest changes. Owner setup completed
+automatically.
+
+| Checklist item | Result |
+| --- | --- |
+| Cursor plane out of the box | pass: greeter and desktop send `UPDATE_CURSOR`; the macOS cursor carries the guest's arrow and I-beam; no cursor pixels in the scanout after boot and after two reboots |
+| 11 Clicks | pass: 200/200 left, 1/1 right, 1/1 middle, all on `RiftVM Absolute Pointer` |
+| 14 Typing | pass: 399 bytes byte-identical |
+| 16 Caps as Compose | pass: `éé` |
+| 18 Scrolling | pass: 200 points vertical -> 20 detents; horizontal -> 10 `REL_HWHEEL` detents (new agent) |
+| 4 Full-screen/window transitions | pass: guest stayed 1920x1080 scale 1 |
+| 2 Wallpaper | pass after transitions and two reboots |
+| 20 Graphics stress | pass (60 s): 60 fps, no failures, misses, fence timeouts or mode changes |
+| 21 Clipboard | pass both ways |
+
+No error-level RiftVM log entries during the pass. The user's own machine was
+not touched (its disk timestamp was unchanged throughout).
