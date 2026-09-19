@@ -788,6 +788,13 @@ struct OmarchyVirtualMachineView: View {
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL])
             }
+            Button("Save Diagnostics…", systemImage: "doc.text.magnifyingglass") {
+                // The graphics, cursor and input decisions of this session, for a
+                // bug report. Cancelling the panel is not an error.
+                if let url = try? RiftVMDiagnostics.export() {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            }
             Divider()
             Button("Remove Omarchy…", systemImage: "trash", role: .destructive) {
                 isShowingRemovalConfirmation = true
