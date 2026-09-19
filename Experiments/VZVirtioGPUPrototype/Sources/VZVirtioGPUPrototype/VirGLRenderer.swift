@@ -278,7 +278,10 @@ final class VirGLRenderer {
             }
             pendingFences[hostFenceID] = PendingFence(
                 contextID: contextID,
-                deadline: DispatchTime.now().uptimeNanoseconds + 2_000_000_000,
+                // Only a renderer that has stopped retiring fences reaches this.
+                // A deadline short enough to catch a slow shader compile would
+                // hand the guest back buffers the GPU is still using.
+                deadline: DispatchTime.now().uptimeNanoseconds + 10_000_000_000,
                 completion: completion
             )
             executor.setPollingEnabled(true)

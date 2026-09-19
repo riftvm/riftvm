@@ -520,3 +520,43 @@ extension Data {
         appendLittleEndian(UInt32(truncatingIfNeeded: value >> 32))
     }
 }
+
+/// Returns fenced command completions to the guest in the order it submitted
+/// them.
+///
+/// Without `VIRTIO_GPU_F_CONTEXT_INIT` every guest fence lives on one timeline,
+/// and Linux treats a completed fence as completing every earlier fence on it
+/// (`virtio_gpu_fence_event_process`). The renderer retires fences per context,
+/// and control-context fences retire at once, so completions arrive out of
+/// order. Writing a newer response first would tell the guest that earlier
+/// rendering had finished and let it reuse those buffers while they were still
+/// in use. A completion that arrives early therefore waits here until every
+/// earlier one has completed.
+struct VirtioGPUOrderedCompletions<Value> {
+    private var pending: [(sequence: UInt64, value: Value?)] = []
+    private var nextSequence: UInt64 = 0
+
+    var count: Int { pending.count }
+
+    /// Reserve the next slot, in guest submission order.
+    mutating func reserve() -> UInt64 {
+        let sequence = nextSequence
+        nextSequence &+= 1
+        pending.append((sequence, nil))
+        return sequence
+    }
+
+    /// Record a completion and return, in submission order, every completion
+    /// that may now be written to the guest. Nil for a slot that is not
+    /// reserved, which the caller completes directly.
+    mutating func complete(_ sequence: UInt64, with value: Value) -> [Value]? {
+        guard let index = pending.firstIndex(where: { $0.sequence == sequence }) else { return nil }
+        pending[index].value = value
+        var ready: [Value] = []
+        while let first = pending.first, let value = first.value {
+            ready.append(value)
+            pending.removeFirst()
+        }
+        return ready
+    }
+}

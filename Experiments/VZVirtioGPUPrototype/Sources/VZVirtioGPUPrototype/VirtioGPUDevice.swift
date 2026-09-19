@@ -98,6 +98,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var cursorUpdateCount = 0
     private var cursorMoveCount = 0
     private var displayEventGeneration = 0
+    /// Fenced responses, written back in guest submission order.
+    private var fencedCompletions = VirtioGPUOrderedCompletions<(response: Data, lease: QueueElementLease)>()
     private var assertedDisplayEventGeneration: Int?
     private var displayInfoRequestCount: UInt64 = 0
     private var borrowedScanoutResources: Set<UInt32> = []
@@ -560,15 +562,23 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         let completionQueue = deviceQueue
         let elementLease = QueueElementLease(element)
+        let sequence = fencedCompletions.reserve()
         renderer.enqueueFence(contextID: header.contextID) { [weak self] succeeded in
             completionQueue.async {
-                if let self {
-                    let finalResponse = succeeded
-                        ? response
-                        : VirtioGPU.responseHeader(.errorUnspecified, request: header)
-                    self.write(finalResponse, to: elementLease.element)
+                guard let self else {
+                    elementLease.element.returnToQueue()
+                    return
                 }
-                elementLease.element.returnToQueue()
+                let finalResponse = succeeded
+                    ? response
+                    : VirtioGPU.responseHeader(.errorUnspecified, request: header)
+                let ready = self.fencedCompletions.complete(
+                    sequence, with: (finalResponse, elementLease)
+                ) ?? [(finalResponse, elementLease)]
+                for completion in ready {
+                    self.write(completion.response, to: completion.lease.element)
+                    completion.lease.element.returnToQueue()
+                }
             }
         }
         return false

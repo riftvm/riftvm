@@ -135,6 +135,18 @@ compositor's open `/proc` input descriptors with the RiftVM device event node.
 
 ## Resource and protocol invariants
 
+### Fence completion order
+
+The device does not advertise `VIRTIO_GPU_F_CONTEXT_INIT`, so every guest
+fence shares one timeline, and Linux treats a completed fence as completing
+every earlier fence on it. The renderer retires fences per context, and
+control-context fences retire immediately, so completions arrive out of order.
+`VirtioGPUOrderedCompletions` holds an early completion until every earlier
+fenced command has completed, and only then writes the responses, in guest
+submission order. Writing a newer response first let the guest reuse buffers
+the GPU was still drawing into. A fence that does not retire within 10 s is
+completed with an error.
+
 ### Validate by resource target
 
 Gallium `PIPE_BUFFER` (`target == 0`) stores a byte length in `width`. It is not
