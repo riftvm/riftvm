@@ -121,6 +121,49 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.3.3
+
+RiftVM 0.3.3 creates new Omarchy machines from factory
+[v4.0.3-riftvm.12](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.12),
+which removes a `~/Mac` folder that looked like a Mac share but could not be
+written to.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **No more `~/Mac` that refuses writes.** Earlier images linked `~/Mac` to a
+  host-folders mount RiftVM never provides. Opening it waited for a mount
+  timeout, and `echo hello > ~/Mac/hello.txt` failed with "Permission denied".
+  Factory `.12` drops the link and its units. The exchange folder is
+  `/mnt/riftvm-shared`, which is RiftVM Shared on the Mac.
+
+### Validation
+
+- **Fresh `.12` machine:** `~/Mac` and its units are absent, the guest wrote a
+  file to `/mnt/riftvm-shared` that appeared on the Mac, the wallpaper was
+  present on first login, and the cursor-plane setting was in place.
+
+### Upgrading an existing Omarchy machine
+
+Existing machines keep their disk. Remove the stale link once inside Omarchy,
+see [Updates and recovery](UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest):
+
+```sh
+sudo systemctl --global disable riftvm-host-folders.service
+sudo systemctl disable --now 'mnt-riftvm\x2dfolders.automount'
+rm -f ~/Mac
+```
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.3.2
 
 RiftVM 0.3.2 fixes web pages that use WebGL, such as YouTube, and the missing

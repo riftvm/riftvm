@@ -35,18 +35,18 @@ click and horizontal-scroll fixes in the Agent, and the display watcher that
 repaints a wallpaper missing on the first login), first create the protected
 recovery point described above, then download the paired integration package
 from the
-[`.11` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.11).
-Use RiftVM 0.3.2 or later. Inside the Guest terminal:
+[`.12` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.12).
+Use RiftVM 0.3.3 or later. Inside the Guest terminal:
 
 ```sh
-mkdir -p ~/Downloads/riftvm-integration-11
-cd ~/Downloads/riftvm-integration-11
-base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.11
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.11.tar.gz" &&
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.11.tar.gz.sha256" &&
-sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.11.tar.gz.sha256 &&
+mkdir -p ~/Downloads/riftvm-integration-12
+cd ~/Downloads/riftvm-integration-12
+base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.12
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz" &&
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz.sha256" &&
+sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz.sha256 &&
 mkdir package &&
-tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.11.tar.gz -C package &&
+tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz -C package &&
 sudo python3 package/update-integration.py install
 ```
 
@@ -56,6 +56,16 @@ second or lagging cursor. Add it once in the same terminal:
 
 ```sh
 sudo sh -c 'mkdir -p /etc/xdg/uwsm && echo "export AQ_NO_ATOMIC=1" > /etc/xdg/uwsm/env-hyprland && printf "[Wayland]\nCompositorCommand=env AQ_NO_ATOMIC=1 start-hyprland -- --config /usr/share/sddm/hyprland.lua\n" > /etc/sddm.conf.d/20-riftvm-cursor-plane.conf'
+```
+
+Machines created before `.12` also carry a `~/Mac` link to a host-folders mount
+that RiftVM never provides; writing there fails with "Permission denied". Remove
+it once (the exchange folder is `/mnt/riftvm-shared`):
+
+```sh
+sudo systemctl --global disable riftvm-host-folders.service
+sudo systemctl disable --now 'mnt-riftvm\x2dfolders.automount'
+rm -f ~/Mac
 ```
 
 Save your work and reboot Omarchy to activate both components. Check keyboard
