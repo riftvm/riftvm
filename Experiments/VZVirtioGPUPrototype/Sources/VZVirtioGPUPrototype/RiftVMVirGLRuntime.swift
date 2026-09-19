@@ -16,10 +16,13 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
         public let hotY: UInt32
         public let replacesImage: Bool
         public let isVisible: Bool
+        /// The device reset: the guest has not said anything about its cursor
+        /// yet, which is different from the guest hiding it.
+        public let isReset: Bool
 
         init(
             image: CGImage?, x: UInt32, y: UInt32, hotX: UInt32, hotY: UInt32,
-            replacesImage: Bool, isVisible: Bool
+            replacesImage: Bool, isVisible: Bool, isReset: Bool = false
         ) {
             self.image = image
             self.x = x
@@ -28,6 +31,7 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
             self.hotY = hotY
             self.replacesImage = replacesImage
             self.isVisible = isVisible
+            self.isReset = isReset
         }
     }
 

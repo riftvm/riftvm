@@ -225,7 +225,12 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var cursorPosition = CGPoint.zero
     private var cursorHotspot = CGPoint.zero
     private var cursorImageSize = CGSize.zero
-    private var cursorPresentation = VMGuestCursorPresentationPolicy()
+    private var guestCursor = VMGuestCursorState()
+    private var guestCursorImage: CGImage?
+    /// `guestCursorImage` as a macOS cursor, built for `hostCursorScale` points
+    /// per guest pixel and rebuilt when the image or the scale changes.
+    private var hostGuestCursor: NSCursor?
+    private var hostCursorScale: CGFloat = 0
     private var pressedKeys = Set<UInt16>()
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
@@ -238,6 +243,11 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var keyboardIntegrationStateHandler: ((VMKeyboardIntegrationState) -> Void)?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
+    private var horizontalScrollAccumulator = VMScrollWheelAccumulator()
+    /// Mouse buttons pressed while the Guest Agent was unavailable went to the
+    /// Virtualization.framework tablet; their release must go there too, or the
+    /// guest keeps a button held when the Agent connects in between.
+    private var nativePressedButtons = Set<Int>()
     private var presentationDemand = VMGraphicsPresentationDemand()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var presentationIsActive = false
@@ -275,6 +285,12 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             cursorLayer.anchorPoint = .zero
             cursorLayer.contentsGravity = .resize
             cursorLayer.isHidden = true
+            // A pointer has to follow the mouse exactly. Without this every
+            // move and image change is an implicit 0.25 s animation: a trail.
+            cursorLayer.actions = [
+                "position": NSNull(), "bounds": NSNull(), "frame": NSNull(),
+                "contents": NSNull(), "hidden": NSNull(),
+            ]
             metalLayer.addSublayer(cursorLayer)
         }
         capturesSystemKeys = true
@@ -329,7 +345,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         presentationDemand.cancel()
         presentationInFlight = false
         cursorLayer.isHidden = true
-        cursorPresentation.reset()
+        guestCursor.reset()
+        guestCursorImage = nil
+        hostGuestCursor = nil
         runtimeIssueHandler?(nil)
         releaseInputCapture()
     }
@@ -551,9 +569,11 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        applyHostCursor(at: convert(event.locationInWindow, from: nil))
         if !forwardPointerMotion(event) { super.mouseMoved(with: event) }
     }
     override func mouseDragged(with event: NSEvent) {
+        applyHostCursor(at: convert(event.locationInWindow, from: nil))
         if !forwardPointerMotion(event) { super.mouseDragged(with: event) }
     }
     override func rightMouseDragged(with event: NSEvent) {
@@ -569,11 +589,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 272, pressed: true)
         } else {
+            nativePressedButtons.insert(272)
             super.mouseDown(with: event)
         }
     }
     override func mouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(272) != nil {
+            super.mouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 272, pressed: false)
         } else {
@@ -587,11 +610,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 273, pressed: true)
         } else {
+            nativePressedButtons.insert(273)
             super.rightMouseDown(with: event)
         }
     }
     override func rightMouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(273) != nil {
+            super.rightMouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 273, pressed: false)
         } else {
@@ -605,11 +631,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 274, pressed: true)
         } else {
+            nativePressedButtons.insert(274)
             super.otherMouseDown(with: event)
         }
     }
     override func otherMouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(274) != nil {
+            super.otherMouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 274, pressed: false)
         } else {
@@ -626,11 +655,18 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             delta: event.scrollingDeltaY,
             hasPreciseDeltas: event.hasPreciseScrollingDeltas
         )
-        guard detents != 0 else { return }
-        guestInputHandler([
-            VMGuestAgentInputEvent(type: 2, code: 8, value: detents),
-            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-        ])
+        // AppKit's positive X scrolls toward the left; REL_HWHEEL's toward the right.
+        let horizontalDetents = horizontalScrollAccumulator.consume(
+            delta: -event.scrollingDeltaX,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas
+        )
+        var events: [VMGuestAgentInputEvent] = []
+        if detents != 0 { events.append(VMGuestAgentInputEvent(type: 2, code: 8, value: detents)) }
+        if horizontalDetents != 0 {
+            events.append(VMGuestAgentInputEvent(type: 2, code: 6, value: horizontalDetents))
+        }
+        guard !events.isEmpty else { return }
+        guestInputHandler(events + [VMGuestAgentInputEvent(type: 0, code: 0, value: 0)])
     }
 
     private func sendRelativeMotion(_ event: NSEvent) {
@@ -651,7 +687,6 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             for: point,
             in: metalLayer.frame
         ) else { return }
-        cursorPresentation.noteAbsolutePointerEvent()
         guestInputHandler?(VMAbsolutePointerMapper.events(x: coordinates.x, y: coordinates.y))
     }
 
@@ -659,13 +694,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         guard absolutePointerEnabled != enabled else { return }
         absolutePointerEnabled = enabled
         if enabled { releaseInputCapture() }
-        // In absolute mode the native macOS cursor is already at the exact
-        // guest position. Hide the separately composited GPU cursor to avoid
-        // a delayed duplicate while preserving natural boundary crossing.
-        cursorLayer.isHidden = enabled || cursorLayer.contents == nil
-        // Leaving absolute mode restores the system cursor that stood in for
-        // the guest's own.
-        window?.invalidateCursorRects(for: self)
+        updateCursorLayerVisibility()
+        applyHostCursor()
         RiftVMLog.info("VirGL absolute pointer enabled=\(enabled)", logger: RiftVMLog.graphics)
     }
 
@@ -751,6 +781,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         restoreKeyboardFocus()
         NSCursor.hide()
         CGAssociateMouseAndMouseCursorPosition(boolean_t(0))
+        updateCursorLayerVisibility()
     }
 
     func releaseInputCapture() {
@@ -768,6 +799,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         pointerCaptured = false
         CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
         NSCursor.unhide()
+        updateCursorLayerVisibility()
+        applyHostCursor()
     }
 
     override func layout() {
@@ -813,7 +846,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(
             rect: bounds,
-            options: [.activeInKeyWindow, .mouseMoved, .inVisibleRect],
+            options: [.activeInKeyWindow, .mouseMoved, .cursorUpdate, .inVisibleRect],
             owner: self,
             userInfo: nil
         ))
@@ -821,46 +854,90 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func updateCursor(_ update: RiftVMVirGLRuntime.CursorUpdate) {
-        guard presentationLifecycle.tokenForPresentation() != nil else { return }
+        guard presentationLifecycle.tokenForPresentation() != nil else {
+            RiftVMLog.info("VirGL cursor update dropped: presentation is not running", logger: RiftVMLog.graphics)
+            return
+        }
+        guard !update.isReset else {
+            // Firmware handing over to the kernel resets the device. That says
+            // nothing about the guest's cursor; treating it as "hidden" blanked
+            // the macOS cursor for a guest that then painted its own.
+            guestCursor.reset()
+            guestCursorImage = nil
+            hostGuestCursor = nil
+            cursorLayer.contents = nil
+            updateCursorLayerVisibility()
+            applyHostCursor()
+            return
+        }
         cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
+        let before = guestCursor
         if update.replacesImage {
             cursorHotspot = CGPoint(x: Int(update.hotX), y: Int(update.hotY))
-            if let image = update.image {
-                cursorLayer.contents = image
-                cursorImageSize = CGSize(width: image.width, height: image.height)
-            } else {
-                cursorLayer.contents = nil
-                cursorImageSize = .zero
-            }
+            guestCursorImage = update.image
+            hostGuestCursor = nil
+            cursorLayer.contents = update.image
+            cursorImageSize = update.image.map { CGSize(width: $0.width, height: $0.height) } ?? .zero
         }
-        cursorPlaneUpdateReceived()
-        // Absolute mode keeps the macOS cursor as the pointer: it is always at
-        // the true position, while a cursor the guest draws lags behind it.
-        cursorLayer.isHidden = absolutePointerEnabled || !update.isVisible
+        guestCursor.noteCursorPlane(visible: update.isVisible)
+        updateCursorLayerVisibility()
         updateCursorGeometry()
+        // A move only matters to the composited layer; the macOS cursor is
+        // already where the mouse is.
+        if update.replacesImage || before != guestCursor { applyHostCursor() }
     }
 
-    /// A guest that drives virtio-gpu's cursor plane can never be painting its
-    /// own cursor into the scanout, so this also releases the macOS cursor when
-    /// the guest switched strategies mid-session.
-    private func cursorPlaneUpdateReceived() {
-        let wasHiding = cursorPresentation.hidesSystemCursor
-        cursorPresentation.noteCursorPlaneUpdate()
-        if wasHiding != cursorPresentation.hidesSystemCursor {
-            window?.invalidateCursorRects(for: self)
+    private func updateCursorLayerVisibility() {
+        cursorLayer.isHidden = !guestCursor.showsCursorLayer(
+            absolutePointer: absolutePointerEnabled,
+            captured: pointerCaptured
+        )
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard usesCustomGraphics else { super.cursorUpdate(with: event); return }
+        applyHostCursor(at: convert(event.locationInWindow, from: nil))
+    }
+
+    /// Show the cursor the guest asked for, as the macOS cursor, when the mouse
+    /// is over this view. `point` defaults to the current mouse location.
+    private func applyHostCursor(at point: NSPoint? = nil) {
+        guard usesCustomGraphics, let window, window.isKeyWindow else { return }
+        let location = point ?? convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        guard bounds.contains(location) else { return }
+        switch guestCursor.hostCursor(
+            absolutePointer: absolutePointerEnabled,
+            captured: pointerCaptured,
+            insideGuestImage: metalLayer.frame.contains(location)
+        ) {
+        case .system:
+            NSCursor.arrow.set()
+        case .hidden:
+            Self.blankCursor.set()
+        case .guestImage:
+            (makeHostGuestCursor() ?? Self.blankCursor).set()
         }
     }
 
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        // Absolute mode keeps the macOS cursor as the pointer unless the guest
-        // already drew one into the frame; relative mode manages the cursor
-        // through capture instead.
-        guard absolutePointerEnabled, cursorPresentation.hidesSystemCursor else { return }
-        addCursorRect(bounds, cursor: Self.blankCursor)
+    private func makeHostGuestCursor() -> NSCursor? {
+        guard let image = guestCursorImage, guestSize.width > 0 else { return nil }
+        let scale = metalLayer.frame.width / guestSize.width
+        if let hostGuestCursor, hostCursorScale == scale { return hostGuestCursor }
+        let geometry = VMGuestCursorState.hostCursorGeometry(
+            imagePixels: CGSize(width: image.width, height: image.height),
+            hotspotPixels: cursorHotspot,
+            scale: scale
+        )
+        let cursor = NSCursor(
+            image: NSImage(cgImage: image, size: geometry.size),
+            hotSpot: geometry.hotSpot
+        )
+        hostGuestCursor = cursor
+        hostCursorScale = scale
+        return cursor
     }
 
-    /// A fully transparent cursor used to yield to a cursor the guest drew.
+    /// A fully transparent cursor for a guest that hid its pointer.
     private static let blankCursor: NSCursor = {
         let image = NSImage(size: NSSize(width: 1, height: 1), flipped: false) { rect in
             NSColor.clear.setFill()
@@ -962,7 +1039,6 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                         self.presentationDurationsInWindow.append(duration)
                         self.presentedFrames &+= 1
                         self.presentedFramesInWindow &+= 1
-                        self.notePresentedFrameForCursor()
                         if self.presentedFrames == 1 || self.presentedFrames.isMultiple(of: 600) {
                             RiftVMLog.info("VirGL zero-copy frames presented: \(self.presentedFrames)", logger: RiftVMLog.graphics)
                         }
@@ -977,17 +1053,6 @@ class VMVirGLDisplayView: VZVirtualMachineView {
                     if succeeded { self.drainLatestPresentation() }
                 }
             }
-        }
-    }
-
-    /// A guest that draws its own cursor repaints in response to pointer
-    /// events while never driving the cursor plane; the first such repaint
-    /// hands the pointer over from the macOS cursor to the guest's own.
-    private func notePresentedFrameForCursor() {
-        let wasHiding = cursorPresentation.hidesSystemCursor
-        cursorPresentation.notePresentedFrame()
-        if wasHiding != cursorPresentation.hidesSystemCursor {
-            window?.invalidateCursorRects(for: self)
         }
     }
 
@@ -1062,9 +1127,10 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         )
         RiftVMLog.info(
             completeSummary
-                + " cursorPlaneUpdates=\(cursorPresentation.cursorPlaneUpdates)"
-                + " absolutePointerEvents=\(cursorPresentation.absolutePointerEvents)"
-                + " guestOwnsCursor=\(cursorPresentation.hidesSystemCursor)",
+                + " guestCursorPlane=\(guestCursor.planeSeen)"
+                + " guestCursorVisible=\(guestCursor.visible)"
+                + " absolutePointer=\(absolutePointerEnabled)"
+                + " captured=\(pointerCaptured)",
             logger: RiftVMLog.graphics
         )
         if ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1",
@@ -1133,26 +1199,16 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private let virglView: VMVirGLDisplayView
     private var runtime: RiftVMVirGLRuntime?
     let deviceConfigurations: [VZCustomVirtioDeviceConfiguration]
-    private var requestedResolution: (width: UInt32, height: UInt32)?
-    private var pendingDisplayRequest: DispatchWorkItem?
-    private var dynamicDisplayReady = false
-    /// The size the window has to hold before it becomes a DRM mode, and the
-    /// bookkeeping that keeps a burst of samples or an alternating host from
-    /// turning into a burst of guest output rebuilds.
-    private var stableDisplayFrame: CGSize?
-    private var stableDisplayCandidate: (width: UInt32, height: UInt32)?
-    private var stableDisplayCandidateSince: TimeInterval = 0
-    private var publishedDisplayModes: [(width: UInt32, height: UInt32, at: TimeInterval)] = []
-    /// Set when the user asked for the window's size explicitly; cleared when the
-    /// window goes full screen or the user asks for the screen canvas again.
-    private var displayCanvasOverride: CGSize?
-    private static let displayStabilityWindow: TimeInterval = 2.0
-    private static let displayPublishWindow: TimeInterval = 30
-    private static let displayPublishLimit = 6
-    private static let displayHoldWindow: TimeInterval = 10
-    private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
-        "RIFTVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
-    ] != "1"
+    /// The mode the guest runs. It is the mode the device was created with and it
+    /// stays for the whole session; only an explicit user request changes it.
+    ///
+    /// Every mode change raises a virtio-gpu display event, and Hyprland answers
+    /// one by rebuilding its outputs, even when the size is unchanged. That rebuild
+    /// is what flickers the desktop and leaves Omarchy's wallpaper layer without a
+    /// committed buffer, so nothing here changes the mode on its own: not a window
+    /// resize, not full screen, and not the Guest Agent reconnecting.
+    private var requestedResolution: (width: UInt32, height: UInt32)
+    private let sessionResolution: (width: UInt32, height: UInt32)
 
     init(devices: [VMModelFieldGraphicDevice], displayView: VMVirGLDisplayView? = nil) throws {
         let device = devices.first ?? .default(osType: .linux)
@@ -1202,6 +1258,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         self.runtime = runtime
         self.deviceConfigurations = deviceConfigurations
         requestedResolution = initialResolution
+        sessionResolution = initialResolution
         view.runtime = runtime
     }
 
@@ -1218,186 +1275,45 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.virtualMachine = virtualMachine
     }
 
+    /// The window moved, resized, or changed screens. The guest keeps its mode and
+    /// the host scales the scanout into the new bounds.
     func refreshDisplayConfiguration() {
-        guard dynamicDisplayEnabled else {
-            let size = virglView.bounds.size
-            RiftVMLog.info(
-                "VirGL stable-canvas scaling: logical=\(Int(size.width))x\(Int(size.height))",
-                logger: RiftVMLog.graphics
-            )
-            return
-        }
-        // A Linux text console can acknowledge a new virtio-gpu mode and then
-        // immediately replace it with its 800x600 fbcon fallback. Omarchy's
-        // first-boot form runs on that console, before Hyprland and its display
-        // watcher exist. Keep the persisted 1280x720 boot mode until the Guest
-        // Agent reports a real desktop session; otherwise the setup UI becomes
-        // cropped even though host-side mode negotiation succeeded.
-        guard dynamicDisplayReady else { return }
-        pendingDisplayRequest?.cancel()
-        scheduleDisplaySample(after: 0.35)
-    }
-
-    /// A resize, a full-screen transition, and the macOS toolbar or safe area
-    /// moving all expose a burst of different view sizes, and every size that
-    /// reaches DRM makes the guest destroy and rebuild its outputs: a burst of
-    /// samples becomes a burst of flashes. Sample the window rather than the
-    /// display view, let the size hold still before it becomes a mode, and keep
-    /// a candidate off DRM while the window is still moving.
-    private func scheduleDisplaySample(after delay: TimeInterval) {
-        let request = DispatchWorkItem { [weak self] in self?.sampleStableDisplaySize() }
-        pendingDisplayRequest = request
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: request)
-    }
-
-    /// One mode for the whole session: the screen the window is on. A window
-    /// resize, an auto-hidden full-screen toolbar, or entering full screen then
-    /// costs host-side scaling only, and the guest never rebuilds its outputs —
-    /// which is what flickers the desktop and leaves its background layer without
-    /// a committed buffer.
-    private func displayCanvasSize() -> CGSize {
-        if let override = displayCanvasOverride { return override }
-        if let screen = virglView.window?.screen, screen.frame.width > 0, screen.frame.height > 0 {
-            return screen.frame.size
-        }
-        return virglView.bounds.size
+        let size = virglView.bounds.size
+        RiftVMLog.info(
+            "VirGL display kept: guest=\(requestedResolution.width)x\(requestedResolution.height)"
+                + " view=\(Int(size.width))x\(Int(size.height))",
+            logger: RiftVMLog.graphics
+        )
     }
 
     /// An explicit request from the user: take the window's current size as the
-    /// guest's mode now, and keep it until the window goes full screen or the user
-    /// asks for the screen canvas again.
+    /// guest's mode now.
     func matchDisplayToWindow() {
-        pendingDisplayRequest?.cancel()
-        pendingDisplayRequest = nil
         let size = virglView.bounds.size
         guard size.width >= 1, size.height >= 1 else { return }
-        displayCanvasOverride = size
-        stableDisplayFrame = nil
-        stableDisplayCandidate = nil
-        publishDisplaySize(
-            candidate: VMDisplayGeometry.guestResolution(for: size),
-            sampled: size,
-            frame: virglView.window?.frame.size ?? size,
-            forcing: true
-        )
+        publishDisplaySize(VMDisplayGeometry.guestResolution(for: size))
     }
 
+    /// An explicit request from the user: return to the mode the session started
+    /// with.
     func useScreenCanvas() {
-        displayCanvasOverride = nil
-        refreshDisplayConfiguration()
+        publishDisplaySize(sessionResolution)
     }
 
-    private func sampleStableDisplaySize() {
-        // Full screen is the native-size case, so it always uses the screen.
-        if virglView.window?.styleMask.contains(.fullScreen) == true {
-            displayCanvasOverride = nil
-        }
-        let frame = virglView.window?.frame.size ?? virglView.bounds.size
-        let canvas = displayCanvasSize()
-        let candidate = VMDisplayGeometry.guestResolution(for: canvas)
-        let now = Date().timeIntervalSinceReferenceDate
-        if let heldFrame = stableDisplayFrame,
-           let heldCandidate = stableDisplayCandidate,
-           isSameSize(heldFrame, frame),
-           VMDisplayGeometry.isSameResolution(heldCandidate, candidate) {
-            let held = now - stableDisplayCandidateSince
-            guard held >= Self.displayStabilityWindow else {
-                scheduleDisplaySample(after: Self.displayStabilityWindow - held)
-                return
-            }
-        } else {
-            stableDisplayFrame = frame
-            stableDisplayCandidate = candidate
-            stableDisplayCandidateSince = now
-            scheduleDisplaySample(after: Self.displayStabilityWindow)
-            return
-        }
-        stableDisplayFrame = nil
-        stableDisplayCandidate = nil
-        publishDisplaySize(candidate: candidate, sampled: canvas, frame: frame)
-    }
-
-    private func isSameSize(_ lhs: CGSize, _ rhs: CGSize, tolerance: CGFloat = 1) -> Bool {
-        abs(lhs.width - rhs.width) <= tolerance && abs(lhs.height - rhs.height) <= tolerance
-    }
-
-    private func publishDisplaySize(
-        candidate: (width: UInt32, height: UInt32),
-        sampled: CGSize,
-        frame: CGSize,
-        forcing: Bool = false
-    ) {
-        let resolution = VMDisplayGeometry.stabilizedResolution(
-            candidate: candidate,
-            current: requestedResolution ?? candidate
-        )
-        let now = Date().timeIntervalSinceReferenceDate
-        publishedDisplayModes.removeAll { now - $0.at > Self.displayPublishWindow }
+    private func publishDisplaySize(_ resolution: (width: UInt32, height: UInt32)) {
+        guard requestedResolution != resolution else { return }
         RiftVMLog.info(
-            "VirGL display sample: canvas=\(Int(sampled.width))x\(Int(sampled.height))"
-                + " frame=\(Int(frame.width))x\(Int(frame.height))"
-                + " candidate=\(candidate.width)x\(candidate.height)"
-                + " guest=\(resolution.width)x\(resolution.height)"
-                + " recentModes=\(publishedDisplayModes.count)",
+            "VirGL display mode requested by the user: \(requestedResolution.width)x\(requestedResolution.height)"
+                + " -> \(resolution.width)x\(resolution.height)",
             logger: RiftVMLog.graphics
         )
-        guard requestedResolution?.width != resolution.width
-                || requestedResolution?.height != resolution.height else { return }
-
-        // A↔B flapping is the case that makes the desktop unusable: the host
-        // keeps offering the two sizes, and the guest switches outputs for each
-        // step. Hold the current mode instead of following it. An explicit
-        // request from the user skips both guards.
-        if forcing {
-            publishedDisplayModes.removeAll()
-        }
-        if !forcing, let previous = publishedDisplayModes.dropLast().last,
-           previous.width == resolution.width,
-           previous.height == resolution.height {
-            RiftVMLog.info(
-                "VirGL display request held: \(resolution.width)x\(resolution.height) was the"
-                    + " previous mode \(Int(now - previous.at))s ago; the host is alternating",
-                logger: RiftVMLog.graphics
-            )
-            holdDisplayPublishing(candidate: candidate, now: now)
-            return
-        }
-        guard forcing || publishedDisplayModes.count < Self.displayPublishLimit else {
-            RiftVMLog.info(
-                "VirGL display request held: \(publishedDisplayModes.count) modes in"
-                    + " \(Int(Self.displayPublishWindow))s",
-                logger: RiftVMLog.graphics
-            )
-            holdDisplayPublishing(candidate: candidate, now: now)
-            return
-        }
-        publishedDisplayModes.append((width: resolution.width, height: resolution.height, at: now))
         requestedResolution = resolution
         runtime?.requestDisplaySize(width: resolution.width, height: resolution.height)
     }
 
-    /// Re-offer the size once the hold expires, so a genuine resize is applied
-    /// after a burst instead of being dropped.
-    private func holdDisplayPublishing(
-        candidate: (width: UInt32, height: UInt32),
-        now: TimeInterval
-    ) {
-        stableDisplayCandidate = candidate
-        stableDisplayCandidateSince = now
-        scheduleDisplaySample(after: Self.displayHoldWindow)
-    }
-
-    func setDynamicDisplayReady(_ ready: Bool) {
-        guard dynamicDisplayReady != ready else { return }
-        dynamicDisplayReady = ready
-        if ready {
-            requestedResolution = nil
-            refreshDisplayConfiguration()
-        } else {
-            pendingDisplayRequest?.cancel()
-            pendingDisplayRequest = nil
-        }
-    }
+    /// The guest desktop came up or went away. The mode was chosen before boot, so
+    /// there is nothing to publish; re-offering it would rebuild the guest outputs.
+    func setDynamicDisplayReady(_ ready: Bool) {}
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
         virglView.setGuestInputHandler(handler)
@@ -1422,8 +1338,6 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func shutdown() {
-        pendingDisplayRequest?.cancel()
-        pendingDisplayRequest = nil
         virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.setGuestInputHandler(nil)

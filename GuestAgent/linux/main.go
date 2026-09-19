@@ -456,7 +456,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	}
 	desktopActive := desktopSessionActive()
 	if inputAvailable {
-		capabilities = append(capabilities, "input-uinput-v1")
+		capabilities = append(capabilities, "input-uinput-v1", "input-horizontal-wheel-v1")
 		if desktopActive && desktopInputReady() {
 			capabilities = append(capabilities, "input-uinput-desktop-v1", "desktop-input-v1")
 		}

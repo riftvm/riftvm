@@ -59,7 +59,16 @@ the Host does not override an explicit continuous-rendering preference. Updating
 only the Host does not remove overrides in an existing Guest. See the demand
 rendering validation report for component requirements and measured scope.
 
-### Dynamic display
+### Display mode
+
+Omarchy boots in the mode it keeps for the whole session: the logical size of
+the screen it opens on. The host never raises the display event on its own, not
+for a window resize, full screen, or a Guest Agent reconnect, because Hyprland
+answers every display event by rebuilding its outputs, and that rebuild is what
+left the wallpaper layer without a committed buffer. The window scales the
+scanout instead. Only an explicit user request (the general-VM **Fit Display to
+Window** command) publishes a new mode through the handshake below.
+
 
 ```text
 window/full-screen size settles
@@ -80,6 +89,25 @@ are distinct quantities. The validated full-screen example was:
 ```text
 bounds=1920x1080 guest=1920x1080 layer=1920x1080 drawable=3840x2160
 ```
+
+### Cursor
+
+Hyprland draws its pointer on virtio-gpu's cursor plane, so every
+`UPDATE_CURSOR` hands the host the exact image, hotspot and visibility the guest
+wants. `VMGuestCursorState` turns those facts into one decision, with no frame
+counting or timing:
+
+| Situation | Pointer shown |
+| --- | --- |
+| Absolute pointer, guest cursor visible | the guest image as the macOS cursor |
+| Absolute pointer, guest hid its cursor | none |
+| Letterbox, or the guest never used the plane (firmware, console) | the macOS arrow |
+| Captured relative pointer | macOS cursor hidden; guest image composited in a layer without implicit animation |
+
+The macOS cursor is always at the true position, so showing the guest's image
+through it gives the guest's shape with no input round trip and exactly one
+pointer. Cursor images are read back from the renderer and are premultiplied
+BGRA.
 
 ### Desktop input
 
@@ -106,6 +134,18 @@ survive a prior session. The current Omarchy integration intersects the
 compositor's open `/proc` input descriptors with the RiftVM device event node.
 
 ## Resource and protocol invariants
+
+### Fence completion order
+
+The device does not advertise `VIRTIO_GPU_F_CONTEXT_INIT`, so every guest
+fence shares one timeline, and Linux treats a completed fence as completing
+every earlier fence on it. The renderer retires fences per context, and
+control-context fences retire immediately, so completions arrive out of order.
+`VirtioGPUOrderedCompletions` holds an early completion until every earlier
+fenced command has completed, and only then writes the responses, in guest
+submission order. Writing a newer response first let the guest reuse buffers
+the GPU was still drawing into. A fence that does not retire within 10 s is
+completed with an error.
 
 ### Validate by resource target
 

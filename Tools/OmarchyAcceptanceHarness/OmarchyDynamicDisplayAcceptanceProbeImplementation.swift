@@ -42,15 +42,16 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
             width: Int(viewSize.width.rounded()),
             height: Int(viewSize.height.rounded())
         )
-        let requested = VMDisplayGeometry.guestResolution(for: view.bounds.size)
-        var expectedGuest = OmarchyDisplaySize(width: Int(requested.width), height: Int(requested.height))
+        // The guest keeps its boot mode for the whole session: a host resize
+        // only rescales the scanout. A mode change here is the output rebuild
+        // that used to leave the wallpaper layer empty.
+        var expectedGuest = before
         try Data().write(to: probeDirectory.appending(path: "resize-go"), options: .atomic)
         let after = try await waitForDisplay(at: probeDirectory.appending(path: "after.json"))
         if let nativeDisplay = view.virtualMachine?.graphicsDevices.first?.displays.first {
             expectedGuest = OmarchyDisplaySize(width: Int(nativeDisplay.sizeInPixels.width), height: Int(nativeDisplay.sizeInPixels.height))
         }
         NSLog("Graphics display probe expected=%dx%d guest=%dx%d", expectedGuest.width, expectedGuest.height, after.width, after.height)
-        guard before != after else { throw ProbeError.resolutionUnchanged(before) }
         guard after == expectedGuest else {
             throw ProbeError.hostGuestMismatch(host: expectedGuest, guest: after)
         }
@@ -143,17 +144,14 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         case hostGuestMismatch(host: OmarchyDisplaySize, guest: OmarchyDisplaySize)
         case invalidMonitorJSON
         case missingWindow
-        case resolutionUnchanged(OmarchyDisplaySize)
         case timeout(String)
 
         var errorDescription: String? {
             switch self {
             case .hostGuestMismatch(let host, let guest):
-                "Guest display \(guest.width)x\(guest.height) does not match the requested graphics mode \(host.width)x\(host.height)."
+                "Guest display changed to \(guest.width)x\(guest.height) after a Host resize; the session mode is \(host.width)x\(host.height)."
             case .invalidMonitorJSON: "Hyprland returned invalid monitor JSON."
             case .missingWindow: "The Omarchy display has no Host window."
-            case .resolutionUnchanged(let size):
-                "Guest display remained \(size.width)x\(size.height) after Host resize."
             case .timeout(let file): "Timed out waiting for Guest display evidence \(file)."
             }
         }

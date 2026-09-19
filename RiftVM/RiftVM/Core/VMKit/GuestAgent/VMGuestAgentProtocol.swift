@@ -17,37 +17,6 @@ struct VMGuestAgentRetryPolicy: Equatable {
 }
 
 enum VMDisplayGeometry {
-    static func stabilizedResolution(
-        candidate: (width: UInt32, height: UInt32),
-        current: (width: UInt32, height: UInt32),
-        tolerance: Double = 0.05
-    ) -> (width: UInt32, height: UInt32) {
-        guard current.width > 0, current.height > 0 else { return candidate }
-        let widthDelta = abs(Double(candidate.width) - Double(current.width)) / Double(current.width)
-        let heightDelta = abs(Double(candidate.height) - Double(current.height)) / Double(current.height)
-        // macOS window chrome and the full-screen safe area can change the
-        // sampled aspect ratio by a few percent. Treat those as presentation
-        // changes, not new DRM modes, so Hyprland does not tear down and race
-        // two VirGL triple-buffer sets during the transition.
-        return widthDelta <= tolerance && heightDelta <= tolerance ? current : candidate
-    }
-
-    /// Whether two advertised modes are the same mode. Sampling a window while
-    /// macOS lays it out repeats near-identical sizes, and the eight-pixel
-    /// rounding already absorbs the rest.
-    static func isSameResolution(
-        _ lhs: (width: UInt32, height: UInt32),
-        _ rhs: (width: UInt32, height: UInt32),
-        tolerance: Double = 0.01
-    ) -> Bool {
-        guard lhs.width > 0, lhs.height > 0, rhs.width > 0, rhs.height > 0 else {
-            return lhs.width == rhs.width && lhs.height == rhs.height
-        }
-        let widthDelta = abs(Double(lhs.width) - Double(rhs.width)) / Double(lhs.width)
-        let heightDelta = abs(Double(lhs.height) - Double(rhs.height)) / Double(lhs.height)
-        return widthDelta <= tolerance && heightDelta <= tolerance
-    }
-
     static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
         guard size.width.isFinite, size.height.isFinite,
               size.width > 0, size.height > 0 else { return (1280, 720) }
@@ -60,12 +29,9 @@ enum VMDisplayGeometry {
             // advertised mode and the real scanout during full-screen changes.
             return UInt32(Int(bounded) & ~7)
 		}
-		// Advertise the settled logical viewport, not Retina backing pixels and
-		// not a fixed 16:9 canvas.  This lets Hyprland lay out its desktop to the
-		// actual RiftVM content area in ordinary windows and full screen.  The
-		// backend coalesces live-resize/full-screen transitions and applies
-		// hysteresis before this mode reaches DRM, preventing the rapid mode
-		// churn that the former fixed canvas was introduced to avoid.
+		// Advertise the logical size, not Retina backing pixels. The session
+		// keeps this mode from boot to shutdown, so it is chosen once, before
+		// the guest starts.
 		let minimum = CGSize(width: 640, height: 360)
 		return (
 			dimension(max(minimum.width, size.width)),
@@ -115,7 +81,9 @@ enum VMAbsolutePointerMapper {
 
 struct VMScrollWheelAccumulator {
     private var preciseRemainder: CGFloat = 0
-    private static let precisePointsPerDetent: CGFloat = 3
+    // A trackpad reports scrolling in points. One Linux wheel detent usually
+    // scrolls three lines, so a detent per few points made every gesture race.
+    private static let precisePointsPerDetent: CGFloat = 10
     private static let maximumDetentsPerEvent = 16
 
     mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
@@ -142,6 +110,52 @@ struct VMScrollWheelAccumulator {
             -Self.maximumDetentsPerEvent,
             min(Self.maximumDetentsPerEvent, detents)
         ))
+    }
+}
+
+/// Pointer motion waiting to be sent is only worth its latest position: a newer
+/// absolute position replaces a queued one, and relative motion is summed. Keys,
+/// buttons and wheel reports are never merged or dropped, so the queue behind a
+/// slow guest stays one report long while the mouse moves, instead of replaying
+/// every stale position.
+enum VMGuestAgentInputCoalescer {
+    private enum Motion { case absolute, relative }
+
+    private static func motion(_ report: [VMGuestAgentInputEvent]) -> Motion? {
+        let body = report.filter { $0.type != 0 }
+        guard !body.isEmpty else { return nil }
+        if body.allSatisfy({ $0.type == 3 && ($0.code == 0 || $0.code == 1) }) { return .absolute }
+        if body.allSatisfy({ $0.type == 2 && ($0.code == 0 || $0.code == 1) }) { return .relative }
+        return nil
+    }
+
+    /// Append one SYN_REPORT-terminated report to `queue`, merging it into the
+    /// last queued report when both are the same kind of pointer motion.
+    static func enqueue(_ report: [VMGuestAgentInputEvent], into queue: inout [[VMGuestAgentInputEvent]]) {
+        guard let kind = motion(report), let last = queue.last, motion(last) == kind else {
+            queue.append(report)
+            return
+        }
+        switch kind {
+        case .absolute:
+            // Keep an axis only the older report set; the newer one wins the rest.
+            let kept = last.filter { event in
+                event.type != 0 && !report.contains { $0.type == event.type && $0.code == event.code }
+            }
+            queue[queue.count - 1] = kept + report
+        case .relative:
+            var totals: [UInt16: Int32] = [:]
+            for event in last + report where event.type == 2 {
+                totals[event.code, default: 0] += event.value
+            }
+            var merged: [VMGuestAgentInputEvent] = []
+            for code in [UInt16(0), 1] {
+                guard let value = totals[code], value != 0 else { continue }
+                merged.append(VMGuestAgentInputEvent(type: 2, code: code, value: max(-32767, min(32767, value))))
+            }
+            merged.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+            if merged.count == 1 { queue.removeLast() } else { queue[queue.count - 1] = merged }
+        }
     }
 }
 

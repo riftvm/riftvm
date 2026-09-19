@@ -46,9 +46,9 @@ Prefer a direct download? Get the signed and notarized app from
 The machine has its own writable disk and machine identity. The verified
 factory image is cached for reuse; preparing Omarchy still needs a connection
 to fetch and verify the signed release manifest. The guest keeps one display mode
-per session and the window goes full screen while it runs; **Graphics → Fit
-Display to Window** re-offers the guest the window's current size when you want a
-different one.
+per session, chosen from the screen before it boots, and the window goes full
+screen while it runs. Resizing the window scales the desktop; it never changes
+the guest's mode.
 
 ## What it does
 
@@ -56,7 +56,7 @@ different one.
 - Creates Omarchy from a signed, verified factory image with guided owner setup
 - Starts, pauses, resumes, and stops Omarchy from its window or the menu bar
 - Reuses the verified image and gives the machine its own writable disk and machine identity
-- Integrates Omarchy keyboard shortcuts, dynamic display sizing, text and image clipboard exchange, and notifications through an authenticated guest agent
+- Integrates Omarchy keyboard shortcuts, text and image clipboard exchange, and notifications through an authenticated guest agent
 - Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
@@ -166,7 +166,8 @@ Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent.
 A guest without them may not reach a usable desktop, and the fix is to install
 the supported drivers and Agent rather than to change graphics paths.
 
-Custom VirGL supports zero-copy scanout presentation and dynamic resolution.
+Custom VirGL supports zero-copy scanout presentation. The guest mode is fixed
+for the session.
 It does not support memory-state save/restore because guest RAM alone cannot
 reconstruct renderer contexts and resources. Stopped-VM file snapshots remain
 supported. Omarchy recovery points protect the stopped disk and machine

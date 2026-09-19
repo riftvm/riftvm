@@ -82,41 +82,6 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(policy.delay(afterFailureCount: 50), 30)
     }
 
-    func testDisplayResolutionHysteresisIgnoresWindowChromeJitter() {
-        let current = (width: UInt32(1920), height: UInt32(1080))
-        let chromeCandidate = (width: UInt32(1968), height: UInt32(1080))
-        let stable = VMDisplayGeometry.stabilizedResolution(
-            candidate: chromeCandidate,
-            current: current
-        )
-        XCTAssertEqual(stable.width, 1920)
-        XCTAssertEqual(stable.height, 1080)
-
-        let portraitCandidate = (width: UInt32(1280), height: UInt32(1600))
-        let changed = VMDisplayGeometry.stabilizedResolution(
-            candidate: portraitCandidate,
-            current: current
-        )
-        XCTAssertEqual(changed.width, 1280)
-        XCTAssertEqual(changed.height, 1600)
-    }
-
-    func testResolutionSamenessAbsorbsLayoutJitterButNotADifferentMode() {
-        let held = (width: UInt32(1728), height: UInt32(1112))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1112)))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1116)))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1080)))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1512, height: 1112)))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(
-            (width: 0, height: 0),
-            (width: 0, height: 0)
-        ))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(
-            (width: 0, height: 0),
-            (width: 1280, height: 720)
-        ))
-    }
-
     func testGuestResolutionUsesLogicalWindowSizeWhileMetalRetainsRetinaPixels() {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)
@@ -189,10 +154,10 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testPreciseScrollingAccumulatesFractionalTrackpadDeltas() {
         var accumulator = VMScrollWheelAccumulator()
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 1)
-        XCTAssertEqual(accumulator.consume(delta: -6.75, hasPreciseDeltas: true), -2)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 1)
+        XCTAssertEqual(accumulator.consume(delta: -22.5, hasPreciseDeltas: true), -2)
         XCTAssertEqual(accumulator.consume(delta: 2, hasPreciseDeltas: false), 2)
         XCTAssertEqual(accumulator.consume(delta: -1_050, hasPreciseDeltas: true), -16)
         XCTAssertEqual(accumulator.consume(delta: 0, hasPreciseDeltas: true), 0)
@@ -829,5 +794,49 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         failed.cancel()
         XCTAssertEqual(try Data(contentsOf: destination), Data("keep-me".utf8))
         XCTAssertTrue((try FileManager.default.contentsOfDirectory(atPath: directory.path)).allSatisfy { !$0.hasPrefix(".riftvm-download-") })
+    }
+
+    func testQueuedAbsoluteMotionKeepsOnlyTheNewestPosition() {
+        let syn = VMGuestAgentInputEvent(type: 0, code: 0, value: 0)
+        var queue: [[VMGuestAgentInputEvent]] = []
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 1, y: 2), into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 3, y: 4), into: &queue)
+        XCTAssertEqual(queue, [VMAbsolutePointerMapper.events(x: 3, y: 4)])
+
+        // A button is never merged, and motion after it starts a new report.
+        let press = VMGuestAgentInputBatch.key(code: 272, pressed: true).events
+        VMGuestAgentInputCoalescer.enqueue(press, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 5, y: 6), into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 7, y: 8), into: &queue)
+        XCTAssertEqual(queue, [
+            VMAbsolutePointerMapper.events(x: 3, y: 4),
+            press,
+            VMAbsolutePointerMapper.events(x: 7, y: 8),
+        ])
+
+        // One axis alone keeps the other axis of the older report.
+        VMGuestAgentInputCoalescer.enqueue([VMGuestAgentInputEvent(type: 3, code: 0, value: 9), syn], into: &queue)
+        XCTAssertEqual(queue.last, [VMGuestAgentInputEvent(type: 3, code: 1, value: 8),
+                                    VMGuestAgentInputEvent(type: 3, code: 0, value: 9), syn])
+    }
+
+    func testQueuedRelativeMotionIsSummedAndKeysAreKept() {
+        let syn = VMGuestAgentInputEvent(type: 0, code: 0, value: 0)
+        var queue: [[VMGuestAgentInputEvent]] = []
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: 3), .init(type: 2, code: 1, value: -1), syn], into: &queue)
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: 4), syn], into: &queue)
+        XCTAssertEqual(queue, [[.init(type: 2, code: 0, value: 7), .init(type: 2, code: 1, value: -1), syn]])
+        // Motion that cancels out leaves nothing to send.
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: -7), .init(type: 2, code: 1, value: 1), syn], into: &queue)
+        XCTAssertTrue(queue.isEmpty)
+
+        let wheel: [VMGuestAgentInputEvent] = [.init(type: 2, code: 8, value: 1), syn]
+        VMGuestAgentInputCoalescer.enqueue(wheel, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(wheel, into: &queue)
+        XCTAssertEqual(queue, [wheel, wheel])
+        let key = VMGuestAgentInputBatch.key(code: 30, pressed: true).events
+        VMGuestAgentInputCoalescer.enqueue(key, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(key, into: &queue)
+        XCTAssertEqual(queue.suffix(2), [key, key])
     }
 }

@@ -2,82 +2,94 @@ import XCTest
 @testable import RiftVMCore
 
 final class VMDisplayCursorPolicyTests: XCTestCase {
-    func testGuestThatDrivesTheCursorPlaneKeepsTheSystemCursor() {
-        var policy = VMGuestCursorPresentationPolicy()
-        policy.noteCursorPlaneUpdate()
-        policy.noteAbsolutePointerEvent()
-
-        for _ in 0..<200 { policy.notePresentedFrame() }
-
-        // The view hides the plane in absolute mode, so the macOS pointer is
-        // the only cursor and stays.
-        XCTAssertFalse(policy.hidesSystemCursor)
-        XCTAssertEqual(policy.cursorPlaneUpdates, 1)
+    func testBeforeTheGuestUsesItsCursorPlaneTheSystemArrowIsThePointer() {
+        let state = VMGuestCursorState()
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .system
+        )
+        XCTAssertFalse(state.showsCursorLayer(absolutePointer: true, captured: false))
     }
 
-    func testGuestThatRepaintsWithoutTheCursorPlaneYieldsTheSystemCursor() {
-        var policy = VMGuestCursorPresentationPolicy()
-        policy.noteAbsolutePointerEvent()
-
-        for _ in 0..<(VMGuestCursorPresentationPolicy.repaintFrameThreshold - 1) {
-            policy.notePresentedFrame()
-        }
-        XCTAssertFalse(policy.hidesSystemCursor, "repaints are only proof once they respond to pointer input")
-
-        policy.notePresentedFrame()
-        XCTAssertTrue(policy.hidesSystemCursor)
+    func testAVisibleGuestCursorBecomesTheOnlyPointer() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .guestImage
+        )
+        // Never a second, composited copy while the macOS cursor carries it.
+        XCTAssertFalse(state.showsCursorLayer(absolutePointer: true, captured: false))
     }
 
-    func testFramesBeforeAnyPointerEventAreNotEvidenceOfASoftwareCursor() {
-        var policy = VMGuestCursorPresentationPolicy()
-
-        for _ in 0..<500 { policy.notePresentedFrame() }
-
-        XCTAssertFalse(policy.hidesSystemCursor)
+    func testAHiddenGuestCursorHidesTheHostCursorAndComesBack() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true)
+        state.noteCursorPlane(visible: false)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .hidden
+        )
+        state.noteCursorPlane(visible: true)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .guestImage
+        )
     }
 
-    func testPointerMotionRestartsTheRepaintWindow() {
-        var policy = VMGuestCursorPresentationPolicy()
-        policy.noteAbsolutePointerEvent()
-        for _ in 0..<(VMGuestCursorPresentationPolicy.repaintFrameThreshold - 1) {
-            policy.notePresentedFrame()
-        }
-
-        policy.noteAbsolutePointerEvent()
-        for _ in 0..<(VMGuestCursorPresentationPolicy.repaintFrameThreshold - 1) {
-            policy.notePresentedFrame()
-        }
-
-        XCTAssertFalse(policy.hidesSystemCursor)
-        policy.notePresentedFrame()
-        XCTAssertTrue(policy.hidesSystemCursor)
+    func testTheLetterboxKeepsTheSystemArrow() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: false)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: false),
+            .system
+        )
     }
 
-    func testACursorPlaneUpdateHandsThePointerBack() {
-        var policy = VMGuestCursorPresentationPolicy()
-        policy.noteAbsolutePointerEvent()
-        for _ in 0..<VMGuestCursorPresentationPolicy.repaintFrameThreshold {
-            policy.notePresentedFrame()
-        }
-        XCTAssertTrue(policy.hidesSystemCursor)
-
-        policy.noteCursorPlaneUpdate()
-
-        XCTAssertFalse(policy.hidesSystemCursor)
-        for _ in 0..<500 { policy.notePresentedFrame() }
-        XCTAssertFalse(policy.hidesSystemCursor, "a guest known to drive the plane must not hide the system cursor again")
+    func testACapturedPointerHidesTheMacCursorAndDrawsTheGuestCursor() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: false, captured: true, insideGuestImage: true),
+            .hidden
+        )
+        XCTAssertTrue(state.showsCursorLayer(absolutePointer: false, captured: true))
+        // An uncaptured relative pointer is the macOS cursor alone.
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: false, captured: false, insideGuestImage: true),
+            .system
+        )
+        XCTAssertFalse(state.showsCursorLayer(absolutePointer: false, captured: false))
     }
 
-    func testResetReturnsToAnUnknownCursorSource() {
-        var policy = VMGuestCursorPresentationPolicy()
-        policy.noteAbsolutePointerEvent()
-        for _ in 0..<VMGuestCursorPresentationPolicy.repaintFrameThreshold {
-            policy.notePresentedFrame()
-        }
-        XCTAssertTrue(policy.hidesSystemCursor)
+    func testResetForgetsTheCursorPlane() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true)
+        state.reset()
+        XCTAssertEqual(state, VMGuestCursorState())
+    }
 
-        policy.reset()
+    func testHostCursorGeometryScalesAndClampsTheHotspot() {
+        let geometry = VMGuestCursorState.hostCursorGeometry(
+            imagePixels: CGSize(width: 64, height: 64),
+            hotspotPixels: CGPoint(x: 4, y: 6),
+            scale: 0.5
+        )
+        XCTAssertEqual(geometry.size, CGSize(width: 32, height: 32))
+        XCTAssertEqual(geometry.hotSpot, CGPoint(x: 2, y: 3))
 
-        XCTAssertFalse(policy.hidesSystemCursor)
+        let clamped = VMGuestCursorState.hostCursorGeometry(
+            imagePixels: CGSize(width: 64, height: 64),
+            hotspotPixels: CGPoint(x: 70, y: -3),
+            scale: 2
+        )
+        XCTAssertEqual(clamped.hotSpot, CGPoint(x: 127, y: 0))
+
+        let invalidScale = VMGuestCursorState.hostCursorGeometry(
+            imagePixels: CGSize(width: 24, height: 24),
+            hotspotPixels: .zero,
+            scale: .nan
+        )
+        XCTAssertEqual(invalidScale.size, CGSize(width: 24, height: 24))
     }
 }

@@ -540,3 +540,20 @@ import Testing
     let didRelease = executor.sync { released == nil }
     #expect(didRelease)
 }
+
+@Test func fenceCompletionsReachTheGuestInSubmissionOrder() {
+    var order = VirtioGPUOrderedCompletions<String>()
+    let render = order.reserve()
+    let flush = order.reserve()
+    let cursor = order.reserve()
+    // The control-context flush retires before the 3D work it follows.
+    #expect(order.complete(flush, with: "flush") == [])
+    #expect(order.complete(cursor, with: "cursor") == [])
+    #expect(order.complete(render, with: "render") == ["render", "flush", "cursor"])
+    #expect(order.count == 0)
+
+    let next = order.reserve()
+    #expect(order.complete(next, with: "next") == ["next"])
+    #expect(order.complete(next, with: "again") == nil)
+    #expect(order.complete(999, with: "unknown") == nil)
+}

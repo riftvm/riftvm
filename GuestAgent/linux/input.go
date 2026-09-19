@@ -54,7 +54,7 @@ func decodeInputBatch(payload []byte) ([]inputEvent, error) {
 				return nil, errors.New("invalid key event")
 			}
 		case 2: // EV_REL
-			if (event.Code != 0 && event.Code != 1 && event.Code != 8) || event.Value < -32767 || event.Value > 32767 {
+			if (event.Code != 0 && event.Code != 1 && event.Code != 6 && event.Code != 8) || event.Value < -32767 || event.Value > 32767 {
 				return nil, errors.New("invalid relative pointer event")
 			}
 		case 3: // EV_ABS
@@ -69,6 +69,43 @@ func decodeInputBatch(payload []byte) ([]inputEvent, error) {
 		}
 	}
 	return batch.Events, nil
+}
+
+// inputTarget is the uinput device one synchronized report is written to.
+type inputTarget int
+
+const (
+	targetKeyboard inputTarget = iota
+	targetAbsolute
+	targetRelative
+)
+
+// inputReportTarget picks the device for one SYN_REPORT-terminated report.
+// Motion decides by its own type. A report of mouse buttons alone follows the
+// pointer device that last carried motion, so a click lands on the device the
+// compositor is actually reading: the tablet in absolute mode, the relative
+// pointer while it is captured. moves reports whether the report is pointer
+// motion, which is what updates that choice; a wheel report is not.
+func inputReportTarget(report []inputEvent, lastPointer inputTarget) (target inputTarget, moves bool) {
+	hasButton := false
+	for _, event := range report {
+		switch {
+		case event.Type == 3:
+			return targetAbsolute, true
+		case event.Type == 2:
+			moves = moves || event.Code == 0 || event.Code == 1
+			target = targetRelative
+		case event.Type == 1 && event.Code >= 272 && event.Code <= 274:
+			hasButton = true
+		}
+	}
+	if target == targetRelative {
+		return targetRelative, moves
+	}
+	if hasButton {
+		return lastPointer, false
+	}
+	return targetKeyboard, false
 }
 
 func handleInput(device guestInput, payload []byte) inputResult {

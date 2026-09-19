@@ -16,6 +16,7 @@ verified factory image and requires **macOS 27 or later and Apple silicon**.
 
 ## Engineering references
 
+- [V1 release checklist](V1_RELEASE_CHECKLIST.md): the real-guest display, cursor, input and graphics pass every release needs.
 - [Stability acceptance](STABILITY_TESTING.md): isolated test harness, production exclusion, and evidence requirements.
 - [P0 validation](P0_VALIDATION.md): observed results and remaining physical checks.
 - [Guest Agent protocol](GUEST_AGENT_PROTOCOL.md): authentication, messages, and guest integration.

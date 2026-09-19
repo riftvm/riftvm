@@ -19,8 +19,11 @@ enum RiftVMLog {
     static let graphics = Logger(subsystem: "com.riftvm.app", category: "graphics")
     static let input = Logger(subsystem: "com.riftvm.app", category: "input")
 
+    /// Notice, not info: macOS keeps info messages only in memory, so the
+    /// display, cursor and input decisions were gone by the time anyone looked
+    /// at a report. Notice messages are written to the persistent log.
     static func info(_ message: String, logger: Logger = lifecycle) {
-        logger.info("\(message, privacy: .public)")
+        logger.notice("\(message, privacy: .public)")
     }
 
     static func error(_ message: String, logger: Logger = lifecycle) {
@@ -74,7 +77,8 @@ enum RiftVMDiagnostics {
         }
         sections.append("\n# Recent RiftVM logs")
         if let store = try? OSLogStore(scope: .currentProcessIdentifier) {
-            let position = store.position(date: Date().addingTimeInterval(-3600))
+            // A session runs for hours; the problem is rarely in its last one.
+            let position = store.position(date: Date().addingTimeInterval(-12 * 3600))
             if let entries = try? store.getEntries(at: position) {
                 for case let entry as OSLogEntryLog in entries where entry.subsystem == "com.riftvm.app" {
                     let message = VMDiagnosticSanitizer.sanitizedLogMessage(

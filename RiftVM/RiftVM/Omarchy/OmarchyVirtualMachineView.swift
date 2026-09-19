@@ -58,6 +58,11 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
     var commandEventHandler: ((NSEvent) -> Bool)?
     private var guestInputEventHandler: (([VMGuestAgentInputEvent]) -> Void)?
     private var guestPressedKeys = Set<UInt16>()
+    /// Mac key codes pressed through the Virtualization.framework keyboard,
+    /// because the Agent was unavailable or the key has no Linux mapping. Their
+    /// release goes to the same keyboard, or the guest keeps them held and
+    /// auto-repeating.
+    private var nativePressedKeys = Set<UInt16>()
     private var diagnosticMonitor: Any?
     private var diagnosticViewEvents = 0
     private var diagnosticWindowEvents = 0
@@ -246,7 +251,7 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
                 return
             }
             guard let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) else {
-                super.keyDown(with: event)
+                nativeKeyDown(event)
                 return
             }
             if !event.isARepeat, guestPressedKeys.insert(code).inserted {
@@ -267,12 +272,21 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
             }
             return
         }
+        nativeKeyDown(event)
+    }
+
+    private func nativeKeyDown(_ event: NSEvent) {
+        if !event.isARepeat { nativePressedKeys.insert(event.keyCode) }
         super.keyDown(with: event)
     }
 
     override func keyUp(with event: NSEvent) {
         recordInputDelivery(event, route: "view")
         recordAcceptanceRoute("keyUp", event: event)
+        if nativePressedKeys.remove(event.keyCode) != nil {
+            super.keyUp(with: event)
+            return
+        }
         if commandEventHandler?(event) == true { return }
         if let guestInputEventHandler,
            let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) {
@@ -295,6 +309,18 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
             return
         }
         if let guestInputEventHandler {
+            // macOS reports Caps Lock as a latched state that flips once per
+            // press. Omarchy maps the key to Compose, so each press has to be a
+            // whole press and release; following the latch sent only a press on
+            // one stroke and only a release on the next.
+            if event.keyCode == Self.capsLockKeyCode,
+               let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) {
+                guestInputEventHandler(
+                    VMGuestAgentInputBatch.key(code: code, pressed: true).events
+                    + VMGuestAgentInputBatch.key(code: code, pressed: false).events
+                )
+                return
+            }
             if let code = VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode),
                let pressed = VMGuestAgentKeyboard.modifierPressed(
                    forMacVirtualKey: event.keyCode,
@@ -310,6 +336,8 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
         }
         super.flagsChanged(with: event)
     }
+
+    private static let capsLockKeyCode: UInt16 = 57
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         recordAcceptanceRoute("performKeyEquivalent", event: event)
@@ -759,6 +787,13 @@ struct OmarchyVirtualMachineView: View {
             Button("Snapshots…", systemImage: "camera.on.rectangle") { showsSnapshots = true }
             Button("Show in Finder", systemImage: "folder") {
                 NSWorkspace.shared.activateFileViewerSelecting([workspace.bundleURL])
+            }
+            Button("Save Diagnostics…", systemImage: "doc.text.magnifyingglass") {
+                // The graphics, cursor and input decisions of this session, for a
+                // bug report. Cancelling the panel is not an error.
+                if let url = try? RiftVMDiagnostics.export() {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
             }
             Divider()
             Button("Remove Omarchy…", systemImage: "trash", role: .destructive) {
@@ -1815,12 +1850,11 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 throw VMOSError.regularFailure("Omarchy is already running or its settings are being changed.")
             }
             _ = try metadata.get()
-            // Boot straight into the mode the session will keep. The guest starts
-            // on this scanout, and the host publishes the same size once the
-            // desktop is up, so the display never changes mode while the session
-            // runs: a mode change rebuilds every output, which is what flickers
-            // the desktop and leaves its background layer without a committed
-            // buffer.
+            // Boot straight into the mode the session will keep: the screen the
+            // window opens full screen on. The host never publishes another mode
+            // while the session runs, because a mode change rebuilds every guest
+            // output, which is what flickers the desktop and leaves its
+            // background layer without a committed buffer.
             let canvas = VMDisplayGeometry.guestResolution(
                 for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
             )
