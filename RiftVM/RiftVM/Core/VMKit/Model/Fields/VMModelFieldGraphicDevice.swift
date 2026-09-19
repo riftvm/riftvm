@@ -854,7 +854,22 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     }
 
     func updateCursor(_ update: RiftVMVirGLRuntime.CursorUpdate) {
-        guard presentationLifecycle.tokenForPresentation() != nil else { return }
+        guard presentationLifecycle.tokenForPresentation() != nil else {
+            RiftVMLog.info("VirGL cursor update dropped: presentation is not running", logger: RiftVMLog.graphics)
+            return
+        }
+        guard !update.isReset else {
+            // Firmware handing over to the kernel resets the device. That says
+            // nothing about the guest's cursor; treating it as "hidden" blanked
+            // the macOS cursor for a guest that then painted its own.
+            guestCursor.reset()
+            guestCursorImage = nil
+            hostGuestCursor = nil
+            cursorLayer.contents = nil
+            updateCursorLayerVisibility()
+            applyHostCursor()
+            return
+        }
         cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
         let before = guestCursor
         if update.replacesImage {

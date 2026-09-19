@@ -223,6 +223,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         ProcessInfo.processInfo.environment["RIFTVM_VIRGL_DIAGNOSTICS"] == "1"
     }
 
+    /// Cursor-plane decisions are rare and explain every cursor bug report, so
+    /// they go to the persistent log, bounded to the first few and every 500th.
+    private var cursorLogCount = 0
+    private func cursorLog(_ message: String) {
+        cursorLogCount += 1
+        guard cursorLogCount <= 20 || cursorLogCount.isMultiple(of: 500) else { return }
+        logger.notice("\(message, privacy: .public)")
+    }
+
     private func log(_ message: String, error: Bool = false) {
         if error {
             logger.error("\(message, privacy: .public)")
@@ -345,7 +354,12 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         cursorPosition = VirtioGPU.CursorPosition(scanoutID: 0, x: 0, y: 0)
         borrowedScanoutResources.removeAll()
         assertedDisplayEventGeneration = nil
-        publishCursor(image: nil, hotX: 0, hotY: 0)
+        Task { @MainActor [onCursor] in
+            onCursor(.init(
+                image: nil, x: 0, y: 0, hotX: 0, hotY: 0,
+                replacesImage: true, isVisible: false, isReset: true
+            ))
+        }
         print("[stage6] released custom Virtio GPU state for \(reason)")
     }
 
@@ -1000,11 +1014,17 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         cursorPosition = update.position
         guard update.resourceID != 0 else {
+            cursorLog("UPDATE_CURSOR hide")
             cursorResourceID = nil
             publishCursor(image: nil, hotX: update.hotX, hotY: update.hotY)
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
         guard var resource = resources[update.resourceID], !resource.backing.isEmpty else {
+            log(
+                "UPDATE_CURSOR rejected resource=\(update.resourceID): "
+                    + (resources[update.resourceID] == nil ? "unknown resource" : "no guest backing"),
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorInvalidResourceID, request: header)
         }
         guard VirtioGPU.cursorResourceIsSupported(
@@ -1020,6 +1040,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard update.hotX < UInt32(resource.width), update.hotY < UInt32(resource.height) else {
+            log("UPDATE_CURSOR rejected resource=\(resource.id): hotspot outside the image", error: true)
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         if resource.isRendererResource, let backing = resource.virglBacking {
@@ -1033,6 +1054,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 box: box, offset: 0, backing: backing.iovecs,
                 count: backing.entries.count, toHost: false
             ) else {
+                log("UPDATE_CURSOR rejected resource=\(resource.id): renderer readback failed", error: true)
                 return VirtioGPU.responseHeader(.errorUnspecified, request: header)
             }
         }
@@ -1042,17 +1064,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         copyBackingToPixels(&resource)
         resources[resource.id] = resource
         guard let image = makeImage(resource, preservesAlpha: true) else {
+            log("UPDATE_CURSOR rejected resource=\(resource.id): no image", error: true)
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         cursorResourceID = resource.id
         cursorUpdateCount += 1
-        if cursorUpdateCount <= 5 || cursorUpdateCount.isMultiple(of: 500) {
-            print(
-                "[stage5] cursor update \(cursorUpdateCount): resource=\(resource.id), "
-                    + "\(resource.width)x\(resource.height), position="
-                    + "\(update.position.x),\(update.position.y), hotspot=\(update.hotX),\(update.hotY)"
-            )
-        }
+        cursorLog(
+            "UPDATE_CURSOR \(cursorUpdateCount): resource=\(resource.id) "
+                + "\(resource.width)x\(resource.height) hotspot=\(update.hotX),\(update.hotY)"
+        )
         publishCursor(image: image, hotX: update.hotX, hotY: update.hotY)
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -1068,10 +1088,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let isVisible = cursorResourceID != nil
         cursorMoveCount += 1
         if cursorMoveCount <= 5 || cursorMoveCount.isMultiple(of: 1_000) {
-            print(
-                "[stage5] cursor move \(cursorMoveCount): "
-                    + "position=\(position.x),\(position.y), visible=\(isVisible)"
-            )
+            cursorLog("MOVE_CURSOR \(cursorMoveCount): visible=\(isVisible)")
         }
         Task { @MainActor [onCursor] in
             onCursor(.init(
