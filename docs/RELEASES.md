@@ -121,6 +121,62 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.3.2
+
+RiftVM 0.3.2 fixes web pages that use WebGL, such as YouTube, and the missing
+wallpaper on a new machine's first login.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **YouTube and other WebGL pages work in Chromium.** Pages drew without their
+  icons and never finished loading, and after a restart the whole browser window
+  could stay black. An antialiased WebGL canvas asks for multisample textures.
+  RiftVM's renderer runs on Metal through ANGLE and cannot create them, and it
+  used to reject them and stop the browser's entire GPU context. It now creates
+  them single-sampled, so the page renders and loses only its antialiasing.
+- **The wallpaper appears on the first login.** A new machine could start with
+  its status bar but a plain background until the next boot. The display watcher
+  in factory
+  [v4.0.3-riftvm.11](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.11)
+  now notices a blank desktop and has the Omarchy shell repaint the current
+  wallpaper once, without restarting anything.
+
+### Validation
+
+- **YouTube and WebGL:** checked on a real Omarchy guest with the rebuilt
+  renderer, using the Chromium profile that had turned black.
+  - YouTube loaded with its logo and navigation icons, and a video played.
+  - WebGL and WebGL2 created contexts, compiled shaders, drew and read back the
+    expected colour in about 60 ms.
+  - The host logged no rejected textures or failed contexts. Before the fix,
+    every WebGL canvas produced a burst of them.
+- **Wallpaper repaint:** on a machine that reproduced the bare first login,
+  sending the watcher's repaint request brought the wallpaper back at once.
+- **Fresh `.11` machine:** the wallpaper was present on first login.
+  - The pointer was one cursor from the cursor plane: hidden while typing, back
+    on the first mouse movement.
+
+Not claimed: antialiasing in WebGL (it is off by design on this renderer),
+hardware video decoding, and long browser sessions.
+
+### Upgrading an existing Omarchy machine
+
+The browser fix is in the app; update RiftVM and it applies at once. The
+wallpaper fix is in the guest: new machines get it from factory `.11`, and
+existing ones can install the `.11` integration package, see
+[Updates and recovery](UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest).
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.3.1
 
 <!-- draft: generated from commits; replace with user-facing wording if the change needs it -->
