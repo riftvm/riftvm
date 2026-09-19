@@ -132,10 +132,14 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 cpuCount: context.configData.cpuCount,
                 memoryBytes: context.configData.memorySize
             ))
+            let sharedFolder = context.formData.sharedFolderPath.isEmpty
+                ? VMOmarchySharedFolderStore.defaultFolder(forBundle: layout.applicationSupportRoot)
+                : URL(filePath: context.formData.sharedFolderPath, directoryHint: .isDirectory)
             try manager.prepare(
                 factoryDisk: factory.diskURL,
                 configuration: metadata,
-                machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
+                machineIdentifier: VZGenericMachineIdentifier().dataRepresentation,
+                sharedFolders: VMOmarchySharedFolderSettings(folders: [VMOmarchySharedFolder(path: sharedFolder)])
             )
             context.formData.changeProgress(1)
             context.formData.addLog("Omarchy is ready")

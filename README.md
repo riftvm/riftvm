@@ -57,7 +57,7 @@ the guest's mode.
 - Starts, pauses, resumes, and stops Omarchy from its window or the menu bar
 - Reuses the verified image and gives the machine its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, text and image clipboard exchange, and notifications through an authenticated guest agent
-- Exchanges files through **Open Shared Folder** and **Import Files**; Omarchy sees its private exchange folder at `/mnt/riftvm-shared`
+- Shares Mac folders with Omarchy: `~/riftvm-shared` by default, chosen on the Prepare screen, and more from **Shared Folders…**, each read-write or read-only. Omarchy sees each one under `/mnt/riftvm-shared/<name>` from its next start; **Open Shared Folder** and **Import Files** use the first writable one
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
   guest's outputs, and opens full screen while the guest runs
@@ -65,6 +65,18 @@ the guest's mode.
   import/export
 - Keeps Omarchy in the hidden `~/.riftvm` folder by default, with removal and
   snapshots inside the one window
+
+### Keyboard and pointer
+
+While Omarchy's window has focus, Command acts as Omarchy's Super key, so
+Omarchy shortcuts such as Command-Return (terminal), Command-Space (menu),
+Command-1…5 (workspaces) and Command-W (close window) work as documented by
+Omarchy, and macOS shortcuts such as Command-Tab and Command-Space do not
+leave the window. Press **Control-Option** to free the pointer, then use the
+Dock or the menu bar (move to the top of the screen) to switch apps or reach
+RiftVM's toolbar. Click the desktop to hand the pointer back to Omarchy.
+Command-C and Command-V copy and paste inside Omarchy, and the clipboard is
+shared with the Mac.
 
 ### Update and recover Omarchy
 
@@ -89,7 +101,7 @@ a newer factory does not replace your guest disk. See [Updates and recovery](doc
 - Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported machine.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
 - Omarchy runs Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
-- Omarchy shares only its managed exchange folder by default. Other host folders are not exposed automatically. A guest with read-write access to a deliberately shared folder can change its contents.
+- Omarchy sees only the folders you share, `~/riftvm-shared` by default. Anything Omarchy can write, it can change or delete, so share other folders read-only unless you mean to edit them from Linux. A machine created before 0.4.0 shows only its first folder, at `/mnt/riftvm-shared`, until you install the [integration update](docs/UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest).
 - Chinese input methods are installed and configured inside Omarchy by the user; Mac input-method passthrough is not provided. See [Chinese input](docs/OMARCHY_INPUT.md).
 
 For setup, display, input, and signing problems, see the

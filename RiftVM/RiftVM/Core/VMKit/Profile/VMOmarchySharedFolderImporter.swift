@@ -27,19 +27,22 @@ public enum VMOmarchySharedFolderImportError: Error, Equatable, LocalizedError {
     }
 }
 
-/// Copies user-selected files into the product-owned VirtioFS directory.
-/// Publication is atomic and never replaces an existing item.
+/// Copies user-selected files into a shared folder. Publication is atomic and
+/// never replaces an existing item.
 public struct VMOmarchySharedFolderImporter {
     public let layout: VMOmarchyWorkspaceLayout
+    /// The folder files are copied into; `layout.shared` unless given.
+    public let destination: URL
     private let fileManager: FileManager
 
-    public init(layout: VMOmarchyWorkspaceLayout, fileManager: FileManager = .default) {
+    public init(layout: VMOmarchyWorkspaceLayout, destination: URL? = nil, fileManager: FileManager = .default) {
         self.layout = layout
+        self.destination = destination ?? layout.shared
         self.fileManager = fileManager
     }
 
     public func importFiles(_ sources: [URL]) throws -> [VMOmarchyImportedFile] {
-        guard directoryIsSafe(layout.applicationSupportRoot), directoryIsSafe(layout.shared) else {
+        guard directoryIsSafe(layout.applicationSupportRoot), directoryIsSafe(destination) else {
             throw VMOmarchySharedFolderImportError.sharedFolderUnavailable
         }
         var imported: [VMOmarchyImportedFile] = []
@@ -47,14 +50,14 @@ public struct VMOmarchySharedFolderImporter {
             guard regularFileIsSafe(source) else {
                 throw VMOmarchySharedFolderImportError.unsupportedSource(source.lastPathComponent)
             }
-            let destination = uniqueDestination(for: source.lastPathComponent)
-            let staging = layout.shared.appending(path: ".importing.\(UUID().uuidString)")
+            let target = uniqueDestination(for: source.lastPathComponent)
+            let staging = destination.appending(path: ".importing.\(UUID().uuidString)")
             do {
                 try fileManager.copyItem(at: source, to: staging)
-                try fileManager.moveItem(at: staging, to: destination)
+                try fileManager.moveItem(at: staging, to: target)
                 imported.append(VMOmarchyImportedFile(
                     sourceName: source.lastPathComponent,
-                    destinationURL: destination
+                    destinationURL: target
                 ))
             } catch {
                 try? fileManager.removeItem(at: staging)
@@ -68,11 +71,11 @@ public struct VMOmarchySharedFolderImporter {
         let source = URL(fileURLWithPath: fileName)
         let stem = source.deletingPathExtension().lastPathComponent
         let fileExtension = source.pathExtension
-        var candidate = layout.shared.appending(path: fileName)
+        var candidate = destination.appending(path: fileName)
         var copyNumber = 2
         while fileManager.fileExists(atPath: candidate.path) {
             let suffix = "\(stem) copy \(copyNumber)"
-            candidate = layout.shared.appending(
+            candidate = destination.appending(
                 path: fileExtension.isEmpty ? suffix : "\(suffix).\(fileExtension)"
             )
             copyNumber += 1
