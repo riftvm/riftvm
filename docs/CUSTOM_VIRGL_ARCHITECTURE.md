@@ -59,7 +59,16 @@ the Host does not override an explicit continuous-rendering preference. Updating
 only the Host does not remove overrides in an existing Guest. See the demand
 rendering validation report for component requirements and measured scope.
 
-### Dynamic display
+### Display mode
+
+Omarchy boots in the mode it keeps for the whole session: the logical size of
+the screen it opens on. The host never raises the display event on its own, not
+for a window resize, full screen, or a Guest Agent reconnect, because Hyprland
+answers every display event by rebuilding its outputs, and that rebuild is what
+left the wallpaper layer without a committed buffer. The window scales the
+scanout instead. Only an explicit user request (the general-VM **Fit Display to
+Window** command) publishes a new mode through the handshake below.
+
 
 ```text
 window/full-screen size settles

@@ -1815,12 +1815,11 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 throw VMOSError.regularFailure("Omarchy is already running or its settings are being changed.")
             }
             _ = try metadata.get()
-            // Boot straight into the mode the session will keep. The guest starts
-            // on this scanout, and the host publishes the same size once the
-            // desktop is up, so the display never changes mode while the session
-            // runs: a mode change rebuilds every output, which is what flickers
-            // the desktop and leaves its background layer without a committed
-            // buffer.
+            // Boot straight into the mode the session will keep: the screen the
+            // window opens full screen on. The host never publishes another mode
+            // while the session runs, because a mode change rebuilds every guest
+            // output, which is what flickers the desktop and leaves its
+            // background layer without a committed buffer.
             let canvas = VMDisplayGeometry.guestResolution(
                 for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
             )

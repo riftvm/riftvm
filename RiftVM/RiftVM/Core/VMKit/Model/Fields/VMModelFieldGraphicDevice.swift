@@ -1133,26 +1133,16 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private let virglView: VMVirGLDisplayView
     private var runtime: RiftVMVirGLRuntime?
     let deviceConfigurations: [VZCustomVirtioDeviceConfiguration]
-    private var requestedResolution: (width: UInt32, height: UInt32)?
-    private var pendingDisplayRequest: DispatchWorkItem?
-    private var dynamicDisplayReady = false
-    /// The size the window has to hold before it becomes a DRM mode, and the
-    /// bookkeeping that keeps a burst of samples or an alternating host from
-    /// turning into a burst of guest output rebuilds.
-    private var stableDisplayFrame: CGSize?
-    private var stableDisplayCandidate: (width: UInt32, height: UInt32)?
-    private var stableDisplayCandidateSince: TimeInterval = 0
-    private var publishedDisplayModes: [(width: UInt32, height: UInt32, at: TimeInterval)] = []
-    /// Set when the user asked for the window's size explicitly; cleared when the
-    /// window goes full screen or the user asks for the screen canvas again.
-    private var displayCanvasOverride: CGSize?
-    private static let displayStabilityWindow: TimeInterval = 2.0
-    private static let displayPublishWindow: TimeInterval = 30
-    private static let displayPublishLimit = 6
-    private static let displayHoldWindow: TimeInterval = 10
-    private let dynamicDisplayEnabled = ProcessInfo.processInfo.environment[
-        "RIFTVM_DISABLE_DYNAMIC_VIRGL_DISPLAY"
-    ] != "1"
+    /// The mode the guest runs. It is the mode the device was created with and it
+    /// stays for the whole session; only an explicit user request changes it.
+    ///
+    /// Every mode change raises a virtio-gpu display event, and Hyprland answers
+    /// one by rebuilding its outputs, even when the size is unchanged. That rebuild
+    /// is what flickers the desktop and leaves Omarchy's wallpaper layer without a
+    /// committed buffer, so nothing here changes the mode on its own: not a window
+    /// resize, not full screen, and not the Guest Agent reconnecting.
+    private var requestedResolution: (width: UInt32, height: UInt32)
+    private let sessionResolution: (width: UInt32, height: UInt32)
 
     init(devices: [VMModelFieldGraphicDevice], displayView: VMVirGLDisplayView? = nil) throws {
         let device = devices.first ?? .default(osType: .linux)
@@ -1202,6 +1192,7 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         self.runtime = runtime
         self.deviceConfigurations = deviceConfigurations
         requestedResolution = initialResolution
+        sessionResolution = initialResolution
         view.runtime = runtime
     }
 
@@ -1218,186 +1209,45 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.virtualMachine = virtualMachine
     }
 
+    /// The window moved, resized, or changed screens. The guest keeps its mode and
+    /// the host scales the scanout into the new bounds.
     func refreshDisplayConfiguration() {
-        guard dynamicDisplayEnabled else {
-            let size = virglView.bounds.size
-            RiftVMLog.info(
-                "VirGL stable-canvas scaling: logical=\(Int(size.width))x\(Int(size.height))",
-                logger: RiftVMLog.graphics
-            )
-            return
-        }
-        // A Linux text console can acknowledge a new virtio-gpu mode and then
-        // immediately replace it with its 800x600 fbcon fallback. Omarchy's
-        // first-boot form runs on that console, before Hyprland and its display
-        // watcher exist. Keep the persisted 1280x720 boot mode until the Guest
-        // Agent reports a real desktop session; otherwise the setup UI becomes
-        // cropped even though host-side mode negotiation succeeded.
-        guard dynamicDisplayReady else { return }
-        pendingDisplayRequest?.cancel()
-        scheduleDisplaySample(after: 0.35)
-    }
-
-    /// A resize, a full-screen transition, and the macOS toolbar or safe area
-    /// moving all expose a burst of different view sizes, and every size that
-    /// reaches DRM makes the guest destroy and rebuild its outputs: a burst of
-    /// samples becomes a burst of flashes. Sample the window rather than the
-    /// display view, let the size hold still before it becomes a mode, and keep
-    /// a candidate off DRM while the window is still moving.
-    private func scheduleDisplaySample(after delay: TimeInterval) {
-        let request = DispatchWorkItem { [weak self] in self?.sampleStableDisplaySize() }
-        pendingDisplayRequest = request
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: request)
-    }
-
-    /// One mode for the whole session: the screen the window is on. A window
-    /// resize, an auto-hidden full-screen toolbar, or entering full screen then
-    /// costs host-side scaling only, and the guest never rebuilds its outputs —
-    /// which is what flickers the desktop and leaves its background layer without
-    /// a committed buffer.
-    private func displayCanvasSize() -> CGSize {
-        if let override = displayCanvasOverride { return override }
-        if let screen = virglView.window?.screen, screen.frame.width > 0, screen.frame.height > 0 {
-            return screen.frame.size
-        }
-        return virglView.bounds.size
+        let size = virglView.bounds.size
+        RiftVMLog.info(
+            "VirGL display kept: guest=\(requestedResolution.width)x\(requestedResolution.height)"
+                + " view=\(Int(size.width))x\(Int(size.height))",
+            logger: RiftVMLog.graphics
+        )
     }
 
     /// An explicit request from the user: take the window's current size as the
-    /// guest's mode now, and keep it until the window goes full screen or the user
-    /// asks for the screen canvas again.
+    /// guest's mode now.
     func matchDisplayToWindow() {
-        pendingDisplayRequest?.cancel()
-        pendingDisplayRequest = nil
         let size = virglView.bounds.size
         guard size.width >= 1, size.height >= 1 else { return }
-        displayCanvasOverride = size
-        stableDisplayFrame = nil
-        stableDisplayCandidate = nil
-        publishDisplaySize(
-            candidate: VMDisplayGeometry.guestResolution(for: size),
-            sampled: size,
-            frame: virglView.window?.frame.size ?? size,
-            forcing: true
-        )
+        publishDisplaySize(VMDisplayGeometry.guestResolution(for: size))
     }
 
+    /// An explicit request from the user: return to the mode the session started
+    /// with.
     func useScreenCanvas() {
-        displayCanvasOverride = nil
-        refreshDisplayConfiguration()
+        publishDisplaySize(sessionResolution)
     }
 
-    private func sampleStableDisplaySize() {
-        // Full screen is the native-size case, so it always uses the screen.
-        if virglView.window?.styleMask.contains(.fullScreen) == true {
-            displayCanvasOverride = nil
-        }
-        let frame = virglView.window?.frame.size ?? virglView.bounds.size
-        let canvas = displayCanvasSize()
-        let candidate = VMDisplayGeometry.guestResolution(for: canvas)
-        let now = Date().timeIntervalSinceReferenceDate
-        if let heldFrame = stableDisplayFrame,
-           let heldCandidate = stableDisplayCandidate,
-           isSameSize(heldFrame, frame),
-           VMDisplayGeometry.isSameResolution(heldCandidate, candidate) {
-            let held = now - stableDisplayCandidateSince
-            guard held >= Self.displayStabilityWindow else {
-                scheduleDisplaySample(after: Self.displayStabilityWindow - held)
-                return
-            }
-        } else {
-            stableDisplayFrame = frame
-            stableDisplayCandidate = candidate
-            stableDisplayCandidateSince = now
-            scheduleDisplaySample(after: Self.displayStabilityWindow)
-            return
-        }
-        stableDisplayFrame = nil
-        stableDisplayCandidate = nil
-        publishDisplaySize(candidate: candidate, sampled: canvas, frame: frame)
-    }
-
-    private func isSameSize(_ lhs: CGSize, _ rhs: CGSize, tolerance: CGFloat = 1) -> Bool {
-        abs(lhs.width - rhs.width) <= tolerance && abs(lhs.height - rhs.height) <= tolerance
-    }
-
-    private func publishDisplaySize(
-        candidate: (width: UInt32, height: UInt32),
-        sampled: CGSize,
-        frame: CGSize,
-        forcing: Bool = false
-    ) {
-        let resolution = VMDisplayGeometry.stabilizedResolution(
-            candidate: candidate,
-            current: requestedResolution ?? candidate
-        )
-        let now = Date().timeIntervalSinceReferenceDate
-        publishedDisplayModes.removeAll { now - $0.at > Self.displayPublishWindow }
+    private func publishDisplaySize(_ resolution: (width: UInt32, height: UInt32)) {
+        guard requestedResolution != resolution else { return }
         RiftVMLog.info(
-            "VirGL display sample: canvas=\(Int(sampled.width))x\(Int(sampled.height))"
-                + " frame=\(Int(frame.width))x\(Int(frame.height))"
-                + " candidate=\(candidate.width)x\(candidate.height)"
-                + " guest=\(resolution.width)x\(resolution.height)"
-                + " recentModes=\(publishedDisplayModes.count)",
+            "VirGL display mode requested by the user: \(requestedResolution.width)x\(requestedResolution.height)"
+                + " -> \(resolution.width)x\(resolution.height)",
             logger: RiftVMLog.graphics
         )
-        guard requestedResolution?.width != resolution.width
-                || requestedResolution?.height != resolution.height else { return }
-
-        // A↔B flapping is the case that makes the desktop unusable: the host
-        // keeps offering the two sizes, and the guest switches outputs for each
-        // step. Hold the current mode instead of following it. An explicit
-        // request from the user skips both guards.
-        if forcing {
-            publishedDisplayModes.removeAll()
-        }
-        if !forcing, let previous = publishedDisplayModes.dropLast().last,
-           previous.width == resolution.width,
-           previous.height == resolution.height {
-            RiftVMLog.info(
-                "VirGL display request held: \(resolution.width)x\(resolution.height) was the"
-                    + " previous mode \(Int(now - previous.at))s ago; the host is alternating",
-                logger: RiftVMLog.graphics
-            )
-            holdDisplayPublishing(candidate: candidate, now: now)
-            return
-        }
-        guard forcing || publishedDisplayModes.count < Self.displayPublishLimit else {
-            RiftVMLog.info(
-                "VirGL display request held: \(publishedDisplayModes.count) modes in"
-                    + " \(Int(Self.displayPublishWindow))s",
-                logger: RiftVMLog.graphics
-            )
-            holdDisplayPublishing(candidate: candidate, now: now)
-            return
-        }
-        publishedDisplayModes.append((width: resolution.width, height: resolution.height, at: now))
         requestedResolution = resolution
         runtime?.requestDisplaySize(width: resolution.width, height: resolution.height)
     }
 
-    /// Re-offer the size once the hold expires, so a genuine resize is applied
-    /// after a burst instead of being dropped.
-    private func holdDisplayPublishing(
-        candidate: (width: UInt32, height: UInt32),
-        now: TimeInterval
-    ) {
-        stableDisplayCandidate = candidate
-        stableDisplayCandidateSince = now
-        scheduleDisplaySample(after: Self.displayHoldWindow)
-    }
-
-    func setDynamicDisplayReady(_ ready: Bool) {
-        guard dynamicDisplayReady != ready else { return }
-        dynamicDisplayReady = ready
-        if ready {
-            requestedResolution = nil
-            refreshDisplayConfiguration()
-        } else {
-            pendingDisplayRequest?.cancel()
-            pendingDisplayRequest = nil
-        }
-    }
+    /// The guest desktop came up or went away. The mode was chosen before boot, so
+    /// there is nothing to publish; re-offering it would rebuild the guest outputs.
+    func setDynamicDisplayReady(_ ready: Bool) {}
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
         virglView.setGuestInputHandler(handler)
@@ -1422,8 +1272,6 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     }
 
     func shutdown() {
-        pendingDisplayRequest?.cancel()
-        pendingDisplayRequest = nil
         virglView.stopPresentation()
         virglView.virtualMachine = nil
         virglView.setGuestInputHandler(nil)

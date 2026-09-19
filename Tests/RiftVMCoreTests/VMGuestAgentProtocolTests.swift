@@ -82,41 +82,6 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         XCTAssertEqual(policy.delay(afterFailureCount: 50), 30)
     }
 
-    func testDisplayResolutionHysteresisIgnoresWindowChromeJitter() {
-        let current = (width: UInt32(1920), height: UInt32(1080))
-        let chromeCandidate = (width: UInt32(1968), height: UInt32(1080))
-        let stable = VMDisplayGeometry.stabilizedResolution(
-            candidate: chromeCandidate,
-            current: current
-        )
-        XCTAssertEqual(stable.width, 1920)
-        XCTAssertEqual(stable.height, 1080)
-
-        let portraitCandidate = (width: UInt32(1280), height: UInt32(1600))
-        let changed = VMDisplayGeometry.stabilizedResolution(
-            candidate: portraitCandidate,
-            current: current
-        )
-        XCTAssertEqual(changed.width, 1280)
-        XCTAssertEqual(changed.height, 1600)
-    }
-
-    func testResolutionSamenessAbsorbsLayoutJitterButNotADifferentMode() {
-        let held = (width: UInt32(1728), height: UInt32(1112))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1112)))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1116)))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1728, height: 1080)))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(held, (width: 1512, height: 1112)))
-        XCTAssertTrue(VMDisplayGeometry.isSameResolution(
-            (width: 0, height: 0),
-            (width: 0, height: 0)
-        ))
-        XCTAssertFalse(VMDisplayGeometry.isSameResolution(
-            (width: 0, height: 0),
-            (width: 1280, height: 720)
-        ))
-    }
-
     func testGuestResolutionUsesLogicalWindowSizeWhileMetalRetainsRetinaPixels() {
         let normal = VMDisplayGeometry.guestResolution(
             for: CGSize(width: 991.6, height: 707.8)

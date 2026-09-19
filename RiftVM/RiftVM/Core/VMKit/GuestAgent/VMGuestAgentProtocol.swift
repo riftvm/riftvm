@@ -17,37 +17,6 @@ struct VMGuestAgentRetryPolicy: Equatable {
 }
 
 enum VMDisplayGeometry {
-    static func stabilizedResolution(
-        candidate: (width: UInt32, height: UInt32),
-        current: (width: UInt32, height: UInt32),
-        tolerance: Double = 0.05
-    ) -> (width: UInt32, height: UInt32) {
-        guard current.width > 0, current.height > 0 else { return candidate }
-        let widthDelta = abs(Double(candidate.width) - Double(current.width)) / Double(current.width)
-        let heightDelta = abs(Double(candidate.height) - Double(current.height)) / Double(current.height)
-        // macOS window chrome and the full-screen safe area can change the
-        // sampled aspect ratio by a few percent. Treat those as presentation
-        // changes, not new DRM modes, so Hyprland does not tear down and race
-        // two VirGL triple-buffer sets during the transition.
-        return widthDelta <= tolerance && heightDelta <= tolerance ? current : candidate
-    }
-
-    /// Whether two advertised modes are the same mode. Sampling a window while
-    /// macOS lays it out repeats near-identical sizes, and the eight-pixel
-    /// rounding already absorbs the rest.
-    static func isSameResolution(
-        _ lhs: (width: UInt32, height: UInt32),
-        _ rhs: (width: UInt32, height: UInt32),
-        tolerance: Double = 0.01
-    ) -> Bool {
-        guard lhs.width > 0, lhs.height > 0, rhs.width > 0, rhs.height > 0 else {
-            return lhs.width == rhs.width && lhs.height == rhs.height
-        }
-        let widthDelta = abs(Double(lhs.width) - Double(rhs.width)) / Double(lhs.width)
-        let heightDelta = abs(Double(lhs.height) - Double(rhs.height)) / Double(lhs.height)
-        return widthDelta <= tolerance && heightDelta <= tolerance
-    }
-
     static func guestResolution(for size: CGSize) -> (width: UInt32, height: UInt32) {
         guard size.width.isFinite, size.height.isFinite,
               size.width > 0, size.height > 0 else { return (1280, 720) }
@@ -60,12 +29,9 @@ enum VMDisplayGeometry {
             // advertised mode and the real scanout during full-screen changes.
             return UInt32(Int(bounded) & ~7)
 		}
-		// Advertise the settled logical viewport, not Retina backing pixels and
-		// not a fixed 16:9 canvas.  This lets Hyprland lay out its desktop to the
-		// actual RiftVM content area in ordinary windows and full screen.  The
-		// backend coalesces live-resize/full-screen transitions and applies
-		// hysteresis before this mode reaches DRM, preventing the rapid mode
-		// churn that the former fixed canvas was introduced to avoid.
+		// Advertise the logical size, not Retina backing pixels. The session
+		// keeps this mode from boot to shutdown, so it is chosen once, before
+		// the guest starts.
 		let minimum = CGSize(width: 640, height: 360)
 		return (
 			dimension(max(minimum.width, size.width)),
