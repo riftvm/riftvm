@@ -90,6 +90,25 @@ are distinct quantities. The validated full-screen example was:
 bounds=1920x1080 guest=1920x1080 layer=1920x1080 drawable=3840x2160
 ```
 
+### Cursor
+
+Hyprland draws its pointer on virtio-gpu's cursor plane, so every
+`UPDATE_CURSOR` hands the host the exact image, hotspot and visibility the guest
+wants. `VMGuestCursorState` turns those facts into one decision, with no frame
+counting or timing:
+
+| Situation | Pointer shown |
+| --- | --- |
+| Absolute pointer, guest cursor visible | the guest image as the macOS cursor |
+| Absolute pointer, guest hid its cursor | none |
+| Letterbox, or the guest never used the plane (firmware, console) | the macOS arrow |
+| Captured relative pointer | macOS cursor hidden; guest image composited in a layer without implicit animation |
+
+The macOS cursor is always at the true position, so showing the guest's image
+through it gives the guest's shape with no input round trip and exactly one
+pointer. Cursor images are read back from the renderer and are premultiplied
+BGRA.
+
 ### Desktop input
 
 The macOS 27 Custom Virtio beta API does not expose the guest configuration

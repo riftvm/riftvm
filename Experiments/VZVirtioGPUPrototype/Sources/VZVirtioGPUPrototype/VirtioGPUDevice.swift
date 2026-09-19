@@ -1241,9 +1241,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     private func makeImage(_ resource: Resource, preservesAlpha: Bool = false) -> CGImage? {
         guard let provider = CGDataProvider(data: resource.pixels as CFData) else { return nil }
-        // Virtio cursor resources are B8G8R8A8 with straight alpha. Combined
-        // with byteOrder32Little, alphaFirst describes that in-memory layout.
-        let alphaInfo: CGImageAlphaInfo = preservesAlpha ? .first : .noneSkipFirst
+        // Virtio cursor resources are B8G8R8A8. DRM's ARGB8888, which the guest
+        // compositor renders its cursor into, is premultiplied; describing it as
+        // straight alpha darkens every antialiased edge. Combined with
+        // byteOrder32Little, premultipliedFirst is that in-memory layout.
+        let alphaInfo: CGImageAlphaInfo = preservesAlpha ? .premultipliedFirst : .noneSkipFirst
         return CGImage(
                 width: resource.width,
                 height: resource.height,
