@@ -35,6 +35,8 @@ class VMCreateViewStateObject {
     // phase
     var rootPath: String = ""
     var baseDirectory: String = ""
+    /// The Mac folder Omarchy shares first; empty means `~/riftvm-shared`.
+    var sharedFolderPath: String = ""
 
     var logs: [LogModel] = []
 

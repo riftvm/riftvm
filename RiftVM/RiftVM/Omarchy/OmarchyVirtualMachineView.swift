@@ -521,6 +521,11 @@ struct OmarchyVirtualMachineView: View {
     @State private var pendingRestore: VMOmarchyRecoveryPoint?
     @State private var factoryChannel: FactoryChannelViewState = .idle
     @State private var importingFiles = false
+    /// The Mac folders shared with Omarchy, loaded when the window appears.
+    @State private var sharedFolders: VMOmarchySharedFolderSettings?
+    /// How the running session lays them out in Omarchy.
+    @State private var sharePlan: VMOmarchySharePlan?
+    @State private var showsSharedFolders = false
     @State private var notice: UserNotice?
     @State private var graphicsIssue: String?
     @State private var acceptanceFailure: String?
@@ -602,7 +607,20 @@ struct OmarchyVirtualMachineView: View {
             stopTimeoutTask?.cancel()
             stopTimeoutTask = nil
         }
-        .onAppear { refreshRecoveryPoints() }
+        .onAppear {
+            refreshRecoveryPoints()
+            if sharedFolders == nil {
+                sharedFolders = VMOmarchySharedFolderStore.load(layout: layout)
+            }
+        }
+        .sheet(isPresented: $showsSharedFolders) {
+            OmarchySharedFoldersView(
+                settings: sharedFolders ?? VMOmarchySharedFolderStore.load(layout: layout),
+                plan: phase == .running ? sharePlan : nil,
+                machineRoot: layout.applicationSupportRoot,
+                save: saveSharedFolders
+            )
+        }
         .confirmationDialog(
             restoreConfirmationTitle,
             isPresented: restoreConfirmationPresented,
@@ -638,6 +656,7 @@ struct OmarchyVirtualMachineView: View {
                 notificationsEnabled: notificationsEnabled,
                 microphoneEnabled: microphoneEnabled,
                 hostOverlayVisible: ownerSetupAvailable || phase != .running,
+                sharedFolders: sharedFolders,
                 sessionID: sessionID,
                 keyboardIntegrationChanged: { keyboardIntegration = $0 },
                 integrationChanged: handleIntegrationChange,
@@ -654,7 +673,9 @@ struct OmarchyVirtualMachineView: View {
                 },
                 phaseChanged: handlePhaseChange,
                 acceptanceFailureChanged: { acceptanceFailure = $0 },
-                graphicsIssueChanged: { graphicsIssue = $0 }
+                graphicsIssueChanged: { graphicsIssue = $0 },
+                sharedFoldersChanged: { sharedFolders = $0 },
+                sharePlanChanged: { sharePlan = $0 }
             )
             .id(sessionID)
             
@@ -744,12 +765,18 @@ struct OmarchyVirtualMachineView: View {
             updatesMenu
             recoveryMenu
             Button("Open Shared Folder", systemImage: "folder") {
-                NSWorkspace.shared.open(layout.shared)
+                if let folder = sharedFolders?.primaryFolder {
+                    NSWorkspace.shared.open(folder.path)
+                }
+            }
+            .disabled(sharedFolders?.primaryFolder == nil)
+            Button("Shared Folders…", systemImage: "folder.badge.gearshape") {
+                showsSharedFolders = true
             }
             Button("Import Files", systemImage: "square.and.arrow.down") {
                 chooseFilesToImport()
             }
-            .disabled(importingFiles)
+            .disabled(importingFiles || sharedFolders?.primaryFolder == nil)
             if phase == .running {
                 Button("Pause Omarchy", systemImage: "pause.fill") {
                     handle(.pauseRequested)
@@ -1258,7 +1285,8 @@ struct OmarchyVirtualMachineView: View {
             let report = VMOmarchyDiagnostics().report(
                 layout: layout,
                 appVersion: appVersion,
-                integrationState: integration
+                integrationState: integration,
+                sharedDirectory: sharedFolders?.primaryFolder?.path
             )
             try report.encoded().write(to: destination, options: .atomic)
             notice = UserNotice(title: "Diagnostics Exported", message: destination.lastPathComponent)
@@ -1267,10 +1295,22 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
+    /// Saves the folder list and, while Omarchy runs, applies it at once.
+    private func saveSharedFolders(_ settings: VMOmarchySharedFolderSettings) {
+        do {
+            try VMOmarchySharedFolderStore.save(settings, layout: layout)
+            sharedFolders = settings
+        } catch {
+            notice = UserNotice(title: "Shared Folders Not Saved", message: error.localizedDescription)
+        }
+    }
+
     private func importFiles(_ urls: [URL]) {
         guard !urls.isEmpty, !importingFiles else { return }
         importingFiles = true
-        let importer = VMOmarchySharedFolderImporter(layout: layout)
+        guard let folder = sharedFolders?.primaryFolder else { return }
+        let guestPath = sharePlan?.guestPath(for: folder) ?? "the shared folder"
+        let importer = VMOmarchySharedFolderImporter(layout: layout, destination: folder.path)
         DispatchQueue.global(qos: .userInitiated).async {
             let scoped = urls.filter { $0.startAccessingSecurityScopedResource() }
             defer { scoped.forEach { $0.stopAccessingSecurityScopedResource() } }
@@ -1282,7 +1322,7 @@ struct OmarchyVirtualMachineView: View {
                     let names = files.map(\.destinationURL.lastPathComponent).joined(separator: ", ")
                     notice = UserNotice(
                         title: "Files Ready in Omarchy",
-                        message: "Imported \(files.count) file(s): \(names). Open /mnt/riftvm-shared in Omarchy."
+                        message: "Imported \(files.count) file(s): \(names). Open \(guestPath) in Omarchy."
                     )
                 case .failure(let error):
                     notice = UserNotice(title: "Import Failed", message: error.localizedDescription)
@@ -1802,6 +1842,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let notificationsEnabled: Bool
     let microphoneEnabled: Bool
     let hostOverlayVisible: Bool
+    let sharedFolders: VMOmarchySharedFolderSettings?
     let sessionID: UUID
     let keyboardIntegrationChanged: (OmarchyKeyboardIntegrationState) -> Void
     let integrationChanged: (VMOmarchyIntegrationState) -> Void
@@ -1814,6 +1855,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
     let acceptanceFailureChanged: (String) -> Void
     let graphicsIssueChanged: (String?) -> Void
+    let sharedFoldersChanged: (VMOmarchySharedFolderSettings) -> Void
+    let sharePlanChanged: (VMOmarchySharePlan) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -1831,7 +1874,9 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             ownerProvisioningProgressChanged: ownerProvisioningProgressChanged,
             phaseChanged: phaseChanged,
             acceptanceFailureChanged: acceptanceFailureChanged,
-            graphicsIssueChanged: graphicsIssueChanged
+            graphicsIssueChanged: graphicsIssueChanged,
+            sharedFoldersChanged: sharedFoldersChanged,
+            sharePlanChanged: sharePlanChanged
         )
     }
 
@@ -1865,11 +1910,15 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             context.coordinator.graphicsBackend = backend
             backend.setRuntimeIssueHandler(context.coordinator.graphicsIssueChanged)
             view.displayConfigurationChanged = { [weak coordinator = context.coordinator] in coordinator?.graphicsBackend?.refreshDisplayConfiguration() }
+            let sharedFolders = sharedFolders ?? VMOmarchySharedFolderStore.load(layout: layout)
+            VMOmarchySharedFolderStore.prepareFolders(sharedFolders)
+            context.coordinator.adoptSharedFolders(sharedFolders)
             let configuration = try VMOmarchyVirtualMachineBuilder.makeConfiguration(
                 layout: layout,
                 profile: profile,
                 customGraphicsDevices: (backend as? VMCustomVirGLGraphicsBackend)?.deviceConfigurations ?? [],
-                microphoneEnabled: microphoneEnabled
+                microphoneEnabled: microphoneEnabled,
+                sharePlan: context.coordinator.sharePlan
             )
             guard let lease = context.coordinator.runLease,
                   let assessment = VMRunningRegistry.shared.configureResources(lease,
@@ -1906,6 +1955,9 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         (nsView as? OmarchyVirtualMachineInputView)?.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.setClipboardEnabled(clipboardEnabled)
         context.coordinator.setNotificationsEnabled(notificationsEnabled)
+        if let sharedFolders {
+            context.coordinator.applySharedFolders(sharedFolders)
+        }
         if let ownerProvisioningSubmission {
             context.coordinator.submitOwnerProvisioning(ownerProvisioningSubmission)
         }
@@ -1936,6 +1988,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         private let reportPhase: (OmarchyVirtualMachineView.Phase) -> Void
         let acceptanceFailureChanged: (String) -> Void
         let graphicsIssueChanged: (String?) -> Void
+        let sharedFoldersChanged: (VMOmarchySharedFolderSettings) -> Void
+        let sharePlanChanged: (VMOmarchySharePlan) -> Void
+        private(set) var sharedFolders: VMOmarchySharedFolderSettings?
+        private(set) var sharePlan: VMOmarchySharePlan?
 
         func phaseChanged(_ phase: OmarchyVirtualMachineView.Phase) {
             if let lease = runLease {
@@ -1989,7 +2045,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                 layout: self.layout,
                                 profile: profile,
                                 customGraphicsDevices: (self.graphicsBackend as? VMCustomVirGLGraphicsBackend)?.deviceConfigurations ?? [],
-                                microphoneEnabled: microphoneEnabled
+                                microphoneEnabled: microphoneEnabled,
+                                sharePlan: self.sharePlan
                             )
                             let replacement = VZVirtualMachine(configuration: configuration)
                             replacement.delegate = self
@@ -2112,7 +2169,9 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             ownerProvisioningProgressChanged: @escaping (VMOmarchyOwnerProvisioningProgress) -> Void,
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void,
             acceptanceFailureChanged: @escaping (String) -> Void = { _ in },
-            graphicsIssueChanged: @escaping (String?) -> Void = { _ in }
+            graphicsIssueChanged: @escaping (String?) -> Void = { _ in },
+            sharedFoldersChanged: @escaping (VMOmarchySharedFolderSettings) -> Void = { _ in },
+            sharePlanChanged: @escaping (VMOmarchySharePlan) -> Void = { _ in }
         ) {
             self.sessionID = sessionID
             self.layout = layout
@@ -2129,6 +2188,55 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             self.reportPhase = phaseChanged
             self.acceptanceFailureChanged = acceptanceFailureChanged
             self.graphicsIssueChanged = graphicsIssueChanged
+            self.sharedFoldersChanged = sharedFoldersChanged
+            self.sharePlanChanged = sharePlanChanged
+        }
+
+        /// The folders the machine boots with, before it has a VM to update.
+        func adoptSharedFolders(_ settings: VMOmarchySharedFolderSettings) {
+            sharedFolders = settings
+            let plan = VMOmarchySharePlan(settings: settings, transfer: layout.transfer)
+            sharePlan = plan
+            DispatchQueue.main.async { [sharePlanChanged] in sharePlanChanged(plan) }
+        }
+
+        /// Applies an edited folder list, or the multi-folder layout once the
+        /// Agent supports it, to the running VM without a restart. VZ swaps the
+        /// device's share in place; Omarchy keeps the same mount.
+        func applySharedFolders(_ settings: VMOmarchySharedFolderSettings) {
+            guard settings != sharedFolders else { return }
+            sharedFolders = settings
+            VMOmarchySharedFolderStore.prepareFolders(settings)
+            let plan = VMOmarchySharePlan(settings: settings, transfer: layout.transfer)
+            let stagingChanged = plan.clipboardStaging != sharePlan?.clipboardStaging
+                || plan.clipboardRelativePrefix != sharePlan?.clipboardRelativePrefix
+            sharePlan = plan
+            if let device = machine?.directorySharingDevices
+                .compactMap({ $0 as? VZVirtioFileSystemDevice })
+                .first(where: { $0.tag == "riftvm_shared" }) {
+                try? FileManager.default.createDirectory(at: layout.transfer, withIntermediateDirectories: true)
+                device.share = plan.makeShare(transfer: layout.transfer)
+                RiftVMLog.info(
+                    "Shared folders applied: \(plan.isMultiple ? "multiple" : "single") layout, \(plan.entries.count) folder(s)"
+                )
+            }
+            DispatchQueue.main.async { [sharePlanChanged] in sharePlanChanged(plan) }
+            if stagingChanged, agentClipboardController != nil {
+                stopAgentClipboard()
+                if let latestGuestStatus { configureAgentClipboard(for: latestGuestStatus) }
+            }
+        }
+
+        /// Moves a machine to the multi-folder layout the first time its Agent
+        /// reports it can find clipboard items in the `.riftvm` folder.
+        private func adoptMultipleFolderLayoutIfSupported(_ status: VMOmarchyGuestStatus) {
+            guard status.capabilities.contains(VMOmarchySharePlan.multipleFoldersCapability),
+                  var settings = sharedFolders,
+                  !settings.guestSupportsMultipleFolders else { return }
+            settings.guestSupportsMultipleFolders = true
+            try? VMOmarchySharedFolderStore.save(settings, layout: layout)
+            applySharedFolders(settings)
+            DispatchQueue.main.async { [sharedFoldersChanged] in sharedFoldersChanged(settings) }
         }
 
         func submitOwnerProvisioning(_ submission: OmarchyOwnerProvisioningSubmission) {
@@ -2370,6 +2478,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         @MainActor
         func configureAgentClipboard(for status: VMOmarchyGuestStatus) {
             latestGuestStatus = status
+            adoptMultipleFolderLayoutIfSupported(status)
             guard OmarchyClipboardActivationPolicy.shouldRun(
                 enabled: clipboardEnabled,
                 capabilities: Set(status.capabilities),
@@ -2384,7 +2493,8 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             guard agentClipboardController == nil else { return }
             let controller = OmarchyAgentClipboardController(
                 client: integrationClient,
-                sharedDirectory: layout.shared
+                sharedDirectory: sharePlan?.clipboardStaging ?? layout.shared,
+                guestRelativePrefix: sharePlan?.clipboardRelativePrefix ?? ""
             )
             agentClipboardController = controller
             controller.start()

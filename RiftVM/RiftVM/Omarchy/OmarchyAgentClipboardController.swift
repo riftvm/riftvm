@@ -20,6 +20,9 @@ final class OmarchyAgentClipboardController {
 
     private let client: VMOmarchyGuestAgentClient
     private let sharedDirectory: URL
+    /// Path of `sharedDirectory` below the Guest mount point: empty when it is
+    /// the root, `.riftvm/` in the multi-folder layout.
+    private let guestRelativePrefix: String
     private let pasteboard: NSPasteboard
     private var timer: Timer?
     private var operationTask: Task<Void, Never>?
@@ -31,10 +34,12 @@ final class OmarchyAgentClipboardController {
     init(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
+        guestRelativePrefix: String = "",
         pasteboard: NSPasteboard = .general
     ) {
         self.client = client
         self.sharedDirectory = sharedDirectory
+        self.guestRelativePrefix = guestRelativePrefix
         self.pasteboard = pasteboard
         lastPasteboardChangeCount = pasteboard.changeCount
     }
@@ -165,7 +170,7 @@ final class OmarchyAgentClipboardController {
     }
 
     private func relativePath(for url: URL) -> String {
-        String(url.path.dropFirst(sharedDirectory.path.count + 1))
+        guestRelativePrefix + String(url.path.dropFirst(sharedDirectory.path.count + 1))
     }
 
     private static func item(from pasteboard: NSPasteboard) -> Item? {
