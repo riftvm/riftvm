@@ -60,7 +60,7 @@ sudo sh -c 'mkdir -p /etc/xdg/uwsm && echo "export AQ_NO_ATOMIC=1" > /etc/xdg/uw
 
 Machines created before `.12` also carry a `~/Mac` link to a host-folders mount
 that RiftVM never provides; writing there fails with "Permission denied". Remove
-it once (the exchange folder is `/mnt/riftvm-shared`):
+it once (shared folders are under `/mnt/riftvm-shared`):
 
 ```sh
 sudo systemctl --global disable riftvm-host-folders.service

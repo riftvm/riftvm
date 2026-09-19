@@ -55,9 +55,9 @@ is always Omarchy.
 ## Wireframes
 
 **A · Prepare** (no Omarchy yet). Storage and resources are the whole form.
-The exchange folder is `~/.riftvm/RiftVM Shared` — beside the machine bundle,
-not inside it, so the folder carries the name the UI uses and survives removing
-the machine.
+The shared folder is `~/riftvm-shared` unless the user picks another one with
+**Change…**. It is outside the machine bundle, so it survives removing the
+machine, and **Shared Folders…** in the window adds more later.
 
 ```
 ┌─ RiftVM ────────────────────────────────────────────[ Prepare Omarchy ]─┐
@@ -71,7 +71,7 @@ the machine.
 │  ─────────────────────────────────────────────────────────────────    │
 │  ▸ Resources       8 CPU · 16 GB memory · 64 GB disk                  │
 │  ─────────────────────────────────────────────────────────────────    │
-│  ▸ File exchange   RiftVM Shared (beside the machine)                 │
+│  ▸ File exchange   ~/riftvm-shared, both directions        Change…    │
 │                                                                       │
 │                        [ Prepare Omarchy ]                            │
 └───────────────────────────────────────────────────────────────────────┘
@@ -136,11 +136,11 @@ builds.
 | `Integration ▾` | agent status, clipboard, microphone, notifications |
 | `Updates ▾` | app version, Prepare for Omarchy Update…, signed factory channel |
 | `Recovery ▾` | recovery points, restore, create backup |
-| buttons | Open Shared Folder · Import Files · Pause / Restart / Stop / Resume |
+| buttons | Open Shared Folder · Shared Folders… · Import Files · Pause / Restart / Stop / Resume |
 
 **Remove Omarchy…** asks first, stops a live guest before touching the disk,
 moves the bundle to the Trash, clears the record, and returns the window to
-state A. `RiftVM Shared` sits beside the bundle, so the files you exchanged
+state A. Shared folders live outside the bundle, so the files you exchanged
 with Omarchy stay on the Mac. There is no rename: the name is always Omarchy.
 
 ## What the window deliberately does not have
