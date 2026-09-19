@@ -214,7 +214,23 @@ final class VirGLRenderer {
         }
     }
 
-    func destroyContext(id: UInt32) { serialized { vzvg_renderer_context_destroy(id) } }
+    /// virglrenderer drops a destroyed context's pending fences without ever
+    /// retiring them. Fenced responses go back to the guest in submission order,
+    /// so one such fence would hold every later response, and the display,
+    /// until its deadline. The context's work is gone, so complete them now.
+    func destroyContext(id: UInt32) {
+        let orphaned: [FenceCompletion] = serialized { [self] in
+            vzvg_renderer_context_destroy(id)
+            let ids = pendingFences.compactMap { $0.value.contextID == id ? $0.key : nil }
+            let completions = ids.compactMap { pendingFences.removeValue(forKey: $0)?.completion }
+            if pendingFences.isEmpty { executor.setPollingEnabled(false) }
+            return completions
+        }
+        if !orphaned.isEmpty {
+            logger.notice("completed \(orphaned.count, privacy: .public) fences of destroyed context \(id, privacy: .public)")
+        }
+        orphaned.forEach { $0(true) }
+    }
     func attach(contextID: UInt32, resourceID: UInt32) {
         serialized { vzvg_renderer_context_attach_resource(contextID, resourceID) }
     }
@@ -278,10 +294,9 @@ final class VirGLRenderer {
             }
             pendingFences[hostFenceID] = PendingFence(
                 contextID: contextID,
-                // Only a renderer that has stopped retiring fences reaches this.
-                // A deadline short enough to catch a slow shader compile would
-                // hand the guest back buffers the GPU is still using.
-                deadline: DispatchTime.now().uptimeNanoseconds + 10_000_000_000,
+                // Responses return in submission order, so a fence that never
+                // retires holds the whole display until this deadline.
+                deadline: DispatchTime.now().uptimeNanoseconds + 2_000_000_000,
                 completion: completion
             )
             executor.setPollingEnabled(true)
