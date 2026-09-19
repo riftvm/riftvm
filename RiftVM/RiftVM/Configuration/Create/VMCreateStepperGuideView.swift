@@ -136,8 +136,12 @@ struct WorkspaceCreationView: View {
                     .transition(.opacity)
                 }
             }
-            Divider()
-            footer
+            // Setup ends in its own centred button, so only the later phases
+            // need a bottom bar.
+            if session.phase != .setup {
+                Divider()
+                footer
+            }
         }
         .background(.background)
         .disclosureGroupStyle(WorkspaceCreationDisclosureStyle())
@@ -198,7 +202,7 @@ struct WorkspaceCreationView: View {
                     settingsRow(
                         title: "File exchange",
                         detail: "One shared folder, both directions",
-                        systemImage: "folder.badge.arrow.up"
+                        systemImage: "arrow.left.arrow.right.square"
                     )
                 }
             }
@@ -221,6 +225,13 @@ struct WorkspaceCreationView: View {
             }
             .multilineTextAlignment(.center)
 
+            Button("Prepare Omarchy", systemImage: "arrow.up.right") { session.start() }
+                .buttonStyle(RiftCreationButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .disabled(!session.initialized)
+                .accessibilityIdentifier("omarchy-prepare-start")
+                .padding(.top, 4)
+
             if let error = session.errorMessage { errorView(error) }
         }
         .frame(maxWidth: .infinity)
@@ -228,7 +239,12 @@ struct WorkspaceCreationView: View {
 
     private func settingsRow(title: String, detail: String, systemImage: String) -> some View {
         HStack(spacing: 12) {
-            Label(title, systemImage: systemImage)
+            // A fixed icon column keeps both rows' titles aligned.
+            Image(systemName: systemImage)
+                .frame(width: 20)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(title)
             Spacer(minLength: 12)
             Text(detail)
                 .font(.caption)
@@ -392,19 +408,12 @@ struct WorkspaceCreationView: View {
             Spacer()
             switch session.phase {
             case .setup:
-                Button("Prepare Omarchy", systemImage: "arrow.up.right") { session.start() }
-                    .buttonStyle(RiftCreationButtonStyle())
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!session.initialized)
-                    .accessibilityIdentifier("omarchy-prepare-start")
+                // The Prepare button is centred under the settings.
+                EmptyView()
             case .creating:
                 if session.form.canCancelCreation {
                     Button(VMCreationCancellationPolicy.buttonTitle(for: session.form.creationCancellationKind)) { session.cancel() }
                 }
-                // A long download continues in the background: the window can be
-                // closed and the menu bar item keeps reporting it.
-                Text("Creation continues if you close this window.")
-                    .font(.caption).foregroundStyle(.secondary)
             case .failed:
                 Button("Edit Settings") { session.phase = .setup }
                 Button("Retry") { session.start() }.buttonStyle(.borderedProminent)

@@ -21,7 +21,10 @@ final class WorkspaceHomeModel {
 
     private(set) var state: State = .loading
     var errorMessage: String?
-    private(set) var session = WorkspaceCreationSession()
+    /// A preparation that is still running when the window is closed keeps going,
+    /// and reopening the window shows its progress instead of a new form.
+    private(set) var session = WorkspaceCreationStore.shared.sessions
+        .first(where: { $0.phase == .creating }) ?? WorkspaceCreationSession()
 
     private let store: ActiveWorkspaceStore
 
