@@ -57,6 +57,30 @@ enum OmarchyWorkspaceConfiguration {
     enum ConfigurationError: Error {
         case invalidAcceptanceRoot
     }
+
+    /// The record of which Omarchy the window drives. An acceptance run keeps its
+    /// own record inside its temporary machine, naming only that machine, so the
+    /// harness can never open, lock or restart the user's Omarchy. An acceptance
+    /// run with an invalid root stops instead of falling back to the user's record.
+    static func workspaceStore(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> ActiveWorkspaceStore {
+        guard acceptanceHarnessIncluded, environment[acceptanceEnabledKey] == "1" else {
+            return .standard
+        }
+        do {
+            let root = try layout(environment: environment).applicationSupportRoot
+            let store = ActiveWorkspaceStore(
+                applicationSupportRoot: root.appending(path: "AcceptanceRecord", directoryHint: .isDirectory)
+            )
+            if try store.load()?.bundleURL.standardizedFileURL != root.standardizedFileURL {
+                try store.adopt(bundleURL: root, name: "Omarchy Acceptance")
+            }
+            return store
+        } catch {
+            fatalError("Acceptance run without a valid temporary machine: \(error)")
+        }
+    }
 }
 
 struct OmarchyRootView: View {

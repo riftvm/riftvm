@@ -25,7 +25,7 @@ final class WorkspaceHomeModel {
 
     private let store: ActiveWorkspaceStore
 
-    init(store: ActiveWorkspaceStore = .standard) {
+    init(store: ActiveWorkspaceStore = OmarchyWorkspaceConfiguration.workspaceStore()) {
         self.store = store
     }
 
