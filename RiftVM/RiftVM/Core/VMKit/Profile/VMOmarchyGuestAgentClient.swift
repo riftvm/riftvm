@@ -418,11 +418,17 @@ public final class VMOmarchyGuestAgentClient {
         // SYN_REPORT boundaries. Preserve each boundary in the paced queue;
         // sending the entire chord in one write can make libinput observe only
         // its final released state and lose the character.
+        // An Agent that predates horizontal scrolling rejects REL_HWHEEL, and a
+        // rejected batch drops the whole session. Leave it out for that Agent.
+        let horizontalWheel = capabilities.contains("input-horizontal-wheel-v1")
         var report: [VMGuestAgentInputEvent] = []
         for event in events {
+            if event.type == 2, event.code == 6, !horizontalWheel { continue }
             report.append(event)
             if event == VMGuestAgentInputEvent(type: 0, code: 0, value: 0) {
-                pendingInputBatches.append(report)
+                if report.count > 1 {
+                    VMGuestAgentInputCoalescer.enqueue(report, into: &pendingInputBatches)
+                }
                 report.removeAll(keepingCapacity: true)
             }
         }

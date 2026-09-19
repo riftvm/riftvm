@@ -81,7 +81,9 @@ enum VMAbsolutePointerMapper {
 
 struct VMScrollWheelAccumulator {
     private var preciseRemainder: CGFloat = 0
-    private static let precisePointsPerDetent: CGFloat = 3
+    // A trackpad reports scrolling in points. One Linux wheel detent usually
+    // scrolls three lines, so a detent per few points made every gesture race.
+    private static let precisePointsPerDetent: CGFloat = 10
     private static let maximumDetentsPerEvent = 16
 
     mutating func consume(delta: CGFloat, hasPreciseDeltas: Bool) -> Int32 {
@@ -108,6 +110,52 @@ struct VMScrollWheelAccumulator {
             -Self.maximumDetentsPerEvent,
             min(Self.maximumDetentsPerEvent, detents)
         ))
+    }
+}
+
+/// Pointer motion waiting to be sent is only worth its latest position: a newer
+/// absolute position replaces a queued one, and relative motion is summed. Keys,
+/// buttons and wheel reports are never merged or dropped, so the queue behind a
+/// slow guest stays one report long while the mouse moves, instead of replaying
+/// every stale position.
+enum VMGuestAgentInputCoalescer {
+    private enum Motion { case absolute, relative }
+
+    private static func motion(_ report: [VMGuestAgentInputEvent]) -> Motion? {
+        let body = report.filter { $0.type != 0 }
+        guard !body.isEmpty else { return nil }
+        if body.allSatisfy({ $0.type == 3 && ($0.code == 0 || $0.code == 1) }) { return .absolute }
+        if body.allSatisfy({ $0.type == 2 && ($0.code == 0 || $0.code == 1) }) { return .relative }
+        return nil
+    }
+
+    /// Append one SYN_REPORT-terminated report to `queue`, merging it into the
+    /// last queued report when both are the same kind of pointer motion.
+    static func enqueue(_ report: [VMGuestAgentInputEvent], into queue: inout [[VMGuestAgentInputEvent]]) {
+        guard let kind = motion(report), let last = queue.last, motion(last) == kind else {
+            queue.append(report)
+            return
+        }
+        switch kind {
+        case .absolute:
+            // Keep an axis only the older report set; the newer one wins the rest.
+            let kept = last.filter { event in
+                event.type != 0 && !report.contains { $0.type == event.type && $0.code == event.code }
+            }
+            queue[queue.count - 1] = kept + report
+        case .relative:
+            var totals: [UInt16: Int32] = [:]
+            for event in last + report where event.type == 2 {
+                totals[event.code, default: 0] += event.value
+            }
+            var merged: [VMGuestAgentInputEvent] = []
+            for code in [UInt16(0), 1] {
+                guard let value = totals[code], value != 0 else { continue }
+                merged.append(VMGuestAgentInputEvent(type: 2, code: code, value: max(-32767, min(32767, value))))
+            }
+            merged.append(VMGuestAgentInputEvent(type: 0, code: 0, value: 0))
+            if merged.count == 1 { queue.removeLast() } else { queue[queue.count - 1] = merged }
+        }
     }
 }
 

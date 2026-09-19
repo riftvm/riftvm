@@ -154,10 +154,10 @@ final class VMGuestAgentProtocolTests: XCTestCase {
 
     func testPreciseScrollingAccumulatesFractionalTrackpadDeltas() {
         var accumulator = VMScrollWheelAccumulator()
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 0)
-        XCTAssertEqual(accumulator.consume(delta: 1.25, hasPreciseDeltas: true), 1)
-        XCTAssertEqual(accumulator.consume(delta: -6.75, hasPreciseDeltas: true), -2)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 0)
+        XCTAssertEqual(accumulator.consume(delta: 4, hasPreciseDeltas: true), 1)
+        XCTAssertEqual(accumulator.consume(delta: -22.5, hasPreciseDeltas: true), -2)
         XCTAssertEqual(accumulator.consume(delta: 2, hasPreciseDeltas: false), 2)
         XCTAssertEqual(accumulator.consume(delta: -1_050, hasPreciseDeltas: true), -16)
         XCTAssertEqual(accumulator.consume(delta: 0, hasPreciseDeltas: true), 0)
@@ -794,5 +794,49 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         failed.cancel()
         XCTAssertEqual(try Data(contentsOf: destination), Data("keep-me".utf8))
         XCTAssertTrue((try FileManager.default.contentsOfDirectory(atPath: directory.path)).allSatisfy { !$0.hasPrefix(".riftvm-download-") })
+    }
+
+    func testQueuedAbsoluteMotionKeepsOnlyTheNewestPosition() {
+        let syn = VMGuestAgentInputEvent(type: 0, code: 0, value: 0)
+        var queue: [[VMGuestAgentInputEvent]] = []
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 1, y: 2), into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 3, y: 4), into: &queue)
+        XCTAssertEqual(queue, [VMAbsolutePointerMapper.events(x: 3, y: 4)])
+
+        // A button is never merged, and motion after it starts a new report.
+        let press = VMGuestAgentInputBatch.key(code: 272, pressed: true).events
+        VMGuestAgentInputCoalescer.enqueue(press, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 5, y: 6), into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(VMAbsolutePointerMapper.events(x: 7, y: 8), into: &queue)
+        XCTAssertEqual(queue, [
+            VMAbsolutePointerMapper.events(x: 3, y: 4),
+            press,
+            VMAbsolutePointerMapper.events(x: 7, y: 8),
+        ])
+
+        // One axis alone keeps the other axis of the older report.
+        VMGuestAgentInputCoalescer.enqueue([VMGuestAgentInputEvent(type: 3, code: 0, value: 9), syn], into: &queue)
+        XCTAssertEqual(queue.last, [VMGuestAgentInputEvent(type: 3, code: 1, value: 8),
+                                    VMGuestAgentInputEvent(type: 3, code: 0, value: 9), syn])
+    }
+
+    func testQueuedRelativeMotionIsSummedAndKeysAreKept() {
+        let syn = VMGuestAgentInputEvent(type: 0, code: 0, value: 0)
+        var queue: [[VMGuestAgentInputEvent]] = []
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: 3), .init(type: 2, code: 1, value: -1), syn], into: &queue)
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: 4), syn], into: &queue)
+        XCTAssertEqual(queue, [[.init(type: 2, code: 0, value: 7), .init(type: 2, code: 1, value: -1), syn]])
+        // Motion that cancels out leaves nothing to send.
+        VMGuestAgentInputCoalescer.enqueue([.init(type: 2, code: 0, value: -7), .init(type: 2, code: 1, value: 1), syn], into: &queue)
+        XCTAssertTrue(queue.isEmpty)
+
+        let wheel: [VMGuestAgentInputEvent] = [.init(type: 2, code: 8, value: 1), syn]
+        VMGuestAgentInputCoalescer.enqueue(wheel, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(wheel, into: &queue)
+        XCTAssertEqual(queue, [wheel, wheel])
+        let key = VMGuestAgentInputBatch.key(code: 30, pressed: true).events
+        VMGuestAgentInputCoalescer.enqueue(key, into: &queue)
+        VMGuestAgentInputCoalescer.enqueue(key, into: &queue)
+        XCTAssertEqual(queue.suffix(2), [key, key])
     }
 }

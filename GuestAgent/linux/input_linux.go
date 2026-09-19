@@ -33,6 +33,8 @@ type uinputDevice struct {
 	relativeFile *os.File
 	absoluteFile *os.File
 	writeLock    sync.Mutex
+	// The pointer device that last carried motion; mouse buttons follow it.
+	lastPointer inputTarget
 }
 
 type uinputSetup struct {
@@ -61,6 +63,10 @@ func newGuestInput() guestInput {
 		return &uinputDevice{}
 	}
 	device.absoluteFile = createAbsolutePointer()
+	device.lastPointer = targetRelative
+	if device.absoluteFile != nil {
+		device.lastPointer = targetAbsolute
+	}
 	return device
 }
 
@@ -84,22 +90,19 @@ func (device *uinputDevice) Write(events []inputEvent) error {
 			continue
 		}
 		report := events[start : index+1]
+		target, moves := inputReportTarget(report, device.lastPointer)
 		file := device.keyboardFile
-		for _, item := range report {
-			if item.Type == 3 || (item.Type == 1 && item.Code >= 272 && item.Code <= 274) {
-				if device.absoluteFile == nil {
-					return syscall.ENODEV
-				}
-				file = device.absoluteFile
-				break
-			}
-			if item.Type == 2 {
-				if device.relativeFile == nil {
-					return syscall.ENODEV
-				}
-				file = device.relativeFile
-				break
-			}
+		switch target {
+		case targetAbsolute:
+			file = device.absoluteFile
+		case targetRelative:
+			file = device.relativeFile
+		}
+		if file == nil {
+			return syscall.ENODEV
+		}
+		if moves {
+			device.lastPointer = target
 		}
 		if err := writeInputEvents(file, report); err != nil {
 			return err

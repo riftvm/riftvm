@@ -97,3 +97,43 @@ func TestInputTraceReportsGuestReceiveAndUinputCompletion(t *testing.T) {
 		t.Fatalf("uinput completion preceded receipt: %#v", result)
 	}
 }
+
+func TestButtonsFollowThePointerDeviceThatLastMoved(t *testing.T) {
+	syn := inputEvent{Type: 0}
+	press := []inputEvent{{Type: 1, Code: 272, Value: 1}, syn}
+	absolute := []inputEvent{{Type: 3, Code: 0, Value: 10}, {Type: 3, Code: 1, Value: 20}, syn}
+	relative := []inputEvent{{Type: 2, Code: 0, Value: 3}, syn}
+	wheel := []inputEvent{{Type: 2, Code: 8, Value: -1}, syn}
+	key := []inputEvent{{Type: 1, Code: 30, Value: 1}, syn}
+
+	cases := []struct {
+		name        string
+		report      []inputEvent
+		lastPointer inputTarget
+		target      inputTarget
+		moves       bool
+	}{
+		{"absolute motion", absolute, targetRelative, targetAbsolute, true},
+		{"relative motion", relative, targetAbsolute, targetRelative, true},
+		{"click after absolute motion", press, targetAbsolute, targetAbsolute, false},
+		// A captured pointer moves the relative device; its clicks must go
+		// there too, not to a tablet the compositor is not reading.
+		{"click after relative motion", press, targetRelative, targetRelative, false},
+		{"wheel does not take the buttons", wheel, targetAbsolute, targetRelative, false},
+		{"button before relative motion", []inputEvent{{Type: 1, Code: 272, Value: 1}, {Type: 2, Code: 1, Value: 2}, syn}, targetAbsolute, targetRelative, true},
+		{"keyboard", key, targetAbsolute, targetKeyboard, false},
+	}
+	for _, c := range cases {
+		target, moves := inputReportTarget(c.report, c.lastPointer)
+		if target != c.target || moves != c.moves {
+			t.Errorf("%s: got target %d moves %v, want %d %v", c.name, target, moves, c.target, c.moves)
+		}
+	}
+}
+
+func TestHorizontalWheelIsAcceptedInput(t *testing.T) {
+	payload := []byte(`{"events":[{"type":2,"code":6,"value":1},{"type":0,"code":0,"value":0}]}`)
+	if _, err := decodeInputBatch(payload); err != nil {
+		t.Fatalf("horizontal wheel rejected: %v", err)
+	}
+}

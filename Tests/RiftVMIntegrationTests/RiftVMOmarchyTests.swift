@@ -700,6 +700,48 @@ final class RiftVMOmarchyTests: XCTestCase {
     }
 
     @MainActor
+    func testCapsLockSendsAWholeKeystrokeForEachPress() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        for flags: NSEvent.ModifierFlags in [.capsLock, []] {
+            view.flagsChanged(with: try XCTUnwrap(NSEvent.keyEvent(
+                with: .flagsChanged, location: .zero, modifierFlags: flags, timestamp: 0,
+                windowNumber: 0, context: nil, characters: "",
+                charactersIgnoringModifiers: "", isARepeat: false, keyCode: 57
+            )))
+        }
+        let stroke = VMGuestAgentInputBatch.key(code: 58, pressed: true).events
+            + VMGuestAgentInputBatch.key(code: 58, pressed: false).events
+        XCTAssertEqual(batches, [stroke, stroke])
+        view.setGuestInputEventHandler(nil)
+    }
+
+    @MainActor
+    func testKeyPressedBeforeTheAgentConnectsIsNotReleasedThroughTheAgent() throws {
+        let view = OmarchyVirtualMachineInputView()
+        func event(_ type: NSEvent.EventType) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: 0, context: nil, characters: "a",
+                charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0
+            ))
+        }
+        view.keyDown(with: try event(.keyDown))
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        view.keyUp(with: try event(.keyUp))
+        XCTAssertTrue(batches.isEmpty, "The release belongs to the keyboard that saw the press")
+        view.keyDown(with: try event(.keyDown))
+        view.keyUp(with: try event(.keyUp))
+        XCTAssertEqual(batches, [
+            VMGuestAgentInputBatch.key(code: 30, pressed: true).events,
+            VMGuestAgentInputBatch.key(code: 30, pressed: false).events,
+        ])
+        view.setGuestInputEventHandler(nil)
+    }
+
+    @MainActor
     func testHostSleepReleasesHeldGuestKeysAndDetachingRemovesObserver() throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
                               styleMask: [.titled], backing: .buffered, defer: false)

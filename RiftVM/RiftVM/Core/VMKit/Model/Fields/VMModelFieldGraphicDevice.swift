@@ -243,6 +243,11 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var keyboardIntegrationStateHandler: ((VMKeyboardIntegrationState) -> Void)?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
+    private var horizontalScrollAccumulator = VMScrollWheelAccumulator()
+    /// Mouse buttons pressed while the Guest Agent was unavailable went to the
+    /// Virtualization.framework tablet; their release must go there too, or the
+    /// guest keeps a button held when the Agent connects in between.
+    private var nativePressedButtons = Set<Int>()
     private var presentationDemand = VMGraphicsPresentationDemand()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
     private var presentationIsActive = false
@@ -584,11 +589,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 272, pressed: true)
         } else {
+            nativePressedButtons.insert(272)
             super.mouseDown(with: event)
         }
     }
     override func mouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(272) != nil {
+            super.mouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 272, pressed: false)
         } else {
@@ -602,11 +610,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 273, pressed: true)
         } else {
+            nativePressedButtons.insert(273)
             super.rightMouseDown(with: event)
         }
     }
     override func rightMouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(273) != nil {
+            super.rightMouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 273, pressed: false)
         } else {
@@ -620,11 +631,14 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             else { capturePointer() }
             sendButton(code: 274, pressed: true)
         } else {
+            nativePressedButtons.insert(274)
             super.otherMouseDown(with: event)
         }
     }
     override func otherMouseUp(with event: NSEvent) {
-        if guestInputHandler != nil, !isHidden {
+        if nativePressedButtons.remove(274) != nil {
+            super.otherMouseUp(with: event)
+        } else if guestInputHandler != nil, !isHidden {
             if absolutePointerEnabled { sendAbsolutePosition(event) }
             sendButton(code: 274, pressed: false)
         } else {
@@ -641,11 +655,18 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             delta: event.scrollingDeltaY,
             hasPreciseDeltas: event.hasPreciseScrollingDeltas
         )
-        guard detents != 0 else { return }
-        guestInputHandler([
-            VMGuestAgentInputEvent(type: 2, code: 8, value: detents),
-            VMGuestAgentInputEvent(type: 0, code: 0, value: 0),
-        ])
+        // AppKit's positive X scrolls toward the left; REL_HWHEEL's toward the right.
+        let horizontalDetents = horizontalScrollAccumulator.consume(
+            delta: -event.scrollingDeltaX,
+            hasPreciseDeltas: event.hasPreciseScrollingDeltas
+        )
+        var events: [VMGuestAgentInputEvent] = []
+        if detents != 0 { events.append(VMGuestAgentInputEvent(type: 2, code: 8, value: detents)) }
+        if horizontalDetents != 0 {
+            events.append(VMGuestAgentInputEvent(type: 2, code: 6, value: horizontalDetents))
+        }
+        guard !events.isEmpty else { return }
+        guestInputHandler(events + [VMGuestAgentInputEvent(type: 0, code: 0, value: 0)])
     }
 
     private func sendRelativeMotion(_ event: NSEvent) {
