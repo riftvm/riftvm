@@ -4,7 +4,7 @@
 
 # RiftVM
 
-**Virtual machines, made easy — a focused native app for Apple silicon Macs.**
+**Omarchy Linux on your Mac, full screen and GPU-accelerated — a focused native app for macOS 27 on Apple silicon.**
 
 [![macOS 27+](https://img.shields.io/badge/macOS-27%2B-111827?logo=apple)](https://support.apple.com/macos)
 [![Apple silicon](https://img.shields.io/badge/Apple%20silicon-required-111827)](https://support.apple.com/en-us/116943)
@@ -95,55 +95,23 @@ a newer factory does not replace your guest disk. See [Updates and recovery](doc
 For setup, display, input, and signing problems, see the
 [troubleshooting guide](docs/TROUBLESHOOTING.md).
 
-### Command line and headless mode
+### Command line
 
 The `riftvm` command ships inside the app at
-`/Applications/RiftVM.app/Contents/Helpers/riftvm`; Homebrew does not add it to
-your `PATH`. Link it yourself if you want it there:
+`/Applications/RiftVM.app/Contents/Helpers/riftvm` for diagnostics and scripting;
+Homebrew does not add it to your `PATH`. Link it yourself if you want it there:
 
 ```sh
 ln -s /Applications/RiftVM.app/Contents/Helpers/riftvm /opt/homebrew/bin/riftvm
+riftvm list
+riftvm inspect "Omarchy"
+riftvm doctor
 ```
 
 Every command writes one schema-versioned JSON object and uses deterministic
-exit codes.
-
-Discovery and inspection commands cover both bundle layouts, so `list` shows the
-Omarchy machine you actually created:
-
-- a general VM bundle with `config.json` in its root, which is what
-  `install-image` produces;
-- an Omarchy machine with `Workspace/Configuration.json`, its `Disk.asif` and
-  its `MachineIdentifier` one level down.
-
-```sh
-riftvm list
-riftvm inspect "Omarchy"
-riftvm validate "/path/to/Omarchy.riftvm"
-riftvm doctor
-riftvm start "Imported Linux" --timeout 90
-riftvm status "Imported Linux"
-riftvm stop "Imported Linux" --timeout 30
-riftvm install-image preinstalled-image.json --image disk.raw \
-  --destination "$HOME/.riftvm/Imported Linux.riftvm" --timeout 300
-```
-
-`start`, `status`, and `stop` drive general machines only. An Omarchy machine
-needs the guest agent and the Omarchy-specific machine builder, which the
-headless path does not provide, so those three commands exit 69 with
-`unsupported_layout` for that bundle rather than pretending to control it. Start
-and stop Omarchy in the app.
-
-Use `--root /path/to/library` one or more times when machines are stored outside
-`~/.riftvm` (the CLI also looks in `~/RiftVM Virtual Machines` for bundles
-created by earlier releases). Headless mode runs the signed RiftVM virtualization
-process without presenting a VM window. Stop first requests a guest shutdown
-and uses a bounded force-stop fallback.
-
-`install-image` imports a decoded, bootable ARM64 raw disk described by the
-versioned [preinstalled-image manifest](docs/PREINSTALLED_IMAGE_MANIFEST.md).
-Both the CLI and signed app verify its logical size and SHA-256, and interrupted
-installation leaves no partial machine bundle.
+exit codes. Start and stop Omarchy in the app: it needs the guest agent and the
+Omarchy machine builder, so `start`, `status`, and `stop` report
+`unsupported_layout` (exit 69) for it.
 
 ## Build from source
 
@@ -156,41 +124,40 @@ installation leaves no partial machine bundle.
 See the [documentation index](docs/README.md) for troubleshooting, image formats,
 guest integration, graphics architecture, and distribution details.
 
-### Linux graphics backend
+## How it works
 
-RiftVM renders every Linux machine through Custom VirGL: Guest Mesa VirGL
-commands are rendered through virglrenderer and ANGLE on Metal. There is no
-backend picker, because Custom VirGL is the only graphics path for Omarchy and
-for imported or general Linux VMs. If the runtime cannot initialize, startup
-reports an error instead of switching to another backend.
+RiftVM needs macOS 27 because it builds its own virtual GPU. macOS 27 adds
+`VZCustomVirtioDevice` to Virtualization.framework, which lets an app implement
+a standard virtio device itself. RiftVM implements **virtio-gpu** (device 16) on
+it, so Omarchy's stock `virtio_gpu` driver and Mesa's VirGL driver work without
+anything extra in the guest.
 
-| Machine / configuration | Graphics path |
-| --- | --- |
-| Omarchy created from the home screen | Custom VirGL |
-| Imported or general Linux VMs | Custom VirGL |
+- **Custom VirGL.** Mesa encodes OpenGL calls as VirGL commands; RiftVM decodes
+  them with virglrenderer and runs them through ANGLE on Metal. Scanout is
+  zero-copy: the texture Hyprland presents is drawn straight into the window's
+  Metal layer. Custom VirGL is the only graphics path; if the runtime cannot
+  start, RiftVM reports the error instead of switching backends. Browsers get
+  working WebGL, including pages that ask for multisampled buffers.
+- **One cursor.** Omarchy hands its pointer image to the host through the
+  virtio-gpu cursor commands, and RiftVM shows it as the macOS cursor. There is
+  no second, lagging pointer painted into the frame.
+- **Fixed display mode.** The guest mode is chosen from your screen before boot
+  and stays the same for the session, so Hyprland never rebuilds its outputs and
+  the wallpaper and bar stay put.
+- **Guest agent.** An authenticated vsock agent delivers keyboard and pointer
+  input through uinput, mirrors text and image clipboards, maps Command
+  shortcuts to Super, forwards notifications, and completes first-boot owner
+  setup.
 
-Custom VirGL requires compatible Linux guest drivers and the RiftVM Guest Agent.
-A guest without them may not reach a usable desktop, and the fix is to install
-the supported drivers and Agent rather than to change graphics paths.
+GPU memory-state save/restore is not supported, because guest RAM alone cannot
+reconstruct renderer contexts. Stopped-machine snapshots and Omarchy recovery
+points protect the disk and configuration instead.
 
-Custom VirGL supports zero-copy scanout presentation. The guest mode is fixed
-for the session.
-It does not support memory-state save/restore because guest RAM alone cannot
-reconstruct renderer contexts and resources. Stopped-VM file snapshots remain
-supported. Omarchy recovery points protect the stopped disk and machine
-configuration; they do not restore running GPU state.
-
-Implementation and validation details are in the
-[Custom VirGL architecture notes](docs/CUSTOM_VIRGL_ARCHITECTURE.md),
-[performance guide](docs/VIRGL_PERFORMANCE.md), and isolated
-[prototype record](Experiments/VZVirtioGPUPrototype/README.md).
-
-If a VM opens without a usable window, input appears only after pointer
-movement, full screen is stretched, Command-to-Super shortcuts fail, setup
-loops, or a release repeatedly asks for Keychain access, start with the
-[troubleshooting guide](docs/TROUBLESHOOTING.md). It separates host display
-problems, guest Agent/compositor problems, image compatibility, and release
-signing problems so that one workaround does not hide a different failure.
+Details are in the [Custom VirGL architecture notes](docs/CUSTOM_VIRGL_ARCHITECTURE.md),
+[performance guide](docs/VIRGL_PERFORMANCE.md), and the isolated
+[prototype record](Experiments/VZVirtioGPUPrototype/README.md). If something
+goes wrong, choose **Omarchy ▾ → Save Diagnostics…** and start with the
+[troubleshooting guide](docs/TROUBLESHOOTING.md).
 
 ## Guest image
 
@@ -202,23 +169,23 @@ product scope.
 
 ## Direction
 
-RiftVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. Its direction is narrower:
+RiftVM is not trying to replace UTM, VirtualBuddy, Tart, or Lima. It does one thing: run Omarchy well on a Mac.
 
-1. Make VM creation, launch, stop, recovery, and error handling reliable.
+1. Make preparing, starting, stopping, recovering, and reporting errors for Omarchy reliable, with a real-guest check before every release ([V1 release checklist](docs/V1_RELEASE_CHECKLIST.md)).
 2. Keep local macOS 27 tests, signed releases, Homebrew distribution,
    diagnostics, and configuration migration reproducible. CI runs core, CLI,
    runtime, and build checks on the `xcode-27` runner, with Guest Agent checks on
    Ubuntu. Real VM, physical-display, and signed-release acceptance remain
    separate from build checks.
-3. Expose a small, local automation surface so scripts and AI agents can create, start, inspect, and discard isolated VMs safely.
+3. Keep everything local: RiftVM does not embed an AI model or require a cloud account.
 
-The automation layer will remain local-first, explicit, and opt-in. RiftVM will not embed an AI model or require a cloud account. See the [documentation index](docs/README.md) for maintained technical references.
+See the [documentation index](docs/README.md) for maintained technical references.
 
 ## Contributing
 
 Issues and focused pull requests are welcome. Reliability fixes, reproducible bug reports, tests, accessibility improvements, and documentation updates are especially useful.
 
-When reporting a VM problem, include the host macOS version, Mac model/chip, guest OS and image source, and the last operation performed. Do not attach VM disks or logs containing secrets.
+When reporting a VM problem, include the host macOS version, Mac model/chip, Omarchy image version, and the last operation performed. **Omarchy ▾ → Save Diagnostics…** collects the host log; review it before attaching. Do not attach VM disks or logs containing secrets.
 
 ## Community
 
