@@ -30,22 +30,31 @@ replacement.
 ## Update RiftVM integration inside an existing Guest
 
 Omarchy's normal package update does not replace RiftVM's separately installed
-Agent and display watcher. To keep the desktop background through a display mode
-change, or to receive demand rendering, on an existing Omarchy machine, first create
-the protected recovery point described above, then download the paired
-integration package from the [`.9` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.9).
-Use RiftVM 0.1.21 or later. Inside the Guest terminal:
+Agent and display watcher. To receive them on an existing Omarchy machine (the
+click and horizontal-scroll fixes in the Agent, and the quieter display
+watcher), first create the protected recovery point described above, then
+download the paired integration package from the
+[`.10` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.10).
+Use RiftVM 0.3.0 or later. Inside the Guest terminal:
 
 ```sh
-mkdir -p ~/Downloads/riftvm-integration-9
-cd ~/Downloads/riftvm-integration-9
-base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.9
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz" &&
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz.sha256" &&
-sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz.sha256 &&
+mkdir -p ~/Downloads/riftvm-integration-10
+cd ~/Downloads/riftvm-integration-10
+base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.10
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.10.tar.gz" &&
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.10.tar.gz.sha256" &&
+sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.10.tar.gz.sha256 &&
 mkdir package &&
-tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.9.tar.gz -C package &&
+tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.10.tar.gz -C package &&
 sudo python3 package/update-integration.py install
+```
+
+The integration package does not carry the cursor-plane setting that new `.10`
+machines have. Without it, Hyprland paints its own pointer and RiftVM shows a
+second or lagging cursor. Add it once in the same terminal:
+
+```sh
+sudo sh -c 'mkdir -p /etc/xdg/uwsm && echo "export AQ_NO_ATOMIC=1" > /etc/xdg/uwsm/env-hyprland && printf "[Wayland]\nCompositorCommand=env AQ_NO_ATOMIC=1 start-hyprland -- --config /usr/share/sddm/hyprland.lua\n" > /etc/sddm.conf.d/20-riftvm-cursor-plane.conf'
 ```
 
 Save your work and reboot Omarchy to activate both components. Check keyboard

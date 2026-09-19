@@ -121,6 +121,93 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.3.0
+
+RiftVM 0.3.0 fixes the everyday Omarchy problems: the wallpaper disappearing,
+clicks that did not register, and a second or lagging cursor.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **One cursor, no lag.** Hyprland now uses virtio-gpu's cursor plane, and
+  RiftVM shows the guest's cursor image (arrow, I-beam, resize arrows) as the
+  macOS cursor at the true pointer position. Linux hid that plane from
+  Hyprland, so the guest painted its own pointer into every frame; that was
+  the second, trailing cursor. New machines get this from factory
+  [v4.0.3-riftvm.10](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.10);
+  existing machines need a one-time setting (see Upgrading).
+- **The wallpaper stays.** The guest keeps the display mode it booted with for
+  the whole session. RiftVM used to re-announce the mode whenever the guest
+  agent reconnected, and each announcement made Hyprland rebuild its outputs
+  and sometimes drop the wallpaper layer. Leaving full screen or resizing the
+  window now only scales the picture.
+- **Clicks register.** Mouse buttons go to the pointer device that last moved,
+  so clicks are no longer lost while the pointer is captured. A key or button
+  pressed while the agent reconnects is released on the same device, so it
+  can no longer stay stuck.
+- **Smoother pointer under load.** Queued mouse motion is merged instead of
+  replayed, so the pointer no longer falls behind a busy guest.
+- **Caps Lock works as Omarchy's Compose key on every press**, not every other
+  press.
+- **Scrolling.** Trackpad scrolling moves at a comfortable speed, and
+  horizontal scrolling works with the .10 agent.
+- **No flicker from reused buffers.** GPU fence completions now reach the
+  guest in the order it submitted them, so it no longer reuses a buffer the
+  GPU is still drawing into.
+
+### Changes
+
+- Custom VirGL is the only graphics backend, and RiftVM has one window for the
+  one Omarchy machine.
+- **Omarchy ▾ → Save Diagnostics…** saves the last 12 hours of RiftVM's
+  display, cursor and input log for a bug report. These messages are now kept
+  in the persistent log.
+
+### Validation
+
+A fresh machine was created from the signed `.10` factory and checked on real
+hardware, without manual guest changes:
+
+- 200 of 200 clicks arrived, plus right and middle clicks.
+- 399 bytes of typed mixed-case text and symbols arrived byte-identical.
+- Caps as Compose worked twice in a row.
+- 200 points of trackpad scrolling gave 20 wheel steps; horizontal
+  scrolling worked.
+- One cursor with the guest's shape and no cursor painted into the frame, after
+  boot and after two reboots.
+- The guest stayed at 1920x1080 through full-screen and window changes, with
+  the wallpaper intact.
+- 60 fps with no presentation failures or fence timeouts under a 60-second
+  redraw load.
+- Clipboard worked in both directions, and pause/resume worked.
+
+The record is in
+[docs/validation/v1-real-guest-2026-09-18](validation/v1-real-guest-2026-09-18/README.md).
+Not claimed: Command shortcuts, key repeat, real Mac sleep and wake, or
+sessions longer than a few minutes of load.
+
+### Upgrading an existing Omarchy machine
+
+The .10 integration package updates the agent and display watcher, and one
+command adds the cursor-plane setting; see
+[Updates and recovery](UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest).
+Without the setting, an existing machine still shows two cursors.
+
+### Known issues
+
+- The guest's resolution is the Mac screen's size in points, so text on a
+  Retina display is not as sharp as native macOS text.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.2.0
 
 RiftVM 0.2.0 prepares Omarchy and nothing else, and gives the guest one display
