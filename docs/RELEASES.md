@@ -121,6 +121,21 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.3.1
+
+<!-- draft: generated from commits; replace with user-facing wording if the change needs it -->
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Stop linking the riftvm command into the Homebrew prefix — The tap's cask no longer links `riftvm` into /opt/homebrew/bin (riftvm/homebrew-tap 2bd157a).
+- Sync checked-in cask with RiftVM 0.3.0 — Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+### Fixes
+
+- Centre Prepare Omarchy and resume a running preparation — The prepare screen ended in a bottom bar that repeated the caption above it and put the only action in the corner.
+
 ## 0.3.0
 
 RiftVM 0.3.0 fixes the everyday Omarchy problems: the wallpaper disappearing,
