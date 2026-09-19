@@ -282,7 +282,7 @@ struct WorkspaceCreationView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text("Files added on either side appear on the other. **Open Shared Folder** in the window reveals it in Finder, and **Import Files** or dropping files on the window copies them in. Add more folders, make one read-only, or stop sharing from **Shared Folders…** at any time. Your other Mac folders stay private.")
+            Text("Files added on either side appear on the other. **Open Shared Folder** in the window reveals it in Finder, and **Import Files** or dropping files on the window copies them in. Add more folders, make one read-only, or stop sharing from **Shared Folders…**; Omarchy sees the change when it next starts. Your other Mac folders stay private.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -57,7 +57,7 @@ the guest's mode.
 - Starts, pauses, resumes, and stops Omarchy from its window or the menu bar
 - Reuses the verified image and gives the machine its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, text and image clipboard exchange, and notifications through an authenticated guest agent
-- Shares Mac folders with Omarchy: `~/riftvm-shared` by default, chosen on the Prepare screen, and more from **Shared Folders…**, each read-write or read-only. Omarchy sees each one under `/mnt/riftvm-shared/<name>`; **Open Shared Folder** and **Import Files** use the first writable one
+- Shares Mac folders with Omarchy: `~/riftvm-shared` by default, chosen on the Prepare screen, and more from **Shared Folders…**, each read-write or read-only. Omarchy sees each one under `/mnt/riftvm-shared/<name>` from its next start; **Open Shared Folder** and **Import Files** use the first writable one
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
   guest's outputs, and opens full screen while the guest runs

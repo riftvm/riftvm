@@ -2,8 +2,9 @@ import AppKit
 import SwiftUI
 
 /// Lists the Mac folders shared with Omarchy and lets the user add, remove, or
-/// make them read-only. Changes are saved at once and reach a running Omarchy
-/// without a restart.
+/// make them read-only. Changes are saved at once and reach Omarchy at its next
+/// start: swapping a running share would pull the working directory out from
+/// under every Guest program inside a shared folder.
 struct OmarchySharedFoldersView: View {
     @Environment(\.dismiss) private var dismiss
     @State var settings: VMOmarchySharedFolderSettings
@@ -12,7 +13,21 @@ struct OmarchySharedFoldersView: View {
     /// The machine bundle, which must never be shared into its own guest.
     let machineRoot: URL
     let save: (VMOmarchySharedFolderSettings) -> Void
+    /// Restarts a running Omarchy so it sees the saved list; nil while stopped.
+    let restart: (() -> Void)?
     @State private var problem: String?
+
+    /// The list Omarchy will see from its next start.
+    private var nextPlan: VMOmarchySharePlan {
+        VMOmarchySharePlan(settings: settings, transfer: machineRoot.appending(path: "Transfer"))
+    }
+
+    /// Saved changes the running session does not have yet.
+    private var pendingRestart: Bool {
+        guard let plan else { return false }
+        return plan.settings.folders != settings.folders
+            || plan.settings.guestSupportsMultipleFolders != settings.guestSupportsMultipleFolders
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -49,6 +64,22 @@ struct OmarchySharedFoldersView: View {
                 .foregroundStyle(.secondary)
             }
 
+            if pendingRestart {
+                HStack {
+                    Label("Omarchy sees these changes after it restarts.", systemImage: "arrow.clockwise")
+                        .font(.callout)
+                    Spacer()
+                    if let restart {
+                        Button("Restart Omarchy") {
+                            dismiss()
+                            restart()
+                        }
+                    }
+                }
+                .padding(10)
+                .background(.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+            }
+
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
@@ -66,9 +97,10 @@ struct OmarchySharedFoldersView: View {
     }
 
     private var summary: String {
-        settings.guestSupportsMultipleFolders
-            ? "Each folder appears in Omarchy under /mnt/riftvm-shared. Changes apply immediately."
-            : "Changes apply immediately."
+        let when = plan == nil ? "Omarchy sees changes when it starts." : "Omarchy sees changes after it restarts, so running programs keep their folders."
+        return settings.guestSupportsMultipleFolders
+            ? "Each folder appears in Omarchy under /mnt/riftvm-shared. \(when)"
+            : when
     }
 
     @ViewBuilder
@@ -115,14 +147,19 @@ struct OmarchySharedFoldersView: View {
     }
 
     private func guestLocation(for folder: VMOmarchySharedFolder) -> String? {
-        if let plan {
-            if let path = plan.guestPath(for: folder) { return "In Omarchy: \(path)" }
-            return settings.guestSupportsMultipleFolders
-                ? "Not shared: the folder is missing"
-                : "Not shared with this Omarchy"
+        let next = nextPlan.guestPath(for: folder)
+        if let plan, let now = plan.guestPath(for: folder),
+           now == next, plan.settings.folders.contains(folder) {
+            return "In Omarchy: \(now)"
         }
-        guard settings.guestSupportsMultipleFolders else { return nil }
-        return "In Omarchy: \(VMOmarchySharePlan.guestMountPoint)/…"
+        if let next {
+            return plan == nil ? "In Omarchy: \(next)" : "After restart: \(next)"
+        }
+        var isDirectory: ObjCBool = false
+        if !FileManager.default.fileExists(atPath: folder.path.path, isDirectory: &isDirectory) {
+            return "Not shared: the folder is missing"
+        }
+        return "Not shared with this Omarchy"
     }
 
     private func addFolder() {
@@ -161,4 +198,5 @@ struct OmarchySharedFoldersView: View {
     private func commit() {
         save(settings)
     }
+
 }

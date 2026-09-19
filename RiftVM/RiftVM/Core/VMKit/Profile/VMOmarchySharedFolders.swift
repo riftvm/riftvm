@@ -64,9 +64,7 @@ public enum VMOmarchySharedFolderStore {
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
         fileManager: FileManager = .default
     ) -> VMOmarchySharedFolderSettings {
-        if let data = try? Data(contentsOf: layout.sharedFolderSettings),
-           let settings = try? JSONDecoder().decode(VMOmarchySharedFolderSettings.self, from: data),
-           settings.schemaVersion <= VMOmarchySharedFolderSettings.currentSchemaVersion {
+        if let settings = loadIfPresent(layout: layout) {
             return settings
         }
         let settings = VMOmarchySharedFolderSettings(
@@ -77,6 +75,14 @@ public enum VMOmarchySharedFolderStore {
             ))]
         )
         try? save(settings, layout: layout)
+        return settings
+    }
+
+    /// The saved settings, or nil when the machine has none yet.
+    public static func loadIfPresent(layout: VMOmarchyWorkspaceLayout) -> VMOmarchySharedFolderSettings? {
+        guard let data = try? Data(contentsOf: layout.sharedFolderSettings),
+              let settings = try? JSONDecoder().decode(VMOmarchySharedFolderSettings.self, from: data),
+              settings.schemaVersion <= VMOmarchySharedFolderSettings.currentSchemaVersion else { return nil }
         return settings
     }
 
@@ -147,6 +153,8 @@ public struct VMOmarchySharePlan: Equatable, Sendable {
     public static let stagingEntryName = ".riftvm"
     public static let multipleFoldersCapability = "clipboard-staging-directory-v1"
 
+    /// The settings this plan was made from.
+    public let settings: VMOmarchySharedFolderSettings
     public let isMultiple: Bool
     /// User folders, in order, with the Guest directory each one appears as.
     public let entries: [Entry]
@@ -161,6 +169,7 @@ public struct VMOmarchySharePlan: Equatable, Sendable {
         transfer: URL,
         fileManager: FileManager = .default
     ) {
+        self.settings = settings
         let available = settings.folders.filter { folder in
             var isDirectory: ObjCBool = false
             return fileManager.fileExists(atPath: folder.path.path, isDirectory: &isDirectory) && isDirectory.boolValue

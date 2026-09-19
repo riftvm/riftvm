@@ -621,7 +621,8 @@ struct OmarchyVirtualMachineView: View {
                 settings: sharedFolders ?? VMOmarchySharedFolderStore.load(layout: layout),
                 plan: phase == .running ? sharePlan : nil,
                 machineRoot: layout.applicationSupportRoot,
-                save: saveSharedFolders
+                save: saveSharedFolders,
+                restart: phase == .running ? { handle(.restartRequested) } : nil
             )
         }
         .confirmationDialog(
@@ -781,18 +782,18 @@ struct OmarchyVirtualMachineView: View {
             updatesMenu
             recoveryMenu
             Button("Open Shared Folder", systemImage: "folder") {
-                if let folder = sharedFolders?.primaryFolder {
+                if let folder = exchangeFolder {
                     NSWorkspace.shared.open(folder.path)
                 }
             }
-            .disabled(sharedFolders?.primaryFolder == nil)
+            .disabled(exchangeFolder == nil)
             Button("Shared Folders…", systemImage: "folder.badge.gearshape") {
                 showsSharedFolders = true
             }
             Button("Import Files", systemImage: "square.and.arrow.down") {
                 chooseFilesToImport()
             }
-            .disabled(importingFiles || sharedFolders?.primaryFolder == nil)
+            .disabled(importingFiles || exchangeFolder == nil)
             if phase == .running {
                 Button("Pause Omarchy", systemImage: "pause.fill") {
                     handle(.pauseRequested)
@@ -1303,7 +1304,7 @@ struct OmarchyVirtualMachineView: View {
                 layout: layout,
                 appVersion: appVersion,
                 integrationState: integration,
-                sharedDirectory: sharedFolders?.primaryFolder?.path
+                sharedDirectory: exchangeFolder?.path
             )
             try report.encoded().write(to: destination, options: .atomic)
             notice = UserNotice(title: "Diagnostics Exported", message: destination.lastPathComponent)
@@ -1312,7 +1313,16 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
-    /// Saves the folder list and, while Omarchy runs, applies it at once.
+    /// The folder Open Shared Folder and Import Files use: the first writable
+    /// one Omarchy sees in this session, or the saved list's while stopped.
+    private var exchangeFolder: VMOmarchySharedFolder? {
+        if phase == .running, let sharePlan {
+            return sharePlan.entries.first { !$0.folder.readOnly }?.folder
+        }
+        return sharedFolders?.primaryFolder
+    }
+
+    /// Saves the folder list. Omarchy sees it from its next start.
     private func saveSharedFolders(_ settings: VMOmarchySharedFolderSettings) {
         do {
             try VMOmarchySharedFolderStore.save(settings, layout: layout)
@@ -1325,7 +1335,7 @@ struct OmarchyVirtualMachineView: View {
     private func importFiles(_ urls: [URL]) {
         guard !urls.isEmpty, !importingFiles else { return }
         importingFiles = true
-        guard let folder = sharedFolders?.primaryFolder else { return }
+        guard let folder = exchangeFolder else { return }
         let guestPath = sharePlan?.guestPath(for: folder) ?? "the shared folder"
         let importer = VMOmarchySharedFolderImporter(layout: layout, destination: folder.path)
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1977,9 +1987,6 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         (nsView as? OmarchyVirtualMachineInputView)?.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.setClipboardEnabled(clipboardEnabled)
         context.coordinator.setNotificationsEnabled(notificationsEnabled)
-        if let sharedFolders {
-            context.coordinator.applySharedFolders(sharedFolders)
-        }
         if let ownerProvisioningSubmission {
             context.coordinator.submitOwnerProvisioning(ownerProvisioningSubmission)
         }
@@ -2222,9 +2229,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             DispatchQueue.main.async { [sharePlanChanged] in sharePlanChanged(plan) }
         }
 
-        /// Applies an edited folder list, or the multi-folder layout once the
-        /// Agent supports it, to the running VM without a restart. VZ swaps the
-        /// device's share in place; Omarchy keeps the same mount.
+        /// Swaps the running VM's share for `settings`. VZ replaces the whole
+        /// share, which invalidates the working directory of every Guest
+        /// process inside any shared folder, so this runs only before anyone
+        /// has logged in. Edits made while Omarchy runs apply at the next start.
         func applySharedFolders(_ settings: VMOmarchySharedFolderSettings) {
             guard settings != sharedFolders else { return }
             sharedFolders = settings
@@ -2250,14 +2258,17 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         /// Moves a machine to the multi-folder layout the first time its Agent
-        /// reports it can find clipboard items in the `.riftvm` folder.
+        /// reports it can find clipboard items in the `.riftvm` folder: at once
+        /// while no one is logged in, otherwise from the next start.
         private func adoptMultipleFolderLayoutIfSupported(_ status: VMOmarchyGuestStatus) {
             guard status.capabilities.contains(VMOmarchySharePlan.multipleFoldersCapability),
-                  var settings = sharedFolders,
+                  var settings = VMOmarchySharedFolderStore.loadIfPresent(layout: layout) ?? sharedFolders,
                   !settings.guestSupportsMultipleFolders else { return }
             settings.guestSupportsMultipleFolders = true
             try? VMOmarchySharedFolderStore.save(settings, layout: layout)
-            applySharedFolders(settings)
+            if !status.desktopSessionActive, settings.folders == sharedFolders?.folders {
+                applySharedFolders(settings)
+            }
             DispatchQueue.main.async { [sharedFoldersChanged] in sharedFoldersChanged(settings) }
         }
 
