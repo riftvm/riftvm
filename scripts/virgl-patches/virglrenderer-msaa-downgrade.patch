@@ -1,0 +1,33 @@
+--- a/src/vrend/vrend_renderer.c
++++ b/src/vrend/vrend_renderer.c
+@@ -9009,12 +9009,29 @@
+ }
+ 
+ static struct vrend_resource *
+-vrend_resource_create(const struct vrend_renderer_resource_create_args *args)
++vrend_resource_create(const struct vrend_renderer_resource_create_args *requested)
+ {
+    struct vrend_resource *gr;
+    int ret;
+    char error_string[256];
++   struct vrend_renderer_resource_create_args downgraded = *requested;
++   const struct vrend_renderer_resource_create_args *args = &downgraded;
+ 
++   /* RiftVM: a GLES host (ANGLE on Metal) has no multisample textures, yet the
++    * caps still advertise texture_multisample for the GL version the guest
++    * needs. Rejecting the guest's multisample texture marks its whole context
++    * as failed, which blacks out every surface that context draws (a browser
++    * creating an antialiased WebGL canvas loses its entire window). Create a
++    * single-sample texture instead: the guest's resolve blit becomes a copy,
++    * and the rendering loses only its antialiasing. */
++   if (vrend_state.use_gles && downgraded.nr_samples > 1 &&
++       downgraded.format < VIRGL_FORMAT_MAX &&
++       !vrend_format_can_multisample(downgraded.format)) {
++      virgl_debug("%s: host cannot multisample %s; creating a single-sample texture\n",
++                  __func__, util_format_name(downgraded.format));
++      downgraded.nr_samples = 0;
++   }
++
+    ret = check_resource_valid(args, error_string);
+    if (ret) {
+       virgl_error("%s, Illegal resource parameters, error: %s\n", __func__, error_string);
