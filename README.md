@@ -97,9 +97,16 @@ For setup, display, input, and signing problems, see the
 
 ### Command line and headless mode
 
-The Homebrew cask links `riftvm` into Homebrew's executable prefix. Every
-command writes one schema-versioned JSON object and uses deterministic exit
-codes.
+The `riftvm` command ships inside the app at
+`/Applications/RiftVM.app/Contents/Helpers/riftvm`; Homebrew does not add it to
+your `PATH`. Link it yourself if you want it there:
+
+```sh
+ln -s /Applications/RiftVM.app/Contents/Helpers/riftvm /opt/homebrew/bin/riftvm
+```
+
+Every command writes one schema-versioned JSON object and uses deterministic
+exit codes.
 
 Discovery and inspection commands cover both bundle layouts, so `list` shows the
 Omarchy machine you actually created:

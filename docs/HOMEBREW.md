@@ -17,7 +17,8 @@ brew upgrade --cask riftvm/tap/riftvm
 
 Alternatively, download the signed and notarized app from
 [GitHub Releases](https://github.com/riftvm/riftvm/releases/latest).
-The cask also links the bundled `riftvm` command into Homebrew's executable prefix.
+The cask installs only the app. The `riftvm` command stays inside it at
+`RiftVM.app/Contents/Helpers/riftvm` and is not linked into Homebrew's prefix.
 
 ## Maintain the cask
 

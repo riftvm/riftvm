@@ -17,7 +17,6 @@ cask "riftvm" do
   depends_on macos: :golden_gate
 
   app "RiftVM.app"
-  binary "#{appdir}/RiftVM.app/Contents/Helpers/riftvm"
 
   zap trash: [
     "~/Library/Application Support/RiftVM",
