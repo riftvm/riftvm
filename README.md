@@ -66,6 +66,18 @@ the guest's mode.
 - Keeps Omarchy in the hidden `~/.riftvm` folder by default, with removal and
   snapshots inside the one window
 
+### Keyboard and pointer
+
+While Omarchy's window has focus, Command acts as Omarchy's Super key, so
+Omarchy shortcuts such as Command-Return (terminal), Command-Space (menu),
+Command-1…5 (workspaces) and Command-W (close window) work as documented by
+Omarchy, and macOS shortcuts such as Command-Tab and Command-Space do not
+leave the window. Press **Control-Option** to free the pointer, then use the
+Dock or the menu bar (move to the top of the screen) to switch apps or reach
+RiftVM's toolbar. Click the desktop to hand the pointer back to Omarchy.
+Command-C and Command-V copy and paste inside Omarchy, and the clipboard is
+shared with the Mac.
+
 ### Update and recover Omarchy
 
 Use **Updates → Prepare for Omarchy Update…** to stop the guest and create a

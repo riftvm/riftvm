@@ -526,6 +526,9 @@ struct OmarchyVirtualMachineView: View {
     /// How the running session lays them out in Omarchy.
     @State private var sharePlan: VMOmarchySharePlan?
     @State private var showsSharedFolders = false
+    /// Shown briefly each time Omarchy starts: while its window has focus,
+    /// Command shortcuts belong to Omarchy, so say how to get back to macOS.
+    @State private var showsReleaseHint = false
     @State private var notice: UserNotice?
     @State private var graphicsIssue: String?
     @State private var acceptanceFailure: String?
@@ -681,6 +684,19 @@ struct OmarchyVirtualMachineView: View {
             
             if phase != .running {
                 statusOverlay
+            }
+            if showsReleaseHint, phase == .running, !ownerSetupAvailable {
+                VStack {
+                    Label("Command shortcuts go to Omarchy. Press Control-Option to free the pointer, then use the Dock or menu bar to switch apps.", systemImage: "keyboard")
+                        .font(.callout)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.top, 14)
+                    Spacer()
+                }
+                .transition(.opacity)
+                .allowsHitTesting(false)
             }
             if ownerSetupAvailable {
                 OmarchyOwnerSetupView(
@@ -875,6 +891,7 @@ struct OmarchyVirtualMachineView: View {
                 } else {
                     Text("Clipboard session integration is not ready")
                 }
+                Text("Control-Option frees the pointer; Command shortcuts go to Omarchy")
                 Text("Capabilities: \(status.capabilities.sorted().joined(separator: ", "))")
             }
             Divider()
@@ -1429,6 +1446,11 @@ struct OmarchyVirtualMachineView: View {
             // opts out explicitly as well.
             if ProcessInfo.processInfo.environment["RIFTVM_GUI_READY_FILE"] == nil {
                 fullScreenRequest += 1
+            }
+            withAnimation { showsReleaseHint = true }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(8))
+                withAnimation { showsReleaseHint = false }
             }
         case .paused: handle(.machinePaused)
         case .stopped:
