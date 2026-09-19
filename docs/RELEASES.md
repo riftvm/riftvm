@@ -121,6 +121,70 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.4.0
+
+RiftVM 0.4.0 shares more than one Mac folder with Omarchy, starting with
+`~/riftvm-shared`, and creates new machines from factory
+[v4.0.3-riftvm.13](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.13),
+which adds the build tools developers expect.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### New
+
+- **Shared folders.**
+  - A new machine shares `~/riftvm-shared`. **Change…** on the Prepare screen
+    picks another folder.
+  - **Shared Folders…** in the window adds more folders, makes one read-only,
+    or stops sharing one. Its files stay on the Mac.
+  - Omarchy sees each folder at `/mnt/riftvm-shared/<name>`. Changes take effect
+    the next time Omarchy starts, so programs running in a shared folder keep
+    working. The sheet offers **Restart Omarchy**.
+  - The clipboard no longer depends on a shared folder: it keeps working with
+    every folder removed or read-only.
+- **`make`, `patch` and the rest of `base-devel`** are installed in factory
+  `.13`. A developer pass found them missing, so C builds, patches and most AUR
+  packages needed a manual install first.
+- **A way back to macOS.** While Omarchy has focus, Command shortcuts belong to
+  Omarchy. A short hint when Omarchy starts, the Integration menu and the
+  README now say that Control-Option frees the pointer for the Dock and the
+  menu bar.
+
+### Validation
+
+A scripted developer day on fresh `.12` and `.13` machines ran:
+
+- Git, including merges, conflicts, rebase, worktrees, and clones from GitHub.
+- Neovim and VS Code editing.
+- A frontend stack: Vite, React and TypeScript, HMR, Vitest, ESLint, pnpm, bun,
+  Tailwind, Playwright, and Next.js.
+- Python with uv, Go, Rust, and Docker Compose with PostgreSQL.
+- Installing and removing packages with pacman and yay.
+- Omarchy's shortcuts, with Command as Super.
+
+Every product step passed on `.13`. The shared-folder layout, read-only
+folders, deferred changes, the move of an existing folder, and the clipboard
+were checked on both a new and an upgraded machine. Details are in the
+[validation record](validation/v0.4.0-developer-day-2026-09-19/README.md).
+
+### Upgrading an existing Omarchy machine
+
+- Your folder moves from `~/.riftvm/RiftVM Shared` to `~/riftvm-shared` when
+  that name is free; otherwise RiftVM keeps sharing the old folder.
+- Omarchy keeps seeing it at `/mnt/riftvm-shared` until you install the `.13`
+  integration package. After that, it appears at
+  `/mnt/riftvm-shared/<folder name>` next to any folders you add. See
+  [Updates and recovery](UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest).
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.3.3
 
 RiftVM 0.3.3 creates new Omarchy machines from factory

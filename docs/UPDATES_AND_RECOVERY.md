@@ -31,22 +31,23 @@ replacement.
 
 Omarchy's normal package update does not replace RiftVM's separately installed
 Agent and display watcher. To receive them on an existing Omarchy machine (the
-click and horizontal-scroll fixes in the Agent, and the display watcher that
-repaints a wallpaper missing on the first login), first create the protected
+Agent that lets RiftVM share several Mac folders, its click and horizontal-scroll
+fixes, and the display watcher that repaints a wallpaper missing on the first
+login), first create the protected
 recovery point described above, then download the paired integration package
 from the
-[`.12` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.12).
-Use RiftVM 0.3.3 or later. Inside the Guest terminal:
+[`.13` image release](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.13).
+Use RiftVM 0.4.0 or later. Inside the Guest terminal:
 
 ```sh
-mkdir -p ~/Downloads/riftvm-integration-12
-cd ~/Downloads/riftvm-integration-12
-base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.12
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz" &&
-curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz.sha256" &&
-sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz.sha256 &&
+mkdir -p ~/Downloads/riftvm-integration-13
+cd ~/Downloads/riftvm-integration-13
+base=https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/download/v4.0.3-riftvm.13
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.13.tar.gz" &&
+curl --fail --location --remote-name "$base/RiftVM-Omarchy-Integration-v4.0.3-riftvm.13.tar.gz.sha256" &&
+sha256sum -c RiftVM-Omarchy-Integration-v4.0.3-riftvm.13.tar.gz.sha256 &&
 mkdir package &&
-tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.12.tar.gz -C package &&
+tar -xzf RiftVM-Omarchy-Integration-v4.0.3-riftvm.13.tar.gz -C package &&
 sudo python3 package/update-integration.py install
 ```
 
@@ -68,7 +69,14 @@ sudo systemctl disable --now 'mnt-riftvm\x2dfolders.automount'
 rm -f ~/Mac
 ```
 
-Save your work and reboot Omarchy to activate both components. Check keyboard
+Save your work and reboot Omarchy to activate both components.
+
+After the reboot RiftVM switches the machine to the multi-folder layout, before
+you log in. Your shared folder then appears one level down, at
+`/mnt/riftvm-shared/<folder name>` (for example `/mnt/riftvm-shared/riftvm-shared`),
+next to any folders you add from **Shared Folders…**. Update scripts or
+bookmarks that used `/mnt/riftvm-shared` directly. Machines created from factory
+`.13` or later start in this layout. Check keyboard
 input, resizing, clipboard and desktop updates, then run
 `sudo python3 package/update-integration.py accept`. The update preserves pairing,
 user files, systemd configuration and your Hyprland preferences. It does not force
