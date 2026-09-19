@@ -8,6 +8,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         profile: VMOmarchyProfile,
         customGraphicsDevices: [VZCustomVirtioDeviceConfiguration] = [],
         microphoneEnabled: Bool = false,
+        sharePlan: VMOmarchySharePlan? = nil,
         hostMemoryBytes: UInt64 = ProcessInfo.processInfo.physicalMemory,
         activeProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount
     ) throws -> VZVirtualMachineConfiguration {
@@ -23,6 +24,7 @@ public enum VMOmarchyVirtualMachineBuilder {
             profile: profile,
             customGraphicsDevices: customGraphicsDevices,
             microphoneEnabled: microphoneEnabled,
+            sharePlan: sharePlan,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
             validatesConfiguration: true
@@ -34,6 +36,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         profile: VMOmarchyProfile,
         customGraphicsDevices: [VZCustomVirtioDeviceConfiguration] = [],
         microphoneEnabled: Bool = false,
+        sharePlan: VMOmarchySharePlan? = nil,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int
     ) throws -> VZVirtualMachineConfiguration {
@@ -42,6 +45,7 @@ public enum VMOmarchyVirtualMachineBuilder {
             profile: profile,
             customGraphicsDevices: customGraphicsDevices,
             microphoneEnabled: microphoneEnabled,
+            sharePlan: sharePlan,
             hostMemoryBytes: hostMemoryBytes,
             activeProcessorCount: activeProcessorCount,
             validatesConfiguration: false
@@ -53,6 +57,7 @@ public enum VMOmarchyVirtualMachineBuilder {
         profile: VMOmarchyProfile,
         customGraphicsDevices: [VZCustomVirtioDeviceConfiguration],
         microphoneEnabled: Bool,
+        sharePlan: VMOmarchySharePlan?,
         hostMemoryBytes: UInt64,
         activeProcessorCount: Int,
         validatesConfiguration: Bool
@@ -134,9 +139,15 @@ public enum VMOmarchyVirtualMachineBuilder {
             tag: VMGuestAgentEnrollmentStore.sharedDirectoryTag
         )
         enrollmentDevice.share = enrollmentShare
-        let sharedDirectory = VZSharedDirectory(url: layout.shared, readOnly: false)
         let sharedDevice = VZVirtioFileSystemDeviceConfiguration(tag: "riftvm_shared")
-        sharedDevice.share = VZSingleDirectoryShare(directory: sharedDirectory)
+        if let sharePlan {
+            try FileManager.default.createDirectory(at: layout.transfer, withIntermediateDirectories: true)
+            sharedDevice.share = sharePlan.makeShare(transfer: layout.transfer)
+        } else {
+            // Acceptance tools and tests exchange files through the one
+            // folder at the root of the mount.
+            sharedDevice.share = VZSingleDirectoryShare(directory: VZSharedDirectory(url: layout.shared, readOnly: false))
+        }
         configuration.directorySharingDevices = [enrollmentDevice, sharedDevice]
 
         // Omarchy uses the authenticated Guest Agent for text and image

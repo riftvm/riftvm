@@ -19,6 +19,21 @@ func TestClipboardRequestAcceptsBoundedIntegrationPaths(t *testing.T) {
 	}
 }
 
+func TestClipboardRequestAcceptsTheStagingDirectory(t *testing.T) {
+	request := clipboardRequest{
+		RelativePath: ".riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png",
+		MIMEType:     clipboardImageMIME,
+	}
+	path, err := validateClipboardRequest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "/mnt/riftvm-shared/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png"
+	if path != expected {
+		t.Fatalf("path = %q, want %q", path, expected)
+	}
+}
+
 func TestClipboardRequestRejectsTraversalMIMEAndOversize(t *testing.T) {
 	valid := clipboardRequest{
 		RelativePath: ".riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png",
@@ -27,6 +42,8 @@ func TestClipboardRequestRejectsTraversalMIMEAndOversize(t *testing.T) {
 	cases := map[string]clipboardRequest{
 		"traversal":      {RelativePath: ".riftvm-clipboard-../secret.png", MIMEType: clipboardImageMIME},
 		"nested":         {RelativePath: ".riftvm-integration/clipboard/01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
+		"user folder":    {RelativePath: "riftvm-shared/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
+		"deep staging":   {RelativePath: ".riftvm/x/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
 		"absolute":       {RelativePath: "/tmp/01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
 		"unknown MIME":   {RelativePath: valid.RelativePath, MIMEType: "text/html"},
 		"extension":      {RelativePath: valid.RelativePath, MIMEType: clipboardTextMIME},

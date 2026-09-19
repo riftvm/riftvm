@@ -52,6 +52,7 @@ let package = Package(
                 "Profile/VMOmarchyDiagnostics.swift",
                 "Profile/VMOmarchyWorkspace.swift",
                 "Profile/VMOmarchySharedFolderImporter.swift",
+                "Profile/VMOmarchySharedFolders.swift",
                 "Profile/VMOmarchyVirtualMachineBuilder.swift",
                 "Profile/VMOmarchyGuestAgentClient.swift",
                 "Profile/ActiveWorkspace.swift",

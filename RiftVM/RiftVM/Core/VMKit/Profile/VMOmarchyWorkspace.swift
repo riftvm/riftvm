@@ -107,6 +107,11 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var shared: URL {
         sharedRoot ?? applicationSupportRoot.appending(path: "Shared", directoryHint: .isDirectory)
     }
+    /// The Mac folders shared with Omarchy (`VMOmarchySharedFolderSettings`).
+    public var sharedFolderSettings: URL { applicationSupportRoot.appending(path: "SharedFolders.json") }
+    /// RiftVM's own staging folder, shared as `.riftvm` next to the user's
+    /// folders. The clipboard stages items here.
+    public var transfer: URL { applicationSupportRoot.appending(path: "Transfer", directoryHint: .isDirectory) }
     public var cache: URL { applicationSupportRoot.appending(path: "Cache", directoryHint: .isDirectory) }
     public var diagnostics: URL { applicationSupportRoot.appending(path: "Diagnostics", directoryHint: .isDirectory) }
     public var recovery: URL { applicationSupportRoot.appending(path: "Recovery", directoryHint: .isDirectory) }
@@ -397,10 +402,14 @@ public struct VMOmarchyWorkspaceManager {
         }
     }
 
+    /// - Parameter sharedFolders: the folders a new machine shares. Without
+    ///   them the machine keeps one `layout.shared` folder, as acceptance tools
+    ///   expect.
     public func prepare(
         factoryDisk: URL,
         configuration: Data,
-        machineIdentifier: Data
+        machineIdentifier: Data,
+        sharedFolders: VMOmarchySharedFolderSettings? = nil
     ) throws {
         guard inspect() == .notPrepared else { throw VMOmarchyWorkspaceError.workspaceAlreadyExists }
         guard regularFileExists(factoryDisk), factoryDisk.pathExtension.lowercased() == "asif" else {
@@ -428,7 +437,11 @@ public struct VMOmarchyWorkspaceManager {
                 at: staging.appending(path: "Boot", directoryHint: .isDirectory),
                 withIntermediateDirectories: false
             )
-            try createSupportDirectories()
+            try createSupportDirectories(sharesLegacyFolder: sharedFolders == nil)
+            if let sharedFolders {
+                try VMOmarchySharedFolderStore.save(sharedFolders, layout: layout)
+                VMOmarchySharedFolderStore.prepareFolders(sharedFolders, fileManager: fileManager)
+            }
             switch VMGuestAgentEnrollmentStore.loadOrCreate(
                 machineIdentifierData: machineIdentifier,
                 directoryURL: layout.enrollment
@@ -478,8 +491,10 @@ public struct VMOmarchyWorkspaceManager {
         return destination
     }
 
-    private func createSupportDirectories() throws {
-        for directory in [layout.enrollment, layout.shared, layout.cache, layout.diagnostics, layout.recovery] {
+    private func createSupportDirectories(sharesLegacyFolder: Bool) throws {
+        var directories = [layout.enrollment, layout.cache, layout.diagnostics, layout.recovery]
+        if sharesLegacyFolder { directories.append(layout.shared) }
+        for directory in directories {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         }
     }

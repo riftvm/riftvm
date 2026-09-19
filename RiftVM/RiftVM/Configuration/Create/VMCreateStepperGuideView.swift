@@ -201,7 +201,7 @@ struct WorkspaceCreationView: View {
                 } label: {
                     settingsRow(
                         title: "File exchange",
-                        detail: "One shared folder, both directions",
+                        detail: "\(sharedFolderPath), both directions",
                         systemImage: "arrow.left.arrow.right.square"
                     )
                 }
@@ -253,33 +253,36 @@ struct WorkspaceCreationView: View {
         }
     }
 
-    /// What the shared folder is, on both sides, and where it actually lives.
-    /// "RiftVM Shared" is a name, not a folder: the folder is the `Shared`
-    /// subfolder of the machine, which sits in the hidden ~/.riftvm.
+    /// The folder Omarchy shares, on both sides. It defaults to
+    /// `~/riftvm-shared`; more folders can be added from the window later.
     private var fileExchangeExplanation: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("On your Mac").font(.caption.weight(.semibold))
-                    Text(VMManagedSharedFolder.displayName)
+                    Text(sharedFolderURL.lastPathComponent)
                         .font(.callout.weight(.medium))
                     Text(sharedFolderPath)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
+                    Button("Change…") { chooseSharedFolder() }
+                        .controlSize(.small)
+                        .padding(.top, 2)
+                        .accessibilityIdentifier("omarchy-shared-folder-change")
                 }
                 Image(systemName: "arrow.left.arrow.right")
                     .foregroundStyle(.tint)
                     .padding(.top, 12)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("In Omarchy").font(.caption.weight(.semibold))
-                    Text("/mnt/riftvm-shared")
+                    Text("/mnt/riftvm-shared/\(sharedFolderURL.lastPathComponent)")
                         .font(.callout.monospaced())
                         .textSelection(.enabled)
                 }
                 Spacer(minLength: 0)
             }
-            Text("It is one folder, shared both ways: add files on either side and the other sees them. **Open Shared Folder** in the window reveals it in Finder (drag it into the sidebar to keep it there), and **Import Files** or dropping files on the window copies them in. Your other Mac folders stay private.")
+            Text("Files added on either side appear on the other. **Open Shared Folder** in the window reveals it in Finder, and **Import Files** or dropping files on the window copies them in. Add more folders, make one read-only, or stop sharing from **Shared Folders…**; Omarchy sees the change when it next starts. Your other Mac folders stay private.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -287,14 +290,33 @@ struct WorkspaceCreationView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// `~/.riftvm/RiftVM Shared`, abbreviated for display: the exchange folder
-    /// sits beside the machine, not inside it.
+    private var sharedFolderURL: URL {
+        session.form.sharedFolderPath.isEmpty
+            ? VMOmarchySharedFolderStore.defaultFolder(forBundle: URL(filePath: savePath, directoryHint: .isDirectory))
+            : URL(filePath: session.form.sharedFolderPath, directoryHint: .isDirectory)
+    }
+
     private var sharedFolderPath: String {
-        let path = NSString(string: savePath)
-            .deletingLastPathComponent
-        let shared = NSString(string: path)
-            .appendingPathComponent(VMOmarchyWorkspaceLayout.sharedFolderName)
-        return NSString(string: shared).abbreviatingWithTildeInPath
+        NSString(string: sharedFolderURL.path(percentEncoded: false)).abbreviatingWithTildeInPath
+    }
+
+    private func chooseSharedFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Share"
+        panel.message = "Choose the Mac folder Omarchy shares."
+        panel.directoryURL = sharedFolderURL.deletingLastPathComponent()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let bundle = URL(filePath: savePath, directoryHint: .isDirectory).resolvingSymlinksInPath().path
+        let chosen = url.resolvingSymlinksInPath().path
+        guard chosen != bundle, !chosen.hasPrefix(bundle + "/"), !bundle.hasPrefix(chosen + "/") else {
+            session.errorMessage = "Choose a folder outside the Omarchy machine."
+            return
+        }
+        session.form.sharedFolderPath = url.standardizedFileURL.path(percentEncoded: false)
     }
 
     private var progress: some View {

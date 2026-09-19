@@ -73,3 +73,21 @@ In the image repository, `tests/run` against an `omarchy-aarch64` checkout.
 ## Clipboard (regression only)
 
 21. Text and an image copy both ways between macOS and Omarchy.
+
+## Shared folders
+
+22. `ls -a /mnt/riftvm-shared` shows `.riftvm` and one directory per shared
+    folder; a file written on either side appears on the other.
+23. A read-only folder refuses writes in Omarchy. Removing or adding a folder
+    while Omarchy runs shows "Omarchy sees these changes after it restarts" and
+    leaves running programs in shared folders untouched; after **Restart
+    Omarchy** the new list is in place.
+24. With every folder removed or read-only, the clipboard still works both ways.
+
+## Developer day
+
+25. Run the scripted developer pass from the
+    [0.4.0 record](validation/v0.4.0-developer-day-2026-09-19/README.md): Git,
+    a Vite React build with HMR, Docker Compose, a pacman install and removal,
+    and VS Code editing, plus the Command-as-Super shortcuts on an empty
+    workspace.

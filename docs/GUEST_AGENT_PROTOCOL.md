@@ -86,7 +86,11 @@ capabilities, and expires the registration after 15 seconds. This channel does
 not accept commands from either side.
 `clipboard-agent-text-v1` and `clipboard-agent-image-v1` use the same
 authenticated Session Agent boundary but move clipboard bytes through the
-VirtioFS staging directory. The Session Agent verifies the exact byte count and
+VirtioFS staging directory. Items sit at the root of `/mnt/riftvm-shared`, or,
+when the host shares several folders, in its RiftVM-owned `.riftvm` entry;
+`clipboard-staging-directory-v1` tells the host the Agent accepts the latter,
+and the host keeps the single-folder layout for Agents without it. The Session
+Agent verifies the exact byte count and
 SHA-256 before publishing a selection and reads it back through Wayland before
 reporting success. The macOS integration is independently disableable.
 `desktop-notifications-v1` is advertised only when an active Wayland Session
