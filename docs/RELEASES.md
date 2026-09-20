@@ -129,14 +129,15 @@ Requires **macOS 27 or later and Apple silicon**.
 
 ### Fixes
 
-- **A refused GPU request now appears in the log.** Five paths answered the
+- **A refused GPU request now appears in the log.** Seven paths answered the
   Guest with an error and recorded nothing, so an application that could not get
-  an OpenGL context, or a texture that was never allocated, left a host log that
-  looked healthy. One of them wrote to stdout, which goes nowhere for a bundled
-  app. Each refusal now logs at error level with the context or resource, the
-  requested size, and the amount in use against its limit: `CTX_CREATE`
-  refused by the renderer, `RESOURCE_CREATE_2D` and `RESOURCE_CREATE_3D`
-  refused or unmeasurable, and `RESOURCE_ATTACH_BACKING` refused.
+  an OpenGL context, or a texture that was never filled, left a host log that
+  looked healthy. One wrote to stdout, which goes nowhere for a bundled app, and
+  one logged only in a diagnostics build. Each refusal now logs at error level
+  with the context or resource, the requested size, and the amount in use
+  against its limit: `CTX_CREATE` refused by the renderer, `RESOURCE_CREATE_2D`
+  and `RESOURCE_CREATE_3D` refused or unmeasurable, `RESOURCE_ATTACH_BACKING`
+  refused, and `TRANSFER_3D` rejected or refused.
 
 This release adds no behaviour. It exists so that a refusal is visible the next
 time one matters. Collect the log with:
