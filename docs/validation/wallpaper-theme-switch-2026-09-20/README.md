@@ -141,6 +141,55 @@ VM's slowness is what makes it this frequent is untested. A guest-side memory or
 handle leak across theme changes fits the size-sensitivity above and was not
 investigated.
 
+## Second pass: what it is not, and where it now sits
+
+A later round instrumented Omarchy's own `Background.qml` in a guest and swept
+wallpaper sizes. Four things are now ruled out, and the remainder is narrower.
+
+**It is not Omarchy's QML logic.** With `console.log` added to the transition,
+reveal and every `Image.onStatusChanged`, a blank switch and a good switch
+produce an *identical* sequence:
+
+```
+transition v=N … → incomingFrame status=1 (Ready) → startReveal → revealFinished
+                 → base status=2 (Loading) → base status=1 (Ready)
+```
+
+In both cases the component ends with `base` **Ready** on the correct final
+wallpaper. Qt believes it drew it; the screen is black (sampled mean 0.067).
+
+**It is not the three-second snapshot cleanup.** `omarchy-theme-set` hands the
+shell temporary snapshots and deletes them with `(sleep 3; rm -f …)`, which
+looked like an obvious race against a slow decode. Raising it to 120 seconds and
+changing nothing else made it **worse** — 9 blank of 12, against 6 of 12 stock.
+
+**It is not a texture-size ceiling.** `GL_MAX_TEXTURE_SIZE` is 16384 and the
+wallpapers are 3840×2160 or 5000×2813. A freshly restarted shell draws a
+6000-pixel wallpaper without trouble.
+
+**It is not host memory.** RiftVM's own RSS climbs to about 570 MB during start-up
+and then plateaus across two dozen theme switches.
+
+**What it looks like instead: resources running short, largest first.** In a
+session that has done many theme changes, the same image at increasing widths
+gives a sharp edge — 1920, 2560, 3840, 4096 and 4608 all draw; 5000 and 6000 are
+blank. Restarting `omarchy-shell` clears it completely and 6000 draws again. That
+is the shape of an allocation failing quietly once something is exhausted, with
+the biggest request failing first.
+
+Where that exhaustion lives is still unknown. It is not our accounting: the
+device's seven refusal paths stayed silent throughout, including both
+`TRANSFER_3D` paths. The remaining candidates are the guest's Mesa/virgl client
+state, virglrenderer's host-side resources, and ANGLE on Metal — none of which
+this pass could see into.
+
+A second workaround falls out of it: restarting the shell restores the wallpaper,
+not only re-setting the background.
+
+```sh
+omarchy-shell -q shell restart   # or: pkill -x quickshell && uwsm app -- quickshell -n -p /usr/share/omarchy/shell
+```
+
 ## Ghostty
 
 Ghostty is not in the image. Its 797 packages include `foot`, which is what
