@@ -121,6 +121,58 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.0
+
+RiftVM 0.5.0 is the first release of the product as it actually is: one Omarchy
+machine on macOS 27. Everything that existed only for older versions of RiftVM,
+or for other kinds of guest, is gone.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### What changed
+
+- **One shared-folder layout.** Every machine shares `.riftvm` plus one
+  directory per Mac folder, at `/mnt/riftvm-shared/<name>`. The single-folder
+  share, the one-time switch onto the new layout, and the move of an older
+  machine's exchange folder are gone, and the Agent takes clipboard items only
+  in `.riftvm`.
+- **No upgrade paths.** The on-disk migration and its screen, the Keychain
+  account migration, the guest integration-update package, and the image
+  rebake are gone. New machines come from factory
+  [v4.0.3-riftvm.14](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.14).
+- **No general or macOS guests.** The generic runner window, the VM
+  configuration model and its device fields, the generic creation and editing
+  UI, export/import, saved machine state, and the USB and vmnet helpers are
+  gone, with the USB and vmnet entitlements.
+- **Smaller command line.** `list`, `inspect`, `validate` and `doctor` remain.
+  `start`, `status`, `stop` and `install-image` are gone; the app starts and
+  stops Omarchy.
+
+About 18,000 lines less code. Nothing a user does in the window changed.
+
+### Validation
+
+A fresh machine from factory `.14` passed the full pass: first boot, shared
+folders and their editing, clipboard in both directions, a scripted developer
+day (Git, the Vite/React stack, Python, Go, Rust, Docker Compose, pacman and
+AUR, VS Code), and 29 of 30 Omarchy shortcuts with Command as Super. Details
+are in the [validation record](validation/v0.5.0-cleanup-2026-09-19/README.md).
+
+### Upgrading
+
+Machines created by an earlier RiftVM are not supported. Choose
+**Omarchy ▾ → Remove Omarchy…**, then **Prepare Omarchy** to create one from
+factory `.14`. Copy anything you need out of the shared folder first.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.4.0
 
 RiftVM 0.4.0 shares more than one Mac folder with Omarchy, starting with

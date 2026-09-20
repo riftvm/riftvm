@@ -28,6 +28,39 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
         return "\(VMOmarchySharePlan.guestMountPoint)/\(name)"
     }
 
+    /// Runs one command inside the Guest desktop, through the Agent's own
+    /// keyboard, when RIFTVM_OMARCHY_ACCEPTANCE_DESKTOP_COMMAND is set. Test
+    /// machines use it to start their job runner without the Mac's focus.
+    @MainActor
+    func startDesktopCommandIfNeeded(_ status: VMOmarchyGuestStatus) {
+        let environment = ProcessInfo.processInfo.environment
+        guard acceptanceEnabled,
+              let command = environment["RIFTVM_OMARCHY_ACCEPTANCE_DESKTOP_COMMAND"], !command.isEmpty,
+              !desktopCommandStarted,
+              status.desktopSessionActive,
+              !status.provisioningPending,
+              let client = integrationClient else { return }
+        desktopCommandStarted = true
+        Task { @MainActor in
+            do {
+                // Super+Return is Omarchy's terminal.
+                let superDown = VMGuestAgentInputBatch.key(code: 125, pressed: true)
+                let enterDown = VMGuestAgentInputBatch.key(code: 28, pressed: true)
+                let enterUp = VMGuestAgentInputBatch.key(code: 28, pressed: false)
+                let superUp = VMGuestAgentInputBatch.key(code: 125, pressed: false)
+                for batch in [superDown, enterDown, enterUp, superUp] {
+                    client.sendInputEvents(batch.events)
+                    try await Task.sleep(for: .milliseconds(60))
+                }
+                try await Task.sleep(for: .seconds(4))
+                try await client.typeUSASCII(command + "\n")
+                NSLog("Omarchy acceptance desktop command dispatched")
+            } catch {
+                NSLog("Omarchy acceptance desktop command failed: %@", error.localizedDescription)
+            }
+        }
+    }
+
     @MainActor
     func startBootUnlockAcceptanceIfNeeded() {
         let environment = ProcessInfo.processInfo.environment
@@ -741,6 +774,9 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
 #else
 // Production has no automatic test implementation.
 extension OmarchyVirtualMachineRepresentable.Coordinator {
+    @MainActor
+    func startDesktopCommandIfNeeded(_ status: VMOmarchyGuestStatus) {}
+
     @MainActor
     func startBootUnlockAcceptanceIfNeeded() {}
     @MainActor
