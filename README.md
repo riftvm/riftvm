@@ -98,7 +98,7 @@ a newer factory does not replace your guest disk. See [Updates and recovery](doc
 
 ## Limits to know
 
-- Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported machine.
+- Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and Omarchy is the only machine RiftVM prepares.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
 - Omarchy runs Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
 - Omarchy sees only the folders you share, `~/riftvm-shared` by default. Anything Omarchy can write, it can change or delete, so share other folders read-only unless you mean to edit them from Linux.
@@ -174,9 +174,8 @@ goes wrong, choose **Omarchy ▾ → Save Diagnostics…** and start with the
 
 Choose **Prepare Omarchy**. RiftVM downloads the pinned Factory release, verifies
 its signed manifest and image digest, creates a private writable disk and machine
-identity, then guides you through owner setup. Generic Linux distributions,
-custom ISO installation, and macOS guests are intentionally outside RiftVM's
-product scope.
+identity, then guides you through owner setup. Omarchy is the only machine RiftVM
+runs: there is no generic Linux, ISO installation, or macOS guest.
 
 ## Direction
 

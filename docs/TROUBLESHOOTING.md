@@ -28,10 +28,10 @@ first: Custom VirGL cannot reconstruct renderer contexts and resources from
 restored RAM.
 
 Use the Omarchy window's **Integration**, **Updates**, and **Recovery** menus for
-its status and recovery controls. `riftvm doctor` reports host information;
-`riftvm validate "/path/to/Machine.riftvm"` validates general VM bundles with a
-top-level `config.json`, not a dedicated Omarchy machine. Do not attach disks,
-enrollment files, or logs containing credentials to a bug report.
+its status and recovery controls. `riftvm doctor` reports host information, and
+`riftvm validate "$HOME/.riftvm/Omarchy.riftvm"` checks the machine on disk. Do
+not attach disks, enrollment files, or logs containing credentials to a bug
+report.
 
 ## App runs but no window appears
 
@@ -185,15 +185,11 @@ Settings reports host OS eligibility separately from signed entitlements.
 Neither is an end-to-end validation of a particular VM. Check the guest OS,
 hardware, VM configuration, and runtime status as well.
 
-- Omarchy always constructs Custom VirGL at startup, and so do general Linux
-  VMs. Initialization failure stops startup with a diagnostic; there is no
-  alternate graphics device to select.
+- Omarchy always constructs Custom VirGL at startup. Initialization failure
+  stops startup with a diagnostic; there is no alternate graphics device to
+  select.
 - DiskImageKit layering requires a supported ASIF machine configuration. Do not
   infer the snapshot backend from a `.asif` extension alone.
-- EFI Secure Boot is an explicit per-VM setting, not a global enabled state.
-- USB passthrough requires the signed entitlement, user authorization, and a VM
-  USB controller. Its controls are in the general VM window; the dedicated
-  Omarchy window does not currently expose the same accessory controls.
 
 ## An acceptance-test warning appears
 
