@@ -138,10 +138,8 @@ Requires **macOS 27 or later and Apple silicon**.
   refused by the renderer, `RESOURCE_CREATE_2D` and `RESOURCE_CREATE_3D`
   refused or unmeasurable, and `RESOURCE_ATTACH_BACKING` refused.
 
-This release adds no behaviour. It exists so that an intermittent failure
-reported against 0.5.1 — a wallpaper that does not return after a theme change,
-and a GTK application that cannot acquire an OpenGL context — can be diagnosed
-from the log instead of guessed at. Collect it with:
+This release adds no behaviour. It exists so that a refusal is visible the next
+time one matters. Collect the log with:
 
 ```sh
 log show --predicate 'subsystem == "com.riftvm.app"' --last 1h --info
@@ -154,13 +152,29 @@ end to end for a leak first: `totalPixelBytes`, the renderer budget and the
 backing budget are all released unconditionally on `RESOURCE_UNREF`, so no leak
 was found and none is fixed here.
 
-Not claimed: the reported wallpaper and OpenGL failures are **not** fixed, and
-no cause for them has been established. The device's own log was clean across
-the session that produced the report, which is what these lines are meant to
-make meaningful next time.
+The wallpaper failure reported against 0.5.1 was then reproduced on a throwaway
+machine and investigated with this logging active — see
+[the record](validation/wallpaper-theme-switch-2026-09-20/README.md). It
+reproduces on demand — 24 blank wallpapers in 40 theme changes, the first on the
+third — and it is not RiftVM's. Across that run the device logged nothing at
+error level on any of its seven refusal paths, forcing Hyprland to re-render
+does not bring the wallpaper back, and the bar drawn by the same process through
+the same GL context keeps rendering throughout. Setting a background directly
+never failed; only changing a theme does. The mechanism inside Omarchy's shell
+was not established.
+
+The "page with the word omarchy on it" in the same report is Omarchy's
+screensaver: `shell.json` ships `"idle": { "screensaver": 150, "lock": 300 }`.
+
+Not claimed: the wallpaper failure is **not** fixed by this release, and nothing
+was reported or fixed upstream.
 
 ### Known issues
 
+- **The wallpaper can be missing after a theme change.** Bring it back with
+  `omarchy-theme-bg-set "$(readlink -f ~/.local/state/omarchy/current/background)"`.
+  The Omarchy wordmark filling the screen is the screensaver; `omarchy-toggle-idle
+  stay-awake` turns it off.
 - Ghostty is not part of the Omarchy image; the image's terminal is `foot`. A
   separately installed GTK application may fail to acquire an OpenGL context.
 - Guest resolution follows the screen's logical size, so text is less sharp than
