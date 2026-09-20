@@ -103,12 +103,12 @@ public enum VMOmarchySharedFolderStore {
 /// where the Host stages clipboard items so the Guest finds them.
 public struct VMOmarchySharePlan: Equatable, Sendable {
     public struct Entry: Equatable, Sendable {
-        /// Directory name under `/mnt/riftvm-shared`.
+        /// Directory name under `/mnt/mac`.
         public let name: String
         public let folder: VMOmarchySharedFolder
     }
 
-    public static let guestMountPoint = "/mnt/riftvm-shared"
+    public static let guestMountPoint = "/mnt/mac"
     /// Share entry the Host owns. The Agent takes clipboard items only there,
     /// because the root of the share holds the user's folders.
     public static let stagingEntryName = ".riftvm"

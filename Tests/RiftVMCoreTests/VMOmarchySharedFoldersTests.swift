@@ -78,7 +78,7 @@ final class VMOmarchySharedFoldersTests: XCTestCase {
         XCTAssertEqual(plan.entries.map(\.name), ["riftvm-shared", "code", "code-2", "riftvm"])
         XCTAssertEqual(plan.clipboardStaging, transfer)
         XCTAssertEqual(VMOmarchySharePlan.clipboardRelativePrefix, ".riftvm/")
-        XCTAssertEqual(plan.guestPath(for: settings.folders[1]), "/mnt/riftvm-shared/code")
+        XCTAssertEqual(plan.guestPath(for: settings.folders[1]), "/mnt/mac/code")
         XCTAssertNil(plan.guestPath(for: settings.folders[4]))
         let share = try XCTUnwrap(plan.makeShare(transfer: transfer) as? VZMultipleDirectoryShare)
         XCTAssertEqual(Set(share.directories.keys), [".riftvm", "riftvm-shared", "code", "code-2", "riftvm"])

@@ -5,7 +5,7 @@ Before=multi-user.target
 
 [Mount]
 What=riftvm_shared
-Where=/mnt/riftvm-shared
+Where=/mnt/mac
 Type=virtiofs
 Options=rw,nosuid,nodev
 

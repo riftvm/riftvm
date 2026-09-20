@@ -72,7 +72,7 @@ only from `hyprctl` or a compositor socket: stale runtime sockets can produce a
 false positive or false negative after login/restart.
 `shared-folders-v1` is advertised only while the agent can verify an active
 VirtioFS mount whose tag is exactly `riftvm_shared` and whose guest mount point is
-exactly `/mnt/riftvm-shared`. The existence of the host device or a guest mount
+exactly `/mnt/mac`. The existence of the host device or a guest mount
 unit is not sufficient. Hosts should present shared-folder workflows as
 degraded whenever this capability is absent and must not infer readiness from
 the configured VM model alone.
@@ -86,7 +86,7 @@ capabilities, and expires the registration after 15 seconds. This channel does
 not accept commands from either side.
 `clipboard-agent-text-v1` and `clipboard-agent-image-v1` use the same
 authenticated Session Agent boundary but move clipboard bytes through the
-VirtioFS staging directory. Items sit at the root of `/mnt/riftvm-shared`, or,
+VirtioFS staging directory. Items sit at the root of `/mnt/mac`, or,
 when the host shares several folders, in its RiftVM-owned `.riftvm` entry;
 `clipboard-staging-directory-v1` tells the host the Agent accepts the latter,
 and the host keeps the single-folder layout for Agents without it. The Session

@@ -109,7 +109,7 @@ final class RiftVMOmarchyTests: XCTestCase {
     #if RIFTVM_ACCEPTANCE_HARNESS
     func testInputDiagnosticsProbeCapturesHyprlandBindingAndDeviceState() {
         let script = OmarchyInputDiagnosticsAcceptanceProbe.probeScript(
-            resultPath: "/mnt/riftvm-shared/result.txt"
+            resultPath: "/mnt/mac/result.txt"
         )
 
         XCTAssertTrue(script.contains("hyprctl binds -j"))
@@ -117,11 +117,11 @@ final class RiftVMOmarchyTests: XCTestCase {
         XCTAssertTrue(script.contains("hyprctl activewindow -j"))
         XCTAssertTrue(script.contains("omarchy-shell lock status"))
         XCTAssertTrue(script.contains("pgrep -a omarchy-shell"))
-        XCTAssertTrue(script.contains("result='/mnt/riftvm-shared/result.txt'"))
+        XCTAssertTrue(script.contains("result='/mnt/mac/result.txt'"))
         XCTAssertTrue(script.contains("mv -f -- \"$partial\" \"$result\""))
 
         let watcher = OmarchyInputDiagnosticsAcceptanceProbe.lockWatcherScript(
-            guestDirectory: "/mnt/riftvm-shared/probe"
+            guestDirectory: "/mnt/mac/probe"
         )
         XCTAssertTrue(watcher.contains("omarchy-shell lock isLocked"))
         XCTAssertTrue(watcher.contains("touch \"$d/locked\""))
@@ -132,7 +132,7 @@ final class RiftVMOmarchyTests: XCTestCase {
     #if RIFTVM_ACCEPTANCE_HARNESS
     func testLockWatcherSeparatesChordRecognitionFromOmarchyLockAction() {
         let script = OmarchyInputDiagnosticsAcceptanceProbe.lockWatcherScript(
-            guestDirectory: "/mnt/riftvm-shared/probe"
+            guestDirectory: "/mnt/mac/probe"
         )
         XCTAssertTrue(script.contains("command -v omarchy-shell"))
         XCTAssertTrue(script.contains("OMARCHY_SHELL_IPC_TIMEOUT=0.5s"))
@@ -172,7 +172,7 @@ final class RiftVMOmarchyTests: XCTestCase {
     @MainActor
     func testClipboardProbeWaitsForGuestScriptAndMatchingPasteboardPayloads() {
         let script = OmarchyClipboardAcceptanceProbe.probeScript(
-            guestDirectory: "/mnt/riftvm-shared/probe"
+            guestDirectory: "/mnt/mac/probe"
         )
 
         XCTAssertTrue(script.contains("touch \"$d/script-ready\""))

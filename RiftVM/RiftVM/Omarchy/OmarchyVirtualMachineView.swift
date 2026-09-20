@@ -874,7 +874,7 @@ struct OmarchyVirtualMachineView: View {
                 }
                 if !status.addresses.isEmpty { Text(status.addresses.joined(separator: ", ")) }
                 if status.capabilities.contains("shared-folders-v1") {
-                    Text("Shared folder mounted at /mnt/riftvm-shared")
+                    Text("Shared folder mounted at /mnt/mac")
                 } else {
                     Text("Shared folder is not mounted in Omarchy")
                 }

@@ -3,11 +3,11 @@
 This directory contains the Omarchy-specific image additions owned by the
 dedicated product. It does not fork the general RiftVM Guest Agent.
 
-The image build creates `/mnt/riftvm-shared`, then installs and enables
-`systemd/mnt-riftvm\x2dshared.mount`. The escaped unit name is required by
-systemd because the mount path itself contains a hyphen. The unit
-mounts the Host-provided VirtioFS tag `riftvm_shared` at `/mnt/riftvm-shared` with
-`nosuid,nodev`. The Guest Agent advertises `shared-folders-v1` only after Linux
+The image build creates `/mnt/mac`, then installs and enables
+`systemd/mnt-mac.mount`, whose name is the mount path as systemd escapes it.
+The unit mounts the Host-provided VirtioFS tag `riftvm_shared` at `/mnt/mac`
+with `nosuid,nodev`. Each Mac folder appears one level below it, named after
+the folder, beside the RiftVM-owned `.riftvm` staging entry. The Guest Agent advertises `shared-folders-v1` only after Linux
 mountinfo proves that this exact tag, filesystem type, and mount point are
 active.
 

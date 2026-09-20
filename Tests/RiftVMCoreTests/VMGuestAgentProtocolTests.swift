@@ -41,7 +41,7 @@ final class VMGuestAgentProtocolTests: XCTestCase {
     func testLinuxKeyboardTextEncoderProducesBalancedBatches() throws {
         let nonce = UUID().uuidString.lowercased()
         let batches = try VMLinuxKeyboardTextEncoder.batches(
-            for: "bash /mnt/riftvm-shared/.riftvm-clipboard-\(nonce)/probe.sh\n"
+            for: "bash /mnt/mac/.riftvm-clipboard-\(nonce)/probe.sh\n"
         )
         XCTAssertFalse(batches.isEmpty)
         XCTAssertTrue(batches.allSatisfy { !$0.events.isEmpty })

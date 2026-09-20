@@ -10,7 +10,7 @@ Restart=always
 RestartSec=2
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/run/rift-agent/sessions /mnt/riftvm-shared
+ReadWritePaths=/run/rift-agent/sessions /mnt/mac
 PrivateTmp=true
 
 [Install]

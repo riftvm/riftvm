@@ -263,7 +263,7 @@ struct WorkspaceCreationView: View {
                     .padding(.top, 12)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("In Omarchy").font(.caption.weight(.semibold))
-                    Text("/mnt/riftvm-shared/\(sharedFolderURL.lastPathComponent)")
+                    Text("/mnt/mac/\(sharedFolderURL.lastPathComponent)")
                         .font(.callout.monospaced())
                         .textSelection(.enabled)
                 }

@@ -21,26 +21,26 @@ git -C "$project_root" show "$agent_ref:GuestAgent/linux/session_linux.go" 2>/de
 git -C "$project_root" show "$agent_ref:GuestAgent/linux/install.sh" 2>/dev/null | \
   grep -Fq 'rift-session-agent.service' || fail "pinned Guest Agent does not install its user service"
 
-system_unit='etc/systemd/system/mnt-riftvm\x2dshared.mount'
+system_unit='etc/systemd/system/mnt-mac.mount'
 user_unit='etc/systemd/user/rift-session-agent.service'
-cmp -s "$project_root/RiftVM/GuestOverlay/systemd/mnt-riftvm\x2dshared.mount" \
+cmp -s "$project_root/RiftVM/GuestOverlay/systemd/mnt-mac.mount" \
   "$profile/overlay/$system_unit" || fail "shared-folder mount unit is missing or differs from the product contract"
 cmp -s "$project_root/RiftVM/GuestOverlay/systemd/rift-session-agent.service" \
   "$profile/overlay/$user_unit" || fail "Session Agent unit is missing or differs from the product contract"
 
 grep -Eq '^[[:space:]]*wl-clipboard([[:space:]]*(#.*)?)?$' "$profile/runtime-packages" || \
   fail "wl-clipboard is not an explicit image runtime dependency"
-grep -Fq "target_chroot systemctl enable 'mnt-riftvm\\x2dshared.mount'" "$build" || \
+grep -Fq "target_chroot systemctl enable 'mnt-mac.mount'" "$build" || \
   fail "shared-folder mount is not enabled during image assembly"
-grep -Fq 'install -d -m755 "$MOUNT_DIR/mnt/riftvm-shared"' "$build" || \
+grep -Fq 'install -d -m755 "$MOUNT_DIR/mnt/mac"' "$build" || \
   fail "shared-folder mount point is not created during image assembly"
 grep -Fq 'target_chroot systemctl --global enable rift-session-agent.service' "$build" || \
   fail "Session Agent is not globally enabled for the owner desktop session"
 for required in \
   "$system_unit" \
   "$user_unit" \
-  'etc/systemd/system/multi-user.target.wants/mnt-riftvm\x2dshared.mount' \
-  'mnt/riftvm-shared' \
+  'etc/systemd/system/multi-user.target.wants/mnt-mac.mount' \
+  'mnt/mac' \
   'etc/systemd/user/graphical-session.target.wants/rift-session-agent.service'; do
   grep -Fq "$required" "$build" || fail "final image validation does not require /$required"
 done

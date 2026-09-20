@@ -8,21 +8,21 @@ trap 'rm -rf "$fixture"' EXIT
 profile="$fixture/profiles/aarch64-virt"
 agent_ref=$(git -C "$project_root" rev-parse HEAD)
 mkdir -p "$fixture/bin" "$profile/overlay/etc/systemd/system" "$profile/overlay/etc/systemd/user"
-cp "$project_root/RiftVM/GuestOverlay/systemd/mnt-riftvm\x2dshared.mount" \
-  "$profile/overlay/etc/systemd/system/mnt-riftvm\x2dshared.mount"
+cp "$project_root/RiftVM/GuestOverlay/systemd/mnt-mac.mount" \
+  "$profile/overlay/etc/systemd/system/mnt-mac.mount"
 cp "$project_root/RiftVM/GuestOverlay/systemd/rift-session-agent.service" \
   "$profile/overlay/etc/systemd/user/rift-session-agent.service"
 printf '%s\n' wl-clipboard >"$profile/runtime-packages"
 printf 'RIFTVM_GUEST_AGENT_REF=%s\n' "$agent_ref" >"$fixture/sources.env"
 cat >"$fixture/bin/build-image" <<'EOF'
-target_chroot systemctl enable 'mnt-riftvm\x2dshared.mount'
-install -d -m755 "$MOUNT_DIR/mnt/riftvm-shared"
+target_chroot systemctl enable 'mnt-mac.mount'
+install -d -m755 "$MOUNT_DIR/mnt/mac"
 target_chroot systemctl --global enable rift-session-agent.service
 required_paths=(
-  'etc/systemd/system/mnt-riftvm\x2dshared.mount'
+  'etc/systemd/system/mnt-mac.mount'
   etc/systemd/user/rift-session-agent.service
-  'etc/systemd/system/multi-user.target.wants/mnt-riftvm\x2dshared.mount'
-  mnt/riftvm-shared
+  'etc/systemd/system/multi-user.target.wants/mnt-mac.mount'
+  mnt/mac
   etc/systemd/user/graphical-session.target.wants/rift-session-agent.service
 )
 EOF

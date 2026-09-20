@@ -88,7 +88,7 @@ struct OmarchySharedFoldersView: View {
         let when = plan == nil
             ? "Omarchy sees changes when it starts."
             : "Omarchy sees changes after it restarts, so running programs keep their folders."
-        return "Each folder appears in Omarchy under /mnt/riftvm-shared. \(when)"
+        return "Each folder appears in Omarchy under /mnt/mac. \(when)"
     }
 
     @ViewBuilder

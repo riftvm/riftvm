@@ -17,7 +17,7 @@ version=${version#v}
 }
 
 source_root="$project_root/RiftVM/GuestOverlay/systemd"
-mount_unit="$source_root/mnt-riftvm\x2dshared.mount"
+mount_unit="$source_root/mnt-mac.mount"
 session_unit="$source_root/rift-session-agent.service"
 test -f "$mount_unit"
 test -f "$session_unit"
@@ -29,9 +29,9 @@ trap 'rm -rf "$staging"' EXIT
 install -d -m 0755 \
   "$staging/etc/systemd/system" \
   "$staging/etc/systemd/user" \
-  "$staging/mnt/riftvm-shared"
+  "$staging/mnt/mac"
 install -m 0644 "$mount_unit" \
-  "$staging/etc/systemd/system/mnt-riftvm\x2dshared.mount"
+  "$staging/etc/systemd/system/mnt-mac.mount"
 install -m 0644 "$session_unit" \
   "$staging/etc/systemd/user/rift-session-agent.service"
 
@@ -45,7 +45,7 @@ jq -n \
     productID: "com.riftvm.app.omarchy",
     version: $version,
     files: [
-      {path: "etc/systemd/system/mnt-riftvm\\x2dshared.mount", sha256: $mount_sha},
+      {path: "etc/systemd/system/mnt-mac.mount", sha256: $mount_sha},
       {path: "etc/systemd/user/rift-session-agent.service", sha256: $session_sha}
     ]
   }' >"$manifest"
@@ -56,8 +56,8 @@ find "$staging" -exec touch -h -t 202001010000 {} +
 uncompressed="$staging/overlay.tar"
 COPYFILE_DISABLE=1 tar --format ustar -C "$staging" -cf "$uncompressed" \
   overlay-manifest.json \
-  mnt/riftvm-shared \
-  'etc/systemd/system/mnt-riftvm\x2dshared.mount' \
+  mnt/mac \
+  'etc/systemd/system/mnt-mac.mount' \
   etc/systemd/user/rift-session-agent.service
 gzip -n -9 -c "$uncompressed" >"$archive_path"
 shasum -a 256 "$archive_path" >"$archive_path.sha256"

@@ -172,19 +172,19 @@ func contains(values []string, expected string) bool {
 }
 
 func TestSharedFolderCapabilityRequiresExactVirtioFSMount(t *testing.T) {
-	valid := []byte("41 30 0:38 / /mnt/riftvm-shared rw,nosuid,nodev - virtiofs riftvm_shared rw\n")
-	if !mountInfoHasVirtioFS(valid, "riftvm_shared", "/mnt/riftvm-shared") {
+	valid := []byte("41 30 0:38 / /mnt/mac rw,nosuid,nodev - virtiofs riftvm_shared rw\n")
+	if !mountInfoHasVirtioFS(valid, "riftvm_shared", "/mnt/mac") {
 		t.Fatal("exact RiftVM shared-folder mount was not recognized")
 	}
 	for name, value := range map[string][]byte{
-		"read only":        []byte("41 30 0:38 / /mnt/riftvm-shared ro,nosuid,nodev - virtiofs riftvm_shared rw\n"),
-		"wrong tag":        []byte("41 30 0:38 / /mnt/riftvm-shared rw - virtiofs other rw\n"),
+		"read only":        []byte("41 30 0:38 / /mnt/mac ro,nosuid,nodev - virtiofs riftvm_shared rw\n"),
+		"wrong tag":        []byte("41 30 0:38 / /mnt/mac rw - virtiofs other rw\n"),
 		"wrong mountpoint": []byte("41 30 0:38 / /mnt/other rw - virtiofs riftvm_shared rw\n"),
-		"wrong filesystem": []byte("41 30 0:38 / /mnt/riftvm-shared rw - ext4 riftvm_shared rw\n"),
+		"wrong filesystem": []byte("41 30 0:38 / /mnt/mac rw - ext4 riftvm_shared rw\n"),
 		"malformed":        []byte("not mountinfo"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if mountInfoHasVirtioFS(value, "riftvm_shared", "/mnt/riftvm-shared") {
+			if mountInfoHasVirtioFS(value, "riftvm_shared", "/mnt/mac") {
 				t.Fatal("invalid mount was advertised as a working shared folder")
 			}
 		})

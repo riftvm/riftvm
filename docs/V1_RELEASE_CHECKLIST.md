@@ -76,7 +76,7 @@ In the image repository, `tests/run` against an `omarchy-aarch64` checkout.
 
 ## Shared folders
 
-22. `ls -a /mnt/riftvm-shared` shows `.riftvm` and one directory per shared
+22. `ls -a /mnt/mac` shows `.riftvm` and one directory per shared
     folder; a file written on either side appears on the other.
 23. A read-only folder refuses writes in Omarchy. Removing or adding a folder
     while Omarchy runs shows "Omarchy sees these changes after it restarts" and

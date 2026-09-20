@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	clipboardSharedRoot = "/mnt/riftvm-shared"
+	clipboardSharedRoot = "/mnt/mac"
 	clipboardFilePrefix = ".riftvm-clipboard-"
 	// clipboardStagingDirectory is the RiftVM-owned entry of the shared-folder
 	// mount. The Host stages clipboard items there; the root of the mount holds
