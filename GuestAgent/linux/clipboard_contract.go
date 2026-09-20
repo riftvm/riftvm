@@ -10,16 +10,13 @@ import (
 const (
 	clipboardSharedRoot = "/mnt/riftvm-shared"
 	clipboardFilePrefix = ".riftvm-clipboard-"
-	// clipboardStagingDirectory is the RiftVM-owned entry of a multi-folder
-	// share. The Host stages clipboard items there when it shares several
-	// folders, because the root of such a share holds only the folders.
+	// clipboardStagingDirectory is the RiftVM-owned entry of the shared-folder
+	// mount. The Host stages clipboard items there; the root of the mount holds
+	// only the shared folders themselves and cannot take a file.
 	clipboardStagingDirectory = ".riftvm"
-	// clipboardStagingDirectoryCapability tells the Host this Agent accepts
-	// items in clipboardStagingDirectory.
-	clipboardStagingDirectoryCapability = "clipboard-staging-directory-v1"
-	maximumClipboardBytes               = 100 * 1024 * 1024
-	clipboardTextMIME                   = "text/plain;charset=utf-8"
-	clipboardImageMIME                  = "image/png"
+	maximumClipboardBytes     = 100 * 1024 * 1024
+	clipboardTextMIME         = "text/plain;charset=utf-8"
+	clipboardImageMIME        = "image/png"
 )
 
 var clipboardItemPattern = regexp.MustCompile(
@@ -54,12 +51,9 @@ func validateClipboardRequest(request clipboardRequest) (string, error) {
 	if clean != request.RelativePath || filepath.IsAbs(clean) || strings.Contains(clean, "..") {
 		return "", errors.New("invalid clipboard relative path")
 	}
-	name := clean
-	if directory, file, nested := strings.Cut(clean, "/"); nested {
-		if directory != clipboardStagingDirectory {
-			return "", errors.New("clipboard path is outside the shared staging root")
-		}
-		name = file
+	directory, name, nested := strings.Cut(clean, "/")
+	if !nested || directory != clipboardStagingDirectory {
+		return "", errors.New("clipboard path is outside the shared staging root")
 	}
 	if strings.Contains(name, "/") || !strings.HasPrefix(name, clipboardFilePrefix) ||
 		!clipboardItemPattern.MatchString(name) {

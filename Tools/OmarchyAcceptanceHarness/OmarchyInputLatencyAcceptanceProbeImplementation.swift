@@ -169,9 +169,9 @@ enum OmarchyInputLatencyAcceptanceProbe {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
         var succeeded = false
         defer { if succeeded { try? FileManager.default.removeItem(at: directory) } }
-        try Data(probeScript(guestDirectory: "/mnt/riftvm-shared/\(directory.lastPathComponent)").utf8)
+        try Data(probeScript(guestDirectory: "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(directory.lastPathComponent)").utf8)
             .write(to: script, options: .atomic)
-        try await client.typeUSASCII("bash /mnt/riftvm-shared/\(directory.lastPathComponent)/probe.sh\n")
+        try await client.typeUSASCII("bash \(OmarchyAcceptanceGuestPaths.sharedRoot)/\(directory.lastPathComponent)/probe.sh\n")
         do {
             try await waitForFile(ready, timeout: .seconds(10))
         } catch {
@@ -184,7 +184,7 @@ enum OmarchyInputLatencyAcceptanceProbe {
             try await Task.sleep(for: .seconds(5))
             try await client.injectKeyChord(modifiers: [125], key: 28)
             try await Task.sleep(for: .seconds(2))
-            try await client.typeUSASCII("bash /mnt/riftvm-shared/\(directory.lastPathComponent)/probe.sh\n")
+            try await client.typeUSASCII("bash \(OmarchyAcceptanceGuestPaths.sharedRoot)/\(directory.lastPathComponent)/probe.sh\n")
             try await waitForFile(ready, timeout: .seconds(10))
         }
 

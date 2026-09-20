@@ -27,100 +27,6 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
         ))
     }
 
-    func testAppWorkspaceSharesAFolderBesideTheMachine() {
-        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
-
-        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
-
-        XCTAssertEqual(
-            layout.shared.path,
-            temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory).path
-        )
-        XCTAssertFalse(layout.shared.path.hasPrefix(bundle.path), "the exchange folder must not live inside the machine")
-    }
-
-    func testAppWorkspaceAdoptsAnInBundleSharedFolder() throws {
-        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
-        let legacyShared = bundle.appending(path: "Shared", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: legacyShared, withIntermediateDirectories: true)
-        try Data("kept".utf8).write(to: legacyShared.appending(path: "notes.txt"))
-
-        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
-
-        let moved = temporaryRoot.appending(path: ".riftvm/RiftVM Shared/notes.txt")
-        XCTAssertEqual(layout.shared.path, temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory).path)
-        XCTAssertEqual(try Data(contentsOf: moved), Data("kept".utf8))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyShared.path))
-    }
-
-    func testAppWorkspaceKeepsAnExistingSharedFolderAndLeavesTheLegacyOneAlone() throws {
-        let bundle = temporaryRoot.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
-        let legacyShared = bundle.appending(path: "Shared", directoryHint: .isDirectory)
-        let shared = temporaryRoot.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: legacyShared, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
-        try Data("old".utf8).write(to: legacyShared.appending(path: "old.txt"))
-        try Data("current".utf8).write(to: shared.appending(path: "current.txt"))
-
-        let layout = VMOmarchyWorkspaceLayout.appWorkspace(bundleURL: bundle)
-
-        XCTAssertEqual(layout.shared.path, shared.path)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: legacyShared.appending(path: "old.txt").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: shared.appending(path: "current.txt").path))
-    }
-
-    private var temporaryRoot: URL!
-
-    override func setUpWithError() throws {
-        temporaryRoot = FileManager.default.temporaryDirectory
-            .appending(path: "VMOmarchyWorkspaceTests-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: temporaryRoot, withIntermediateDirectories: true)
-    }
-
-    override func tearDownWithError() throws {
-        try? FileManager.default.removeItem(at: temporaryRoot)
-    }
-
-    func testPreparePublishesCompleteWorkspaceAtomically() throws {
-        let factory = temporaryRoot.appending(path: "factory.asif")
-        try Data("factory".utf8).write(to: factory)
-        let layout = VMOmarchyWorkspaceLayout(
-            applicationSupportRoot: temporaryRoot.appending(path: "Application Support/RiftVM Omarchy")
-        )
-        let manager = VMOmarchyWorkspaceManager(layout: layout)
-        XCTAssertEqual(manager.inspect(), .notPrepared)
-        let identifier = VZGenericMachineIdentifier().dataRepresentation
-
-        try manager.prepare(
-            factoryDisk: factory,
-            configuration: try metadata(),
-            machineIdentifier: identifier
-        )
-
-        XCTAssertEqual(manager.inspect(), .ready)
-        XCTAssertEqual(try manager.metadata().factoryImageVersion, "test")
-        XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory".utf8))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.snapshots.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.enrollment.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.shared.path))
-        let enrollmentURL = layout.enrollment.appending(path: "config.json")
-        let enrollment = try JSONDecoder().decode(
-            VMGuestAgentEnrollment.self,
-            from: Data(contentsOf: enrollmentURL)
-        )
-        XCTAssertEqual(
-            enrollment.machineID,
-            VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier)
-        )
-        XCTAssertEqual(enrollment.token.count, 32)
-        XCTAssertEqual(
-            try FileManager.default.attributesOfItem(atPath: enrollmentURL.path)[.posixPermissions] as? NSNumber,
-            NSNumber(value: 0o600)
-        )
-        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: layout.applicationSupportRoot.path)
-            .contains(where: { $0.hasPrefix(".Workspace.preparing.") }))
-    }
-
     func testRuntimeGuestIntegrationMetadataIsRecordedWithoutChangingFactoryIdentity() throws {
         let factory = temporaryRoot.appending(path: "factory.asif")
         try Data("factory".utf8).write(to: factory)
@@ -162,6 +68,65 @@ final class VMOmarchyWorkspaceTests: XCTestCase {
             capabilities: []
         ))
         XCTAssertNil(try manager.metadata().guestAgentVersion)
+    }
+
+    private var temporaryRoot: URL!
+
+    override func setUpWithError() throws {
+        temporaryRoot = FileManager.default.temporaryDirectory
+            .appending(path: "VMOmarchyWorkspaceTests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: temporaryRoot, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: temporaryRoot)
+    }
+
+    func testPreparePublishesCompleteWorkspaceAtomically() throws {
+        let factory = temporaryRoot.appending(path: "factory.asif")
+        try Data("factory".utf8).write(to: factory)
+        let layout = VMOmarchyWorkspaceLayout(
+            applicationSupportRoot: temporaryRoot.appending(path: "Application Support/RiftVM Omarchy")
+        )
+        let manager = VMOmarchyWorkspaceManager(layout: layout)
+        XCTAssertEqual(manager.inspect(), .notPrepared)
+        let identifier = VZGenericMachineIdentifier().dataRepresentation
+        let shared = temporaryRoot.appending(path: "riftvm-shared", directoryHint: .isDirectory)
+
+        try manager.prepare(
+            factoryDisk: factory,
+            configuration: try metadata(),
+            machineIdentifier: identifier,
+            sharedFolders: VMOmarchySharedFolderSettings(folders: [VMOmarchySharedFolder(path: shared)])
+        )
+
+        XCTAssertEqual(manager.inspect(), .ready)
+        XCTAssertEqual(try manager.metadata().factoryImageVersion, "test")
+        XCTAssertEqual(try Data(contentsOf: layout.disk), Data("factory".utf8))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.snapshots.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: layout.enrollment.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: shared.path), "the shared folder is created")
+        XCTAssertEqual(
+            VMOmarchySharedFolderStore.load(layout: layout).folders.map(\.path),
+            [shared.standardizedFileURL],
+            "the machine records the folders it shares"
+        )
+        let enrollmentURL = layout.enrollment.appending(path: "config.json")
+        let enrollment = try JSONDecoder().decode(
+            VMGuestAgentEnrollment.self,
+            from: Data(contentsOf: enrollmentURL)
+        )
+        XCTAssertEqual(
+            enrollment.machineID,
+            VMGuestAgentEnrollmentStore.machineID(machineIdentifierData: identifier)
+        )
+        XCTAssertEqual(enrollment.token.count, 32)
+        XCTAssertEqual(
+            try FileManager.default.attributesOfItem(atPath: enrollmentURL.path)[.posixPermissions] as? NSNumber,
+            NSNumber(value: 0o600)
+        )
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath: layout.applicationSupportRoot.path)
+            .contains(where: { $0.hasPrefix(".Workspace.preparing.") }))
     }
 
     func testInvalidMetadataAndMachineIdentityRequireRecovery() throws {

@@ -24,7 +24,9 @@ final class VMOmarchyDiagnosticsTests: XCTestCase {
             configuration: try JSONEncoder().encode(metadata),
             machineIdentifier: VZGenericMachineIdentifier().dataRepresentation
         )
-        try Data("contents".utf8).write(to: layout.shared.appending(path: "customer-project.txt"))
+        let shared = root.appending(path: "riftvm-shared", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
+        try Data("contents".utf8).write(to: shared.appending(path: "customer-project.txt"))
         try Data(secret.utf8).write(to: layout.enrollment.appending(path: "extra-secret"))
         let status = VMOmarchyGuestStatus(
             agentVersion: "agent-3",
@@ -40,6 +42,7 @@ final class VMOmarchyDiagnosticsTests: XCTestCase {
             layout: layout,
             appVersion: "0.1.0",
             integrationState: .ready(status),
+            sharedDirectory: shared,
             generatedAt: Date(timeIntervalSince1970: 2)
         )
         let encoded = try XCTUnwrap(String(data: report.encoded(), encoding: .utf8))
@@ -66,7 +69,8 @@ final class VMOmarchyDiagnosticsTests: XCTestCase {
         let report = VMOmarchyDiagnostics().report(
             layout: layout,
             appVersion: String(repeating: "a", count: 200),
-            integrationState: .disconnected("sensitive local error")
+            integrationState: .disconnected("sensitive local error"),
+            sharedDirectory: nil
         )
 
         XCTAssertEqual(report.workspaceState, "recovery-required")

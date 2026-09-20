@@ -26,7 +26,6 @@ struct OmarchySharedFoldersView: View {
     private var pendingRestart: Bool {
         guard let plan else { return false }
         return plan.settings.folders != settings.folders
-            || plan.settings.guestSupportsMultipleFolders != settings.guestSupportsMultipleFolders
     }
 
     var body: some View {
@@ -51,17 +50,6 @@ struct OmarchySharedFoldersView: View {
                 }
                 .listStyle(.bordered(alternatesRowBackgrounds: true))
                 .frame(minHeight: 160)
-            }
-
-            if !settings.guestSupportsMultipleFolders {
-                Label {
-                    Text("This Omarchy shares only the first writable folder, at /mnt/riftvm-shared. Install the RiftVM integration update inside Omarchy to share several folders.")
-                        .fixedSize(horizontal: false, vertical: true)
-                } icon: {
-                    Image(systemName: "info.circle")
-                }
-                .font(.callout)
-                .foregroundStyle(.secondary)
             }
 
             if pendingRestart {
@@ -97,10 +85,10 @@ struct OmarchySharedFoldersView: View {
     }
 
     private var summary: String {
-        let when = plan == nil ? "Omarchy sees changes when it starts." : "Omarchy sees changes after it restarts, so running programs keep their folders."
-        return settings.guestSupportsMultipleFolders
-            ? "Each folder appears in Omarchy under /mnt/riftvm-shared. \(when)"
-            : when
+        let when = plan == nil
+            ? "Omarchy sees changes when it starts."
+            : "Omarchy sees changes after it restarts, so running programs keep their folders."
+        return "Each folder appears in Omarchy under /mnt/riftvm-shared. \(when)"
     }
 
     @ViewBuilder
@@ -155,6 +143,7 @@ struct OmarchySharedFoldersView: View {
         if let next {
             return plan == nil ? "In Omarchy: \(next)" : "After restart: \(next)"
         }
+
         var isDirectory: ObjCBool = false
         if !FileManager.default.fileExists(atPath: folder.path.path, isDirectory: &isDirectory) {
             return "Not shared: the folder is missing"

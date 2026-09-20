@@ -20,7 +20,7 @@ final class VMGraphicsConfigurationTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("riftvm-graphics-settings-\(UUID())")
         defer { try? FileManager.default.removeItem(at: root) }
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root)
-        for directory in [layout.workspace, layout.boot, layout.shared, layout.enrollment] {
+        for directory in [layout.workspace, layout.boot, layout.transfer, layout.enrollment] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
         try Data(count: 1_048_576).write(to: layout.disk)
@@ -35,6 +35,10 @@ final class VMGraphicsConfigurationTests: XCTestCase {
             layout: layout,
             profile: .production,
             customGraphicsDevices: devices,
+            sharePlan: VMOmarchySharePlan(
+                settings: VMOmarchySharedFolderSettings(folders: []),
+                transfer: layout.transfer
+            ),
             hostMemoryBytes: 24 * 1024 * 1024 * 1024,
             activeProcessorCount: 10
         )

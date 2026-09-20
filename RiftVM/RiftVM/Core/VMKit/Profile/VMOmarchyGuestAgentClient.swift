@@ -799,16 +799,19 @@ public final class VMOmarchyGuestAgentClient {
     /// Proves both directions of the live VirtioFS mount without requiring SSH.
     /// The probe uses authenticated file-transfer requests and removes its
     /// random marker files before returning.
+    /// - Parameters:
+    ///   - hostDirectory: the Mac folder to exchange through.
+    ///   - guestDirectory: where Omarchy sees that folder.
     public func verifySharedFolderRoundTrip(
         layout: VMOmarchyWorkspaceLayout,
-        guestDirectory: String = "/mnt/riftvm-shared"
+        hostDirectory: URL,
+        guestDirectory: String
     ) async throws -> VMOmarchySharedFolderRoundTrip {
         guard capabilities.contains("shared-folders-v1"),
               capabilities.contains("file-transfer-v1") else {
             throw CocoaError(.featureUnsupported)
         }
         let nonce = UUID().uuidString.lowercased()
-        let hostDirectory = layout.shared
         let hostName = ".riftvm-acceptance-host-\(nonce).marker"
         let guestName = ".riftvm-acceptance-guest-\(nonce).marker"
         let hostURL = hostDirectory.appending(path: hostName)
@@ -850,7 +853,10 @@ public final class VMOmarchyGuestAgentClient {
         let importData = Data("riftvm-file-import:\(nonce)".utf8)
         try FileManager.default.createDirectory(at: layout.diagnostics, withIntermediateDirectories: true)
         try importData.write(to: importSource, options: .atomic)
-        let imported = try VMOmarchySharedFolderImporter(layout: layout).importFiles([importSource])
+        let imported = try VMOmarchySharedFolderImporter(
+            layout: layout,
+            destination: hostDirectory
+        ).importFiles([importSource])
         guard imported.count == 1, let importedFile = imported.first else {
             throw CocoaError(.fileReadCorruptFile)
         }

@@ -43,7 +43,7 @@ public struct VMOmarchyDiagnostics {
         layout: VMOmarchyWorkspaceLayout,
         appVersion: String,
         integrationState: VMOmarchyIntegrationState,
-        sharedDirectory: URL? = nil,
+        sharedDirectory: URL?,
         generatedAt: Date = Date(),
         processInfo: ProcessInfo = .processInfo
     ) -> VMOmarchyDiagnosticReport {
@@ -52,7 +52,7 @@ public struct VMOmarchyDiagnostics {
         let metadata = try? manager.metadata()
         let recoveryPoints = VMOmarchyRecoveryManager(workspaceManager: manager).recoveryPoints()
         let diskSizes = regularFileSizes(layout.disk)
-        let shared = sharedFileSummary(sharedDirectory ?? layout.shared)
+        let shared = sharedDirectory.map(sharedFileSummary) ?? (count: 0, bytes: 0)
         return VMOmarchyDiagnosticReport(
             schemaVersion: 1,
             generatedAt: generatedAt,
