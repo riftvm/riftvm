@@ -2,6 +2,13 @@
 
 set -euo pipefail
 
+# Ruby reads a -e script in the locale's encoding, so an em dash in one of the
+# checks below is a syntax error when LANG is unset. A release started from
+# `zsh -ic`, which is how the signing credentials are picked up, inherits no
+# LANG at all, and the run dies after the version bump commit is already made.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 project_file="$project_root/RiftVM/RiftVM.xcodeproj/project.pbxproj"
 version="${1#v}"
