@@ -121,6 +121,60 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.2
+
+RiftVM 0.5.2 makes the virtio-GPU device say when it refuses a Guest request.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **A refused GPU request now appears in the log.** Five paths answered the
+  Guest with an error and recorded nothing, so an application that could not get
+  an OpenGL context, or a texture that was never allocated, left a host log that
+  looked healthy. One of them wrote to stdout, which goes nowhere for a bundled
+  app. Each refusal now logs at error level with the context or resource, the
+  requested size, and the amount in use against its limit: `CTX_CREATE`
+  refused by the renderer, `RESOURCE_CREATE_2D` and `RESOURCE_CREATE_3D`
+  refused or unmeasurable, and `RESOURCE_ATTACH_BACKING` refused.
+
+This release adds no behaviour. It exists so that an intermittent failure
+reported against 0.5.1 — a wallpaper that does not return after a theme change,
+and a GTK application that cannot acquire an OpenGL context — can be diagnosed
+from the log instead of guessed at. Collect it with:
+
+```sh
+log show --predicate 'subsystem == "com.riftvm.app"' --last 1h --info
+```
+
+### Validation
+
+The prototype package builds and its 32 tests pass. Budget accounting was read
+end to end for a leak first: `totalPixelBytes`, the renderer budget and the
+backing budget are all released unconditionally on `RESOURCE_UNREF`, so no leak
+was found and none is fixed here.
+
+Not claimed: the reported wallpaper and OpenGL failures are **not** fixed, and
+no cause for them has been established. The device's own log was clean across
+the session that produced the report, which is what these lines are meant to
+make meaningful next time.
+
+### Known issues
+
+- Ghostty is not part of the Omarchy image; the image's terminal is `foot`. A
+  separately installed GTK application may fail to acquire an OpenGL context.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.1
 
 RiftVM 0.5.1 mounts the Mac's shared folders at `/mnt/mac`.
