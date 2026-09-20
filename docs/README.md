@@ -21,6 +21,7 @@ verified factory image and renders it through Custom VirGL on a macOS 27
 - [0.5.0 cleanup record](validation/v0.5.0-cleanup-2026-09-19/README.md): the full pass after the legacy and general-VM removal.
 - [Wallpaper after a theme change](validation/wallpaper-theme-switch-2026-09-20/README.md): why the wallpaper goes missing, and why it is not RiftVM's doing.
 - [Omarchy feature sweep](validation/omarchy-feature-sweep-2026-09-20/README.md): what works inside the guest, and the two gaps that do not.
+- [OpenGL capability](validation/opengl-capability-2026-09-20/README.md): the guest gets GLES 3.0 and desktop GL 2.1, and why there is no core profile.
 - [Developer-day suite](../Tools/DeveloperDay/README.md): the scripts behind those records, and how to run them.
 - [Stability acceptance](STABILITY_TESTING.md): isolated test harness, production exclusion, and evidence requirements.
 - [P0 validation](P0_VALIDATION.md): observed results and remaining physical checks.
