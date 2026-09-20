@@ -508,7 +508,7 @@ func procNetTCPHasListener(data []byte, port uint16) bool {
 
 func sharedFolderMounted() bool {
 	data, err := os.ReadFile("/proc/self/mountinfo")
-	return err == nil && mountInfoHasVirtioFS(data, "riftvm_shared", "/mnt/riftvm-shared")
+	return err == nil && mountInfoHasVirtioFS(data, "riftvm_shared", "/mnt/mac")
 }
 
 func mountInfoHasVirtioFS(data []byte, tag, mountPoint string) bool {

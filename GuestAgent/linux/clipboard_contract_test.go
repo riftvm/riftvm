@@ -13,7 +13,7 @@ func TestClipboardRequestAcceptsBoundedIntegrationPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "/mnt/riftvm-shared/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt"
+	expected := "/mnt/mac/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt"
 	if path != expected {
 		t.Fatalf("path = %q, want %q", path, expected)
 	}
@@ -28,7 +28,7 @@ func TestClipboardRequestAcceptsTheStagingDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "/mnt/riftvm-shared/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png"
+	expected := "/mnt/mac/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png"
 	if path != expected {
 		t.Fatalf("path = %q, want %q", path, expected)
 	}
