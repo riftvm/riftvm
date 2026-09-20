@@ -121,6 +121,67 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.4
+
+RiftVM 0.5.4 gives the machine working sound.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Sound works.** RiftVM has always given the machine a virtio sound device,
+  and it has always appeared on the guest's PCI bus, but Arch Linux ARM builds
+  its kernel with `CONFIG_SND_VIRTIO` unset, so nothing could drive it and
+  PipeWire fell back to a null sink: every application played into silence. The
+  factory image now builds the upstream `virtio_snd` driver with DKMS, which
+  rebuilds it when `omarchy-update` installs a new kernel.
+
+New machines come from factory
+[v4.0.3-riftvm.16](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.16).
+An existing machine keeps its disk and does not gain sound; create a new one.
+
+### Validation
+
+A machine created from the `.16` factory has sound with nothing done by hand:
+udev loads `virtio_snd` from its modalias, `dkms status` reports it installed,
+`/proc/asound/cards` shows the card, PipeWire makes it the default sink, and a
+440 Hz tone plays through both `pw-play` and `mpv` with no errors. The image
+build fails rather than shipping silent if the module does not land — which it
+did on the first attempt, catching that `modinfo` was resolving against the
+build machine's kernel instead of the image's.
+
+Also records what OpenGL the guest gets — see
+[the record](validation/opengl-capability-2026-09-20/README.md). It is **OpenGL
+ES 3.0** plus desktop **GL 2.1 compatibility**, with no desktop core profile,
+because ANGLE's Metal backend tops out at GLES 3.0 and a request for 3.1 or 3.2
+is refused. GTK4 applications are fine; anything needing desktop GL 3.2 core is
+not.
+
+Not claimed: no change to graphics in this release, and sound was exercised with
+generated tones rather than a real workload.
+
+### Known issues
+
+- **The wallpaper can be missing after a theme change.** Bring it back with
+  `omarchy-theme-bg-set "$(readlink -f ~/.local/state/omarchy/current/background)"`.
+  The Omarchy wordmark filling the screen is the screensaver; `omarchy-toggle-idle
+  stay-awake` turns it off.
+- **Screen recording does nothing**: the image leaves out `gpu-screen-recorder`.
+  Brightness, night light and Bluetooth entries are likewise inert on a VM.
+- Ghostty is not part of the image; the terminal is `foot`. A separately
+  installed Ghostty needs a desktop GL core profile and will not start.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.3
 
 RiftVM 0.5.3 records what works inside Omarchy, and fixes a release script that
