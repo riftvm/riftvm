@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# Ruby reads a -e script in the locale's encoding, so a non-ASCII character in
+# one of the checks below is a syntax error when LANG is unset.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 # Release notes helper.
 #
 #   prepare <version>   Add a draft note to docs/RELEASES.md when the release has
@@ -52,7 +57,9 @@ previous_tag() {
 }
 
 command="${1:-}"
-version="${2#v}"
+# `check` takes no version, and `set -u` makes a bare ${2#v} fatal there.
+version="${2:-}"
+version="${version#v}"
 
 case "$command" in
   prepare)

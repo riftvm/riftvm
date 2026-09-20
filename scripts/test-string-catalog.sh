@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# Ruby reads a -e script in the locale's encoding, so a non-ASCII character in
+# one of the checks below is a syntax error when LANG is unset.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 catalog="$project_root/RiftVM/RiftVM/Localizable.xcstrings"
 
