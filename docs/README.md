@@ -19,6 +19,7 @@ verified factory image and renders it through Custom VirGL on a macOS 27
 - [V1 release checklist](V1_RELEASE_CHECKLIST.md): the real-guest display, cursor, input, graphics and shared-folder pass every release needs.
 - [0.4.0 developer-day record](validation/v0.4.0-developer-day-2026-09-19/README.md): what a developer can do inside Omarchy, and how it was tested.
 - [0.5.0 cleanup record](validation/v0.5.0-cleanup-2026-09-19/README.md): the full pass after the legacy and general-VM removal.
+- [Developer-day suite](../Tools/DeveloperDay/README.md): the scripts behind those records, and how to run them.
 - [Stability acceptance](STABILITY_TESTING.md): isolated test harness, production exclusion, and evidence requirements.
 - [P0 validation](P0_VALIDATION.md): observed results and remaining physical checks.
 - [Guest Agent protocol](GUEST_AGENT_PROTOCOL.md): authentication, messages, and guest integration.

@@ -86,7 +86,7 @@ In the image repository, `tests/run` against an `omarchy-aarch64` checkout.
 
 ## Developer day
 
-25. Run the scripted developer pass from the
+25. Run the scripted developer pass ([Tools/DeveloperDay](../Tools/DeveloperDay/README.md)), described in the
     [0.4.0 record](validation/v0.4.0-developer-day-2026-09-19/README.md): Git,
     a Vite React build with HMR, Docker Compose, a pacman install and removal,
     and VS Code editing, plus the Command-as-Super shortcuts on an empty
