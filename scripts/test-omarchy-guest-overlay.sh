@@ -2,12 +2,12 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-unit="$project_root/RiftVM/GuestOverlay/systemd/mnt-riftvm\x2dshared.mount"
+unit="$project_root/RiftVM/GuestOverlay/systemd/mnt-mac.mount"
 session_unit="$project_root/RiftVM/GuestOverlay/systemd/rift-session-agent.service"
 
 test -f "$unit"
 grep -qx 'What=riftvm_shared' "$unit"
-grep -qx 'Where=/mnt/riftvm-shared' "$unit"
+grep -qx 'Where=/mnt/mac' "$unit"
 grep -qx 'Type=virtiofs' "$unit"
 grep -qx 'Options=rw,nosuid,nodev' "$unit"
 grep -qx 'WantedBy=multi-user.target' "$unit"
@@ -18,7 +18,7 @@ grep -qx 'PartOf=graphical-session.target' "$session_unit"
 grep -qx 'WantedBy=graphical-session.target' "$session_unit"
 grep -qx 'NoNewPrivileges=true' "$session_unit"
 grep -qx 'ProtectSystem=strict' "$session_unit"
-grep -qx 'ReadWritePaths=/run/rift-agent/sessions /mnt/riftvm-shared' "$session_unit"
+grep -qx 'ReadWritePaths=/run/rift-agent/sessions /mnt/mac' "$session_unit"
 
 if find "$project_root/RiftVM/GuestOverlay" -type l | grep -q .; then
     echo "Guest Overlay must not contain symbolic links" >&2
