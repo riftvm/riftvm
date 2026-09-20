@@ -101,7 +101,7 @@ a newer factory does not replace your guest disk. See [Updates and recovery](doc
 - Apple silicon and macOS 27 or later are required. Intel Macs are not supported, and RiftVM no longer prepares macOS guests or generic Linux ISO installations; Omarchy is the supported machine.
 - Stop a machine before taking or restoring a file snapshot. Keep backups of important guests.
 - Omarchy runs Custom VirGL graphics and uses disk recovery points. Use its Start/Stop and Recovery controls; GPU memory-state save/restore is not supported.
-- Omarchy sees only the folders you share, `~/riftvm-shared` by default. Anything Omarchy can write, it can change or delete, so share other folders read-only unless you mean to edit them from Linux. A machine created before 0.4.0 shows only its first folder, at `/mnt/riftvm-shared`, until you install the [integration update](docs/UPDATES_AND_RECOVERY.md#update-riftvm-integration-inside-an-existing-guest).
+- Omarchy sees only the folders you share, `~/riftvm-shared` by default. Anything Omarchy can write, it can change or delete, so share other folders read-only unless you mean to edit them from Linux.
 - Chinese input methods are installed and configured inside Omarchy by the user; Mac input-method passthrough is not provided. See [Chinese input](docs/OMARCHY_INPUT.md).
 
 For setup, display, input, and signing problems, see the
@@ -121,9 +121,8 @@ riftvm doctor
 ```
 
 Every command writes one schema-versioned JSON object and uses deterministic
-exit codes. Start and stop Omarchy in the app: it needs the guest agent and the
-Omarchy machine builder, so `start`, `status`, and `stop` report
-`unsupported_layout` (exit 69) for it.
+exit codes. `list`, `inspect`, `validate` and `doctor` report what is on the
+Mac; starting and stopping Omarchy happens in the app.
 
 ## Build from source
 

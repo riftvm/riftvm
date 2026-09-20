@@ -23,12 +23,8 @@ trap cleanup EXIT
 codesign --display --entitlements - "$app_path" >"$entitlements_file" 2>/dev/null
 [[ -s "$entitlements_file" ]] || fail "codesign returned no entitlements"
 
-required_boolean_keys="com.apple.developer.accessory-access.usb
-com.apple.developer.networking.vmnet
-com.apple.security.virtualization"
+required_boolean_keys="com.apple.security.virtualization"
 profile_keys="com.apple.application-identifier
-com.apple.developer.accessory-access.usb
-com.apple.developer.networking.vmnet
 com.apple.developer.team-identifier
 com.apple.security.virtualization"
 

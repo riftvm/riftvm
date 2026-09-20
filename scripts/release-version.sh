@@ -18,12 +18,6 @@ done
 for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
   [[ -n "${!variable:-}" ]] || fail "required environment variable is missing: $variable"
 done
-if [[ -z ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
-  fail "set RIFTVM_RELEASE_SMOKE_VM or RIFTVM_RELEASE_PREINSTALLED_MANIFEST and RIFTVM_RELEASE_PREINSTALLED_IMAGE"
-fi
-if [[ -n ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-} ]]; then
-  fail "RIFTVM_RELEASE_SMOKE_ENROLLMENT is required with RIFTVM_RELEASE_SMOKE_VM"
-fi
 gh auth status >/dev/null 2>&1 || fail "GitHub CLI authentication is invalid"
 [[ -f "$project_file" ]] || fail "Xcode project not found: $project_file"
 
@@ -99,7 +93,7 @@ if [[ -z "$tag_commit" ]]; then
 fi
 
 APPLE_ID="${APPLE_ID:-}" APPLE_SPECIFIC_PASSWORD="${APPLE_SPECIFIC_PASSWORD:-}" APPLE_TEAM_ID="${APPLE_TEAM_ID:-}" \
-RIFTVM_RELEASE_BRANCH="$release_branch" RIFTVM_RELEASE_SMOKE_ENROLLMENT="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}" \
+RIFTVM_RELEASE_BRANCH="$release_branch" \
   "$project_root/scripts/publish-release.sh" "$version"
 
 echo "RiftVM $version is signed, notarized, published, and verified through Homebrew."

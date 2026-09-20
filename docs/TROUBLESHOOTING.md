@@ -153,8 +153,8 @@ does not make an unstable identity suitable for automation.
 
 ## Image import, disk size, and macOS compatibility
 
-The public preinstalled-image manifest describes a decoded bootable ARM64 raw
-disk. Its logical size and decoded SHA-256 are part of the product contract.
+The signed factory manifest describes a decoded bootable ARM64 raw disk. Its
+logical size and decoded SHA-256 are part of the product contract.
 The 64 GiB disk is sparse: logical capacity is not the same as download or
 physical host usage.
 
@@ -175,13 +175,9 @@ path is Virtualization.framework NAT.
   alone is not sufficient.
 - Record whether failure is name resolution, routing, certificate/time, or the
   upstream repository.
-- Signed releases include USB Accessory Access and vmnet entitlements.
-  Custom builds can differ: check Settings → Signed capabilities
-  for the running app. An entitlement does not prove that a network is active.
-- NAT remains the default. Select bridged or custom vmnet networking deliberately
-  for the required topology; changing modes is not a general fix for DNS or
-  guest package-manager failures. Advanced network configuration belongs to the
-  general VM configuration flow; the dedicated Omarchy flow uses NAT.
+- Omarchy always uses Virtualization.framework NAT; there is nothing to choose
+  and no bridged mode, so a networking fault is in DNS, routing, the clock, or
+  the upstream repository rather than in the network mode.
 
 ## Host capability is available, but the VM feature is not active
 
