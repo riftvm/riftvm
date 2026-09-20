@@ -121,6 +121,62 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.3
+
+RiftVM 0.5.3 records what works inside Omarchy, and fixes a release script that
+could not run in a shell without a locale.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The release scripts set a UTF-8 locale.** Ruby reads a `-e` script in the
+  locale's encoding, so an em dash in one of the release checks was a syntax
+  error when `LANG` was unset, which is how a release run from `zsh -ic` starts.
+  `release-notes.sh check` also aborted under `set -u` with no version argument.
+  Neither affects the app.
+
+### Validation
+
+A sweep of the features an Omarchy user reaches for, on a throwaway `.15`
+machine — see [the record](validation/omarchy-feature-sweep-2026-09-20/README.md).
+24 of 26 checks pass: screenshots and OCR, clipboard text and images,
+notifications, Chromium, Neovim, mpv, btop, lazygit, networking, the shared
+folder, and window and workspace control. The device logged nothing at error
+level throughout.
+
+Nothing in the sweep is a RiftVM defect. Two gaps are worth knowing about, and
+both are in the guest.
+
+### Known issues
+
+- **There is no sound.** RiftVM gives the machine a virtio sound device and it
+  appears on the guest's PCI bus, but Arch Linux ARM's kernel is built with
+  `# CONFIG_SND_VIRTIO is not set`, so nothing can drive it and PipeWire falls
+  back to a null sink. The driver does build against the stock kernel headers
+  and works when loaded; the record has the recipe. Shipping it in the image
+  means carrying DKMS and kernel headers so it survives a kernel update, which
+  is not done yet.
+- **Screen recording does nothing.** The image leaves out `gpu-screen-recorder`,
+  so Omarchy's menu entry exits without recording. Brightness, night light and
+  Bluetooth entries are likewise inert, which is expected on a virtual machine.
+- **The wallpaper can be missing after a theme change.** Bring it back with
+  `omarchy-theme-bg-set "$(readlink -f ~/.local/state/omarchy/current/background)"`.
+  The Omarchy wordmark filling the screen is the screensaver; `omarchy-toggle-idle
+  stay-awake` turns it off.
+- Ghostty is not part of the Omarchy image; the image's terminal is `foot`.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.2
 
 RiftVM 0.5.2 makes the virtio-GPU device say when it refuses a Guest request.
