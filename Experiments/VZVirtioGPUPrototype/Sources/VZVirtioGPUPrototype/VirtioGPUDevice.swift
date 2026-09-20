@@ -647,10 +647,25 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
               resources.count < VirtioGPU.Limits.maxResources,
               let byteCount = VirtioGPU.pixelByteCount(width: wireWidth, height: wireHeight),
               totalPixelBytes <= VirtioGPU.Limits.maxTotalPixelBytes - byteCount else {
+            log(
+                "RESOURCE_CREATE_2D rejected resource=\(resourceID) "
+                    + "format=\(format) size=\(wireWidth)x\(wireHeight) "
+                    + "duplicate=\(resources[resourceID] != nil) "
+                    + "resourceCount=\(resources.count) "
+                    + "pixelBytes=\(totalPixelBytes)/\(VirtioGPU.Limits.maxTotalPixelBytes)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         let estimatedRendererBytes = UInt64(byteCount)
         guard rendererResourceBudget.reserve(estimatedRendererBytes) else {
+            log(
+                "RESOURCE_CREATE_2D rejected-by-budget resource=\(resourceID) "
+                    + "estimated=\(estimatedRendererBytes) "
+                    + "allocated=\(rendererResourceBudget.allocatedBytes) "
+                    + "limit=\(VirtioGPU.Limits.maxRendererResourceBytes)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
         let width = Int(wireWidth)
@@ -670,6 +685,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         ))
         guard resource.isRendererResource else {
             rendererResourceBudget.release(estimatedRendererBytes)
+            log(
+                "RESOURCE_CREATE_2D renderer-refused resource=\(resourceID) "
+                    + "format=\(format) size=\(width)x\(height)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
         resources[resourceID] = resource
@@ -722,6 +742,12 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard let estimatedRendererBytes else {
+            log(
+                "RESOURCE_CREATE_3D rejected-unmeasurable resource=\(resourceID) "
+                    + "target=\(target) size=\(width)x\(height)x\(depth) "
+                    + "array=\(arraySize) levels=\(lastLevel) samples=\(sampleCount)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         guard rendererResourceBudget.reserve(estimatedRendererBytes) else {
@@ -752,11 +778,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         )
         guard renderer.createResource(arguments) else {
             rendererResourceBudget.release(estimatedRendererBytes)
-            print(
-                "[stage3] rejected 3D resource \(resourceID): "
-                + "target=\(arguments.target), format=\(arguments.format), bind=\(arguments.bind), "
-                + "size=\(width)x\(height)x\(depth), array=\(arraySize), levels=\(lastLevel), "
-                + "samples=\(sampleCount), flags=\(arguments.flags)"
+            // stdout goes nowhere for a bundled app, so this has to be a log.
+            log(
+                "RESOURCE_CREATE_3D renderer-refused resource=\(resourceID) "
+                    + "target=\(arguments.target) format=\(arguments.format) "
+                    + "bind=\(arguments.bind) size=\(width)x\(height)x\(depth) "
+                    + "array=\(arraySize) levels=\(lastLevel) samples=\(sampleCount) "
+                    + "flags=\(arguments.flags)",
+                error: true
             )
             return VirtioGPU.responseHeader(.errorOutOfMemory, request: header)
         }
@@ -821,6 +850,11 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         guard !resource.isRendererResource
                 || renderer.attach(resourceID: resourceID, iovecs: virglBacking.iovecs, count: entries.count) else {
             backingBudget.release(backingBytes)
+            log(
+                "RESOURCE_ATTACH_BACKING renderer-refused resource=\(resourceID) "
+                    + "entries=\(entries.count) bytes=\(backingBytes)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         resource.virglBacking = virglBacking
@@ -843,6 +877,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         let nameBytes = request[32..<(32 + nameLength)]
         let name = String(decoding: nameBytes, as: UTF8.self)
         guard renderer.createContext(id: header.contextID, name: name) else {
+            // Never silent: this is how a Guest application is told it cannot
+            // have an OpenGL context. The application reports that on its own
+            // and the desktop keeps running on the context it already holds, so
+            // without this line the host log looks healthy while the Guest is
+            // not.
+            log(
+                "CTX_CREATE renderer-refused context=\(header.contextID) name=\(name) "
+                    + "activeContexts=\(contexts.count)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         contexts.insert(header.contextID)
