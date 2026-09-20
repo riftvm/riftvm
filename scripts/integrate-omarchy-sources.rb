@@ -63,5 +63,18 @@ Dir.glob(File.join(test_root, "*.swift")).sort.each do |path|
   test_target.add_file_references([reference]) unless test_target.source_build_phase.files_references.include?(reference)
 end
 
+# Drop references to files that no longer exist, so deleting a source file is
+# enough to take it out of the app.
+project.targets.each do |item|
+  item.source_build_phase.files.dup.each do |build_file|
+    reference = build_file.file_ref
+    next unless reference
+    path = (reference.real_path.to_s rescue nil)
+    next if path.nil? || File.exist?(path)
+    item.source_build_phase.remove_build_file(build_file)
+    reference.remove_from_project
+  end
+end
+
 project.recreate_user_schemes
 project.save

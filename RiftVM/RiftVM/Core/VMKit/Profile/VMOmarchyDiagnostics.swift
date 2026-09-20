@@ -83,7 +83,6 @@ public struct VMOmarchyDiagnostics {
     private func workspaceStateDescription(_ state: VMOmarchyWorkspaceState) -> String {
         switch state {
         case .notPrepared: "not-prepared"
-        case .migrationRequired(let version): "migration-required-from-\(version)"
         case .ready: "ready"
         case .recovering: "recovery-required"
         }

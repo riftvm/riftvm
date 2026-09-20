@@ -30,7 +30,6 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
     }
 
     func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        context.configData.name = Self.workspaceName
         context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
 
         let rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
@@ -59,8 +58,7 @@ class CreatePhaseNameLocationViewHandler: VMCreateStepperGuidePhaseHandler {
     func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
         await MainActor.run {
             context.formData.baseDirectory = Self.defaultStorageDirectory().path(percentEncoded: false)
-            context.configData.name = Self.workspaceName
-            context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
+                context.formData.rootPath = Self.bundlePath(baseDirectory: context.formData.baseDirectory)
         }
         return .success
     }

@@ -127,7 +127,6 @@ public enum VMOmarchyTemporaryPathPolicy {
 
 public enum VMOmarchyWorkspaceState: Equatable {
     case notPrepared
-    case migrationRequired(fromVersion: Int)
     case ready
     case recovering(reason: String)
 }
@@ -142,7 +141,6 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case workspaceNotRecoverable
     case recoveryFailed(String)
     case invalidWorkspaceMetadata
-    case migrationFailed(String)
     case metadataUpdateFailed(String)
 }
 
@@ -167,8 +165,6 @@ extension VMOmarchyWorkspaceError: LocalizedError {
             "The broken Omarchy workspace could not be preserved: \(reason)"
         case .invalidWorkspaceMetadata:
             "The Omarchy workspace metadata is invalid or unsupported."
-        case .migrationFailed(let reason):
-            "The Omarchy workspace could not be migrated: \(reason)"
         case .metadataUpdateFailed(let reason):
             "The Omarchy integration metadata could not be recorded: \(reason)"
         }
@@ -197,15 +193,12 @@ public struct VMOmarchyWorkspaceManager {
         guard let metadata = decodedMetadata(),
               metadata.productID == VMOmarchyProfile.production.productID,
               metadata.schemaVersion > 0,
-              metadata.schemaVersion <= VMOmarchyWorkspaceMetadata.currentSchemaVersion else {
+              metadata.schemaVersion == VMOmarchyWorkspaceMetadata.currentSchemaVersion else {
             return .recovering(reason: "The Omarchy workspace metadata is invalid or unsupported.")
         }
         guard let identifierData = try? Data(contentsOf: layout.machineIdentifier),
               VZGenericMachineIdentifier(dataRepresentation: identifierData) != nil else {
             return .recovering(reason: "The Omarchy machine identity is invalid.")
-        }
-        if metadata.schemaVersion < VMOmarchyWorkspaceMetadata.currentSchemaVersion {
-            return .migrationRequired(fromVersion: metadata.schemaVersion)
         }
         return .ready
     }
@@ -217,12 +210,6 @@ public struct VMOmarchyWorkspaceManager {
             throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
         }
         return metadata
-    }
-
-    public func migrateWorkspace(availableCapacityBytes: Int64? = nil) throws {
-        try migrateWorkspace(availableCapacityBytes: availableCapacityBytes) { data, destination in
-            try data.write(to: destination, options: .atomic)
-        }
     }
 
     public func recordGuestIntegration(
@@ -262,49 +249,6 @@ public struct VMOmarchyWorkspaceManager {
         }
     }
 
-    func migrateWorkspace(
-        availableCapacityBytes: Int64? = nil,
-        metadataWriter: (Data, URL) throws -> Void
-    ) throws {
-        guard case .migrationRequired(let fromVersion) = inspect(),
-              fromVersion == 1,
-              let old = decodedMetadata() else {
-            throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
-        }
-        switch VMSnapshotManager.createSnapshot(
-            vmRootPath: layout.workspace,
-            name: "Before workspace migration 1 to 2",
-            isProtected: true,
-            availableCapacityBytes: availableCapacityBytes
-        ) {
-        case .failure(let reason):
-            throw VMOmarchyWorkspaceError.migrationFailed(reason)
-        case .success:
-            break
-        }
-        let migrated = VMOmarchyWorkspaceMetadata(
-            productID: old.productID,
-            createdAt: old.createdAt,
-            factoryImageVersion: old.factoryImageVersion,
-            omarchyRevision: old.omarchyRevision,
-            guestAgentVersion: old.guestAgentVersion,
-            guestCapabilities: old.guestCapabilities,
-            cpuCount: old.cpuCount,
-            memoryBytes: old.memoryBytes,
-        )
-        do {
-            try metadataWriter(try JSONEncoder().encode(migrated), layout.configuration)
-        } catch {
-            throw VMOmarchyWorkspaceError.migrationFailed(error.localizedDescription)
-        }
-        guard inspect() == .ready else {
-            throw VMOmarchyWorkspaceError.migrationFailed("The migrated workspace did not pass validation.")
-        }
-    }
-
-    /// Moves an invalid workspace out of the live location without deleting
-    /// user data. A subsequent onboarding run can then create a clean workspace.
-    @discardableResult
     public func quarantineBrokenWorkspace(now: Date = Date()) throws -> URL {
         guard case .recovering = inspect(),
               fileManager.fileExists(atPath: layout.workspace.path),

@@ -1213,7 +1213,7 @@ class VMSnapshotManager {
                     errors.append("Unexpected snapshot file: \(path)")
                 }
             } else {
-                warnings.append("This legacy snapshot has no file manifest; only structural checks were performed.")
+                warnings.append("This snapshot has no file manifest; only structural checks were performed.")
                 if actual.isEmpty { errors.append("The snapshot contains no regular files.") }
             }
         } catch {

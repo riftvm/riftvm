@@ -33,7 +33,6 @@ enum OmarchyReleaseReadinessReporter {
         switch workspaceManager.inspect() {
         case .notPrepared: workspaceState = "notPrepared"
         case .ready: workspaceState = "ready"
-        case .migrationRequired(let version): workspaceState = "migrationRequired:\(version)"
         case .recovering(let reason): workspaceState = "recovering:\(reason)"
         }
         let payload: [String: Any] = [

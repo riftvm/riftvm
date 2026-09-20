@@ -1933,7 +1933,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 for: NSScreen.main?.frame.size ?? CGSize(width: 1920, height: 1200)
             )
             let backend: any VMGraphicsBackend = try VMCustomVirGLGraphicsBackend(
-                devices: [.init(type: .Virtio, width: Int(canvas.width), height: Int(canvas.height), pixelsPerInch: 0)],
+                guestSize: CGSize(width: CGFloat(canvas.width), height: CGFloat(canvas.height)),
                 displayView: view
             )
             context.coordinator.graphicsBackend = backend

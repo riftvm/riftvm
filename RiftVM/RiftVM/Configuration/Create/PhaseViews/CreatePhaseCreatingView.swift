@@ -130,11 +130,11 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 guestAgentVersion: factory.manifest.payload.guestAgentVersion,
                 guestCapabilities: factory.manifest.payload.guestCapabilities.sorted(),
                 cpuCount: context.configData.cpuCount,
-                memoryBytes: context.configData.memorySize
+                memoryBytes: context.configData.memoryBytes
             ))
-            let sharedFolder = context.formData.sharedFolderPath.isEmpty
+            let sharedFolder = context.configData.sharedFolderPath.isEmpty
                 ? VMOmarchySharedFolderStore.defaultFolder(forBundle: layout.applicationSupportRoot)
-                : URL(filePath: context.formData.sharedFolderPath, directoryHint: .isDirectory)
+                : URL(filePath: context.configData.sharedFolderPath, directoryHint: .isDirectory)
             try manager.prepare(
                 factoryDisk: factory.diskURL,
                 configuration: metadata,
@@ -179,7 +179,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         do {
             _ = try ActiveWorkspaceStore.standard.adopt(
                 bundleURL: rootPath,
-                name: context.configData.name
+                name: OmarchyPreparationSettings.machineName
             )
         } catch {
             let message = "The Omarchy record could not be saved: \(error.localizedDescription)"

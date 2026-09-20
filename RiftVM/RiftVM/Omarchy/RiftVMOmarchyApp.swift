@@ -93,7 +93,6 @@ struct OmarchyRootView: View {
     @State private var workspaceRevision = UUID()
     @State private var recoveryError: String?
     @State private var showsRecoveryConfirmation = false
-    @State private var isMigrating = false
 
     var body: some View {
         switch workspaceManager.inspect() {
@@ -112,26 +111,6 @@ struct OmarchyRootView: View {
                 workspace: workspace,
                 actions: actions
             )
-        case .migrationRequired(let fromVersion):
-            VStack(spacing: 18) {
-                ContentUnavailableView(
-                    "Omarchy needs an update",
-                    systemImage: "externaldrive.badge.timemachine",
-                    description: Text("The on-disk format (\(fromVersion)) must be migrated before Omarchy can start.")
-                )
-                if let recoveryError {
-                    Text(recoveryError).foregroundStyle(.red).multilineTextAlignment(.center)
-                }
-                if isMigrating {
-                    ProgressView("Creating protected backup and migrating…")
-                } else {
-                    Button("Create Backup and Migrate", systemImage: "arrow.triangle.2.circlepath") {
-                        migrateWorkspace()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-            .padding(40)
         case .recovering(let reason):
             VStack(spacing: 18) {
                 ContentUnavailableView(
@@ -189,24 +168,6 @@ struct OmarchyRootView: View {
         }
     }
 
-    private func migrateWorkspace() {
-        guard !isMigrating else { return }
-        isMigrating = true
-        let manager = workspaceManager
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result { try manager.migrateWorkspace() }
-            DispatchQueue.main.async {
-                isMigrating = false
-                switch result {
-                case .success:
-                    recoveryError = nil
-                    workspaceRevision = UUID()
-                case .failure(let error):
-                    recoveryError = error.localizedDescription
-                }
-            }
-        }
-    }
 }
 
 enum FactoryTrustConfiguration {

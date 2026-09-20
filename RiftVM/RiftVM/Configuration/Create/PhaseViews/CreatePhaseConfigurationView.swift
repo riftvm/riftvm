@@ -1,61 +1,27 @@
-//
-//  CreatePhaseConfigurationView.swift
-//  RiftVM
-//
-//  Created by everettjf on 2022/9/12.
-//
-
 import SwiftUI
 import Virtualization
-
-
 #if arch(arm64)
-class CreatePhaseConfigurationViewHandler: VMCreateStepperGuidePhaseHandler {
-    
-    func verifyForm(context: VMCreateStepperGuidePhaseContext) -> VMOSResultVoid {
-        .success
-    }
 
-    func onStepMovedIn(context: VMCreateStepperGuidePhaseContext) async -> VMOSResultVoid {
-        return .success
-    }
-}
-
-
-struct CreatePhaseConfigurationView: View {
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            CreateResourceControlsView()
-
-            DisclosureGroup("Advanced hardware") {
-                VMCreateConfigurationView(includePrimaryResources: false)
-                    .padding(.top, 8)
-            }
-        }
-        .frame(maxWidth: 720, alignment: .leading)
-        .padding(.bottom, 12)
-    }
-}
-
-/// Processor, memory, and storage for the Omarchy workspace. The factory disk
-/// is fixed for a release, so its row reports the size instead of offering a
-/// slider that the image would ignore.
+/// Processor and memory for the Omarchy machine. The factory disk is fixed for
+/// a release, so its row reports the size instead of offering a slider the
+/// image would ignore.
 struct CreateResourceControlsView: View {
-    @Environment(VMConfigurationViewStateObject.self) private var configData
-
-    private let gibibyte = UInt64(1024 * 1024 * 1024)
+    @Environment(OmarchyPreparationSettings.self) private var settings
 
     var body: some View {
         VStack(spacing: 0) {
             resourceRow(
                 title: "Processors",
                 detail: "\(ProcessInfo.processInfo.processorCount) logical cores available",
-                value: "\(configData.cpuCount) CPU"
+                value: "\(settings.cpuCount) CPU"
             ) {
-                Slider(value: cpuBinding, in: Double(VMModelFieldCPU.minCount())...Double(VMModelFieldCPU.maxCount()), step: 1)
-                    .accessibilityLabel("Processors")
-                    .accessibilityValue("\(configData.cpuCount)")
+                Slider(
+                    value: cpuBinding,
+                    in: Double(OmarchyPreparationSettings.minimumCPUCount)...Double(OmarchyPreparationSettings.maximumCPUCount),
+                    step: 1
+                )
+                .accessibilityLabel("Processors")
+                .accessibilityValue("\(settings.cpuCount)")
             }
 
             Divider()
@@ -75,11 +41,10 @@ struct CreateResourceControlsView: View {
             resourceRow(
                 title: "Storage",
                 detail: "Factory disk · fixed for this release",
-                value: "\(storageGiB) GB"
+                value: "\(OmarchyPreparationSettings.storageBytes / .gibibyte) GB"
             ) {
-                Slider(value: storageBinding, in: minimumStorageGiB...maximumStorageGiB, step: 8)
+                Slider(value: .constant(1), in: 0...1)
                     .accessibilityLabel("Storage")
-                    .accessibilityValue("\(storageGiB) gigabytes")
                     .disabled(true)
             }
         }
@@ -117,81 +82,37 @@ struct CreateResourceControlsView: View {
 
     private var cpuBinding: Binding<Double> {
         Binding(
-            get: { Double(configData.cpuCount) },
-            set: { configData.cpuCount = Int($0.rounded()) }
+            get: { Double(settings.cpuCount) },
+            set: { settings.cpuCount = Int($0.rounded()) }
         )
     }
 
     private var memoryBinding: Binding<Double> {
         Binding(
-            get: { Double(configData.memorySize / gibibyte) },
-            set: { configData.memorySize = UInt64($0.rounded()) * gibibyte }
-        )
-    }
-
-    private var storageBinding: Binding<Double> {
-        Binding(
-            get: { Double(primaryStorage.size / gibibyte) },
-            set: { updatePrimaryStorage(size: UInt64($0.rounded()) * gibibyte) }
+            get: { Double(settings.memoryBytes / .gibibyte) },
+            set: { settings.memoryBytes = UInt64($0.rounded()) * .gibibyte }
         )
     }
 
     private var minimumMemoryGiB: Double {
-        max(1, Double(VMModelFieldMemory.minSize() / gibibyte))
+        Double(OmarchyPreparationSettings.minimumMemoryBytes / .gibibyte)
     }
 
     private var maximumMemoryGiB: Double {
-        let hostGiB = Double(ProcessInfo.processInfo.physicalMemory / gibibyte)
-        return max(minimumMemoryGiB, min(hostGiB - 2, Double(VMModelFieldMemory.maxSize() / gibibyte)))
+        max(minimumMemoryGiB, Double(OmarchyPreparationSettings.maximumMemoryBytes / .gibibyte))
     }
 
-    private var minimumStorageGiB: Double {
-        let rawMinimum = Double(VMModelFieldStorageDevice.minDiskSize()) / Double(gibibyte)
-        return max(16, ceil(rawMinimum / 8) * 8)
-    }
-
-    private var maximumStorageGiB: Double {
-        max(minimumStorageGiB, min(512, Double(VMModelFieldStorageDevice.maxDiskSize() / gibibyte)))
-    }
-
-    private var primaryStorage: VMModelFieldStorageDevice {
-        configData.storageDevices.first(where: { $0.data.type == .Block })?.data ?? .default()
-    }
-
-    private var memoryGiB: UInt64 { configData.memorySize / gibibyte }
-    private var storageGiB: UInt64 { primaryStorage.size / gibibyte }
+    private var memoryGiB: UInt64 { settings.memoryBytes / .gibibyte }
 
     private var hostMemoryDescription: String {
         ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory)
     }
 
     private var remainingMemoryDescription: String {
-        let remaining = ProcessInfo.processInfo.physicalMemory > configData.memorySize
-            ? ProcessInfo.processInfo.physicalMemory - configData.memorySize
-            : 0
+        let host = ProcessInfo.processInfo.physicalMemory
+        let remaining = host > settings.memoryBytes ? host - settings.memoryBytes : 0
         return ByteCountFormatter.string(fromByteCount: Int64(remaining), countStyle: .memory)
     }
-
-    private func updatePrimaryStorage(size: UInt64) {
-        guard let index = configData.storageDevices.firstIndex(where: { $0.data.type == .Block }) else { return }
-        let existing = configData.storageDevices[index].data
-        configData.storageDevices[index] = VMModelFieldStorageDeviceItemModel(
-            data: VMModelFieldStorageDevice(
-                type: existing.type,
-                size: size,
-                imagePath: existing.imagePath,
-                format: existing.format
-            )
-        )
-    }
 }
-
-struct CreatePhaseConfigurationView_Previews: PreviewProvider {
-    static var previews: some View {
-        CreatePhaseConfigurationView()
-            .environment(VMConfigurationViewStateObject())
-    }
-}
-
 
 #endif
