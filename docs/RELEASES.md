@@ -121,6 +121,62 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.5
+
+RiftVM 0.5.5 makes Omarchy's screen recording work.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Screen recording records.** Omarchy's capture entry uses
+  `gpu-screen-recorder`, which needs a GPU vendor it recognises and a hardware
+  encoder. This machine has neither — it exits with `unknown gpu vendor: Mesa`,
+  and VA-API offers no encode entrypoint — so the menu entry did nothing and
+  said nothing. The factory image now puts a stand-in in its place that records
+  with `wf-recorder` on the CPU. Omarchy's own region picker, indicator,
+  notification and post-processing are unchanged.
+
+New machines come from factory
+[v4.0.3-riftvm.17](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.17).
+
+### Validation
+
+On a machine created from the `.17` factory, with nothing installed or
+configured by hand: `omarchy-capture-screenrecording --fullscreen` starts a
+recorder, `--stop-recording` stops it and prints the saved path, and the result
+is a real 1920×1080 H.264 recording of the desktop — checked by extracting a
+frame and looking at it. Sound, added in 0.5.4, still works on the same image.
+
+Not claimed: recording was exercised full-screen without audio. The region
+picker, desktop-audio and webcam paths go through the same stand-in but were not
+run.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1, because ANGLE's Metal backend
+  tops out at GLES 3.0. Claiming 4.3 with a Mesa override fails at the first
+  shader link. The image's terminal is `foot`. See
+  [the record](validation/opengl-capability-2026-09-20/README.md).
+- **The wallpaper can be missing after a theme change.** Bring it back with
+  `omarchy-theme-bg-set "$(readlink -f ~/.local/state/omarchy/current/background)"`.
+  The Omarchy wordmark filling the screen is the screensaver; `omarchy-toggle-idle
+  stay-awake` turns it off.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.4
 
 RiftVM 0.5.4 gives the machine working sound.
