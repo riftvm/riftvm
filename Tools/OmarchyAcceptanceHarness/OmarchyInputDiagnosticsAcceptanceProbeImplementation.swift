@@ -47,7 +47,7 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let inputMethod = xiaohe ? "shuangpin" : "pinyin"
         let directory = sharedDirectory.appending(path: ".riftvm-ime-\(UUID().uuidString.lowercased())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
-        let guest = "/mnt/riftvm-shared/\(directory.lastPathComponent)"
+        let guest = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(directory.lastPathComponent)"
         let script = """
         #!/bin/bash
         set -eu
@@ -301,7 +301,7 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let probeDirectory = sharedDirectory.appending(
             path: ".riftvm-continuous-input-\(UUID().uuidString.lowercased())"
         )
-        let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
+        let guestDirectory = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(probeDirectory.lastPathComponent)"
         let reportURL = diagnosticsDirectory.appending(path: "continuous-input-burst.json")
         var completed = false
         defer {
@@ -371,8 +371,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let stem = ".riftvm-input-diagnostics-\(nonce)"
         let scriptURL = sharedDirectory.appending(path: "\(stem).sh")
         let resultURL = sharedDirectory.appending(path: "\(stem).txt")
-        let guestScript = "/mnt/riftvm-shared/\(scriptURL.lastPathComponent)"
-        let guestResult = "/mnt/riftvm-shared/\(resultURL.lastPathComponent)"
+        let guestScript = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(scriptURL.lastPathComponent)"
+        let guestResult = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(resultURL.lastPathComponent)"
         let retainedResult = diagnosticsDirectory.appending(path: "lock-input-diagnostics.txt")
 
         var completed = false
@@ -418,7 +418,7 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
     ) async throws -> LockCycle {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".riftvm-lock-cycle-\(nonce)")
-        let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
+        let guestDirectory = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(probeDirectory.lastPathComponent)"
         var completed = false
         defer {
             try? Data().write(to: probeDirectory.appending(path: "cancel"))
@@ -476,8 +476,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let stem = ".riftvm-notification-\(nonce)"
         let scriptURL = sharedDirectory.appending(path: "\(stem).sh")
         let resultURL = sharedDirectory.appending(path: "\(stem).done")
-        let guestScript = "/mnt/riftvm-shared/\(scriptURL.lastPathComponent)"
-        let guestResult = "/mnt/riftvm-shared/\(resultURL.lastPathComponent)"
+        let guestScript = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(scriptURL.lastPathComponent)"
+        let guestResult = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(resultURL.lastPathComponent)"
         defer {
             try? FileManager.default.removeItem(at: scriptURL)
             try? FileManager.default.removeItem(at: resultURL)
@@ -505,8 +505,8 @@ enum OmarchyInputDiagnosticsAcceptanceProbe {
         let stem = ".riftvm-interactive-\(nonce)"
         let scriptURL = sharedDirectory.appending(path: "\(stem).sh")
         let resultURL = sharedDirectory.appending(path: "\(stem).done")
-        let guestScript = "/mnt/riftvm-shared/\(scriptURL.lastPathComponent)"
-        let guestResult = "/mnt/riftvm-shared/\(resultURL.lastPathComponent)"
+        let guestScript = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(scriptURL.lastPathComponent)"
+        let guestResult = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(resultURL.lastPathComponent)"
         defer {
             try? FileManager.default.removeItem(at: scriptURL)
             try? FileManager.default.removeItem(at: resultURL)

@@ -5,7 +5,7 @@ import Observation
 @MainActor
 struct VMCreateStepperGuidePhaseContext {
     let formData: VMCreateViewStateObject
-    let configData: VMConfigurationViewStateObject
+    let configData: OmarchyPreparationSettings
 }
 
 @MainActor
@@ -40,7 +40,7 @@ final class WorkspaceCreationSession: Identifiable {
     enum Phase { case setup, creating, ready, failed }
     let id = UUID()
     let form = VMCreateViewStateObject()
-    let config: VMConfigurationViewStateObject
+    let config: OmarchyPreparationSettings
     var phase: Phase = .setup
     var errorMessage: String?
     var initialized = false
@@ -49,19 +49,7 @@ final class WorkspaceCreationSession: Identifiable {
     var context: VMCreateStepperGuidePhaseContext { .init(formData: form, configData: config) }
 
     init() {
-        config = VMConfigurationViewStateObject(configModel: VMConfigModel.createWithDefaultValues(osType: .linux))
-        config.name = "Omarchy"
-        config.remark = "Preinstalled Arch Linux desktop · ready on first boot"
-        config.linuxFeatures = .recommended
-        let resources = VMOmarchyProfile.production.resources(
-            forHostMemory: ProcessInfo.processInfo.physicalMemory,
-            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
-        )
-        config.cpuCount = resources.cpuCount
-        config.memorySize = resources.memoryBytes
-        // Omarchy exchanges files through its own shared folder, so no host
-        // directory is exposed to the guest.
-        config.directorySharingDevices.removeAll()
+        config = OmarchyPreparationSettings()
     }
 
     func initialize() async {
@@ -78,8 +66,7 @@ final class WorkspaceCreationSession: Identifiable {
             return
         }
         let checks: [any VMCreateStepperGuidePhaseHandler] = [
-            CreatePhaseNameLocationViewHandler(),
-            CreatePhaseConfigurationViewHandler()
+            CreatePhaseNameLocationViewHandler()
         ]
         for check in checks {
             if case .failure(let message) = check.verifyForm(context: context) {
@@ -191,7 +178,7 @@ struct WorkspaceCreationView: View {
                 } label: {
                     settingsRow(
                         title: "Resources",
-                        detail: "\(session.config.cpuCount) CPU · \(session.config.memorySize / (1024 * 1024 * 1024)) GB memory · \(storageGiB) GB disk",
+                        detail: "\(session.config.cpuCount) CPU · \(session.config.memoryBytes / .gibibyte) GB memory · \(storageGiB) GB disk",
                         systemImage: "cpu"
                     )
                 }
@@ -291,9 +278,9 @@ struct WorkspaceCreationView: View {
     }
 
     private var sharedFolderURL: URL {
-        session.form.sharedFolderPath.isEmpty
+        session.config.sharedFolderPath.isEmpty
             ? VMOmarchySharedFolderStore.defaultFolder(forBundle: URL(filePath: savePath, directoryHint: .isDirectory))
-            : URL(filePath: session.form.sharedFolderPath, directoryHint: .isDirectory)
+            : URL(filePath: session.config.sharedFolderPath, directoryHint: .isDirectory)
     }
 
     private var sharedFolderPath: String {
@@ -316,7 +303,7 @@ struct WorkspaceCreationView: View {
             session.errorMessage = "Choose a folder outside the Omarchy machine."
             return
         }
-        session.form.sharedFolderPath = url.standardizedFileURL.path(percentEncoded: false)
+        session.config.sharedFolderPath = url.standardizedFileURL.path(percentEncoded: false)
     }
 
     private var progress: some View {
@@ -355,7 +342,7 @@ struct WorkspaceCreationView: View {
         switch session.phase {
         case .ready: "Omarchy is ready."
         case .failed: "Let’s get this back on track."
-        default: "Preparing \(session.config.name)"
+        default: "Preparing \(OmarchyPreparationSettings.machineName)"
         }
     }
 
@@ -434,7 +421,7 @@ struct WorkspaceCreationView: View {
                 EmptyView()
             case .creating:
                 if session.form.canCancelCreation {
-                    Button(VMCreationCancellationPolicy.buttonTitle(for: session.form.creationCancellationKind)) { session.cancel() }
+                    Button(cancelButtonTitle) { session.cancel() }
                 }
             case .failed:
                 Button("Edit Settings") { session.phase = .setup }
@@ -447,14 +434,18 @@ struct WorkspaceCreationView: View {
     }
 
     private var savePath: String {
-        CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: session.form.baseDirectory, name: session.config.name)
+        CreatePhaseNameLocationViewHandler.bundlePath(baseDirectory: session.form.baseDirectory, name: OmarchyPreparationSettings.machineName)
     }
 
-    private var storageGiB: UInt64 {
-        let bytes = session.config.storageDevices.first(where: { $0.data.type == .Block })?.data.size
-            ?? VMModelFieldStorageDevice.default().size
-        return bytes / (1024 * 1024 * 1024)
+    private var cancelButtonTitle: String {
+        switch session.form.creationCancellationKind {
+        case .download: "Cancel Download"
+        case .installation: "Cancel Installation"
+        case nil: "Close"
+        }
     }
+
+    private var storageGiB: UInt64 { OmarchyPreparationSettings.storageBytes / .gibibyte }
     /// The preparation finished: let the store forget the session and let the
     /// window show Omarchy itself.
     private func finishPreparation() {

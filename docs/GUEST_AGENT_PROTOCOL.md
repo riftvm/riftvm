@@ -12,8 +12,8 @@ Omarchy machines store it in their private `Enrollment/config.json`, exposed
 to the guest through a read-only enrollment share. The
 enrollment directory is mode `0700` and each token file is mode `0600`, so
 normal VM launches do not trigger an interactive Keychain prompt. Installation
-places the guest copy in a root-readable file. The token is never stored in the
-general VM's top-level `config.json`, included in diagnostics, or logged. It is present
+places the guest copy in a root-readable file. The token is never stored in the machine's
+configuration, included in diagnostics, or logged. It is present
 in the separately exported enrollment file and in the guest's root-only
 `/etc/rift-agent/config.json`.
 

@@ -33,82 +33,24 @@ final class VMOmarchySharedFoldersTests: XCTestCase {
         XCTAssertEqual(folder.path, "/private/tmp/riftvm-shared")
     }
 
-    func testLoadMovesTheLegacyFolderToTheDefault() throws {
+    func testLoadWritesAndKeepsTheDefaultFolder() throws {
         let home = root.appending(path: "home", directoryHint: .isDirectory)
-        let bundle = home.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
         let layout = VMOmarchyWorkspaceLayout(
-            applicationSupportRoot: bundle,
-            sharedRoot: home.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory)
+            applicationSupportRoot: home.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
         )
-        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
-        try Data("kept".utf8).write(to: layout.shared.appending(path: "notes.txt"))
 
         let settings = VMOmarchySharedFolderStore.load(layout: layout, homeDirectory: home)
 
-        // The test tree is under the temporary directory, so the default is
-        // beside the bundle rather than in `home`.
-        let expected = VMOmarchySharedFolderStore.defaultFolder(forBundle: bundle, homeDirectory: home)
-        XCTAssertEqual(settings.folders.map(\.path), [expected])
-        XCTAssertFalse(settings.guestSupportsMultipleFolders)
-        XCTAssertEqual(try Data(contentsOf: expected.appending(path: "notes.txt")), Data("kept".utf8))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: layout.shared.path))
+        XCTAssertEqual(settings.folders.map(\.path), [
+            VMOmarchySharedFolderStore.defaultFolder(forBundle: layout.applicationSupportRoot, homeDirectory: home),
+        ])
         XCTAssertEqual(VMOmarchySharedFolderStore.load(layout: layout, homeDirectory: home), settings)
-    }
-
-    func testLoadKeepsTheLegacyFolderWhenTheDefaultIsTaken() throws {
-        let home = root.appending(path: "home", directoryHint: .isDirectory)
-        let bundle = home.appending(path: ".riftvm/Omarchy.riftvm", directoryHint: .isDirectory)
-        let layout = VMOmarchyWorkspaceLayout(
-            applicationSupportRoot: bundle,
-            sharedRoot: home.appending(path: ".riftvm/RiftVM Shared", directoryHint: .isDirectory)
-        )
-        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(
-            at: VMOmarchySharedFolderStore.defaultFolder(forBundle: bundle, homeDirectory: home),
-            withIntermediateDirectories: true
-        )
-
-        let settings = VMOmarchySharedFolderStore.load(layout: layout, homeDirectory: home)
-
-        XCTAssertEqual(settings.folders.map(\.path), [layout.shared.standardizedFileURL])
     }
 
     func testSettingsSurviveAWorkspaceRecoveryBecauseTheyLiveOutsideIt() {
         let layout = VMOmarchyWorkspaceLayout(applicationSupportRoot: root.appending(path: "M.riftvm"))
         XCTAssertFalse(layout.sharedFolderSettings.path.hasPrefix(layout.workspace.path))
         XCTAssertFalse(layout.transfer.path.hasPrefix(layout.workspace.path))
-    }
-
-    func testAnOlderAgentGetsTheFirstWritableFolderAtTheRoot() throws {
-        let first = try folder("riftvm-shared")
-        let second = try folder("code")
-        let settings = VMOmarchySharedFolderSettings(folders: [
-            VMOmarchySharedFolder(path: first),
-            VMOmarchySharedFolder(path: second),
-        ])
-
-        let plan = VMOmarchySharePlan(settings: settings, transfer: root.appending(path: "Transfer"))
-
-        XCTAssertFalse(plan.isMultiple)
-        XCTAssertEqual(plan.entries.map(\.name), [""])
-        XCTAssertEqual(plan.clipboardStaging, first)
-        XCTAssertEqual(plan.clipboardRelativePrefix, "")
-        XCTAssertEqual(plan.guestPath(for: settings.folders[0]), "/mnt/riftvm-shared")
-        XCTAssertNil(plan.guestPath(for: settings.folders[1]))
-        XCTAssertTrue(plan.makeShare(transfer: root) is VZSingleDirectoryShare)
-    }
-
-    func testAnOlderAgentWithoutAWritableFolderStillHasAClipboardRoot() throws {
-        let transfer = root.appending(path: "Transfer")
-        let settings = VMOmarchySharedFolderSettings(folders: [
-            VMOmarchySharedFolder(path: try folder("docs"), readOnly: true),
-        ])
-
-        let plan = VMOmarchySharePlan(settings: settings, transfer: transfer)
-
-        XCTAssertTrue(plan.entries.isEmpty)
-        XCTAssertEqual(plan.clipboardStaging, transfer)
-        XCTAssertEqual(plan.clipboardRelativePrefix, "")
     }
 
     func testMultipleFoldersAppearAsSubdirectoriesBesideTheStagingFolder() throws {
@@ -120,16 +62,14 @@ final class VMOmarchySharedFoldersTests: XCTestCase {
                 VMOmarchySharedFolder(path: try folder("b/code"), readOnly: true),
                 VMOmarchySharedFolder(path: try folder(".riftvm")),
                 VMOmarchySharedFolder(path: root.appending(path: "missing")),
-            ],
-            guestSupportsMultipleFolders: true
+            ]
         )
 
         let plan = VMOmarchySharePlan(settings: settings, transfer: transfer)
 
-        XCTAssertTrue(plan.isMultiple)
         XCTAssertEqual(plan.entries.map(\.name), ["riftvm-shared", "code", "code-2", "riftvm"])
         XCTAssertEqual(plan.clipboardStaging, transfer)
-        XCTAssertEqual(plan.clipboardRelativePrefix, ".riftvm/")
+        XCTAssertEqual(VMOmarchySharePlan.clipboardRelativePrefix, ".riftvm/")
         XCTAssertEqual(plan.guestPath(for: settings.folders[1]), "/mnt/riftvm-shared/code")
         XCTAssertNil(plan.guestPath(for: settings.folders[4]))
         let share = try XCTUnwrap(plan.makeShare(transfer: transfer) as? VZMultipleDirectoryShare)
@@ -138,16 +78,16 @@ final class VMOmarchySharedFoldersTests: XCTestCase {
         XCTAssertEqual(share.directories[".riftvm"]?.url, transfer)
     }
 
-    func testRemovingEveryFolderKeepsTheClipboardStagingFolder() {
+    func testEveryFolderRemovedKeepsOnlyTheClipboardStagingFolder() {
         let transfer = root.appending(path: "Transfer")
         let plan = VMOmarchySharePlan(
-            settings: VMOmarchySharedFolderSettings(folders: [], guestSupportsMultipleFolders: true),
+            settings: VMOmarchySharedFolderSettings(folders: []),
             transfer: transfer
         )
 
         let share = plan.makeShare(transfer: transfer) as? VZMultipleDirectoryShare
         XCTAssertEqual(share.map { Array($0.directories.keys) }, [".riftvm"])
-        XCTAssertEqual(plan.clipboardRelativePrefix, ".riftvm/")
+        XCTAssertEqual(VMOmarchySharePlan.clipboardRelativePrefix, ".riftvm/")
     }
 
     func testPrimaryFolderSkipsReadOnlyFolders() throws {

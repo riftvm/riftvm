@@ -18,7 +18,6 @@ enum VMGeneratedThumbnailStyle: String, CaseIterable, Identifiable {
 
 struct GeneratedMachineThumbnailView: View {
     let title: String
-    let type: VMOSType
     let style: VMGeneratedThumbnailStyle
 
     var body: some View {
@@ -26,7 +25,7 @@ struct GeneratedMachineThumbnailView: View {
             background
             switch style {
             case .aurora:
-                VMAuroraThumbnailView(title: title, type: type)
+                VMAuroraThumbnailView(title: title)
             case .midnight:
                 titleText(.system(size: 43, weight: .semibold, design: .rounded)).foregroundStyle(.white)
             case .ocean:
@@ -59,7 +58,7 @@ struct GeneratedMachineThumbnailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             case .editorial:
                 VStack(spacing: 5) {
-                    Text(type == .linux ? "LINUX VIRTUAL MACHINE" : "MAC VIRTUAL MACHINE")
+                    Text("LINUX VIRTUAL MACHINE")
                         .font(.system(size: 9, weight: .semibold, design: .serif))
                         .tracking(2.4)
                         .foregroundStyle(.white.opacity(0.55))
@@ -74,7 +73,7 @@ struct GeneratedMachineThumbnailView: View {
                 }
             case .mono:
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(type == .linux ? "LINUX" : "MACOS").font(.caption.monospaced().weight(.bold)).tracking(3)
+                    Text("LINUX").font(.caption.monospaced().weight(.bold)).tracking(3)
                     titleText(.system(size: 45, weight: .black, design: .default))
                 }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -120,7 +119,6 @@ struct GeneratedMachineThumbnailView: View {
 
 private struct VMAuroraThumbnailView: View {
     let title: String
-    let type: VMOSType
 
     var body: some View {
         ZStack {
@@ -192,7 +190,7 @@ private struct VMAuroraThumbnailView: View {
     }
 
     private var identity: VMAuroraThumbnailIdentity {
-        VMAuroraThumbnailIdentity(title: title, type: type)
+        VMAuroraThumbnailIdentity(title: title)
     }
 }
 
@@ -204,20 +202,9 @@ private struct VMAuroraThumbnailIdentity {
     let palette: [Color]
     let glow: Color
 
-    init(title: String, type: VMOSType) {
+    init(title: String) {
         let normalizedTitle = title.lowercased()
-        if type == .macOS {
-            platform = "macOS"
-            detail = "Apple silicon virtual machine"
-            smallSymbol = "apple.logo"
-            largeSymbol = "macwindow"
-            palette = [
-                Color(red: 0.08, green: 0.13, blue: 0.28),
-                Color(red: 0.22, green: 0.20, blue: 0.48),
-                Color(red: 0.08, green: 0.40, blue: 0.62),
-            ]
-            glow = Color(red: 0.33, green: 0.76, blue: 1.00)
-        } else if normalizedTitle.contains("ubuntu") {
+        if normalizedTitle.contains("ubuntu") {
             platform = "Omarchy"
             detail = "ARM64 Linux virtual machine"
             smallSymbol = "circle.grid.cross"

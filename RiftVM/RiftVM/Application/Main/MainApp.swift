@@ -19,12 +19,8 @@ struct MainApp: App {
         // and drives the Omarchy workspace afterwards, so there is no control
         // center, no separate creation window, and no second workspace window.
         Window("RiftVM", id: "workspace") {
-            if HeadlessLaunchConfiguration.current == nil {
-                WorkspaceHomeView()
-                    .frame(minWidth: 800, minHeight: 600)
-            } else {
-                EmptyView()
-            }
+            WorkspaceHomeView()
+                .frame(minWidth: 800, minHeight: 600)
         }
         .defaultPosition(.center)
         .defaultSize(width: 1080, height: 760)
@@ -142,15 +138,13 @@ private struct WorkspaceCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
-        if HeadlessLaunchConfiguration.current == nil {
-            CommandGroup(before: .windowList) {
-                Button("Show RiftVM") {
-                    openWindow(id: "workspace")
-                }
-                .keyboardShortcut("0", modifiers: .command)
-
-                Divider()
+        CommandGroup(before: .windowList) {
+            Button("Show RiftVM") {
+                openWindow(id: "workspace")
             }
+            .keyboardShortcut("0", modifiers: .command)
+
+            Divider()
         }
     }
 }
@@ -220,7 +214,6 @@ private struct VirtualizationFeaturesSettingsView: View {
 
                 GeneratedMachineThumbnailView(
                     title: "Omarchy",
-                    type: .linux,
                     style: VMGeneratedThumbnailStyle(rawValue: generatedThumbnailStyle) ?? .aurora
                 )
                 .frame(height: 112)

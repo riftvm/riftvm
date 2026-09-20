@@ -33,9 +33,6 @@ done
 for variable in APPLE_ID APPLE_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
   require_environment "$variable"
 done
-if [[ -z ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
-  fail "set RIFTVM_RELEASE_SMOKE_VM or RIFTVM_RELEASE_PREINSTALLED_MANIFEST and RIFTVM_RELEASE_PREINSTALLED_IMAGE"
-fi
 
 [[ -f "$project_file" ]] || fail "Xcode project not found: $project_file"
 [[ -z "$(git -C "$project_root" status --porcelain)" ]] || fail "commit or stash all changes before releasing"

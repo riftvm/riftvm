@@ -468,7 +468,7 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 		capabilities = append(capabilities, "dynamic-display-v1")
 	}
 	if sharedFolderMounted() {
-		capabilities = append(capabilities, "shared-folders-v1", clipboardStagingDirectoryCapability)
+		capabilities = append(capabilities, "shared-folders-v1")
 	}
 	capabilities = append(capabilities, activeSessionCapabilities(time.Now())...)
 	// The Host switches to absolute pointer events on this capability, so it

@@ -13,7 +13,6 @@ verified factory image and renders it through Custom VirGL on a macOS 27
 - [Troubleshooting](TROUBLESHOOTING.md): display, input, guest setup, and signing problems.
 - [Chinese input in Omarchy](OMARCHY_INPUT.md): user-installed Pinyin or Xiaohe and Shift-toggle configuration.
 - [Homebrew distribution](HOMEBREW.md): installation and maintaining the release cask.
-- [Preinstalled-image manifest](PREINSTALLED_IMAGE_MANIFEST.md): the raw ARM64 image contract behind the factory image.
 
 ## Engineering references
 

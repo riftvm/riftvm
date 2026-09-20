@@ -21,18 +21,10 @@ public struct VMOmarchySharedFolderSettings: Codable, Equatable, Sendable {
 
     public var schemaVersion: Int
     public var folders: [VMOmarchySharedFolder]
-    /// Set once the machine's Agent accepted clipboard items in the `.riftvm`
-    /// staging folder. Until then the machine keeps the single-folder layout
-    /// its Agent understands.
-    public var guestSupportsMultipleFolders: Bool
 
-    public init(
-        folders: [VMOmarchySharedFolder],
-        guestSupportsMultipleFolders: Bool = false
-    ) {
+    public init(folders: [VMOmarchySharedFolder]) {
         self.schemaVersion = Self.currentSchemaVersion
         self.folders = folders
-        self.guestSupportsMultipleFolders = guestSupportsMultipleFolders
     }
 
     /// The folder Open Shared Folder reveals and Import Files copies into: the
@@ -61,19 +53,17 @@ public enum VMOmarchySharedFolderStore {
 
     public static func load(
         layout: VMOmarchyWorkspaceLayout,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        fileManager: FileManager = .default
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> VMOmarchySharedFolderSettings {
         if let settings = loadIfPresent(layout: layout) {
             return settings
         }
-        let settings = VMOmarchySharedFolderSettings(
-            folders: [VMOmarchySharedFolder(path: adoptLegacyFolder(
-                layout: layout,
-                homeDirectory: homeDirectory,
-                fileManager: fileManager
-            ))]
-        )
+        let settings = VMOmarchySharedFolderSettings(folders: [
+            VMOmarchySharedFolder(path: defaultFolder(
+                forBundle: layout.applicationSupportRoot,
+                homeDirectory: homeDirectory
+            )),
+        ])
         try? save(settings, layout: layout)
         return settings
     }
@@ -96,35 +86,6 @@ public enum VMOmarchySharedFolderStore {
         try encoder.encode(settings).write(to: layout.sharedFolderSettings, options: .atomic)
     }
 
-    /// A machine from an earlier release kept its one exchange folder at
-    /// `layout.shared` (`RiftVM Shared` beside the bundle, or `Shared` inside
-    /// it). Move it to the new default when that is free and on the same
-    /// volume, so files already exchanged stay where the user now looks;
-    /// otherwise keep sharing the old folder rather than an empty new one.
-    static func adoptLegacyFolder(
-        layout: VMOmarchyWorkspaceLayout,
-        homeDirectory: URL,
-        fileManager: FileManager
-    ) -> URL {
-        let target = defaultFolder(forBundle: layout.applicationSupportRoot, homeDirectory: homeDirectory)
-        let legacy = layout.shared
-        var isDirectory: ObjCBool = false
-        guard legacy != target,
-              fileManager.fileExists(atPath: legacy.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else { return target }
-        guard !fileManager.fileExists(atPath: target.path) else { return legacy }
-        do {
-            try fileManager.createDirectory(
-                at: target.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try fileManager.moveItem(at: legacy, to: target)
-            return target
-        } catch {
-            return legacy
-        }
-    }
-
     /// Creates each writable folder that does not exist yet. A missing
     /// read-only folder is left alone and skipped by the share plan.
     public static func prepareFolders(_ settings: VMOmarchySharedFolderSettings, fileManager: FileManager = .default) {
@@ -142,26 +103,24 @@ public enum VMOmarchySharedFolderStore {
 /// where the Host stages clipboard items so the Guest finds them.
 public struct VMOmarchySharePlan: Equatable, Sendable {
     public struct Entry: Equatable, Sendable {
-        /// Directory name under `/mnt/riftvm-shared`; empty for the root.
+        /// Directory name under `/mnt/riftvm-shared`.
         public let name: String
         public let folder: VMOmarchySharedFolder
     }
 
     public static let guestMountPoint = "/mnt/riftvm-shared"
-    /// Share entry the Host owns in the multi-folder layout. The Agent accepts
-    /// clipboard items in it (`clipboard-staging-directory-v1`).
+    /// Share entry the Host owns. The Agent takes clipboard items only there,
+    /// because the root of the share holds the user's folders.
     public static let stagingEntryName = ".riftvm"
-    public static let multipleFoldersCapability = "clipboard-staging-directory-v1"
+    /// Prefix of a staged clipboard item's path relative to the mount point.
+    public static let clipboardRelativePrefix = stagingEntryName + "/"
 
     /// The settings this plan was made from.
     public let settings: VMOmarchySharedFolderSettings
-    public let isMultiple: Bool
     /// User folders, in order, with the Guest directory each one appears as.
     public let entries: [Entry]
     /// Host directory the clipboard stages items in.
     public let clipboardStaging: URL
-    /// Prefix of a staged item's path relative to the Guest mount point.
-    public let clipboardRelativePrefix: String
 
     /// - Parameter transfer: RiftVM's own staging folder for this machine.
     public init(
@@ -170,43 +129,19 @@ public struct VMOmarchySharePlan: Equatable, Sendable {
         fileManager: FileManager = .default
     ) {
         self.settings = settings
+        self.clipboardStaging = transfer
         let available = settings.folders.filter { folder in
             var isDirectory: ObjCBool = false
             return fileManager.fileExists(atPath: folder.path.path, isDirectory: &isDirectory) && isDirectory.boolValue
         }
-        if settings.guestSupportsMultipleFolders {
-            isMultiple = true
-            var used: Set<String> = [Self.stagingEntryName]
-            entries = available.map { folder in
-                let name = Self.uniqueName(for: folder.path, used: &used)
-                return Entry(name: name, folder: folder)
-            }
-            clipboardStaging = transfer
-            clipboardRelativePrefix = Self.stagingEntryName + "/"
-        } else if let first = available.first, !first.readOnly {
-            // An Agent without the staging folder reads clipboard items from
-            // the root, so the root must be one writable folder.
-            isMultiple = false
-            entries = [Entry(name: "", folder: first)]
-            clipboardStaging = first.path
-            clipboardRelativePrefix = ""
-        } else {
-            isMultiple = false
-            entries = []
-            clipboardStaging = transfer
-            clipboardRelativePrefix = ""
+        var used: Set<String> = [Self.stagingEntryName]
+        entries = available.map { folder in
+            Entry(name: Self.uniqueName(for: folder.path, used: &used), folder: folder)
         }
     }
 
     /// The directory share for the `riftvm_shared` device.
     public func makeShare(transfer: URL) -> VZDirectoryShare {
-        guard isMultiple else {
-            let root = entries.first?.folder
-            return VZSingleDirectoryShare(directory: VZSharedDirectory(
-                url: root?.path ?? transfer,
-                readOnly: root?.readOnly ?? false
-            ))
-        }
         var directories = [Self.stagingEntryName: VZSharedDirectory(url: transfer, readOnly: false)]
         for entry in entries {
             directories[entry.name] = VZSharedDirectory(url: entry.folder.path, readOnly: entry.folder.readOnly)
@@ -217,7 +152,7 @@ public struct VMOmarchySharePlan: Equatable, Sendable {
     /// Where Omarchy sees a folder, or nil when this session does not share it.
     public func guestPath(for folder: VMOmarchySharedFolder) -> String? {
         guard let entry = entries.first(where: { $0.folder.id == folder.id }) else { return nil }
-        return entry.name.isEmpty ? Self.guestMountPoint : "\(Self.guestMountPoint)/\(entry.name)"
+        return "\(Self.guestMountPoint)/\(entry.name)"
     }
 
     static func uniqueName(for path: URL, used: inout Set<String>) -> String {

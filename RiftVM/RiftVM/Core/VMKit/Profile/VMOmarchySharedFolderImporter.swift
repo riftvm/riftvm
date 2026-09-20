@@ -31,13 +31,13 @@ public enum VMOmarchySharedFolderImportError: Error, Equatable, LocalizedError {
 /// never replaces an existing item.
 public struct VMOmarchySharedFolderImporter {
     public let layout: VMOmarchyWorkspaceLayout
-    /// The folder files are copied into; `layout.shared` unless given.
+    /// The shared folder files are copied into.
     public let destination: URL
     private let fileManager: FileManager
 
-    public init(layout: VMOmarchyWorkspaceLayout, destination: URL? = nil, fileManager: FileManager = .default) {
+    public init(layout: VMOmarchyWorkspaceLayout, destination: URL, fileManager: FileManager = .default) {
         self.layout = layout
-        self.destination = destination ?? layout.shared
+        self.destination = destination
         self.fileManager = fileManager
     }
 

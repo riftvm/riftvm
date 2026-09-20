@@ -1,5 +1,5 @@
 //
-//  VMModelFieldGraphicDevice.swift
+//  VMCustomVirGLGraphics.swift
 //  RiftVM
 //
 //  Created by everettjf on 2022/8/24.
@@ -17,67 +17,10 @@ import RiftVMVirGLRuntime
 #endif
 
 #if arch(arm64)
-struct VMModelFieldGraphicDevice : Decodable, Encodable, CustomStringConvertible {
-    enum DeviceType : String, CaseIterable, Identifiable, Decodable, Encodable {
-        case Mac, Virtio
-        var id: Self { self }
-
-        var displayName: String {
-            switch self {
-            case .Mac: "Mac Display"
-            case .Virtio: "Virtio Display"
-            }
-        }
-    }
-    
-    let type: DeviceType
-    let width: Int
-    let height: Int
-    let pixelsPerInch: Int
-    
-    var description: String {
-        if type == .Virtio {
-            return "\(type.displayName) · \(width) × \(height)"
-        } else {
-            return "\(type.displayName) · \(width) × \(height) · \(pixelsPerInch) ppi"
-        }
-    }
-    
-    static func `default`(osType: VMOSType) -> VMModelFieldGraphicDevice {
-        switch osType {
-        case .macOS:
-            return VMModelFieldGraphicDevice(type: .Mac, width: 1920, height: 1200, pixelsPerInch: 80)
-        case .linux:
-            return VMModelFieldGraphicDevice(type: .Virtio, width: 1280, height: 720, pixelsPerInch: 0)
-        }
-    }
-    
-    func createConfiguration() -> VZGraphicsDeviceConfiguration {
-        if self.type == .Virtio {
-            let config = VZVirtioGraphicsDeviceConfiguration()
-            config.scanouts = [
-                VZVirtioGraphicsScanoutConfiguration(widthInPixels: self.width, heightInPixels: self.height)
-            ]
-            return config
-        }
-        
-        let graphicsConfiguration = VZMacGraphicsDeviceConfiguration()
-        graphicsConfiguration.displays = [
-            // We abitrarily choose the resolution of the display to be 1920 x 1200.
-            VZMacGraphicsDisplayConfiguration(widthInPixels: self.width, heightInPixels: self.height, pixelsPerInch: self.pixelsPerInch)
-        ]
-        return graphicsConfiguration
-    }
-}
-
 protocol VMGraphicsBackend {
     var kind: VMGraphicsBackendKind { get }
     var displayView: NSView { get }
     var supportsMachineSaveRestore: Bool { get }
-    func applyGraphics(
-        from devices: [VMModelFieldGraphicDevice],
-        to configuration: VZVirtualMachineConfiguration
-    ) -> VMOSResultVoid
     func bind(virtualMachine: VZVirtualMachine?)
     func refreshDisplayConfiguration()
     /// Re-offer the guest display at the window's current size, on request. The
@@ -1210,11 +1153,11 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
     private var requestedResolution: (width: UInt32, height: UInt32)
     private let sessionResolution: (width: UInt32, height: UInt32)
 
-    init(devices: [VMModelFieldGraphicDevice], displayView: VMVirGLDisplayView? = nil) throws {
-        let device = devices.first ?? .default(osType: .linux)
+    /// - Parameter guestSize: the mode the guest keeps for the whole session.
+    init(guestSize: CGSize, displayView: VMVirGLDisplayView? = nil) throws {
         let initialResolution = VMDisplayGeometry.guestResolution(for: CGSize(
-            width: max(1, device.width),
-            height: max(1, device.height)
+            width: max(1, guestSize.width),
+            height: max(1, guestSize.height)
         ))
         let dependencies = VirGLRuntimeDependencies.resolve()
         try dependencies.validate()
@@ -1260,15 +1203,6 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         requestedResolution = initialResolution
         sessionResolution = initialResolution
         view.runtime = runtime
-    }
-
-    func applyGraphics(
-        from devices: [VMModelFieldGraphicDevice],
-        to configuration: VZVirtualMachineConfiguration
-    ) -> VMOSResultVoid {
-        configuration.graphicsDevices = []
-        configuration.customVirtioDevices.append(contentsOf: deviceConfigurations)
-        return .success
     }
 
     func bind(virtualMachine: VZVirtualMachine?) {
@@ -1346,36 +1280,6 @@ final class VMCustomVirGLGraphicsBackend: VMGraphicsBackend {
         virglView.runtime = nil
         runtime?.shutdown()
         runtime = nil
-    }
-}
-
-struct VMGraphicsBackendCreation {
-    let backend: any VMGraphicsBackend
-    let detail: String?
-}
-
-enum VMGraphicsBackendFactory {
-    // This flips to true only when the production Custom Virtio GPU runtime,
-    // presenter, and lifecycle implementation are linked into the app target.
-    static let customBackendImplemented = true
-
-    /// RiftVM runs Linux guests through its own VirGL device and nothing else.
-    /// There is no second backend to fall back to, so every unmet requirement is
-    /// reported instead of a silent switch to Apple's device.
-    static func make(devices: [VMModelFieldGraphicDevice]) throws -> VMGraphicsBackendCreation {
-        guard VirtualizationCapability.customVirtio.isAvailable else {
-            throw VMOSError.regularFailure("Custom VirGL requires macOS 27 or later.")
-        }
-        guard customBackendImplemented else {
-            throw VMOSError.regularFailure("The Custom VirGL runtime is not included in this build.")
-        }
-        do {
-            return VMGraphicsBackendCreation(
-                backend: try VMCustomVirGLGraphicsBackend(devices: devices), detail: nil
-            )
-        } catch {
-            throw VMOSError.regularFailure("Custom VirGL could not start: \(error.localizedDescription). Verify the bundled runtime.")
-        }
     }
 }
 

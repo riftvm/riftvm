@@ -155,30 +155,11 @@ spctl --assess --type execute --verbose=4 "$install_check_dir/RiftVM.app"
 RIFTVM_LAUNCH_TIMEOUT="${RIFTVM_LAUNCH_TIMEOUT:-10}" \
   "$project_root/scripts/verify-release-app.sh" \
     "$install_check_dir/RiftVM.app" "$version" "$source_commit"
-if [[ -n "${RIFTVM_RELEASE_SMOKE_VM:-}" ]]; then
-  RIFTVM_VM_SMOKE_TIMEOUT="${RIFTVM_VM_SMOKE_TIMEOUT:-90}" \
-  RIFTVM_RELEASE_SMOKE_ENROLLMENT="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}" \
-    "$project_root/scripts/verify-release-cli.sh" "$install_check_dir/RiftVM.app" "$RIFTVM_RELEASE_SMOKE_VM"
-  RIFTVM_VM_SMOKE_TIMEOUT="${RIFTVM_VM_SMOKE_TIMEOUT:-90}" \
-  RIFTVM_RELEASE_SMOKE_ENROLLMENT="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}" \
-    "$project_root/scripts/verify-release-nested-virtualization.sh" "$install_check_dir/RiftVM.app" "$RIFTVM_RELEASE_SMOKE_VM"
-  RIFTVM_VM_SMOKE_TIMEOUT="${RIFTVM_VM_SMOKE_TIMEOUT:-90}" \
-  RIFTVM_RELEASE_SMOKE_ENROLLMENT="${RIFTVM_RELEASE_SMOKE_ENROLLMENT:-}" \
-    "$project_root/scripts/verify-release-vm.sh" "$install_check_dir/RiftVM.app" "$RIFTVM_RELEASE_SMOKE_VM"
-fi
-if [[ -n ${RIFTVM_RELEASE_PREINSTALLED_MANIFEST:-} || -n ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
-  [[ -n ${RIFTVM_RELEASE_PREINSTALLED_MANIFEST:-} && -n ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]] || {
-    echo "RIFTVM_RELEASE_PREINSTALLED_MANIFEST and RIFTVM_RELEASE_PREINSTALLED_IMAGE must be set together." >&2
-    exit 78
-  }
-  RIFTVM_APP_PATH="$install_check_dir/RiftVM.app" \
-    "$project_root/scripts/verify-homebrew-preinstalled-image.sh" \
-    "$RIFTVM_RELEASE_PREINSTALLED_MANIFEST" "$RIFTVM_RELEASE_PREINSTALLED_IMAGE"
-fi
-if [[ -z ${RIFTVM_RELEASE_SMOKE_VM:-} && -z ${RIFTVM_RELEASE_PREINSTALLED_IMAGE:-} ]]; then
-  echo "A standard smoke VM or preinstalled-image fixture is required for a release VM boot test." >&2
-  exit 78
-fi
+# RiftVM runs one product: Omarchy. The release gate is that the signed app
+# trusts the factory channel it pins; a real-guest pass is the separate
+# acceptance run recorded in docs/V1_RELEASE_CHECKLIST.md.
+RIFTVM_APP_PATH="$install_check_dir/RiftVM.app" \
+  "$project_root/scripts/verify-factory-trust.sh" "$install_check_dir/RiftVM.app"
 
 # Creating an Omarchy workspace fetches a signed factory manifest and rejects a
 # signature no configured key can verify. That rejection breaks workspace
@@ -241,7 +222,6 @@ git -C "$tap_dir/repository" diff --cached --quiet || \
   git -C "$tap_dir/repository" commit -m "Update RiftVM to $version"
 git -C "$tap_dir/repository" push
 
-"$project_root/scripts/verify-homebrew-release.sh" \
-  "$version" "${RIFTVM_RELEASE_SMOKE_VM:-}" "$source_commit"
+"$project_root/scripts/verify-homebrew-release.sh" "$version" "$source_commit"
 
 echo "Published RiftVM $version to GitHub Releases and Homebrew."

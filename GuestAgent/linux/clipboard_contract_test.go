@@ -4,7 +4,7 @@ import "testing"
 
 func TestClipboardRequestAcceptsBoundedIntegrationPaths(t *testing.T) {
 	request := clipboardRequest{
-		RelativePath: ".riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt",
+		RelativePath: ".riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt",
 		MIMEType:     clipboardTextMIME,
 		ByteCount:    maximumClipboardBytes,
 		SHA256:       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -13,7 +13,7 @@ func TestClipboardRequestAcceptsBoundedIntegrationPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "/mnt/riftvm-shared/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt"
+	expected := "/mnt/riftvm-shared/.riftvm/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.txt"
 	if path != expected {
 		t.Fatalf("path = %q, want %q", path, expected)
 	}
@@ -40,7 +40,8 @@ func TestClipboardRequestRejectsTraversalMIMEAndOversize(t *testing.T) {
 		MIMEType:     clipboardImageMIME,
 	}
 	cases := map[string]clipboardRequest{
-		"traversal":      {RelativePath: ".riftvm-clipboard-../secret.png", MIMEType: clipboardImageMIME},
+		"traversal":      {RelativePath: ".riftvm/.riftvm-clipboard-../secret.png", MIMEType: clipboardImageMIME},
+		"mount root":     {RelativePath: ".riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
 		"nested":         {RelativePath: ".riftvm-integration/clipboard/01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
 		"user folder":    {RelativePath: "riftvm-shared/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},
 		"deep staging":   {RelativePath: ".riftvm/x/.riftvm-clipboard-01234567-89ab-cdef-0123-456789abcdef.png", MIMEType: clipboardImageMIME},

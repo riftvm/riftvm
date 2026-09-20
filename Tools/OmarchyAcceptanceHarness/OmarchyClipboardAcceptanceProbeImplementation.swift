@@ -15,7 +15,7 @@ enum OmarchyClipboardAcceptanceProbe {
     ) async throws -> OmarchyClipboardRoundTrip {
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".riftvm-clipboard-\(nonce)")
-        let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
+        let guestDirectory = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(probeDirectory.lastPathComponent)"
         func agentStagingURL(_ fileExtension: String) -> URL {
             sharedDirectory.appending(
                 path: ".riftvm-clipboard-\(UUID().uuidString.lowercased()).\(fileExtension)"

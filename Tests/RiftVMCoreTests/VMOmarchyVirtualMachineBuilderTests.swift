@@ -15,7 +15,11 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
 
         XCTAssertThrowsError(try VMOmarchyVirtualMachineBuilder.makeConfiguration(
             layout: layout,
-            profile: .production
+            profile: .production,
+            sharePlan: VMOmarchySharePlan(
+                settings: VMOmarchySharedFolderSettings(folders: []),
+                transfer: layout.transfer
+            )
         )) { error in
             guard case .recoveryFailed(let reason) = error as? VMOmarchyVirtualMachineBuilderError else {
                 return XCTFail("Expected recovery to block VM startup, got \(error)")
@@ -32,12 +36,17 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
+        let shared = root.appending(path: "riftvm-shared", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
+        let sharePlan = VMOmarchySharePlan(
+            settings: VMOmarchySharedFolderSettings(folders: [VMOmarchySharedFolder(path: shared)]),
+            transfer: layout.transfer
+        )
         XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
 
         XCTAssertThrowsError(try VMOmarchyVirtualMachineBuilder.makeConfiguration(
-            layout: layout, profile: .production
+            layout: layout, profile: .production, sharePlan: sharePlan
         )) { error in
             XCTAssertEqual(error as? VMOmarchyVirtualMachineBuilderError, .customGraphicsRequired)
         }
@@ -48,6 +57,7 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
             layout: layout,
             profile: .production,
             customGraphicsDevices: [gpu],
+            sharePlan: sharePlan,
             hostMemoryBytes: 32 * gib,
             activeProcessorCount: 10
         )
@@ -73,8 +83,10 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         let sharedDevice = try XCTUnwrap(
             configuration.directorySharingDevices.last as? VZVirtioFileSystemDeviceConfiguration
         )
-        let sharedShare = try XCTUnwrap(sharedDevice.share as? VZSingleDirectoryShare)
-        XCTAssertFalse(sharedShare.directory.isReadOnly)
+        let sharedShare = try XCTUnwrap(sharedDevice.share as? VZMultipleDirectoryShare)
+        XCTAssertEqual(Set(sharedShare.directories.keys), [".riftvm", "riftvm-shared"])
+        XCTAssertEqual(sharedShare.directories["riftvm-shared"]?.isReadOnly, false)
+        XCTAssertEqual(sharedShare.directories[".riftvm"]?.url, layout.transfer)
         XCTAssertTrue(
             configuration.consoleDevices.isEmpty,
             "The dedicated Agent clipboard must not compete with a SPICE clipboard owner."
@@ -101,7 +113,12 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         try FileManager.default.createDirectory(at: layout.workspace, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.boot, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: layout.enrollment, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: layout.shared, withIntermediateDirectories: true)
+        let shared = root.appending(path: "riftvm-shared", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
+        let sharePlan = VMOmarchySharePlan(
+            settings: VMOmarchySharedFolderSettings(folders: [VMOmarchySharedFolder(path: shared)]),
+            transfer: layout.transfer
+        )
         XCTAssertTrue(FileManager.default.createFile(atPath: layout.disk.path, contents: Data(count: 1_048_576)))
         try VZGenericMachineIdentifier().dataRepresentation.write(to: layout.machineIdentifier)
 
@@ -109,6 +126,7 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
             layout: layout,
             profile: .production,
             microphoneEnabled: true,
+            sharePlan: sharePlan,
             hostMemoryBytes: 32 * UInt64(1_024 * 1_024 * 1_024),
             activeProcessorCount: 10
         )

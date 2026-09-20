@@ -39,54 +39,14 @@ public struct VMOmarchyWorkspaceMetadata: Codable, Equatable, Sendable {
 
 public struct VMOmarchyWorkspaceLayout: Equatable {
     public let applicationSupportRoot: URL
-    /// Host folder shared with the guest, when it is not the machine's own
-    /// `Shared` subfolder. `nil` keeps the folder inside the machine, which is
-    /// what tests and the acceptance tools want.
-    public let sharedRoot: URL?
 
-    public init(applicationSupportRoot: URL, sharedRoot: URL? = nil) {
+    public init(applicationSupportRoot: URL) {
         self.applicationSupportRoot = applicationSupportRoot.standardizedFileURL
-        self.sharedRoot = sharedRoot?.standardizedFileURL
     }
 
-    /// The layout the app uses for a machine. The exchange folder is the
-    /// friendly `RiftVM Shared` beside the machine bundle — still inside the
-    /// hidden ~/.riftvm, but named what the UI calls it — instead of a `Shared`
-    /// folder buried inside the bundle.
-    ///
-    /// A machine written by an earlier build kept its exchange folder in the
-    /// bundle. That folder is adopted on first open so files already exchanged
-    /// stay visible; if it cannot be moved (a machine on another volume keeps
-    /// its own folder) the old path is used instead of an empty new one.
-    public static func appWorkspace(bundleURL: URL, fileManager: FileManager = .default) -> Self {
-        let bundle = bundleURL.standardizedFileURL
-        let preferred = bundle.deletingLastPathComponent()
-            .appending(path: sharedFolderName, directoryHint: .isDirectory)
-        let legacy = bundle.appending(path: "Shared", directoryHint: .isDirectory)
-        return Self(
-            applicationSupportRoot: bundle,
-            sharedRoot: resolveSharedRoot(preferred: preferred, legacy: legacy, fileManager: fileManager)
-        )
-    }
-
-    /// The name of the exchange folder next to a machine bundle.
-    public static let sharedFolderName = "RiftVM Shared"
-
-    static func resolveSharedRoot(preferred: URL, legacy: URL, fileManager: FileManager) -> URL {
-        if fileManager.fileExists(atPath: preferred.path) { return preferred }
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: legacy.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else { return preferred }
-        do {
-            try fileManager.createDirectory(
-                at: preferred.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            try fileManager.moveItem(at: legacy, to: preferred)
-            return preferred
-        } catch {
-            return legacy
-        }
+    /// The layout the app uses for a machine.
+    public static func appWorkspace(bundleURL: URL) -> Self {
+        Self(applicationSupportRoot: bundleURL)
     }
 
     public static func userDomain(fileManager: FileManager = .default) throws -> Self {
@@ -104,9 +64,6 @@ public struct VMOmarchyWorkspaceLayout: Equatable {
     public var efiVariableStore: URL { boot.appending(path: "EFIVariableStore") }
     public var snapshots: URL { workspace.appending(path: "Snapshots", directoryHint: .isDirectory) }
     public var enrollment: URL { applicationSupportRoot.appending(path: "Enrollment", directoryHint: .isDirectory) }
-    public var shared: URL {
-        sharedRoot ?? applicationSupportRoot.appending(path: "Shared", directoryHint: .isDirectory)
-    }
     /// The Mac folders shared with Omarchy (`VMOmarchySharedFolderSettings`).
     public var sharedFolderSettings: URL { applicationSupportRoot.appending(path: "SharedFolders.json") }
     /// RiftVM's own staging folder, shared as `.riftvm` next to the user's
@@ -170,7 +127,6 @@ public enum VMOmarchyTemporaryPathPolicy {
 
 public enum VMOmarchyWorkspaceState: Equatable {
     case notPrepared
-    case migrationRequired(fromVersion: Int)
     case ready
     case recovering(reason: String)
 }
@@ -185,7 +141,6 @@ public enum VMOmarchyWorkspaceError: Error, Equatable {
     case workspaceNotRecoverable
     case recoveryFailed(String)
     case invalidWorkspaceMetadata
-    case migrationFailed(String)
     case metadataUpdateFailed(String)
 }
 
@@ -210,8 +165,6 @@ extension VMOmarchyWorkspaceError: LocalizedError {
             "The broken Omarchy workspace could not be preserved: \(reason)"
         case .invalidWorkspaceMetadata:
             "The Omarchy workspace metadata is invalid or unsupported."
-        case .migrationFailed(let reason):
-            "The Omarchy workspace could not be migrated: \(reason)"
         case .metadataUpdateFailed(let reason):
             "The Omarchy integration metadata could not be recorded: \(reason)"
         }
@@ -240,15 +193,12 @@ public struct VMOmarchyWorkspaceManager {
         guard let metadata = decodedMetadata(),
               metadata.productID == VMOmarchyProfile.production.productID,
               metadata.schemaVersion > 0,
-              metadata.schemaVersion <= VMOmarchyWorkspaceMetadata.currentSchemaVersion else {
+              metadata.schemaVersion == VMOmarchyWorkspaceMetadata.currentSchemaVersion else {
             return .recovering(reason: "The Omarchy workspace metadata is invalid or unsupported.")
         }
         guard let identifierData = try? Data(contentsOf: layout.machineIdentifier),
               VZGenericMachineIdentifier(dataRepresentation: identifierData) != nil else {
             return .recovering(reason: "The Omarchy machine identity is invalid.")
-        }
-        if metadata.schemaVersion < VMOmarchyWorkspaceMetadata.currentSchemaVersion {
-            return .migrationRequired(fromVersion: metadata.schemaVersion)
         }
         return .ready
     }
@@ -260,12 +210,6 @@ public struct VMOmarchyWorkspaceManager {
             throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
         }
         return metadata
-    }
-
-    public func migrateWorkspace(availableCapacityBytes: Int64? = nil) throws {
-        try migrateWorkspace(availableCapacityBytes: availableCapacityBytes) { data, destination in
-            try data.write(to: destination, options: .atomic)
-        }
     }
 
     public func recordGuestIntegration(
@@ -305,49 +249,6 @@ public struct VMOmarchyWorkspaceManager {
         }
     }
 
-    func migrateWorkspace(
-        availableCapacityBytes: Int64? = nil,
-        metadataWriter: (Data, URL) throws -> Void
-    ) throws {
-        guard case .migrationRequired(let fromVersion) = inspect(),
-              fromVersion == 1,
-              let old = decodedMetadata() else {
-            throw VMOmarchyWorkspaceError.invalidWorkspaceMetadata
-        }
-        switch VMSnapshotManager.createSnapshot(
-            vmRootPath: layout.workspace,
-            name: "Before workspace migration 1 to 2",
-            isProtected: true,
-            availableCapacityBytes: availableCapacityBytes
-        ) {
-        case .failure(let reason):
-            throw VMOmarchyWorkspaceError.migrationFailed(reason)
-        case .success:
-            break
-        }
-        let migrated = VMOmarchyWorkspaceMetadata(
-            productID: old.productID,
-            createdAt: old.createdAt,
-            factoryImageVersion: old.factoryImageVersion,
-            omarchyRevision: old.omarchyRevision,
-            guestAgentVersion: old.guestAgentVersion,
-            guestCapabilities: old.guestCapabilities,
-            cpuCount: old.cpuCount,
-            memoryBytes: old.memoryBytes,
-        )
-        do {
-            try metadataWriter(try JSONEncoder().encode(migrated), layout.configuration)
-        } catch {
-            throw VMOmarchyWorkspaceError.migrationFailed(error.localizedDescription)
-        }
-        guard inspect() == .ready else {
-            throw VMOmarchyWorkspaceError.migrationFailed("The migrated workspace did not pass validation.")
-        }
-    }
-
-    /// Moves an invalid workspace out of the live location without deleting
-    /// user data. A subsequent onboarding run can then create a clean workspace.
-    @discardableResult
     public func quarantineBrokenWorkspace(now: Date = Date()) throws -> URL {
         guard case .recovering = inspect(),
               fileManager.fileExists(atPath: layout.workspace.path),
@@ -402,15 +303,19 @@ public struct VMOmarchyWorkspaceManager {
         }
     }
 
-    /// - Parameter sharedFolders: the folders a new machine shares. Without
-    ///   them the machine keeps one `layout.shared` folder, as acceptance tools
-    ///   expect.
+    /// - Parameter sharedFolders: the Mac folders the new machine shares.
+    ///   Defaults to the one folder a machine gets when nobody picks another.
     public func prepare(
         factoryDisk: URL,
         configuration: Data,
         machineIdentifier: Data,
         sharedFolders: VMOmarchySharedFolderSettings? = nil
     ) throws {
+        let sharedFolders = sharedFolders ?? VMOmarchySharedFolderSettings(folders: [
+            VMOmarchySharedFolder(
+                path: VMOmarchySharedFolderStore.defaultFolder(forBundle: layout.applicationSupportRoot)
+            ),
+        ])
         guard inspect() == .notPrepared else { throw VMOmarchyWorkspaceError.workspaceAlreadyExists }
         guard regularFileExists(factoryDisk), factoryDisk.pathExtension.lowercased() == "asif" else {
             throw VMOmarchyWorkspaceError.invalidFactoryDisk
@@ -437,11 +342,9 @@ public struct VMOmarchyWorkspaceManager {
                 at: staging.appending(path: "Boot", directoryHint: .isDirectory),
                 withIntermediateDirectories: false
             )
-            try createSupportDirectories(sharesLegacyFolder: sharedFolders == nil)
-            if let sharedFolders {
-                try VMOmarchySharedFolderStore.save(sharedFolders, layout: layout)
-                VMOmarchySharedFolderStore.prepareFolders(sharedFolders, fileManager: fileManager)
-            }
+            try createSupportDirectories()
+            try VMOmarchySharedFolderStore.save(sharedFolders, layout: layout)
+            VMOmarchySharedFolderStore.prepareFolders(sharedFolders, fileManager: fileManager)
             switch VMGuestAgentEnrollmentStore.loadOrCreate(
                 machineIdentifierData: machineIdentifier,
                 directoryURL: layout.enrollment
@@ -491,10 +394,8 @@ public struct VMOmarchyWorkspaceManager {
         return destination
     }
 
-    private func createSupportDirectories(sharesLegacyFolder: Bool) throws {
-        var directories = [layout.enrollment, layout.cache, layout.diagnostics, layout.recovery]
-        if sharesLegacyFolder { directories.append(layout.shared) }
-        for directory in directories {
+    private func createSupportDirectories() throws {
+        for directory in [layout.enrollment, layout.cache, layout.diagnostics, layout.recovery] {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         }
     }

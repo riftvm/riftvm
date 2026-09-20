@@ -2,9 +2,30 @@ import AppKit
 import Virtualization
 
 #if RIFTVM_ACCEPTANCE_HARNESS
+/// Where Omarchy sees the folder acceptance probes exchange through. The
+/// Coordinator sets it once the session's share plan exists; probes build guest
+/// paths below it. Harness-only, and only the main actor touches it.
+enum OmarchyAcceptanceGuestPaths {
+    nonisolated(unsafe) static var sharedRoot = VMOmarchySharePlan.guestMountPoint
+}
+
 extension OmarchyVirtualMachineRepresentable.Coordinator {
     private var acceptanceScenario: String {
         ProcessInfo.processInfo.environment["RIFTVM_OMARCHY_ACCEPTANCE_SCENARIO"] ?? "lifecycle"
+    }
+
+    /// The Mac folder probes exchange files through: the first writable folder
+    /// this session shares, falling back to RiftVM's own staging folder.
+    var acceptanceSharedFolder: URL {
+        OmarchyAcceptanceGuestPaths.sharedRoot = acceptanceGuestSharedPath
+        return sharePlan?.entries.first { !$0.folder.readOnly }?.folder.path ?? layout.transfer
+    }
+
+    /// Where Omarchy sees `acceptanceSharedFolder`.
+    var acceptanceGuestSharedPath: String {
+        let name = sharePlan?.entries.first { !$0.folder.readOnly }?.name
+            ?? VMOmarchySharePlan.stagingEntryName
+        return "\(VMOmarchySharePlan.guestMountPoint)/\(name)"
     }
 
     @MainActor
@@ -60,7 +81,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
             do {
                 let report = try await OmarchyInputLatencyAcceptanceProbe.run(
                     client: client,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics,
                     sampleCount: requestedSamples,
                     unlockPassword: environment[
@@ -116,14 +137,14 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 // the burst cannot be mistaken for an unlock-screen test.
                 try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                     client: client,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     attempts: 120,
                     timeoutPerAttempt: .seconds(2),
                     retryDelay: .seconds(1)
                 )
                 try await OmarchyInputDiagnosticsAcceptanceProbe.runContinuousInputBurst(
                     client: client,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics,
                     sendTextBurst: { inputView.runGuestAgentTextBurstAcceptance($0) },
                     sendKeyRepeat: {
@@ -158,7 +179,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 try await Task.sleep(for: .seconds(3))
                 try await OmarchyInputDiagnosticsAcceptanceProbe.sendDesktopNotification(
                     client: client,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     title: title
                 )
                 let deadline = ContinuousClock.now + .seconds(30)
@@ -190,7 +211,9 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
             guard let self else { return }
             do {
                 let result = try await integrationClient.verifySharedFolderRoundTrip(
-                    layout: layout
+                    layout: layout,
+                    hostDirectory: self.acceptanceSharedFolder,
+                    guestDirectory: self.acceptanceGuestSharedPath
                 )
                 self.sharedFolderProbePassed = true
                 NSLog(
@@ -243,7 +266,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 }
                 let result = try await OmarchyClipboardAcceptanceProbe.run(
                     client: integrationClient,
-                    sharedDirectory: layout.shared,
+                    sharedDirectory: acceptanceSharedFolder,
                     unlockCredential: OmarchyAcceptanceUnlockCredential(
                         environment: ProcessInfo.processInfo.environment
                     )
@@ -277,7 +300,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 let result = try await OmarchyDynamicDisplayAcceptanceProbe.run(
                     client: integrationClient,
                     view: machineView,
-                    sharedDirectory: layout.shared
+                    sharedDirectory: acceptanceSharedFolder
                 )
                 self.dynamicDisplayProbePassed = true
                 NSLog(
@@ -290,7 +313,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 if self.acceptanceScenario == "displays" {
                     try await OmarchyDynamicDisplayAcceptanceProbe.runAcrossDisplays(
                         client: integrationClient, view: machineView,
-                        sharedDirectory: layout.shared, diagnosticsDirectory: layout.diagnostics
+                        sharedDirectory: acceptanceSharedFolder, diagnosticsDirectory: layout.diagnostics
                     )
                 } else {
                     self.startAutomaticCommandSpaceProbeIfNeeded(self.latestGuestStatus)
@@ -336,7 +359,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 }
                 try await OmarchyInputDiagnosticsAcceptanceProbe.run(
                     client: integrationClient,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics
                 )
                 NSApp.activate(ignoringOtherApps: true)
@@ -347,7 +370,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 }
                 let cycle = try await OmarchyInputDiagnosticsAcceptanceProbe.runObservedLockCycle(
                     client: integrationClient,
-                    sharedDirectory: self.layout.shared,
+                    sharedDirectory: self.acceptanceSharedFolder,
                     sendLockShortcut: { [weak self] in
                         // macOS virtual key 37 is L. Command is redirected
                         // to Guest Super by the production Accessibility
@@ -411,7 +434,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 do {
                     try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                         client: client,
-                        sharedDirectory: self.layout.shared,
+                        sharedDirectory: self.acceptanceSharedFolder,
                         attempts: 2,
                         timeoutPerAttempt: .seconds(6)
                     )
@@ -434,7 +457,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     try await Task.sleep(for: .seconds(3))
                     try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                         client: client,
-                        sharedDirectory: self.layout.shared,
+                        sharedDirectory: self.acceptanceSharedFolder,
                         attempts: 3,
                         timeoutPerAttempt: .seconds(8)
                     )
@@ -533,7 +556,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     // otherwise the password would leak into an application.
                     try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                         client: integrationClient,
-                        sharedDirectory: self.layout.shared,
+                        sharedDirectory: self.acceptanceSharedFolder,
                         attempts: 2,
                         timeoutPerAttempt: .seconds(6)
                     )
@@ -555,7 +578,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     try await Task.sleep(for: .seconds(3))
                     try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
                         client: integrationClient,
-                        sharedDirectory: self.layout.shared,
+                        sharedDirectory: self.acceptanceSharedFolder,
                         attempts: 3,
                         timeoutPerAttempt: .seconds(8)
                     )
@@ -596,11 +619,11 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
             guard let self else { return }
             do {
                 try await OmarchyInputDiagnosticsAcceptanceProbe.runPinyin(
-                    client: client, sharedDirectory: self.layout.shared,
+                    client: client, sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics
                 )
                 try await OmarchyInputDiagnosticsAcceptanceProbe.runPinyin(
-                    client: client, sharedDirectory: self.layout.shared,
+                    client: client, sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics, xiaohe: true
                 )
             } catch is CancellationError { return }
@@ -616,16 +639,16 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
             guard let self else { return }
             do {
                 try await OmarchyInputDiagnosticsAcceptanceProbe.verifyInteractiveDesktopEventually(
-                    client: client, sharedDirectory: self.layout.shared, attempts: 3, timeoutPerAttempt: .seconds(8)
+                    client: client, sharedDirectory: self.acceptanceSharedFolder, attempts: 3, timeoutPerAttempt: .seconds(8)
                 )
                 try await OmarchyInputDiagnosticsAcceptanceProbe.runContinuousInputBurst(
-                    client: client, sharedDirectory: self.layout.shared,
+                    client: client, sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics,
                     sendTextBurst: { view.runGuestAgentTextBurstAcceptance($0) },
                     sendKeyRepeat: { view.runGuestAgentKeyRepeatAcceptance(keyCode: 0, count: $0) }
                 )
                 _ = try await OmarchyInputLatencyAcceptanceProbe.run(
-                    client: client, sharedDirectory: self.layout.shared,
+                    client: client, sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics, sampleCount: 5,
                     sendAppleUSBText: { text in
                         view.setGuestInputEventHandler(nil)
@@ -636,7 +659,7 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     }
                 )
                 try await OmarchyDynamicDisplayAcceptanceProbe.runAcrossDisplays(
-                    client: client, view: view, sharedDirectory: self.layout.shared,
+                    client: client, view: view, sharedDirectory: self.acceptanceSharedFolder,
                     diagnosticsDirectory: self.layout.diagnostics
                 )
                 try Data("{\"result\":\"passed\"}\n".utf8)

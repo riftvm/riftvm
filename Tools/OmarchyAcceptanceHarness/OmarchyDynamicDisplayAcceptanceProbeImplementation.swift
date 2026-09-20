@@ -15,7 +15,7 @@ enum OmarchyDynamicDisplayAcceptanceProbe {
         guard let window = view.window else { throw ProbeError.missingWindow }
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".riftvm-display-\(nonce)")
-        let guestDirectory = "/mnt/riftvm-shared/\(probeDirectory.lastPathComponent)"
+        let guestDirectory = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(probeDirectory.lastPathComponent)"
         let originalContentSize = window.contentLayoutRect.size
         let originalFrame = window.frame
         defer {
