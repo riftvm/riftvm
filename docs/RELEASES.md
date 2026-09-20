@@ -121,6 +121,41 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.1
+
+RiftVM 0.5.1 mounts the Mac's shared folders at `/mnt/mac`.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The default folder no longer repeats its own name.** With several folders
+  each one sits below the mount point, so the default folder appeared as
+  `/mnt/riftvm-shared/riftvm-shared`. The share now mounts at `/mnt/mac`:
+  the default folder is `/mnt/mac/riftvm-shared` and a folder you add is
+  `/mnt/mac/code`. Clipboard staging stays hidden in `/mnt/mac/.riftvm`.
+
+New machines come from factory
+[v4.0.3-riftvm.15](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.15).
+There is no upgrade path: remove an existing machine and prepare again.
+
+### Validation
+
+A fresh `.15` machine: `/mnt/mac` holds `.riftvm` and both folders, the
+read-only one refuses writes, `/mnt/riftvm-shared` is gone, and the mount unit
+and both Agent services use the new path. Clipboard text and images work in
+both directions. The developer suites pass in full: Git (17), the frontend
+stack (16), and the other toolchains and containers (12).
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.0
 
 RiftVM 0.5.0 is the first release of the product as it actually is: one Omarchy
