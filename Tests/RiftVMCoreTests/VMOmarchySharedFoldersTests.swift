@@ -26,11 +26,19 @@ final class VMOmarchySharedFoldersTests: XCTestCase {
     }
 
     func testDefaultFolderStaysBesideATemporaryMachine() {
+        // Acceptance machines live in the temporary directory and must never
+        // reach into the real home. `/private/tmp` and `/tmp` are the same
+        // place, so compare the parent rather than a spelling of it.
+        let bundle = URL(filePath: "/private/tmp/acceptance.riftvm", directoryHint: .isDirectory)
         let folder = VMOmarchySharedFolderStore.defaultFolder(
-            forBundle: URL(filePath: "/private/tmp/acceptance.riftvm", directoryHint: .isDirectory),
+            forBundle: bundle,
             homeDirectory: URL(filePath: "/Users/someone", directoryHint: .isDirectory)
         )
-        XCTAssertEqual(folder.path, "/private/tmp/riftvm-shared")
+        XCTAssertEqual(folder.lastPathComponent, "riftvm-shared")
+        XCTAssertEqual(
+            folder.deletingLastPathComponent().resolvingSymlinksInPath().path,
+            bundle.deletingLastPathComponent().resolvingSymlinksInPath().path
+        )
     }
 
     func testLoadWritesAndKeepsTheDefaultFolder() throws {
