@@ -4,9 +4,10 @@ Prompted by a Ghostty install failing with "Unable to acquire an OpenGL context
 for rendering", and the reasonable question behind it: does RiftVM support
 OpenGL at all?
 
-It does. The guest gets **OpenGL ES 3.0** and **desktop OpenGL 2.1 compatibility**.
-What it does not get is a desktop **core** profile, and that is what Ghostty
-needs. The ceiling is ANGLE's Metal backend, not anything in RiftVM's code.
+It does. The guest gets **OpenGL ES 3.0** and **desktop OpenGL 2.1 compatibility**,
+with no desktop core profile. Ghostty needs **OpenGL 4.3**, which this stack
+cannot reach by any route tried here. The ceiling is ANGLE's Metal backend, not
+anything in RiftVM's code.
 
 ## What the guest reports
 
@@ -62,18 +63,52 @@ everything available.
 and maps its window normally, because GTK4's renderer runs on GLES. Every GSK
 renderer (`ngl`, `gl`, `vulkan`, `cairo`) starts.
 
-**Ghostty is not.** It wants a desktop GL core profile, and `Max core profile
-version: 0.0` means it cannot have one, so GTK reports it cannot acquire a
-context. Ghostty is not part of the image in any case — the image's terminal is
-`foot` — so this affects a separately installed copy.
+**Ghostty is not**, and its own log says exactly why. Installed from the
+`omarchy` repo and run on a `.16` machine, it reproduces the reported error, and
+with a Mesa version override it gets one step further and states its
+requirement:
+
+```
+info(opengl): loaded OpenGL 3.3
+warning(opengl): OpenGL version is too old. Ghostty requires OpenGL 4.3
+```
+
+**It needs 4.3, not 3.3.** Claiming 4.3 as well gets past the version check and
+fails at the first shader link, because the features behind the number are not
+there:
+
+```
+error(opengl): program link failure — Too many fragment shader storage blocks (1/0)
+```
+
+Shader storage buffers: zero available. A direct probe agrees — a 4.3 core
+context can be *created* under the override, but `glCreateShader(GL_COMPUTE_SHADER)`
+returns nothing, so there is no compute support to build on.
 
 The general rule: applications written against GLES, or against desktop GL 2.1,
-work. Applications that require desktop GL 3.2 core or later do not.
+work. Applications that require desktop GL core do not, and an override cannot
+supply what the driver does not implement.
+
+## Could Ghostty ever work?
+
+Not without a different host GL. Even macOS's own deprecated OpenGL framework
+stops at 4.1 core, below the 4.3 Ghostty asks for, and adopting it would give up
+the ANGLE/Metal zero-copy presentation path the whole renderer is built on. The
+honest answer is that Ghostty is out of reach here, and `foot` — the image's own
+terminal — is what to use.
+
+## What is worth revisiting
+
+Mesa reports desktop GL 2.1 conservatively because the host is GLES; under an
+override the same driver will hand out a working GL 3.3 core context and compile
+a `#version 330 core` shader. So the *reported* ceiling is lower than the real
+one, and an application needing 3.3 rather than 4.3 might well run. That is an
+observation, not a recommendation: an override makes Mesa claim features it may
+not have, which is precisely how the 4.3 attempt failed.
 
 ## Not claimed
 
-No attempt was made to patch virglrenderer's capability reporting, and no other
-application was surveyed for a core-profile requirement. Whether a newer ANGLE
-would offer GLES 3.1 on Metal was not tested — only the runtime RiftVM currently
-bundles. Nothing here changes with the RiftVM release that accompanies it; this
-records a limit rather than fixing one.
+No attempt was made to patch virglrenderer's capability reporting. Whether a
+newer ANGLE would offer GLES 3.1 on Metal was not tested — only the runtime
+RiftVM currently bundles. No application other than Ghostty and Nautilus was
+exercised. This records a limit rather than fixing one.

@@ -154,8 +154,8 @@ Also records what OpenGL the guest gets — see
 [the record](validation/opengl-capability-2026-09-20/README.md). It is **OpenGL
 ES 3.0** plus desktop **GL 2.1 compatibility**, with no desktop core profile,
 because ANGLE's Metal backend tops out at GLES 3.0 and a request for 3.1 or 3.2
-is refused. GTK4 applications are fine; anything needing desktop GL 3.2 core is
-not.
+is refused. GTK4 applications are fine; anything needing a desktop core profile
+is not. Ghostty asks for **OpenGL 4.3**, which this stack cannot reach.
 
 Not claimed: no change to graphics in this release, and sound was exercised with
 generated tones rather than a real workload.
@@ -169,7 +169,7 @@ generated tones rather than a real workload.
 - **Screen recording does nothing**: the image leaves out `gpu-screen-recorder`.
   Brightness, night light and Bluetooth entries are likewise inert on a VM.
 - Ghostty is not part of the image; the terminal is `foot`. A separately
-  installed Ghostty needs a desktop GL core profile and will not start.
+  installed Ghostty requires OpenGL 4.3 and will not start.
 - Guest resolution follows the screen's logical size, so text is less sharp than
   native text on a Retina display.
 
