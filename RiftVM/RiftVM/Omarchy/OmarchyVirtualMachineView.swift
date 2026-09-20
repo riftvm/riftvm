@@ -2108,6 +2108,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         var clipboardProbeOwnsTransport = false
         var sharedFolderProbeTask: Task<Void, Never>?
         var sharedFolderProbePassed = false
+        var desktopCommandStarted = false
         var clipboardProbeTask: Task<Void, Never>?
         var clipboardProbePassed = false
         weak var machineView: VZVirtualMachineView?
@@ -2440,6 +2441,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                                 requiredCapabilities: self.requiredGuestCapabilities
                                ).isReady {
                                 self.startSharedFolderProbeIfNeeded(layout: layout)
+                                self.startDesktopCommandIfNeeded(status)
                             }
                         }
                     )

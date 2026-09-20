@@ -20,6 +20,15 @@ def main():
         default="lifecycle",
     )
     parser.add_argument("--password-stdin", action="store_true")
+    parser.add_argument(
+        "--boot-unlock",
+        action="store_true",
+        help="type the password into the lock screen through the Guest Agent",
+    )
+    parser.add_argument(
+        "--desktop-command",
+        help="run one command in a Guest terminal once the desktop is ready",
+    )
     parser.add_argument("--trace-input", action="store_true", help="Record local key-code ordering, without text, in the temporary harness log")
     parser.add_argument("--ime-stage-capture", action="store_true", help="Capture IME stages for diagnosis only; does not qualify timing-sensitive acceptance")
     args = parser.parse_args()
@@ -56,6 +65,10 @@ def main():
         RIFTVM_OMARCHY_ACCEPTANCE_UNLOCK_PASSWORD=password,
         RIFTVM_OMARCHY_ACCEPTANCE_SCENARIO=args.scenario,
     )
+    if args.boot_unlock:
+        environment["RIFTVM_OMARCHY_BOOT_UNLOCK_ACCEPTANCE"] = "1"
+    if args.desktop_command:
+        environment["RIFTVM_OMARCHY_ACCEPTANCE_DESKTOP_COMMAND"] = args.desktop_command
     if args.ime_stage_capture:
         environment["RIFTVM_IME_STAGE_CAPTURE"] = "1"
     if args.trace_input:
