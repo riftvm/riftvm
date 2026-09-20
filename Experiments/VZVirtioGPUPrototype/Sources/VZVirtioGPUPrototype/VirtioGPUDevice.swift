@@ -974,9 +974,15 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             x: box.x, y: box.y, z: box.z,
             width: box.w, height: box.h, depth: box.d
         ) else {
-            diagnosticLog(
+            // Never silent, and never diagnostics-only: a rejected transfer
+            // leaves the texture the Guest just created empty, which it has no
+            // way to notice. The surface using it draws nothing.
+            log(
                 "TRANSFER_3D rejected resource=\(resourceID) level=\(level) "
-                    + "box=\(box.x),\(box.y),\(box.z) \(box.w)x\(box.h)x\(box.d)"
+                    + "box=\(box.x),\(box.y),\(box.z) \(box.w)x\(box.h)x\(box.d) "
+                    + "resource=\(resource.width)x\(resource.height) "
+                    + "lastLevel=\(resource.lastLevel)",
+                error: true
             )
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
@@ -992,6 +998,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             count: backing.entries.count,
             toHost: toHost
         ) else {
+            log(
+                "TRANSFER_3D renderer-refused resource=\(resourceID) "
+                    + "context=\(header.contextID) level=\(level) toHost=\(toHost) "
+                    + "box=\(box.x),\(box.y),\(box.z) \(box.w)x\(box.h)x\(box.d) "
+                    + "entries=\(backing.entries.count)",
+                error: true
+            )
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         return VirtioGPU.responseHeader(.okNoData, request: header)
