@@ -55,6 +55,16 @@ change. Screenshots in the 0.4.0 record show it working.
   and the shortcut driver aborts instead of taking focus back, after keystrokes
   leaked into another app earlier in the day.
 
+## Follow-up: /mnt/mac (0.5.1)
+
+With several folders each one sits below the mount point, so the default folder
+read `/mnt/riftvm-shared/riftvm-shared`. 0.5.1 mounts the share at `/mnt/mac`.
+Rechecked on a fresh `v4.0.3-riftvm.15` machine: `/mnt/mac` holds `.riftvm` and
+both folders, `/mnt/riftvm-shared` is gone, the mount unit and both Agent
+services use the new path, the read-only folder still refuses writes, clipboard
+text and images still work in both directions, and the Git, frontend and
+toolchain suites pass in full.
+
 ## Not covered
 
 Adding a folder through the system open panel, whose Go To field ignores

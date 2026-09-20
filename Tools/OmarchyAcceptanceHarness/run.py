@@ -85,7 +85,11 @@ def main():
     executable = app / "Contents/MacOS" / info["CFBundleExecutable"]
     with log.open("wb") as output:
         child = subprocess.Popen(
-            [str(executable)], env=environment, stdout=output, stderr=output,
+            # A run must always open its window: AppKit would otherwise
+            # restore the windowless state left by a previous killed run, and
+            # the guest canvas would never appear.
+            [str(executable), "-ApplePersistenceIgnoreState", "YES"],
+            env=environment, stdout=output, stderr=output,
             start_new_session=True,
         )
     print("Harness PID:", child.pid, "Scenario:", args.scenario, "Workspace:", workspace)
