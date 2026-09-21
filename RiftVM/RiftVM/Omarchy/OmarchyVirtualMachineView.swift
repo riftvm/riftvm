@@ -2736,7 +2736,11 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             // The renderer owns guest resources: retain it until VZ has actually
             // stopped, even if SwiftUI has already dismantled the display view.
             Task { @MainActor in
-                while machine.state != .stopped && machine.state != .error {
+                // Bounded force-stop phase. A healthy machine leaves it within a
+                // few iterations; the deadline exists so a wedged Virtualization
+                // state machine cannot keep this loop polling forever.
+                let deadline = ContinuousClock.now.advanced(by: Self.teardownForceStopDeadline)
+                while machine.state != .stopped && machine.state != .error && ContinuousClock.now < deadline {
                     if machine.canStop {
                         let error: Error? = await withCheckedContinuation { continuation in
                             machine.stop { continuation.resume(returning: $0) }
@@ -2749,12 +2753,25 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                         try? await Task.sleep(for: .milliseconds(250))
                     }
                 }
+                if machine.state != .stopped && machine.state != .error {
+                    // Do not release anything early: the disk is still attached,
+                    // so freeing the run lease here would let a second process
+                    // open the same disk. Wait for the state change instead of
+                    // polling, and finish the moment VZ reports a terminal state.
+                    RiftVMLog.error("Omarchy teardown did not reach a terminal state within \(Int(Self.teardownForceStopDeadline.components.seconds))s (state \(machine.state.rawValue)); GPU and run lease stay retained until Virtualization stops")
+                    await VMTerminalStateWaiter().wait(for: machine)
+                    RiftVMLog.info("Omarchy teardown completed after the deadline (state \(machine.state.rawValue)); releasing GPU and run lease")
+                }
                 backend?.shutdown()
                 if let lease { VMRunningRegistry.shared.release(lease) }
                 OmarchyApplicationTerminationController.shared.unregister(machine)
             }
             self.machine = nil
         }
+
+        /// How long teardown actively retries a force stop before it stops
+        /// polling and waits for Virtualization's state change instead.
+        static let teardownForceStopDeadline: Duration = .seconds(60)
 
         func guestDidStop(_ virtualMachine: VZVirtualMachine) {
             Task { @MainActor in
@@ -2816,4 +2833,33 @@ private extension Notification.Name {
     static let omarchyRequestResume = Notification.Name("RiftVMOmarchy.requestResume")
     static let omarchyRequestKeyboardPermission = Notification.Name("RiftVMOmarchy.requestKeyboardPermission")
     static let omarchyForceStop = Notification.Name("RiftVMOmarchy.forceStop")
+}
+
+/// Waits for a virtual machine to reach a terminal state without polling.
+/// Used by teardown after the bounded force-stop phase: the run lease and the
+/// GPU renderer must outlive the machine, so the waiter observes the state key
+/// and resumes exactly once when Virtualization reports stopped or error.
+@MainActor
+final class VMTerminalStateWaiter {
+    private var observation: NSKeyValueObservation?
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func wait(for machine: VZVirtualMachine) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.continuation = continuation
+            // .initial closes the gap between the caller's last state check
+            // and the observation being installed.
+            observation = machine.observe(\.state, options: [.initial, .new]) { [weak self] observed, _ in
+                guard observed.state == .stopped || observed.state == .error else { return }
+                Task { @MainActor in self?.finish() }
+            }
+        }
+    }
+
+    private func finish() {
+        observation?.invalidate()
+        observation = nil
+        continuation?.resume()
+        continuation = nil
+    }
 }
