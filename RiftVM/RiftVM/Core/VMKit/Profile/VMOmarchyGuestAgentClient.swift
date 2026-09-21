@@ -680,8 +680,21 @@ public final class VMOmarchyGuestAgentClient {
             // A transport failure must not leave Super, Control, or the main
             // key logically held in the Guest. Cleanup is best effort because
             // the original error remains the actionable failure.
+            var releaseFailed = false
             for code in pressedKeys.reversed() {
-                try? await send(code, pressed: false)
+                do { try await send(code, pressed: false) } catch {
+                    releaseFailed = true
+                }
+            }
+            if releaseFailed {
+                // An unconfirmed release leaves the held-key state ambiguous
+                // while this session stays authenticated. Close the session:
+                // the Agent releases every key the session pressed when it
+                // ends, the same guarantee the batch input path relies on.
+                disconnected(
+                    "Key chord cleanup failed. Reconnecting to release held keys.",
+                    generation: generation
+                )
             }
             throw error
         }
