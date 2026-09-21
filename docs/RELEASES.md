@@ -121,6 +121,67 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.8
+
+RiftVM 0.5.8 pins factory v4.0.3-riftvm.19: first boot survives an invalid
+setup request, and the image's last two mutable build inputs are pinned.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **One bad owner-setup request can no longer wedge first boot.** The
+  provisioning service is a oneshot without restart, and a rejected request
+  file stayed in place, so a single invalid request failed setup and kept
+  failing it on every later boot — a login screen with no account, permanently.
+  The guest now moves the rejected request aside for diagnosis and keeps
+  waiting for a corrected one; the host simply resubmits through the owner
+  form.
+- **The image build is reproducible down to its inputs.** The rolling Arch
+  Linux ARM rootfs is now pinned by digest on top of its GPG verification, and
+  the first-boot Node.js archive is pinned to an exact version and digest
+  instead of `dist/latest`. An upstream roll fails the build with the new
+  digest in the message, so it becomes a reviewed one-line bump instead of a
+  silent change of every image input.
+
+New machines come from factory
+[v4.0.3-riftvm.19](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.19).
+
+### Validation
+
+A machine created from the signed `.19` factory completed a fresh first boot
+with automatic owner provisioning, reached the Hyprland desktop, and passed an
+acceptance sweep: the Agent and display watcher running, sound through
+`virtio_snd` with a real default sink, HTTPS and live package-update checks,
+screen capture, and two theme switches during which the wallpaper self-heal
+detected and repaired one blank on its own. The release's
+`image-provenance.txt` records exactly the pinned rootfs and Node digests. All
+nine draft assets verified against `SHA256SUMS`; the reconstructed raw disk
+matched the manifest digest; the factory manifest verifies against the
+configured signing keys from the public URL.
+
+Not claimed: no app-side behavior changes beyond the factory pin; existing
+machines are unaffected and keep their current image.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.7
 
 RiftVM 0.5.7 hardens two failure paths: a shutdown that Virtualization cannot
