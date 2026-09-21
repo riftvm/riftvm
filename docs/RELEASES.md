@@ -121,6 +121,65 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.6
+
+RiftVM 0.5.6 brings the wallpaper back when a theme change loses it.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The desktop no longer stays black after a theme change.** Omarchy's
+  background layer can come back from a theme change without a committed
+  buffer, and because the wallpaper is static nothing redraws it: the desktop
+  stayed black until the shell was restarted. It happened on roughly half of
+  theme changes. The factory image's display watcher now checks the desktop
+  after every theme change and repairs it, so the wallpaper returns on its own
+  in a few seconds.
+
+New machines come from factory
+[v4.0.3-riftvm.18](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.18).
+
+### Validation
+
+Twenty theme changes on a machine created from the published `.18` factory,
+with nothing configured by hand: **10 went blank and all 10 recovered, none
+stayed black**, in about 3 seconds each. The bar, the notification layer and
+the shell were intact throughout. Sound and screen recording still work on the
+same image.
+
+This treats the symptom. What was ruled out first, each by measurement rather
+than reading: Omarchy's own transition logic (instrumented, a blank switch and
+a good switch log an identical sequence and both end with the image reported
+Ready), the three-second snapshot cleanup (holding the files for 120 seconds
+made it worse), a texture-size ceiling (the limit is 16384 and a restarted
+shell draws 6000 pixels), and our own resource accounting (no refusal on any of
+the seven paths). The reason the compositor ends up without a committed buffer
+is still unknown — see
+[the record](validation/wallpaper-theme-switch-2026-09-20/README.md).
+
+Not claimed: no fix for the underlying cause, and the repair is not
+instantaneous — the desktop is black for a few seconds before it returns.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.5
 
 RiftVM 0.5.5 makes Omarchy's screen recording work.

@@ -29,6 +29,11 @@ def main():
         "--desktop-command",
         help="run one command in a Guest terminal once the desktop is ready",
     )
+    parser.add_argument(
+        "--virgl-diagnostics",
+        action="store_true",
+        help="log virtio-GPU resource counts and renderer bytes to the harness log",
+    )
     parser.add_argument("--trace-input", action="store_true", help="Record local key-code ordering, without text, in the temporary harness log")
     parser.add_argument("--ime-stage-capture", action="store_true", help="Capture IME stages for diagnosis only; does not qualify timing-sensitive acceptance")
     args = parser.parse_args()
@@ -80,6 +85,8 @@ def main():
     }
     if args.scenario in scenario_flags:
         environment[scenario_flags[args.scenario]] = "1"
+    if args.virgl_diagnostics:
+        environment["RIFTVM_VIRGL_DIAGNOSTICS"] = "1"
     log = workspace / "Diagnostics" / ("harness-" + args.scenario + ".log")
     log.parent.mkdir(exist_ok=True)
     executable = app / "Contents/MacOS" / info["CFBundleExecutable"]
