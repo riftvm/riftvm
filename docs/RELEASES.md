@@ -121,6 +121,71 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.7
+
+RiftVM 0.5.7 hardens two failure paths: a shutdown that Virtualization cannot
+finish, and a key chord whose cleanup the Guest never confirmed.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Teardown can no longer wait forever.** Stopping a machine polled
+  Virtualization's state with no deadline; a state machine that never reached
+  stopped kept the GPU renderer and the cross-process run lock retained
+  silently, and the next start of the same machine was blocked. The force-stop
+  phase is now bounded at 60 seconds, logs the wedged state, and then waits on
+  the state change itself — the renderer and the lock are still released only
+  at a terminal state, so a second process can never open a disk Virtualization
+  still owns.
+- **Super and Control can no longer stay held after a failed shortcut.** When a
+  key chord failed and its cleanup could not be confirmed while the session
+  stayed authenticated, the Guest kept the modifier logically pressed and every
+  following keystroke acted as a desktop shortcut. The client now closes the
+  authenticated session when a release goes unconfirmed; the Agent releases
+  every key a session pressed when it ends, which the batch input path already
+  relied on.
+
+### Internal
+
+- The VirGL runtime's build inputs (bottles, build recipes, upstream source
+  archives) are now downloaded from
+  [a mirror release on this repository](https://github.com/riftvm/riftvm/releases/tag/virgl-runtime-inputs-v1)
+  instead of a personal Homebrew tap, with the same pinned checksums; each
+  original upstream location stays recorded next to its pin.
+
+### Validation
+
+Both fixes build and pass the full CI suite (Swift core tests, Go agent tests,
+Release app build). The mirrored runtime inputs were downloaded back from the
+mirror and re-verified against all nine pinned checksums. The teardown bound is
+defensive: the wedge it guards against was found by inspection, not reproduced
+against a live machine, so the healthy path was verified unchanged (a machine
+that stops within the deadline never enters the new wait) and the wedged path
+is verified by its logging.
+
+Not claimed: no graphics, image, or Guest component changes in this release; an
+existing machine gains both fixes from the app update alone.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.6
 
 RiftVM 0.5.6 brings the wallpaper back when a theme change loses it.
