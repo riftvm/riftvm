@@ -121,6 +121,52 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.11
+
+RiftVM 0.5.11 completes the 0.5.10 cursor debounce: a suppressed blink now
+leaves the cursor image alone.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The cursor really stops flickering this time.** 0.5.10 debounced the
+  cursor's visibility state but still let the blink's hide event wipe the
+  stored cursor image, so the pointer was set to a blank cursor anyway and
+  the flicker survived. A debounced hide now changes nothing at all — image,
+  layer, position, and geometry stay exactly as shown. An honored hide (at
+  rest: typing, a video player) still clears and hides as intended.
+
+### Validation
+
+The cursor policy suite passes with a new case pinning that equality tracks
+what the pointer shows, not when it last changed; the full core suite (250
+assertions) and a Debug app build pass. The failure mode was reproduced by
+the reporting user on 0.5.10 and the wipe path confirmed by inspection; the
+debounced-hide early return removes the only route that set a blank cursor
+while the state said visible.
+
+Not claimed: no guest changes; the compositor still emits the blink.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.10
 
 RiftVM 0.5.10 finishes the cursor work 0.5.9 started: the pointer no longer

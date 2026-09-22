@@ -128,4 +128,13 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
             .hidden
         )
     }
+    func testEqualityIgnoresWhenTheCursorLastShowed() {
+        var a = VMGuestCursorState()
+        var b = VMGuestCursorState()
+        a.noteCursorPlane(visible: true, at: 10)
+        b.noteCursorPlane(visible: true, at: 99)
+        XCTAssertEqual(a, b)
+        b.noteCursorPlane(visible: false, at: 200)
+        XCTAssertNotEqual(a, b)
+    }
 }
