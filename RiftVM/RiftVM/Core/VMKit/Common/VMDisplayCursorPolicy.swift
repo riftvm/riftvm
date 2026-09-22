@@ -26,13 +26,32 @@ public struct VMGuestCursorState: Equatable, Sendable {
     public private(set) var planeSeen = false
     /// The guest's latest cursor-plane update shows a cursor.
     public private(set) var visible = false
+    /// When the plane last showed a cursor, on the caller's clock.
+    private var lastShownAt: TimeInterval?
+
+    /// A hide arriving hot on the heels of a show is the off-phase of the
+    /// blink the compositor's legacy-KMS path produces on this backend — on
+    /// a real display both land inside one refresh and are invisible, but
+    /// applied literally they flickered the pointer four to eight times a
+    /// second while it moved and left it hidden the moment it stopped
+    /// (measured: 89 of 91 hides in a real session arrived within 22 ms of a
+    /// show). An intent hide — typing with hide_on_key_press, a video player
+    /// — arrives at rest, long after the last show, and still applies.
+    public static let hideDebounce: TimeInterval = 0.1
 
     public init() {}
 
-    /// The guest issued `UPDATE_CURSOR` or `MOVE_CURSOR`.
-    public mutating func noteCursorPlane(visible: Bool) {
+    /// The guest issued `UPDATE_CURSOR` or `MOVE_CURSOR` at `now`, on any
+    /// steady clock the caller keeps using for every call.
+    public mutating func noteCursorPlane(visible: Bool, at now: TimeInterval) {
         planeSeen = true
-        self.visible = visible
+        if visible {
+            self.visible = true
+            lastShownAt = now
+            return
+        }
+        if let lastShownAt, now - lastShownAt < Self.hideDebounce { return }
+        self.visible = false
     }
 
     /// A new presentation session starts from an unknown cursor.

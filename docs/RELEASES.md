@@ -121,6 +121,62 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.10
+
+RiftVM 0.5.10 finishes the cursor work 0.5.9 started: the pointer no longer
+blinks during movement or vanishes the moment it stops.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Cursor-plane blinks are no longer taken literally.** On this backend the
+  compositor's legacy-KMS path pairs almost every cursor show with a hide a
+  frame later; on a physical display both land inside one refresh and are
+  invisible, but applied literally they flickered the pointer four to eight
+  times a second while it moved — most visibly over dark, busy windows such
+  as an editor — and the trailing hide left it invisible the moment motion
+  stopped. A hide is now honored only when it arrives at rest (more than
+  100 ms after the last show); the blink's off-phase is ignored. Intent hides
+  — typing with Omarchy's hide-on-key-press, a video player hiding the
+  pointer — still apply.
+
+### Internal
+
+- The cursor trace (`RVMCURSORTRACE=1`) now records each image's size,
+  hotspot, and a content digest.
+
+### Validation
+
+Measured on a real user session (489 traced cursor events): 89 of 91 hides
+arrived within 22 ms of a show — the blink — and exactly 2 arrived at rest.
+The debounce drops the 89 and keeps the 2. The cursor policy state machine
+has unit coverage for the blink, the at-rest hide, and the hide-before-any-
+show cases; the full core test suite and a Debug app build pass.
+
+Not claimed: the compositor still emits the blink (unchanged guest); this
+release changes only how the host interprets it. Cursor appearance during
+guest screen capture is unchanged.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.9
 
 RiftVM 0.5.9 stops the mouse cursor from flickering while it moves and from
