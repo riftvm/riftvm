@@ -796,7 +796,19 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         super.updateTrackingAreas()
     }
 
+    /// Logs every guest cursor event; the flicker class of bug is invisible in
+    /// aggregate counters, so diagnosis needs the raw stream.
+    private static let cursorTraceEnabled =
+        ProcessInfo.processInfo.environment["RVMCURSORTRACE"] == "1"
+
     func updateCursor(_ update: RiftVMVirGLRuntime.CursorUpdate) {
+        if Self.cursorTraceEnabled {
+            NSLog(
+                "cursor-trace replaces=%d visible=%d img=%d x=%d y=%d",
+                update.replacesImage ? 1 : 0, update.isVisible ? 1 : 0,
+                update.image != nil ? 1 : 0, Int(update.x), Int(update.y)
+            )
+        }
         guard presentationLifecycle.tokenForPresentation() != nil else {
             RiftVMLog.info("VirGL cursor update dropped: presentation is not running", logger: RiftVMLog.graphics)
             return

@@ -121,6 +121,64 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.9
+
+RiftVM 0.5.9 stops the mouse cursor from flickering while it moves and from
+vanishing when it rests.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The cursor no longer blinks on every move or disappears at rest.** The
+  compositor legitimately frees its previous cursor buffer each time the
+  pointer image changes, and RiftVM treated that release as "hide the
+  cursor": every pointer move became show-then-hide about fifteen times a
+  second, and the last word after motion stopped was always a hide. Cursor
+  updates now follow virtio-gpu's snapshot semantics (the displayed image
+  survives the resource that carried it, as QEMU behaves), so the cursor is
+  steady while moving and stays put at rest. This affected every application;
+  editors that redraw constantly just made it most visible.
+
+### Internal
+
+- `RVMCURSORTRACE=1` logs every guest cursor-plane event; the flicker class of
+  bug is invisible in aggregate counters, and this trace is what isolated the
+  fifteen-per-second show/hide pairing.
+
+### Validation
+
+On an instrumented build against a machine from the `.19` factory, with real
+uinput pointer motion in the guest: before the fix, 8 seconds of movement
+produced 88 image shows and 90 hides ending hidden (the flicker), identically
+across Hyprland's hardware, CPU-buffer, and software cursor settings; after
+the fix, the same motion produced 107 shows and zero hides, and the cursor
+remained visible through 10 seconds of rest. The one later hide came from a
+guest screen capture, which legitimately hides the cursor plane and restores
+it on the next move. The full prototype test suite passes.
+
+Not claimed: no guest or image changes; cursor latency and appearance during
+screen capture are unchanged guest behavior.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.8
 
 RiftVM 0.5.8 pins factory v4.0.3-riftvm.19: first boot survives an invalid
