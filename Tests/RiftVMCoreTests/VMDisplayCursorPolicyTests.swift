@@ -13,7 +13,7 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
     func testAVisibleGuestCursorBecomesTheOnlyPointer() {
         var state = VMGuestCursorState()
-        state.noteCursorPlane(visible: true)
+        state.noteCursorPlane(visible: true, at: 10)
         XCTAssertEqual(
             state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
             .guestImage
@@ -24,13 +24,13 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
     func testAHiddenGuestCursorHidesTheHostCursorAndComesBack() {
         var state = VMGuestCursorState()
-        state.noteCursorPlane(visible: true)
-        state.noteCursorPlane(visible: false)
+        state.noteCursorPlane(visible: true, at: 10)
+        state.noteCursorPlane(visible: false, at: 11)
         XCTAssertEqual(
             state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
             .hidden
         )
-        state.noteCursorPlane(visible: true)
+        state.noteCursorPlane(visible: true, at: 10)
         XCTAssertEqual(
             state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
             .guestImage
@@ -39,7 +39,7 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
     func testTheLetterboxKeepsTheSystemArrow() {
         var state = VMGuestCursorState()
-        state.noteCursorPlane(visible: false)
+        state.noteCursorPlane(visible: false, at: 11)
         XCTAssertEqual(
             state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: false),
             .system
@@ -48,7 +48,7 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
     func testACapturedPointerHidesTheMacCursorAndDrawsTheGuestCursor() {
         var state = VMGuestCursorState()
-        state.noteCursorPlane(visible: true)
+        state.noteCursorPlane(visible: true, at: 10)
         XCTAssertEqual(
             state.hostCursor(absolutePointer: false, captured: true, insideGuestImage: true),
             .hidden
@@ -64,7 +64,7 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
 
     func testResetForgetsTheCursorPlane() {
         var state = VMGuestCursorState()
-        state.noteCursorPlane(visible: true)
+        state.noteCursorPlane(visible: true, at: 10)
         state.reset()
         XCTAssertEqual(state, VMGuestCursorState())
     }
@@ -91,5 +91,41 @@ final class VMDisplayCursorPolicyTests: XCTestCase {
             scale: .nan
         )
         XCTAssertEqual(invalidScale.size, CGSize(width: 24, height: 24))
+    }
+    func testAHideRightAfterAShowIsTheBlinkNotIntent() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true, at: 10)
+        state.noteCursorPlane(visible: false, at: 10.02)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .guestImage
+        )
+        // The blink's off-phase repeating never wears the debounce down.
+        state.noteCursorPlane(visible: true, at: 10.05)
+        state.noteCursorPlane(visible: false, at: 10.07)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .guestImage
+        )
+    }
+
+    func testAHideAtRestIsIntentAndStillApplies() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: true, at: 10)
+        state.noteCursorPlane(visible: false, at: 10.5)
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .hidden
+        )
+    }
+
+    func testAHideBeforeAnyShowApplies() {
+        var state = VMGuestCursorState()
+        state.noteCursorPlane(visible: false, at: 10)
+        XCTAssertFalse(state.showsCursorLayer(absolutePointer: false, captured: true))
+        XCTAssertEqual(
+            state.hostCursor(absolutePointer: true, captured: false, insideGuestImage: true),
+            .hidden
+        )
     }
 }

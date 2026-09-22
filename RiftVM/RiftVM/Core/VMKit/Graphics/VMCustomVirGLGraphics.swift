@@ -803,10 +803,19 @@ class VMVirGLDisplayView: VZVirtualMachineView {
 
     func updateCursor(_ update: RiftVMVirGLRuntime.CursorUpdate) {
         if Self.cursorTraceEnabled {
+            var digest = 0, width = 0, height = 0
+            if let image = update.image {
+                width = image.width
+                height = image.height
+                if let bytes = image.dataProvider?.data as Data? {
+                    digest = bytes.prefix(4096).hashValue & 0xFFFF
+                }
+            }
             NSLog(
-                "cursor-trace replaces=%d visible=%d img=%d x=%d y=%d",
+                "cursor-trace replaces=%d visible=%d img=%d x=%d y=%d size=%dx%d hot=%d,%d digest=%04x",
                 update.replacesImage ? 1 : 0, update.isVisible ? 1 : 0,
-                update.image != nil ? 1 : 0, Int(update.x), Int(update.y)
+                update.image != nil ? 1 : 0, Int(update.x), Int(update.y),
+                width, height, Int(update.hotX), Int(update.hotY), digest
             )
         }
         guard presentationLifecycle.tokenForPresentation() != nil else {
@@ -834,7 +843,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             cursorLayer.contents = update.image
             cursorImageSize = update.image.map { CGSize(width: $0.width, height: $0.height) } ?? .zero
         }
-        guestCursor.noteCursorPlane(visible: update.isVisible)
+        guestCursor.noteCursorPlane(visible: update.isVisible, at: CACurrentMediaTime())
         updateCursorLayerVisibility()
         updateCursorGeometry()
         // A move only matters to the composited layer; the macOS cursor is
