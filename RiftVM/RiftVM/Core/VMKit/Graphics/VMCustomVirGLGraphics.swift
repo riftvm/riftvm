@@ -834,8 +834,16 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             applyHostCursor()
             return
         }
-        cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
         let before = guestCursor
+        guestCursor.noteCursorPlane(visible: update.isVisible, at: CACurrentMediaTime())
+        // A debounced blink hide changes nothing: keep the image, the layer
+        // contents, the position, and the geometry exactly as shown. Wiping
+        // the image here while the state stayed visible set a blank macOS
+        // cursor anyway, which was the 0.5.10 flicker.
+        if update.replacesImage, update.image == nil, guestCursor.visible {
+            return
+        }
+        cursorPosition = CGPoint(x: Int(update.x), y: Int(update.y))
         if update.replacesImage {
             cursorHotspot = CGPoint(x: Int(update.hotX), y: Int(update.hotY))
             guestCursorImage = update.image
@@ -843,7 +851,6 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             cursorLayer.contents = update.image
             cursorImageSize = update.image.map { CGSize(width: $0.width, height: $0.height) } ?? .zero
         }
-        guestCursor.noteCursorPlane(visible: update.isVisible, at: CACurrentMediaTime())
         updateCursorLayerVisibility()
         updateCursorGeometry()
         // A move only matters to the composited layer; the macOS cursor is

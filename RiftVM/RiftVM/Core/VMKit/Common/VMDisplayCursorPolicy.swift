@@ -41,6 +41,13 @@ public struct VMGuestCursorState: Equatable, Sendable {
 
     public init() {}
 
+    /// Equality is what the pointer looks like, not when it last changed:
+    /// callers use `before != after` to decide whether to re-apply the host
+    /// cursor, and a refreshed `lastShownAt` alone must not count as a change.
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.planeSeen == rhs.planeSeen && lhs.visible == rhs.visible
+    }
+
     /// The guest issued `UPDATE_CURSOR` or `MOVE_CURSOR` at `now`, on any
     /// steady clock the caller keeps using for every call.
     public mutating func noteCursorPlane(visible: Bool, at now: TimeInterval) {
