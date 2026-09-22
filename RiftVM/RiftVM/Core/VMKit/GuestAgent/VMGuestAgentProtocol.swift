@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import CryptoKit
 import Darwin
 import Foundation
@@ -559,8 +560,22 @@ enum VMGuestAgentKeyboard {
         59: .control, 62: .control,
     ]
 
-    static func linuxKeyCode(forMacVirtualKey keyCode: UInt16) -> UInt16? {
-        macToLinux[keyCode]
+    /// The physical layout of the Mac keyboard. On ISO hardware macOS swaps
+    /// two virtual key codes relative to the PC layout the guest expects: the
+    /// key left of 1 reports kVK_ISO_Section (10) and the key left of Z
+    /// reports kVK_ANSI_Grave (50). QEMU and UTM carry the same swap.
+    static let physicalKeyboardIsISO: Bool =
+        KBGetLayoutType(Int16(LMGetKbdType())) == kKeyboardISO
+
+    static func linuxKeyCode(
+        forMacVirtualKey keyCode: UInt16,
+        isoKeyboard: Bool = physicalKeyboardIsISO
+    ) -> UInt16? {
+        if isoKeyboard {
+            if keyCode == 10 { return 41 }  // left of 1 -> KEY_GRAVE
+            if keyCode == 50 { return 86 }  // left of Z -> KEY_102ND
+        }
+        return macToLinux[keyCode]
     }
 
     static func modifierPressed(forMacVirtualKey keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool? {
@@ -643,9 +658,14 @@ enum VMGuestAgentKeyboard {
             return effective
         }
         let ignoring = charactersIgnoringModifiers ?? characters
-        let shiftedUSSymbols = CharacterSet(charactersIn: "~!@#$%^&*()_+{}|:\"<>?")
+        // Only layout-independent evidence counts. A symbol that needs Shift
+        // on a US keyboard (@, <, ...) is an ordinary unshifted key press on
+        // ISO layouts, and inferring Shift from it corrupted those keys; a
+        // source that omits the Shift transition still reveals itself through
+        // characters differing from charactersIgnoringModifiers, or through
+        // an uppercase letter with Caps Lock already excluded above.
         let explicitlyShifted = characters != ignoring || characters.unicodeScalars.contains {
-            CharacterSet.uppercaseLetters.contains($0) || shiftedUSSymbols.contains($0)
+            CharacterSet.uppercaseLetters.contains($0)
         }
         if explicitlyShifted {
             effective.insert(.shift)

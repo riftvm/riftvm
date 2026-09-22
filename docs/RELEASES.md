@@ -121,6 +121,58 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.5.12
+
+RiftVM 0.5.12 makes ISO keyboards type what they say: no invented Shift on
+@ and <, and the key left of 1 works.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Typing @ or < on an ISO keyboard no longer invents a Shift press.** A
+  heuristic for accessibility-style key injection inferred an omitted Shift
+  whenever a key produced a character that needs Shift on a US keyboard. On
+  ISO layouts those characters are ordinary unshifted key presses, so the
+  guest received a synthesized Shift chord and typed the wrong character.
+  Only layout-independent evidence is used now; injection sources that
+  really omit the Shift transition are still covered.
+- **The ISO key left of 1 is no longer dead, and the key left of Z types the
+  right character.** macOS reports these two keys with virtual key codes
+  swapped relative to the PC layout the guest expects; the section key was
+  not mapped at all. On ISO hardware (detected from the physical keyboard
+  type, as QEMU and UTM do) the pair now maps to the guest's grave and 102nd
+  keys; ANSI keyboards are unchanged.
+
+### Validation
+
+New unit tests pin the four cases: ISO unshifted symbols do not gain Shift,
+genuine injection still infers it, the ISO pair maps to grave/102nd, and
+ANSI mappings are untouched. The full core suite and a Debug app build pass.
+
+Not claimed: verified on ANSI hardware and by unit tests only — this machine
+has no ISO keyboard, so the fix awaits confirmation from the reporting user.
+JIS-specific keys are out of scope for this release.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+- Guest resolution follows the screen's logical size, so text is less sharp than
+  native text on a Retina display.
+
+Install or update with Homebrew:
+
+```sh
+brew install --cask riftvm/tap/riftvm
+brew upgrade --cask riftvm
+```
+
+Or download the app archive below.
+
 ## 0.5.11
 
 RiftVM 0.5.11 completes the 0.5.10 cursor debounce: a suppressed blink now

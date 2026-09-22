@@ -412,6 +412,28 @@ final class VMGuestAgentProtocolTests: XCTestCase {
         ).contains(.shift))
     }
 
+    func testISOUnshiftedSymbolsDoNotInventShift() {
+        // On ISO layouts @ and < are plain, unshifted key presses; the US
+        // symbol table must not be treated as proof of an omitted Shift.
+        for symbol in ["@", "<", "~", "#"] {
+            XCTAssertFalse(VMGuestAgentKeyboard.effectiveModifierFlags(
+                reported: [], characters: symbol, charactersIgnoringModifiers: symbol
+            ).contains(.shift), symbol)
+        }
+    }
+
+    func testISOKeyboardSwapsTheSectionAndGraveKeys() {
+        // ISO hardware: left of 1 (kVK_ISO_Section) is the guest's grave key,
+        // left of Z (kVK_ANSI_Grave) is the guest's 102nd key.
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 10, isoKeyboard: true), 41)
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 50, isoKeyboard: true), 86)
+        // ANSI hardware keeps its mapping, and never reports key 10.
+        XCTAssertNil(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 10, isoKeyboard: false))
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 50, isoKeyboard: false), 41)
+        // Unrelated keys are identical on both.
+        XCTAssertEqual(VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: 19, isoKeyboard: true), 3)
+    }
+
     func testDesktopInputRequiresHyprlandToOwnTheGuestKeyboard() {
         let console = VMGuestAgentStatus(
             agentVersion: "1", operatingSystem: "Linux", kernelVersion: "7",
