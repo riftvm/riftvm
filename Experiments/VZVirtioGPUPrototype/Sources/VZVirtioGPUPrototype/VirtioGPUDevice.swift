@@ -86,6 +86,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private var lastPublishedScanoutResourceID: UInt32?
     private var lastLoggedScanoutSize: (width: Int, height: Int)?
     private var cursorResourceID: UInt32?
+    /// Whether the guest's last UPDATE_CURSOR showed a cursor. UPDATE_CURSOR
+    /// snapshots the image (QEMU behaves the same way), so destroying the
+    /// resource afterwards must not hide the cursor: the compositor frees the
+    /// previous cursor buffer on every pointer-image change, and treating that
+    /// release as "hide" blinked the cursor on every move and left it hidden
+    /// at rest.
+    private var cursorVisible = false
     private var cursorPosition = VirtioGPU.CursorPosition(
         scanoutID: 0, x: 0, y: 0
     )
@@ -351,6 +358,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         lastPublishedScanoutResourceID = nil
         lastLoggedScanoutSize = nil
         cursorResourceID = nil
+        cursorVisible = false
         cursorPosition = VirtioGPU.CursorPosition(scanoutID: 0, x: 0, y: 0)
         borrowedScanoutResources.removeAll()
         assertedDisplayEventGeneration = nil
@@ -483,8 +491,9 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             }
             borrowedScanoutResources.remove(resourceID)
             if cursorResourceID == resourceID {
+                // The displayed cursor is a snapshot taken at UPDATE_CURSOR;
+                // releasing the resource does not hide it.
                 cursorResourceID = nil
-                publishCursor(image: nil, hotX: 0, hotY: 0)
             }
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
@@ -503,8 +512,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             resource.virglBacking = nil
             resources[resourceID] = resource
             if cursorResourceID == resourceID {
+                // Same snapshot semantics as RESOURCE_UNREF above.
                 cursorResourceID = nil
-                publishCursor(image: nil, hotX: 0, hotY: 0)
             }
             response = VirtioGPU.responseHeader(.okNoData, request: header)
 
@@ -1073,6 +1082,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         guard update.resourceID != 0 else {
             cursorLog("UPDATE_CURSOR hide")
             cursorResourceID = nil
+            cursorVisible = false
             publishCursor(image: nil, hotX: update.hotX, hotY: update.hotY)
             return VirtioGPU.responseHeader(.okNoData, request: header)
         }
@@ -1125,6 +1135,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorUnspecified, request: header)
         }
         cursorResourceID = resource.id
+        cursorVisible = true
         cursorUpdateCount += 1
         cursorLog(
             "UPDATE_CURSOR \(cursorUpdateCount): resource=\(resource.id) "
@@ -1142,7 +1153,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             return VirtioGPU.responseHeader(.errorInvalidScanoutID, request: header)
         }
         cursorPosition = position
-        let isVisible = cursorResourceID != nil
+        let isVisible = cursorVisible
         cursorMoveCount += 1
         if cursorMoveCount <= 5 || cursorMoveCount.isMultiple(of: 1_000) {
             cursorLog("MOVE_CURSOR \(cursorMoveCount): visible=\(isVisible)")
