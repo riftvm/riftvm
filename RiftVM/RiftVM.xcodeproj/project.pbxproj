@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02D89F639FE34DC2652B6C9C /* OmarchyVirtualMachineRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A3E8CEF3CF8C511FC7FA18 /* OmarchyVirtualMachineRepresentable.swift */; };
 		0BA610094ECC5CAED475D7C4 /* VMCreateProgressMeterPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68701BB45AD479B32C520A8A /* VMCreateProgressMeterPolicy.swift */; };
 		10DD81E6277E44FC180628F0 /* VMOmarchyDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2DD869B8D15CF2A66A424C /* VMOmarchyDiagnostics.swift */; };
 		16F644A0066841FCE3BF36AA /* OmarchyClipboardAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761381FEB3AF8B455871E918 /* OmarchyClipboardAcceptanceProbeImplementation.swift */; };
@@ -16,6 +17,7 @@
 		306AEB3B497B8DD9772B2124 /* VMOmarchyFactoryManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 516FD555DC04ABE24EC74623 /* VMOmarchyFactoryManifest.swift */; };
 		328EC59BE93B0C9D86F5B52A /* VMSnapshotFileCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBCE74447B54F26DCD6334B /* VMSnapshotFileCopier.swift */; };
 		3B3DE7B5220BD32916EAF208 /* VMOmarchyGuestAgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1471ED4B2D5A3896B2C74FDA /* VMOmarchyGuestAgentClient.swift */; };
+		3E81EAB32C8771949342EFF5 /* OmarchyMachineLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D934163518DB483771BA3E1A /* OmarchyMachineLifecycle.swift */; };
 		54930AEA0491759C5F31F598 /* VMWindowCloseObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBC02A1DA5EDF62A658954C /* VMWindowCloseObserver.swift */; };
 		5553AC94B3D5830E818ADB3C /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
 		58A4E3E513A14D628BF10B71 /* OmarchyInputLatencyAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30A9FD15C25C47C4A0E7524D /* OmarchyInputLatencyAcceptanceProbe.swift */; };
@@ -24,6 +26,7 @@
 		5F1A2B3C4D5E6F7081920A01 /* VMOmarchySharedFolders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1A2B3C4D5E6F7081920A02 /* VMOmarchySharedFolders.swift */; };
 		5F1A2B3C4D5E6F7081920A03 /* OmarchySharedFoldersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1A2B3C4D5E6F7081920A04 /* OmarchySharedFoldersView.swift */; };
 		5F3E72F26D3AA97AB5C04416 /* ActiveWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B43C1E98CCF560C8090A78 /* ActiveWorkspace.swift */; };
+		63E00C2846166435F2D62019 /* OmarchyEventTapCostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C430602BDBF4CE27B84873F /* OmarchyEventTapCostTests.swift */; };
 		655C4B3505B05EAD27789719 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */; };
 		6A54599CC533FAF13CF2DC87 /* OmarchyDynamicDisplayAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FE576F9BB1E48DB5F6BD01 /* OmarchyDynamicDisplayAcceptanceProbeImplementation.swift */; };
 		6FD2DF65B0C62DF3D3526BA0 /* OmarchyPreparationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BA538573FACECC4226EB65 /* OmarchyPreparationSettings.swift */; };
@@ -33,7 +36,9 @@
 		848576FDFEBEF449A8B21DCD /* OmarchyAccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93144A0A4F0503875A3CC2B /* OmarchyAccessibilityTests.swift */; };
 		851CC8624BD0392211035418 /* OmarchyOwnerSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1EA7AC1E7A4230AF03C587 /* OmarchyOwnerSetupView.swift */; };
 		85C9A50A35F20FBA217189F1 /* OmarchyClipboardAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4323918A072349A10EE035FA /* OmarchyClipboardAcceptanceProbe.swift */; };
+		89F1B6B1ECBE04D524FC2990 /* VMTerminalStateWaiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207E4985A3CC436A009E4C60 /* VMTerminalStateWaiter.swift */; };
 		9432AA110B0CD575C9658558 /* RiftVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */; };
+		978FECA8BEF6EC44F0C2599E /* OmarchyMachineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */; };
 		99D707A75AFAD189109A2B46 /* OmarchyNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FDCE5EF0F509F3741AC3ADA /* OmarchyNotificationController.swift */; };
 		A390FC98504611476CD525D8 /* OmarchyReleaseReadinessReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B95DC9A19634B5BA45D346 /* OmarchyReleaseReadinessReporter.swift */; };
 		B05DA408570257CF297372FF /* OmarchyInputLatencyAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFA0739F5E2F87477B87B24 /* OmarchyInputLatencyAcceptanceProbeImplementation.swift */; };
@@ -63,6 +68,7 @@
 		D1E19A08289E9CFB00CF27D3 /* Date.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A07289E9CFB00CF27D3 /* Date.swift */; };
 		D1E19A0A289E9DAD00CF27D3 /* Array.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E19A09289E9DAD00CF27D3 /* Array.swift */; };
 		D1E61F6828ADD5D000ED98A0 /* AppConfigModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */; };
+		D45CEC30B55B92FE66AC02BB /* OmarchyVirtualMachineInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099D99FCFF9AC4CC6DB6DE3B /* OmarchyVirtualMachineInputView.swift */; };
 		D814BEA62CBB56A46D4D73CA /* OmarchyAcceptanceObservationReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0665A09CA474B2D2ADD719A2 /* OmarchyAcceptanceObservationReporter.swift */; };
 		D81A83AE99AF9FEF06BDB513 /* OmarchyInputDiagnosticsAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3854C40D734F709F87949946 /* OmarchyInputDiagnosticsAcceptanceProbe.swift */; };
 		DEFD556668AB035B03AEC745 /* VMLiveMachineCenterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2AE14909D28383C752ECF1 /* VMLiveMachineCenterTests.swift */; };
@@ -93,10 +99,12 @@
 		0665A09CA474B2D2ADD719A2 /* OmarchyAcceptanceObservationReporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyAcceptanceObservationReporter.swift; sourceTree = "<group>"; };
 		079A25E9D074047D851583A8 /* RiftVMIntegrationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RiftVMIntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		07D1C6C3FB1427091DA1AF87 /* OmarchyAgentClipboardController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyAgentClipboardController.swift; sourceTree = "<group>"; };
+		099D99FCFF9AC4CC6DB6DE3B /* OmarchyVirtualMachineInputView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineInputView.swift; sourceTree = "<group>"; };
 		1471ED4B2D5A3896B2C74FDA /* VMOmarchyGuestAgentClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyGuestAgentClient.swift; path = Profile/VMOmarchyGuestAgentClient.swift; sourceTree = "<group>"; };
 		1AE7BCFDA03496FF1C1E01F3 /* OmarchyLockAcceptanceState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyLockAcceptanceState.swift; sourceTree = "<group>"; };
 		1AFA0739F5E2F87477B87B24 /* OmarchyInputLatencyAcceptanceProbeImplementation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyInputLatencyAcceptanceProbeImplementation.swift; sourceTree = "<group>"; };
 		1E7931EB6C84F2AAF74B250D /* VMOmarchyVirtualMachineBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyVirtualMachineBuilder.swift; path = Profile/VMOmarchyVirtualMachineBuilder.swift; sourceTree = "<group>"; };
+		207E4985A3CC436A009E4C60 /* VMTerminalStateWaiter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VMTerminalStateWaiter.swift; sourceTree = "<group>"; };
 		208963952AC64CED33E914A7 /* OmarchyFullScreenAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyFullScreenAcceptanceProbe.swift; sourceTree = "<group>"; };
 		22E705174EF14A3A0A0D9069 /* OmarchyFocusedCommandBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyFocusedCommandBridge.swift; sourceTree = "<group>"; };
 		23CF9B9EFF2DA5783381E6D3 /* OmarchyApplicationTermination.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyApplicationTermination.swift; sourceTree = "<group>"; };
@@ -116,12 +124,14 @@
 		5F1A2B3C4D5E6F7081920A04 /* OmarchySharedFoldersView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchySharedFoldersView.swift; sourceTree = "<group>"; };
 		68701BB45AD479B32C520A8A /* VMCreateProgressMeterPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMCreateProgressMeterPolicy.swift; path = Common/VMCreateProgressMeterPolicy.swift; sourceTree = "<group>"; };
 		699062CED4109B9C80794E8C /* VMOmarchySharedFolderImporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchySharedFolderImporter.swift; path = Profile/VMOmarchySharedFolderImporter.swift; sourceTree = "<group>"; };
+		6C430602BDBF4CE27B84873F /* OmarchyEventTapCostTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyEventTapCostTests.swift; sourceTree = "<group>"; };
 		6DCEA76CE6ACA967DD643BE8 /* VMOmarchyWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyWorkspace.swift; path = Profile/VMOmarchyWorkspace.swift; sourceTree = "<group>"; };
 		73A976ED4877DED143439CF9 /* VMOmarchyStorageForecast.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyStorageForecast.swift; path = Profile/VMOmarchyStorageForecast.swift; sourceTree = "<group>"; };
 		761381FEB3AF8B455871E918 /* OmarchyClipboardAcceptanceProbeImplementation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyClipboardAcceptanceProbeImplementation.swift; sourceTree = "<group>"; };
 		7B2DD869B8D15CF2A66A424C /* VMOmarchyDiagnostics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyDiagnostics.swift; path = Profile/VMOmarchyDiagnostics.swift; sourceTree = "<group>"; };
 		7DBC02A1DA5EDF62A658954C /* VMWindowCloseObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VMWindowCloseObserver.swift; sourceTree = "<group>"; };
 		80BA538573FACECC4226EB65 /* OmarchyPreparationSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyPreparationSettings.swift; sourceTree = "<group>"; };
+		83A3E8CEF3CF8C511FC7FA18 /* OmarchyVirtualMachineRepresentable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineRepresentable.swift; sourceTree = "<group>"; };
 		8F1EA7AC1E7A4230AF03C587 /* OmarchyOwnerSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyOwnerSetupView.swift; sourceTree = "<group>"; };
 		93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyDynamicDisplayAcceptanceProbe.swift; sourceTree = "<group>"; };
 		9C5AB613058CEC80F0AE28CF /* OmarchyInputDiagnosticsAcceptanceProbeImplementation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyInputDiagnosticsAcceptanceProbeImplementation.swift; sourceTree = "<group>"; };
@@ -152,8 +162,10 @@
 		D1E19A07289E9CFB00CF27D3 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
 		D1E19A09289E9DAD00CF27D3 /* Array.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Array.swift; sourceTree = "<group>"; };
 		D1E61F6728ADD5D000ED98A0 /* AppConfigModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigModel.swift; sourceTree = "<group>"; };
+		D934163518DB483771BA3E1A /* OmarchyMachineLifecycle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyMachineLifecycle.swift; sourceTree = "<group>"; };
 		DE2AE14909D28383C752ECF1 /* VMLiveMachineCenterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VMLiveMachineCenterTests.swift; sourceTree = "<group>"; };
 		E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
+		E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyMachineCoordinator.swift; sourceTree = "<group>"; };
 		EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RiftVMOmarchyTests.swift; sourceTree = "<group>"; };
 		EE2525174AAC22D8B14C0B3C /* WorkspaceHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkspaceHomeView.swift; path = RiftVM/Application/Entry/WorkspaceHomeView.swift; sourceTree = "<group>"; };
 		EFA8C875BEF8F2C714B413DF /* RiftVMOmarchyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RiftVMOmarchyApp.swift; sourceTree = "<group>"; };
@@ -192,6 +204,7 @@
 				EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */,
 				C93144A0A4F0503875A3CC2B /* OmarchyAccessibilityTests.swift */,
 				DE2AE14909D28383C752ECF1 /* VMLiveMachineCenterTests.swift */,
+				6C430602BDBF4CE27B84873F /* OmarchyEventTapCostTests.swift */,
 			);
 			name = "RiftVM Integration Tests";
 			path = ../Tests/RiftVMIntegrationTests;
@@ -577,6 +590,11 @@
 				357725B3890446D0ED675A82 /* VMLiveMachineCenter.swift */,
 				7DBC02A1DA5EDF62A658954C /* VMWindowCloseObserver.swift */,
 				80BA538573FACECC4226EB65 /* OmarchyPreparationSettings.swift */,
+				E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */,
+				D934163518DB483771BA3E1A /* OmarchyMachineLifecycle.swift */,
+				099D99FCFF9AC4CC6DB6DE3B /* OmarchyVirtualMachineInputView.swift */,
+				83A3E8CEF3CF8C511FC7FA18 /* OmarchyVirtualMachineRepresentable.swift */,
+				207E4985A3CC436A009E4C60 /* VMTerminalStateWaiter.swift */,
 			);
 			name = "Omarchy Integration";
 			path = ../RiftVM/RiftVM/Omarchy;
@@ -689,6 +707,7 @@
 				9432AA110B0CD575C9658558 /* RiftVMOmarchyTests.swift in Sources */,
 				848576FDFEBEF449A8B21DCD /* OmarchyAccessibilityTests.swift in Sources */,
 				DEFD556668AB035B03AEC745 /* VMLiveMachineCenterTests.swift in Sources */,
+				63E00C2846166435F2D62019 /* OmarchyEventTapCostTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -758,6 +777,11 @@
 				1F900DBA23E5F942C64FA12D /* VMCustomVirGLGraphics.swift in Sources */,
 				6FD2DF65B0C62DF3D3526BA0 /* OmarchyPreparationSettings.swift in Sources */,
 				328EC59BE93B0C9D86F5B52A /* VMSnapshotFileCopier.swift in Sources */,
+				978FECA8BEF6EC44F0C2599E /* OmarchyMachineCoordinator.swift in Sources */,
+				3E81EAB32C8771949342EFF5 /* OmarchyMachineLifecycle.swift in Sources */,
+				D45CEC30B55B92FE66AC02BB /* OmarchyVirtualMachineInputView.swift in Sources */,
+				02D89F639FE34DC2652B6C9C /* OmarchyVirtualMachineRepresentable.swift in Sources */,
+				89F1B6B1ECBE04D524FC2990 /* VMTerminalStateWaiter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
