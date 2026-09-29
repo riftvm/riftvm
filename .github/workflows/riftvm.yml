@@ -21,9 +21,19 @@ concurrency:
 jobs:
   macos:
     runs-on: xcode-27
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+      - name: Identify the toolchain for the build cache
+        id: toolchain
+        run: echo "xcode=$(xcodebuild -version | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: Cache SwiftPM build products
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            Experiments/VZVirtioGPUPrototype/.build
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.xcode }}-${{ hashFiles('Package.swift', 'Experiments/VZVirtioGPUPrototype/Package.swift', '**/Package.resolved') }}
       - name: Test shared core and CLI
         run: |
           swift build --build-tests
@@ -33,8 +43,16 @@ jobs:
         run: scripts/test-virgl-context-sync.sh
       - name: Test VirGL runtime
         run: swift test --package-path Experiments/VZVirtioGPUPrototype
+      # The shared schemes are checked in; this step is what adds new source
+      # files to the targets. The gem is installed only when it is missing.
       - name: Synchronize unified Xcode target
-        run: ruby scripts/integrate-omarchy-sources.rb
+        run: |
+          ruby -e 'require "xcodeproj"' 2>/dev/null || gem install --user-install xcodeproj --version '~> 1.27'
+          ruby scripts/integrate-omarchy-sources.rb
+      # Both Xcode steps share one DerivedData path: the test target depends on
+      # the app target, so the second step reuses the app the first one built
+      # instead of compiling it again. They stay separate steps so a failure is
+      # attributed to the app or to the tests.
       - name: Build the only desktop app
         run: >-
           xcodebuild
@@ -50,7 +68,7 @@ jobs:
           -project RiftVM/RiftVM.xcodeproj
           -scheme RiftVMIntegrationTests
           -configuration Debug
-          -derivedDataPath "$RUNNER_TEMP/riftvm-tests-derived"
+          -derivedDataPath "$RUNNER_TEMP/riftvm-derived"
           CODE_SIGNING_ALLOWED=NO
           build-for-testing
       - name: Validate factory and Overlay pipelines
@@ -63,12 +81,29 @@ jobs:
       - name: Validate release gates
         run: |
           scripts/verify-riftvm-identity.sh
+          [ ! -x scripts/verify-package-sources.sh ] || scripts/verify-package-sources.sh
+          scripts/test-third-party-pins.sh
           scripts/test-release-metadata.sh
           scripts/test-release-signing-preflight.sh
+          scripts/test-sync-checked-in-cask.sh
           scripts/test-omarchy-release-evidence.sh
           scripts/test-omarchy-integration-observation.sh
           scripts/test-omarchy-notification-observation.sh
           scripts/test-omarchy-lifecycle-observation.sh
+          scripts/test-virgl-capture-preflight.sh
+          scripts/test-virgl-performance-gate.sh
+
+  shell-scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check shell scripts
+        # Errors only for now; lower the severity once the warnings are fixed.
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install --yes shellcheck; }
+          shellcheck --version
+          shellcheck --severity=error scripts/*.sh scripts/lib/*.sh
 
   guest-agent:
     runs-on: ubuntu-24.04
@@ -78,6 +113,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: GuestAgent/linux/go.mod
+          # The module has no go.sum, so setup-go's cache step would fail.
           cache: false
       - name: Test and cross-compile Rift Agent
         working-directory: GuestAgent/linux
