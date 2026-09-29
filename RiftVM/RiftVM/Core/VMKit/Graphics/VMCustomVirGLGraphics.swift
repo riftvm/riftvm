@@ -38,113 +38,6 @@ protocol VMGraphicsBackend {
     func shutdown()
 }
 
-private final class VMFocusedCommandEventTap {
-    typealias FocusProbe = () -> Bool
-    typealias EventHandler = ([VMGuestAgentInputEvent]) -> Void
-
-    private let focusProbe: FocusProbe
-    private let eventHandler: EventHandler
-    private var state = VMFocusedCommandCaptureState()
-    private var tap: CFMachPort?
-    private var source: CFRunLoopSource?
-    private var focusTimer: Timer?
-
-    init(focusProbe: @escaping FocusProbe, eventHandler: @escaping EventHandler) {
-        self.focusProbe = focusProbe
-        self.eventHandler = eventHandler
-    }
-
-    deinit {
-        stop()
-    }
-
-    @discardableResult
-    func start() -> Bool {
-        guard tap == nil else { return true }
-        let mask = (UInt64(1) << CGEventType.keyDown.rawValue)
-            | (UInt64(1) << CGEventType.keyUp.rawValue)
-            | (UInt64(1) << CGEventType.flagsChanged.rawValue)
-        guard let eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: { _, type, event, userInfo in
-                guard let userInfo else { return Unmanaged.passUnretained(event) }
-                let owner = Unmanaged<VMFocusedCommandEventTap>
-                    .fromOpaque(userInfo).takeUnretainedValue()
-                return owner.handle(type: type, event: event)
-            },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else {
-            return false
-        }
-        tap = eventTap
-        let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-        source = runLoopSource
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: eventTap, enable: true)
-        focusTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            self?.releaseIfFocusWasLost()
-        }
-        return true
-    }
-
-    func stop() {
-        emit(state.releaseAll())
-        focusTimer?.invalidate()
-        focusTimer = nil
-        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
-        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
-        source = nil
-        tap = nil
-    }
-
-    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            emit(state.releaseAll())
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            return Unmanaged.passUnretained(event)
-        }
-        let kind: VMFocusedCommandEventKind
-        switch type {
-        case .keyDown: kind = .keyDown
-        case .keyUp: kind = .keyUp
-        case .flagsChanged: kind = .flagsChanged
-        default: return Unmanaged.passUnretained(event)
-        }
-        let input = VMFocusedCommandEvent(
-            kind: kind,
-            keyCode: UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode)),
-            modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue)),
-            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-        )
-        let outcome = state.process(input, focused: focusProbe())
-        emit(outcome.guestEvents)
-        return outcome.suppressHostEvent ? nil : Unmanaged.passUnretained(event)
-    }
-
-    private func releaseIfFocusWasLost() {
-        guard state.isCapturing, !focusProbe() else { return }
-        emit(state.releaseAll())
-    }
-
-    private func emit(_ events: [VMGuestAgentInputEvent]) {
-        guard !events.isEmpty else { return }
-        // Each transition is a key event followed by SYN_REPORT. Split large
-        // forced releases without breaking those pairs or the Agent's 64-event
-        // input-batch limit.
-        let maximumPairs = VMGuestAgentInputBatch.maximumEventCount / 2
-        var pairIndex = 0
-        while pairIndex * 2 < events.count {
-            let start = pairIndex * 2
-            let end = min(events.count, start + maximumPairs * 2)
-            eventHandler(Array(events[start..<end]))
-            pairIndex += maximumPairs
-        }
-    }
-}
-
 @available(macOS 27.0, *)
 class VMVirGLDisplayView: VZVirtualMachineView {
     private let backgroundLayer = CALayer()
@@ -178,11 +71,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var pressedButtons = Set<UInt16>()
     private var pointerCaptured = false
     private var windowObservers: [NSObjectProtocol] = []
-    private let managesKeyboardIntegration: Bool
     let usesCustomGraphics: Bool
-    private var commandKeyMonitor: Any?
-    private var focusedCommandEventTap: VMFocusedCommandEventTap?
-    private var accessibilityRetryTimer: Timer?
     private var keyboardIntegrationStateHandler: ((VMKeyboardIntegrationState) -> Void)?
     private var guestSize: CGSize
     private var scrollWheelAccumulator = VMScrollWheelAccumulator()
@@ -211,9 +100,12 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     // attached; authenticated Guest Agent input becomes available in userspace.
     private var absolutePointerEnabled = true
 
+    /// - Parameter managesKeyboardIntegration: accepted for source
+    ///   compatibility and ignored. The view once carried its own Command
+    ///   event tap; every caller turned it off because the session's keyboard
+    ///   bridge owns Command chords.
     init(frame frameRect: NSRect, guestSize: CGSize, managesKeyboardIntegration: Bool = true, usesCustomGraphics: Bool = true) {
         self.usesCustomGraphics = usesCustomGraphics
-        self.managesKeyboardIntegration = managesKeyboardIntegration
         self.guestSize = guestSize
         super.init(frame: frameRect)
         if usesCustomGraphics {
@@ -238,48 +130,17 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         }
         capturesSystemKeys = true
         automaticallyReconfiguresDisplay = false
-        if managesKeyboardIntegration {
-            commandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                guard let self,
-                      let vmWindow = self.window,
-                      vmWindow.isKeyWindow,
-                      NSApp.keyWindow === vmWindow,
-                      NSApp.modalWindow == nil,
-                      !NSApp.windows.contains(where: {
-                          $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
-                      }),
-                      vmWindow.attachedSheet == nil else { return event }
-                // Accessibility input and some system-key event sources leave the
-                // event's window unset even though AppKit is dispatching to the key
-                // VM window. Accept that form, but never steal a chord explicitly
-                // associated with another RiftVM window.
-                if let eventWindow = event.window, eventWindow !== vmWindow { return event }
-                if let responderView = vmWindow.firstResponder as? NSView,
-                   responderView !== self, !responderView.isDescendant(of: self) {
-                    return event
-                }
-                if self.isHostFullScreenShortcut(event) { return event }
-                return self.forwardCommandChordToGuest(event) ? nil : event
-            }
-        }
     }
 
     required init?(coder: NSCoder) { nil }
 
     deinit {
-        focusedCommandEventTap?.stop()
-        accessibilityRetryTimer?.invalidate()
-        if let commandKeyMonitor { NSEvent.removeMonitor(commandKeyMonitor) }
         displayRefreshTimer?.invalidate()
         windowObservers.forEach(NotificationCenter.default.removeObserver)
         releaseInputCapture()
     }
 
     func stopPresentation() {
-        focusedCommandEventTap?.stop()
-        focusedCommandEventTap = nil
-        accessibilityRetryTimer?.invalidate()
-        accessibilityRetryTimer = nil
         presentationLifecycle.stop()
         presentationIsActive = false
         displayRefreshTimer?.invalidate()
@@ -308,95 +169,26 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     override var acceptsFirstResponder: Bool { true }
 
     func setGuestInputHandler(_ handler: (([VMGuestAgentInputEvent]) -> Void)?) {
-        focusedCommandEventTap?.stop()
-        focusedCommandEventTap = nil
         if handler == nil { releaseInputCapture() }
         guestInputHandler = handler
-        guard handler != nil else {
-            keyboardIntegrationStateHandler?(.waitingForGuest)
-            return
-        }
-        if managesKeyboardIntegration { installFocusedCommandEventTap() }
+        if handler == nil { keyboardIntegrationStateHandler?(.waitingForGuest) }
     }
 
     func setKeyboardIntegrationStateHandler(
         _ handler: ((VMKeyboardIntegrationState) -> Void)?
     ) {
         keyboardIntegrationStateHandler = handler
-        if focusedCommandEventTap != nil {
-            handler?(.enabled)
-        } else if guestInputHandler == nil {
-            handler?(.waitingForGuest)
-        } else {
-            handler?(.accessibilityRequired)
-        }
+        handler?(keyboardIntegrationState)
+    }
+
+    /// The view captures no system shortcuts itself, so it never reports
+    /// `.enabled`; the session's keyboard bridge reports its own state.
+    private var keyboardIntegrationState: VMKeyboardIntegrationState {
+        guestInputHandler == nil ? .waitingForGuest : .accessibilityRequired
     }
 
     func requestKeyboardIntegrationPermission() {
-        guard guestInputHandler != nil else {
-            keyboardIntegrationStateHandler?(.waitingForGuest)
-            return
-        }
-        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        _ = AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)
-        accessibilityRetryTimer?.invalidate()
-        var attemptsRemaining = 40
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
-            guard let self, self.guestInputHandler != nil else {
-                timer.invalidate()
-                return
-            }
-            if AXIsProcessTrusted() {
-                timer.invalidate()
-                self.accessibilityRetryTimer = nil
-                self.installFocusedCommandEventTap()
-                return
-            }
-            attemptsRemaining -= 1
-            if attemptsRemaining == 0 {
-                timer.invalidate()
-                self.accessibilityRetryTimer = nil
-                self.keyboardIntegrationStateHandler?(.accessibilityRequired)
-            }
-        }
-        accessibilityRetryTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-        keyboardIntegrationStateHandler?(.accessibilityRequired)
-    }
-
-    private func installFocusedCommandEventTap() {
-        guard focusedCommandEventTap == nil, let handler = guestInputHandler else { return }
-        let eventTap = VMFocusedCommandEventTap(
-            focusProbe: { [weak self] in self?.shouldCaptureSystemKeys == true },
-            eventHandler: handler
-        )
-        if eventTap.start() {
-            focusedCommandEventTap = eventTap
-            keyboardIntegrationStateHandler?(.enabled)
-            RiftVMLog.info("Focused Command/Super event tap enabled", logger: RiftVMLog.input)
-        } else {
-            keyboardIntegrationStateHandler?(.accessibilityRequired)
-            RiftVMLog.error(
-                "Focused Command/Super event tap unavailable; grant Accessibility permission for system shortcuts",
-                logger: RiftVMLog.input
-            )
-        }
-    }
-
-    private var shouldCaptureSystemKeys: Bool {
-        guard guestInputHandler != nil,
-              let vmWindow = window,
-              vmWindow.isKeyWindow,
-              NSApp.isActive,
-              NSApp.keyWindow === vmWindow,
-              NSApp.modalWindow == nil,
-              vmWindow.attachedSheet == nil,
-              !NSApp.windows.contains(where: {
-                  $0.isVisible && ($0 is NSOpenPanel || $0 is NSSavePanel)
-              }) else { return false }
-        guard let responder = vmWindow.firstResponder else { return false }
-        if responder === self { return true }
-        return (responder as? NSView)?.isDescendant(of: self) == true
+        keyboardIntegrationStateHandler?(keyboardIntegrationState)
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -406,12 +198,6 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             releaseInputCapture()
             return
         }
-        // AppKit normally offers Command chords via `performKeyEquivalent`,
-        // but some event sources (including hardware
-        // layouts and accessibility event injection) deliver them directly as
-        // key-down events. Cover both routes so macOS Command consistently
-        // becomes Linux Super instead of silently disappearing.
-        if forwardCommandChordToGuest(event) { return }
         if let guestInputHandler {
             let effectiveFlags = VMGuestAgentKeyboard.effectiveModifierFlags(
                 reported: event.modifierFlags,
@@ -471,32 +257,9 @@ class VMVirGLDisplayView: VZVirtualMachineView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if isHostFullScreenShortcut(event) { return false }
-        if forwardCommandChordToGuest(event) { return true }
         // Non-Command equivalents and pre-agent firmware input retain the VZ
         // native fallback. Ordinary desktop key events are handled above.
         return super.performKeyEquivalent(with: event)
-    }
-
-    private func forwardCommandChordToGuest(_ event: NSEvent) -> Bool {
-        guard managesKeyboardIntegration else { return false }
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.contains(.command) else { return false }
-        guard !event.isARepeat else { return true }
-        guard let guestInputHandler,
-              let events = VMGuestAgentKeyboard.chordEvents(
-                forMacVirtualKey: event.keyCode,
-                modifierFlags: flags,
-                alreadyPressed: pressedKeys
-              ) else { return false }
-        // AppKit consumes host Command shortcuts before VZ's native USB
-        // keyboard sees them. Send a complete, synchronized Linux Super chord
-        // through the standard uinput keyboard instead.
-        guestInputHandler(events)
-        RiftVMLog.info(
-            "Forwarded host Command chord through guest keyboard keyCode=\(event.keyCode)",
-            logger: RiftVMLog.input
-        )
-        return true
     }
 
     private func isHostFullScreenShortcut(_ event: NSEvent) -> Bool {
