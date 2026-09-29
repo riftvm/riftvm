@@ -121,6 +121,55 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.1
+
+RiftVM 0.6.1 prepares Omarchy from factory image `v4.0.3-riftvm.20`, which
+carries the 0.6.0 guest agent and is a smaller download.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- **New factory image.** Prepare Omarchy now fetches
+  [v4.0.3-riftvm.20](https://github.com/riftvm/riftvm-omarchy-aarch64-image/releases/tag/v4.0.3-riftvm.20).
+  Its guest agent takes one process snapshot per status report, keeps
+  answering heartbeats while a file transfer runs, and tells the host when the
+  clipboard is unchanged instead of staging it again.
+- **A third factory signing key is trusted.** The previous signing key is no
+  longer available, so this image is signed with a new one. The two earlier
+  keys stay trusted, and images signed by them still verify.
+
+An existing machine keeps its disk and its agent. To use the new image, remove
+Omarchy and prepare it again; see
+[Updates and recovery](UPDATES_AND_RECOVERY.md).
+
+### Validation
+
+The published image was downloaded from its public URL by this build's own
+installer code, which verified the signed manifest, every part and the image
+digest. A build carrying only the two earlier keys rejects the same manifest
+as an invalid signature, as it should.
+
+That downloaded disk was then booted in this build on a disposable machine:
+first boot with automatic owner setup, zero failed system or user units, the
+agent at the pinned revision, clipboard text both ways, notifications, shared
+folder, network and package install, and glmark2 on `virgl` at 59 frames per
+second with no missed drawables, presentation failures or fence timeouts. The
+same image content passed continuous input and the lifecycle probes for pause
+and resume, agent restart and guest restart under 0.6.0.
+
+Not claimed: Command shortcuts, screen lock, host sleep and wake, display
+hot-plug and a long soak were not exercised. The image's opt-in event-driven
+display watcher is off and was not tested.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+
 ## 0.6.0
 
 RiftVM 0.6.0 is a reliability and efficiency release: less work per frame and
