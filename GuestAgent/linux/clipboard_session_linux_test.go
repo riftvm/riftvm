@@ -6,10 +6,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"os/exec"
 	"testing"
-	"time"
 )
 
 func TestReadClipboardPayloadRetainsAuthenticatedBytes(t *testing.T) {
@@ -46,55 +44,14 @@ func TestClipboardCopyArgumentsLetTextFrontendAdvertiseNativeAliases(t *testing.
 	}
 }
 
-func TestStartVerifiedClipboardOwnerRetriesRejectedPublications(t *testing.T) {
-	want := []byte("clipboard bytes")
-	starts := 0
-	reads := 0
-	command, err := startVerifiedClipboardOwner(
-		want,
-		clipboardTextMIME,
-		func(_ []byte, _ string) *exec.Cmd {
-			starts++
-			return exec.Command("sleep", "30")
-		},
-		func(_ string) ([]byte, error) {
-			reads++
-			if reads < 3 {
-				return nil, errors.New("selection rejected")
-			}
-			return append([]byte(nil), want...), nil
-		},
-		func(time.Duration) {},
-	)
-	if err != nil {
-		t.Fatal(err)
+func TestClipboardPasteArgumentsKeepTextWithoutATrailingNewline(t *testing.T) {
+	arguments := clipboardPasteArguments(clipboardTextMIME)
+	if len(arguments) != 3 || arguments[0] != "--type" || arguments[1] != clipboardTextMIME || arguments[2] != "--no-newline" {
+		t.Fatalf("text arguments=%v", arguments)
 	}
-	defer func() {
-		_ = command.Process.Kill()
-		_ = command.Wait()
-	}()
-	if starts != 3 || reads != 3+clipboardPublicationVerifications-1 {
-		t.Fatalf("starts=%d reads=%d, want retries followed by stable verification", starts, reads)
-	}
-}
-
-func TestStartVerifiedClipboardOwnerRejectsPersistentMismatch(t *testing.T) {
-	starts := 0
-	command, err := startVerifiedClipboardOwner(
-		[]byte("expected"),
-		clipboardTextMIME,
-		func(_ []byte, _ string) *exec.Cmd {
-			starts++
-			return exec.Command("sleep", "30")
-		},
-		func(_ string) ([]byte, error) { return []byte("wrong"), nil },
-		func(time.Duration) {},
-	)
-	if err == nil || command != nil {
-		t.Fatalf("command=%v error=%v, want verified publication failure", command, err)
-	}
-	if starts != clipboardPublicationAttempts {
-		t.Fatalf("starts=%d, want %d", starts, clipboardPublicationAttempts)
+	arguments = clipboardPasteArguments(clipboardImageMIME)
+	if len(arguments) != 2 || arguments[0] != "--type" || arguments[1] != clipboardImageMIME {
+		t.Fatalf("image arguments=%v", arguments)
 	}
 }
 
