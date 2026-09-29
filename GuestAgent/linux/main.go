@@ -145,6 +145,32 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 }
 
 func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input guestInput, readStatus func(bool, bool) status) error {
+	return serveSession(stream, config, input, sessionHooks{readStatus: readStatus})
+}
+
+// sessionHooks replaces the slow collaborators of a session in tests.
+type sessionHooks struct {
+	readStatus     func(bool, bool) status
+	handleTransfer func(*transferSession, string, []byte) transferResult
+}
+
+// livenessOperation reports whether an operation only proves the Agent is
+// alive and describes the guest. The Host declares the Agent unresponsive when
+// nothing answers for 30 seconds, so these must not wait behind a transfer
+// that hashes a large file or a clipboard request that waits for the desktop.
+func livenessOperation(operation string) bool {
+	return operation == "heartbeat" || operation == "status"
+}
+
+func serveSession(stream io.ReadWriter, config enrollment, input guestInput, hooks sessionHooks) error {
+	readStatus := hooks.readStatus
+	if readStatus == nil {
+		readStatus = currentStatus
+	}
+	handleTransfer := hooks.handleTransfer
+	if handleTransfer == nil {
+		handleTransfer = (*transferSession).handle
+	}
 	transfers := newTransferSession()
 	defer transfers.close()
 	guestNonceBytes := make([]byte, 32)
@@ -174,6 +200,8 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 
 	// Control operations stay ordered, but compositor probes, clipboard IPC and
 	// file transfers must not delay keyboard releases on the authenticated stream.
+	// Heartbeat and status run on their own ordered lane for the same reason:
+	// the Host matches every response by request ID, not by arrival order.
 	// Serialize response framing and sequence allocation, not request execution.
 	var sentSequence uint64
 	var writeLock sync.Mutex
@@ -217,7 +245,7 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 				os.Exit(0)
 			}()
 		case "uploadStart", "uploadChunk", "uploadCommit", "transferCancel", "downloadInfo", "downloadChunk":
-			result := transfers.handle(request.Operation, request.Payload)
+			result := handleTransfer(transfers, request.Operation, request.Payload)
 			payload, err := json.Marshal(result)
 			if err != nil {
 				return err
@@ -258,32 +286,40 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 		return nil
 	}
 	commands := make(chan envelope, 16)
-	workerDone := make(chan struct{})
-	workerError := make(chan error, 1)
-	go func() {
-		defer close(workerDone)
-		for {
-			select {
-			case <-stopped:
-				return
-			case request := <-commands:
+	liveness := make(chan envelope, 16)
+	var workers sync.WaitGroup
+	// One slot per lane: a failing worker never blocks on reporting its error.
+	workerError := make(chan error, 2)
+	for _, lane := range []chan envelope{commands, liveness} {
+		workers.Add(1)
+		go func(lane <-chan envelope) {
+			defer workers.Done()
+			for {
 				select {
 				case <-stopped:
 					return
-				default:
-				}
-				if err := control(request); err != nil {
-					workerError <- err
-					interruptSessionStream(stream)
-					return
+				case request := <-lane:
+					select {
+					case <-stopped:
+						return
+					default:
+					}
+					if err := control(request); err != nil {
+						workerError <- err
+						interruptSessionStream(stream)
+						return
+					}
 				}
 			}
-		}
-	}()
+		}(lane)
+	}
 	defer func() {
 		close(stopped)
+		// Abandon a checksum that is still reading the source file; its
+		// response can no longer be delivered.
+		transfers.interrupt()
 		interruptSessionStream(stream)
-		<-workerDone
+		workers.Wait()
 	}()
 	pressedKeys := make(map[uint16]bool)
 	defer func() {
@@ -332,8 +368,12 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 				return err
 			}
 		} else {
+			lane := commands
+			if livenessOperation(request.Operation) {
+				lane = liveness
+			}
 			select {
-			case commands <- request:
+			case lane <- request:
 			default:
 				return errors.New("too many pending control requests")
 			}

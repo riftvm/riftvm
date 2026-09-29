@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 )
 
 const fileChunkBytes = 512 * 1024
@@ -76,6 +77,28 @@ type downloadState struct {
 type transferSession struct {
 	uploads   map[string]*uploadState
 	downloads map[string]*downloadState
+	// Set when the session ends, from outside the worker that owns the maps.
+	interrupted atomic.Bool
+}
+
+var errTransferInterrupted = errors.New("transfer interrupted")
+
+// interrupt makes a checksum in progress stop at its next read. Hashing a
+// large source would otherwise keep a closed session alive until it finished.
+func (session *transferSession) interrupt() {
+	session.interrupted.Store(true)
+}
+
+type interruptibleReader struct {
+	reader      io.Reader
+	interrupted *atomic.Bool
+}
+
+func (reader interruptibleReader) Read(buffer []byte) (int, error) {
+	if reader.interrupted.Load() {
+		return 0, errTransferInterrupted
+	}
+	return reader.reader.Read(buffer)
 }
 
 func newTransferSession() *transferSession {
@@ -263,7 +286,8 @@ func (session *transferSession) startDownload(value downloadInfoRequest) (transf
 		return transferResult{}, errors.New("source is not a transferable regular file")
 	}
 	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
+	source := interruptibleReader{reader: file, interrupted: &session.interrupted}
+	if _, err := io.CopyBuffer(digest, source, make([]byte, 1024*1024)); err != nil {
 		file.Close()
 		return transferResult{}, err
 	}
