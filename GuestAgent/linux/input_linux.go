@@ -3,10 +3,9 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -15,7 +14,10 @@ import (
 
 var inputReportCount atomic.Uint64
 var inputDiagnosticLock sync.Mutex
-var lastInputReport string
+
+// The most recent request is kept as events and rendered only when diagnostics
+// are requested, so the input path never formats text.
+var lastInputEvents []inputEvent
 
 const (
 	uiSetEVBit   = 0x40045564
@@ -35,6 +37,8 @@ type uinputDevice struct {
 	writeLock    sync.Mutex
 	// The pointer device that last carried motion; mouse buttons follow it.
 	lastPointer inputTarget
+	// Reused for the kernel representation of one report; guarded by writeLock.
+	scratch [maxInputEvents * inputEventBytes]byte
 }
 
 type uinputSetup struct {
@@ -81,65 +85,36 @@ func (device *uinputDevice) AbsolutePointerAvailable() bool {
 func (device *uinputDevice) Write(events []inputEvent) error {
 	device.writeLock.Lock()
 	defer device.writeLock.Unlock()
-	// The host may coalesce several independently synchronized reports into
-	// one request. Route each report separately so a keyboard report adjacent
-	// to an absolute-pointer report never gets written to the tablet device.
-	start := 0
-	for index, event := range events {
-		if event.Type != 0 {
-			continue
-		}
-		report := events[start : index+1]
-		target, moves := inputReportTarget(report, device.lastPointer)
-		file := device.keyboardFile
-		switch target {
-		case targetAbsolute:
-			file = device.absoluteFile
-		case targetRelative:
-			file = device.relativeFile
-		}
-		if file == nil {
-			return syscall.ENODEV
-		}
-		if moves {
-			device.lastPointer = target
-		}
-		if err := writeInputEvents(file, report); err != nil {
-			return err
-		}
-		start = index + 1
+	if err := writeInputReports(events, &device.lastPointer, device.writer, device.scratch[:0]); err != nil {
+		return err
 	}
 	inputReportCount.Add(1)
-	parts := make([]string, 0, len(events))
-	for _, event := range events {
-		parts = append(parts, fmt.Sprintf("%d/%d/%d", event.Type, event.Code, event.Value))
-	}
 	inputDiagnosticLock.Lock()
-	lastInputReport = strings.Join(parts, " ")
+	lastInputEvents = append(lastInputEvents[:0], events...)
 	inputDiagnosticLock.Unlock()
 	return nil
+}
+
+// writer returns the device node for target, or nil when it was not created.
+func (device *uinputDevice) writer(target inputTarget) io.Writer {
+	file := device.keyboardFile
+	switch target {
+	case targetAbsolute:
+		file = device.absoluteFile
+	case targetRelative:
+		file = device.relativeFile
+	}
+	if file == nil {
+		return nil
+	}
+	return file
 }
 
 func inputDiagnostics() string {
 	inputDiagnosticLock.Lock()
-	last := lastInputReport
+	last := formatInputReport(lastInputEvents)
 	inputDiagnosticLock.Unlock()
 	return fmt.Sprintf("RiftVM input reports=%d last=[%s]", inputReportCount.Load(), last)
-}
-
-func writeInputEvents(file *os.File, events []inputEvent) error {
-	for _, event := range events {
-		// input_event on 64-bit Linux: timeval (16 bytes), then type,
-		// code, value. A zero timestamp asks the input stack to timestamp it.
-		data := make([]byte, 24)
-		binary.LittleEndian.PutUint16(data[16:18], event.Type)
-		binary.LittleEndian.PutUint16(data[18:20], event.Code)
-		binary.LittleEndian.PutUint32(data[20:24], uint32(event.Value))
-		if _, err := file.Write(data); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (device *uinputDevice) Close() error {

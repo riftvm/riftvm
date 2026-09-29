@@ -311,9 +311,8 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 		}
 		receivedSequence = request.Sequence
 		if request.Operation == "input" {
-			result := handleInput(input, request.Payload)
+			result, events := handleInputEvents(input, request.Payload)
 			if result.Success {
-				events, _ := decodeInputBatch(request.Payload)
 				for _, event := range events {
 					if event.Type != 1 {
 						continue
@@ -354,7 +353,7 @@ func interruptSessionStream(stream io.ReadWriter) {
 
 func makeEnvelope(token []byte, sessionID string, sequence uint64, requestID, operation string, payload []byte) envelope {
 	value := envelope{Version: protocolVersion, SessionID: sessionID, Sequence: sequence, RequestID: requestID, Operation: operation, Payload: payload}
-	value.Proof = sign(token, envelopeText(value))
+	value.Proof = signBytes(token, appendEnvelopeText(nil, value))
 	return value
 }
 
@@ -368,20 +367,42 @@ func verifyEnvelope(token []byte, sessionID string, value envelope, lastSequence
 	if len(value.Payload) > maxFrameBytes {
 		return errors.New("oversized payload")
 	}
-	if !secureEqual(sign(token, envelopeText(value)), value.Proof) {
+	if !secureEqual(signBytes(token, appendEnvelopeText(nil, value)), value.Proof) {
 		return errors.New("invalid message proof")
 	}
 	return nil
 }
 
+// envelopeText is the exact text authenticated by an envelope proof:
+// "message|<version>|<sessionID>|<sequence>|<requestID>|<operation>|<base64 payload>".
 func envelopeText(value envelope) string {
-	return fmt.Sprintf("message|%d|%s|%d|%s|%s|%s", value.Version, value.SessionID, value.Sequence, value.RequestID, value.Operation, base64.StdEncoding.EncodeToString(value.Payload))
+	return string(appendEnvelopeText(nil, value))
+}
+
+func appendEnvelopeText(buffer []byte, value envelope) []byte {
+	buffer = append(buffer, "message|"...)
+	buffer = strconv.AppendInt(buffer, int64(value.Version), 10)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.SessionID...)
+	buffer = append(buffer, '|')
+	buffer = strconv.AppendUint(buffer, value.Sequence, 10)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.RequestID...)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.Operation...)
+	buffer = append(buffer, '|')
+	return base64.StdEncoding.AppendEncode(buffer, value.Payload)
 }
 
 func sign(token []byte, text string) string {
+	return signBytes(token, []byte(text))
+}
+
+func signBytes(token, text []byte) string {
 	mac := hmac.New(sha256.New, token)
-	mac.Write([]byte(text))
-	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	mac.Write(text)
+	var digest [sha256.Size]byte
+	return base64.StdEncoding.EncodeToString(mac.Sum(digest[:0]))
 }
 
 func secureEqual(first, second string) bool {
@@ -406,12 +427,12 @@ func writeFrame(writer io.Writer, value any) error {
 	if len(payload) > maxFrameBytes {
 		return errors.New("frame too large")
 	}
-	var header [4]byte
-	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
-	if _, err := writer.Write(header[:]); err != nil {
-		return err
-	}
-	_, err = writer.Write(payload)
+	// Send the length prefix and the body with one Write: two writes put two
+	// packets on the stream and wake the peer twice for every frame.
+	frame := make([]byte, 4+len(payload))
+	binary.BigEndian.PutUint32(frame[:4], uint32(len(payload)))
+	copy(frame[4:], payload)
+	_, err = writer.Write(frame)
 	return err
 }
 
