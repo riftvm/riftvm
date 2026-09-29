@@ -94,10 +94,38 @@ enum OmarchyCommandCapturePolicy {
         focused: Bool,
         isSynthetic: Bool
     ) -> Bool {
-        guard focused, !isSynthetic, flags.contains(.maskCommand) else { return false }
+        focused && isRedirectCandidate(
+            type: type, keyCode: keyCode, flags: flags, isSynthetic: isSynthetic
+        )
+    }
+
+    /// Everything `shouldRedirect` decides from the event alone. The session
+    /// tap sees every key event of every application, so it asks this first
+    /// and consults keyboard focus only for an event that could be redirected.
+    static func isRedirectCandidate(
+        type: CGEventType,
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        isSynthetic: Bool
+    ) -> Bool {
+        guard !isSynthetic, flags.contains(.maskCommand) else { return false }
         guard type == .keyDown || type == .keyUp else { return false }
         // Modifier-only transitions continue through the normal VZ input path.
         return keyCode != 54 && keyCode != 55
+    }
+}
+
+enum OmarchyCaptureSafetyTimerPolicy {
+    /// While capture is not enabled the user may be granting Accessibility in
+    /// System Settings, so the state is rechecked at the original cadence.
+    static let recoveryInterval: TimeInterval = 2
+    /// An enabled tap reports its own disabling through the tap callback. The
+    /// timer remains only as a safety net for a disable that arrives without
+    /// one, such as a revoked permission.
+    static let enabledInterval: TimeInterval = 10
+
+    static func interval(for state: OmarchyKeyboardIntegrationState?) -> TimeInterval {
+        state == .enabled ? enabledInterval : recoveryInterval
     }
 }
 
@@ -178,13 +206,6 @@ final class OmarchyFocusedCommandBridge {
                 self?.start()
             }
         }
-        if permissionTimer == nil {
-            let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
-                self?.refreshCaptureState()
-            }
-            permissionTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
-        }
         refreshCaptureState()
         // The state guard in reportState() is silent when the first computed
         // state equals the default, which is exactly the "Accessibility was
@@ -213,7 +234,23 @@ final class OmarchyFocusedCommandBridge {
         }
     }
 
+    /// Runs the safety timer at the cadence the current state calls for.
+    private func scheduleSafetyTimer() {
+        let interval = OmarchyCaptureSafetyTimerPolicy.interval(for: reportedState)
+        if let permissionTimer, permissionTimer.isValid, permissionTimer.timeInterval == interval {
+            return
+        }
+        permissionTimer?.invalidate()
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            self?.refreshCaptureState()
+        }
+        timer.tolerance = interval / 4
+        permissionTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
     private func refreshCaptureState() {
+        defer { scheduleSafetyTimer() }
         if localMonitor == nil {
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
                 guard let self else { return event }
@@ -221,7 +258,9 @@ final class OmarchyFocusedCommandBridge {
             }
         }
         if let tap {
-            CGEvent.tapEnable(tap: tap, enable: true)
+            if !CGEvent.tapIsEnabled(tap: tap) {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
             if CGEvent.tapIsEnabled(tap: tap) {
                 permissionRequestedAt = nil
                 reportState(.enabled)
@@ -380,7 +419,18 @@ final class OmarchyFocusedCommandBridge {
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                if !CGEvent.tapIsEnabled(tap: tap) {
+                    // Re-enabling failed, so report it now instead of at the
+                    // next safety tick. A bridge stopped in the meantime has
+                    // no tap and must stay stopped.
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.tap != nil else { return }
+                        self.refreshCaptureState()
+                    }
+                }
+            }
             return Unmanaged.passUnretained(event)
         }
         let synthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticMarker
@@ -397,14 +447,15 @@ final class OmarchyFocusedCommandBridge {
             forwardThroughVirtualKeyboard(type: type, keyCode: keyCode, event: event)
             return nil
         }
-        let redirect = OmarchyCommandCapturePolicy.shouldRedirect(
+        // Ordinary typing, in RiftVM or in any other application, is decided
+        // by the event alone; only a possible redirect asks who has focus.
+        let candidate = OmarchyCommandCapturePolicy.isRedirectCandidate(
             type: type,
             keyCode: keyCode,
             flags: event.flags,
-            focused: focusProbe(),
             isSynthetic: synthetic
         )
-        guard redirect else {
+        guard candidate, focusProbe() else {
             return Unmanaged.passUnretained(event)
         }
         if commandSpaceState.observe(type: type, keyCode: keyCode) {
