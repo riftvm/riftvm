@@ -155,8 +155,14 @@ control-context fences retire immediately, so completions arrive out of order.
 `VirtioGPUOrderedCompletions` holds an early completion until every earlier
 fenced command has completed, and only then writes the responses, in guest
 submission order. Writing a newer response first let the guest reuse buffers
-the GPU was still drawing into. A fence that does not retire within 10 s is
+the GPU was still drawing into. A fence that does not retire within 2 s is
 completed with an error.
+
+The renderer thread polls for retired fences while any is pending: every 1 ms
+at first, then every 2 ms and finally every 4 ms once eight polls in a row at
+the previous interval retired nothing. New renderer work, a new fence, and a
+retired fence each return the poll to 1 ms. A guest paces its frames on fence
+completion, so the interval never exceeds 4 ms.
 
 ### Validate by resource target
 
@@ -332,6 +338,13 @@ Custom VirGL supports VM start, pause, resume, reset, stop, and stopped-VM file
 snapshots. It does **not** support Virtualization.framework machine-state
 save/restore. Guest RAM does not contain enough information to recreate host
 VirGL contexts, GL objects, mappings, borrowed textures, or in-flight fences.
+
+Pause cancels scheduled frames and tells the view to forget its scanout, but
+releases nothing in the renderer. Resume hands the view the scanout it had,
+through the ordinary frame path, when that resource is still the guest's
+flushed scanout and its texture is still borrowed. An idle guest may not flush
+again for a long time, and without a scanout the view cannot redraw after a
+resize or after being hidden.
 
 The UI must continue to disable or explain state-save operations for this
 backend. A future implementation would need an explicit renderer-state

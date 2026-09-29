@@ -4,6 +4,28 @@ import Foundation
 import Metal
 import OSLog
 
+/// A lower bound on the earliest pending fence deadline, so a poll can tell
+/// that no fence has timed out without walking the pending fences. Retiring a
+/// fence leaves the bound alone: it can only be earlier than the truth, which
+/// costs one walk and never misses a timeout.
+struct FenceDeadlineBound: Equatable {
+    private(set) var earliest: UInt64 = .max
+
+    mutating func insert(_ deadline: UInt64) {
+        earliest = min(earliest, deadline)
+    }
+
+    /// Replace the bound with the exact earliest deadline still pending, or
+    /// with nothing pending.
+    mutating func reset(to exact: UInt64 = .max) {
+        earliest = exact
+    }
+
+    func mayHaveExpired(at now: UInt64) -> Bool {
+        earliest <= now
+    }
+}
+
 final class VirGLRenderer {
     struct ScanoutDiagnostics: Sendable, Equatable {
         let signature: UInt64
@@ -93,6 +115,9 @@ final class VirGLRenderer {
     private var didShutdown = false
     private var nextHostFenceID: UInt32 = 1
     private var pendingFences: [UInt32: PendingFence] = [:]
+    private var fenceDeadlines = FenceDeadlineBound()
+    /// A fence that has not retired after this long completes with an error.
+    static let fenceTimeoutNanoseconds: UInt64 = 2_000_000_000
     private var lastLoggedScanoutDiagnosticGeneration: UInt64 = 0
     private let logger = Logger(subsystem: "com.riftvm.app", category: "virgl-fence")
 
@@ -168,6 +193,7 @@ final class VirGLRenderer {
         shutdownLock.unlock()
         nextHostFenceID = 1
         pendingFences.removeAll(keepingCapacity: true)
+        fenceDeadlines.reset()
         executor.configurePolling { [weak self] in self?.pollFences() }
     }
 
@@ -292,13 +318,15 @@ final class VirGLRenderer {
                 completion(false)
                 return
             }
+            // Responses return in submission order, so a fence that never
+            // retires holds the whole display until this deadline.
+            let deadline = DispatchTime.now().uptimeNanoseconds + Self.fenceTimeoutNanoseconds
             pendingFences[hostFenceID] = PendingFence(
                 contextID: contextID,
-                // Responses return in submission order, so a fence that never
-                // retires holds the whole display until this deadline.
-                deadline: DispatchTime.now().uptimeNanoseconds + 2_000_000_000,
+                deadline: deadline,
                 completion: completion
             )
+            fenceDeadlines.insert(deadline)
             executor.setPollingEnabled(true)
         }
     }
@@ -307,6 +335,7 @@ final class VirGLRenderer {
         executor.sync {
             let completions = self.pendingFences.values.map(\.completion)
             self.pendingFences.removeAll()
+            self.fenceDeadlines.reset()
             self.executor.setPollingEnabled(false)
             completions.forEach { $0(false) }
         }
@@ -425,18 +454,31 @@ final class VirGLRenderer {
             }
         }
         let now = DispatchTime.now().uptimeNanoseconds
-        let expired = pendingFences.compactMap { id, fence in
-            fence.deadline <= now ? id : nil
-        }
-        for id in expired {
-            if let fence = pendingFences.removeValue(forKey: id) {
-                logger.error(
-                    "fence timed out: host=\(id, privacy: .public) context=\(fence.contextID, privacy: .public)"
-                )
-                completions.append((fence.completion, false))
+        if fenceDeadlines.mayHaveExpired(at: now) {
+            var expired: [UInt32] = []
+            var earliestRemaining = UInt64.max
+            for (id, fence) in pendingFences {
+                if fence.deadline <= now {
+                    expired.append(id)
+                } else {
+                    earliestRemaining = min(earliestRemaining, fence.deadline)
+                }
+            }
+            fenceDeadlines.reset(to: earliestRemaining)
+            for id in expired {
+                if let fence = pendingFences.removeValue(forKey: id) {
+                    logger.error(
+                        "fence timed out: host=\(id, privacy: .public) context=\(fence.contextID, privacy: .public)"
+                    )
+                    completions.append((fence.completion, false))
+                }
             }
         }
-        if pendingFences.isEmpty { executor.setPollingEnabled(false) }
+        if pendingFences.isEmpty {
+            executor.setPollingEnabled(false)
+        } else if !completions.isEmpty {
+            executor.pollDidMakeProgress()
+        }
         completions.forEach { completion, succeeded in completion(succeeded) }
     }
 

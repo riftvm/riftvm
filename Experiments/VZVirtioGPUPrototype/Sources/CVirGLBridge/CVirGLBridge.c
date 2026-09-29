@@ -565,8 +565,11 @@ int vzvg_renderer_submit(const void *commands, uint32_t context_id, uint32_t dwo
     // blit observes updates immediately instead of waiting for unrelated guest
     // activity (for example a later pointer-damage command) to flush them.
     if (result == 0) {
-        gl_flush();
         if (context_id < MAX_TRACKED_CONTEXTS) {
+            // The fence is inserted into this context's command stream behind
+            // the work just decoded, so the single flush below submits both,
+            // in that order. Nothing runs between the decode and the fence, so
+            // flushing them separately only split one command buffer in two.
             EGLSync sync = egl_create_sync(egl_display, EGL_SYNC_FENCE, NULL);
             if (sync) {
                 if (guest_context_syncs[context_id]) {
@@ -576,9 +579,12 @@ int vzvg_renderer_submit(const void *commands, uint32_t context_id, uint32_t dwo
                 }
                 guest_context_syncs[context_id] = sync;
                 vzvg_active_context_insert(&active_guest_contexts, context_id);
-                gl_flush();
             }
         }
+        // Always flush, fence or not: the presenter waits on the fence with a
+        // server-side eglWaitSync, which never flushes the producer context,
+        // so an unflushed fence would never signal.
+        gl_flush();
     }
     return result;
 }
