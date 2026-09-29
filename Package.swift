@@ -21,27 +21,6 @@ let package = Package(
             exclude: [
                 "Graphics/VMCustomVirGLGraphics.swift",
             ],
-            sources: [
-                "Common/VMOSResultVoid.swift",
-                "Common/VMOSHelper.swift",
-                "Common/VMDisplayCursorPolicy.swift",
-                "Common/VMCreateProgressMeterPolicy.swift",
-                "Common/VMRunningRegistry.swift",
-                "GuestAgent/VMGuestAgentProtocol.swift",
-                "GuestAgent/VMGuestAgentEnrollmentStore.swift",
-                "Profile/VMOmarchyProfile.swift",
-                "Profile/VMOmarchyStorageForecast.swift",
-                "Profile/VMOmarchyFactoryManifest.swift",
-                "Profile/VMOmarchyFactoryInstaller.swift",
-                "Profile/VMOmarchyDiagnostics.swift",
-                "Profile/VMOmarchyWorkspace.swift",
-                "Profile/VMOmarchySharedFolderImporter.swift",
-                "Profile/VMOmarchySharedFolders.swift",
-                "Profile/VMOmarchyVirtualMachineBuilder.swift",
-                "Profile/VMOmarchyGuestAgentClient.swift",
-                "Profile/ActiveWorkspace.swift",
-                "Snapshot/VMSnapshotManager.swift",
-            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-weak_framework",
