@@ -116,10 +116,17 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             completed()
             return
         }
-        Task { @MainActor [onZeroCopyFrame] in
+        Self.onMain { [onZeroCopyFrame, deviceQueue] in
             onZeroCopyFrame(frame)
-            self.deviceQueue.async { completed() }
+            deviceQueue.async { completed() }
         }
+    }
+
+    /// Every callback into the view takes this one route, so frames, scanout
+    /// invalidations, and cursor updates reach the main thread in the order
+    /// the device queue issued them.
+    private static func onMain(_ body: @escaping @MainActor () -> Void) {
+        DispatchQueue.main.async { MainActor.assumeIsolated(body) }
     }
 
     init(
@@ -310,7 +317,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         // guest resource state remain intact for resume.
         frameScheduler.cancel()
         let sequence = nextPresentationEventSequence()
-        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
+        Self.onMain { [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
         print("[stage6] custom Virtio GPU paused")
     }
 
@@ -372,7 +379,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     private func releaseDeviceState(reason: String) {
         frameScheduler.cancel()
         let sequence = nextPresentationEventSequence()
-        Task { @MainActor [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
+        Self.onMain { [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
         renderer.cancelFences()
         for contextID in contexts { renderer.destroyContext(id: contextID) }
         for resource in resources.values where resource.isRendererResource {
@@ -394,7 +401,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         cursorPosition = VirtioGPU.CursorPosition(scanoutID: 0, x: 0, y: 0)
         borrowedScanoutResources.removeAll()
         assertedDisplayEventGeneration = nil
-        Task { @MainActor [onCursor] in
+        Self.onMain { [onCursor] in
             onCursor(.init(
                 image: nil, x: 0, y: 0, hotX: 0, hotY: 0,
                 replacesImage: true, isVisible: false, isReset: true
@@ -512,7 +519,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 // successful flush arrives.
                 if wasActiveScanout || wasPublishedScanout {
                     let sequence = nextPresentationEventSequence()
-                    Task { @MainActor [onScanoutInvalidated] in
+                    Self.onMain { [onScanoutInvalidated] in
                         onScanoutInvalidated(sequence)
                     }
                 }
@@ -1190,7 +1197,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         if cursorMoveCount <= 5 || cursorMoveCount.isMultiple(of: 1_000) {
             cursorLog("MOVE_CURSOR \(cursorMoveCount): visible=\(isVisible)")
         }
-        Task { @MainActor [onCursor] in
+        Self.onMain { [onCursor] in
             onCursor(.init(
                 image: nil, x: position.x, y: position.y, hotX: 0, hotY: 0,
                 replacesImage: false, isVisible: isVisible
@@ -1201,7 +1208,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     private func publishCursor(image: CGImage?, hotX: UInt32, hotY: UInt32) {
         let position = cursorPosition
-        Task { @MainActor [onCursor] in
+        Self.onMain { [onCursor] in
             onCursor(.init(
                 image: image, x: position.x, y: position.y, hotX: hotX, hotY: hotY,
                 replacesImage: true, isVisible: image != nil
@@ -1361,7 +1368,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
             )
         }
         guard let image = makeImage(resource) else { return }
-        Task { @MainActor in
+        Self.onMain { [onFrame] in
             onFrame(image)
         }
     }
