@@ -3,7 +3,9 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-fixture=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-image-source.XXXXXX")
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+fixture=$(riftvm_mktemp_dir riftvm-omarchy-image-source)
 trap 'rm -rf "$fixture"' EXIT
 profile="$fixture/profiles/aarch64-virt"
 agent_ref=$(git -C "$project_root" rev-parse HEAD)

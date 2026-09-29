@@ -15,7 +15,8 @@ full_screen_observation=${10:-}
 notification_observation=${11:-}
 soak_observation=${12:-}
 
-fail() { echo "verify-omarchy-release-evidence: $*" >&2; exit 1; }
+# shellcheck source=scripts/lib/common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 for path in "$evidence" "$app_archive" "$factory_manifest" "$factory_image" \
   "$integration_observation" "$lifecycle_observation" "$command_super_observation" \
@@ -25,16 +26,16 @@ for path in "$evidence" "$app_archive" "$factory_manifest" "$factory_image" \
 done
 [[ $expected_revision =~ ^[0-9a-f]{40}$ ]] || fail "expected revision must be a full Git commit"
 
-app_sha=$(shasum -a 256 "$app_archive" | awk '{print $1}')
-manifest_sha=$(shasum -a 256 "$factory_manifest" | awk '{print $1}')
-image_sha=$(shasum -a 256 "$factory_image" | awk '{print $1}')
-integration_sha=$(shasum -a 256 "$integration_observation" | awk '{print $1}')
-lifecycle_sha=$(shasum -a 256 "$lifecycle_observation" | awk '{print $1}')
-command_super_sha=$(shasum -a 256 "$command_super_observation" | awk '{print $1}')
-rollback_sha=$(shasum -a 256 "$rollback_observation" | awk '{print $1}')
-full_screen_sha=$(shasum -a 256 "$full_screen_observation" | awk '{print $1}')
-notification_sha=$(shasum -a 256 "$notification_observation" | awk '{print $1}')
-soak_sha=$(shasum -a 256 "$soak_observation" | awk '{print $1}')
+app_sha=$(riftvm_sha256 "$app_archive")
+manifest_sha=$(riftvm_sha256 "$factory_manifest")
+image_sha=$(riftvm_sha256 "$factory_image")
+integration_sha=$(riftvm_sha256 "$integration_observation")
+lifecycle_sha=$(riftvm_sha256 "$lifecycle_observation")
+command_super_sha=$(riftvm_sha256 "$command_super_observation")
+rollback_sha=$(riftvm_sha256 "$rollback_observation")
+full_screen_sha=$(riftvm_sha256 "$full_screen_observation")
+notification_sha=$(riftvm_sha256 "$notification_observation")
+soak_sha=$(riftvm_sha256 "$soak_observation")
 manifest_image_sha=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("payload").fetch("imageSHA256")' "$factory_manifest") || \
   fail "factory manifest is not valid JSON"
 factory_version=$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("payload").fetch("imageVersion")' "$factory_manifest") || \

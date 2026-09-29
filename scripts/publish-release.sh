@@ -163,15 +163,14 @@ RIFTVM_LAUNCH_TIMEOUT="${RIFTVM_LAUNCH_TIMEOUT:-10}" \
 # RiftVM runs one product: Omarchy. The release gate is that the signed app
 # trusts the factory channel it pins; a real-guest pass is the separate
 # acceptance run recorded in docs/V1_RELEASE_CHECKLIST.md.
-RIFTVM_APP_PATH="$install_check_dir/RiftVM.app" \
-  "$project_root/scripts/verify-factory-trust.sh" "$install_check_dir/RiftVM.app"
-
+#
 # Creating an Omarchy workspace fetches a signed factory manifest and rejects a
 # signature no configured key can verify. That rejection breaks workspace
 # creation for every user of the affected factory version while every other
 # release check still passes, so confirm the published manifest verifies
 # against the keys inside this exact build before anything is published.
-"$project_root/scripts/verify-factory-trust.sh" "$install_check_dir/RiftVM.app"
+RIFTVM_APP_PATH="$install_check_dir/RiftVM.app" \
+  "$project_root/scripts/verify-factory-trust.sh" "$install_check_dir/RiftVM.app"
 
 # Publish refs only after the exact candidate has passed notarization,
 # Gatekeeper, GUI readiness, and all real-VM tests.
@@ -228,5 +227,20 @@ git -C "$tap_dir/repository" diff --cached --quiet || \
 git -C "$tap_dir/repository" push
 
 "$project_root/scripts/verify-homebrew-release.sh" "$version" "$source_commit"
+
+# Keep the checked-in Casks/riftvm.rb at the release that was just published.
+# The digest only exists after stapling, so it cannot be part of the tagged
+# release commit and follows as one separate commit. This stays the very last
+# step: until it runs HEAD is still the tagged commit, so an interrupted release
+# can be resumed exactly as before. The release is already published and
+# verified at this point, so a failure here is reported and never fails it.
+if [[ ${RIFTVM_RELEASE_SKIP_CASK_SYNC:-0} == 1 ]]; then
+  echo "publish-release: leaving the checked-in Casks/riftvm.rb unchanged" >&2
+elif ! RIFTVM_RELEASE_BRANCH="$release_branch" \
+    "$project_root/scripts/sync-checked-in-cask.sh" \
+      "$version" "$tap_dir/repository/Casks/riftvm.rb"; then
+  echo "publish-release: RiftVM $version is published, but the checked-in Casks/riftvm.rb was not synced and pushed." >&2
+  echo "publish-release: see the message above, and finish it by hand before the next release." >&2
+fi
 
 echo "Published RiftVM $version to GitHub Releases and Homebrew."

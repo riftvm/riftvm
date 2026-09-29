@@ -4,7 +4,9 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 verifier="$project_root/scripts/verify-release-metadata.sh"
-test_root="$(mktemp -d /tmp/riftvm-release-metadata-test.XXXXXX)"
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+test_root="$(riftvm_mktemp_dir riftvm-release-metadata-test)"
 cleanup() { rm -rf "$test_root"; }
 trap cleanup EXIT
 

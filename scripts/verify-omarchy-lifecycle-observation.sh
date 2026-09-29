@@ -6,7 +6,8 @@ observation=${1:-}
 expected_agent_version=${2:-}
 expected_revision=${3:-}
 
-fail() { echo "verify-omarchy-lifecycle-observation: $*" >&2; exit 1; }
+# shellcheck source=scripts/lib/common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 [[ -f $observation && ! -L $observation ]] || fail "observation is missing or unsafe"
 [[ -n $expected_agent_version ]] || fail "expected Guest Agent version is required"

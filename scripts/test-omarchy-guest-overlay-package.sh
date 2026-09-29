@@ -3,7 +3,9 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-fixture=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-overlay-test.XXXXXX")
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+fixture=$(riftvm_mktemp_dir riftvm-omarchy-overlay-test)
 trap 'rm -rf "$fixture"' EXIT
 
 if bash "$project_root/scripts/build-omarchy-guest-overlay.sh" '../unsafe' "$fixture/invalid" >/dev/null 2>&1; then

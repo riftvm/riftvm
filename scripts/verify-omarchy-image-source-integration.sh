@@ -4,7 +4,8 @@ set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 image_source=${1:-}
-fail() { echo "verify-omarchy-image-source-integration: $*" >&2; exit 1; }
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
 
 [[ -d $image_source && ! -L $image_source ]] || fail "usage: $0 <omarchy-aarch64-image-checkout>"
 profile="$image_source/profiles/aarch64-virt"

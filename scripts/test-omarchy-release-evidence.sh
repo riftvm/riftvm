@@ -3,18 +3,20 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-evidence.XXXXXX")
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+work=$(riftvm_mktemp_dir riftvm-omarchy-evidence)
 trap 'rm -rf "$work"' EXIT
 revision=0123456789abcdef0123456789abcdef01234567
 printf app >"$work/app.zip"
 printf image >"$work/factory.asif"
-image_sha=$(shasum -a 256 "$work/factory.asif" | awk '{print $1}')
+image_sha=$(riftvm_sha256 "$work/factory.asif")
 factory_version=factory-test-1
 agent_version=agent-test-1
 printf '{"payload":{"imageSHA256":"%s","imageVersion":"%s","guestAgentVersion":"%s"}}\n' \
   "$image_sha" "$factory_version" "$agent_version" >"$work/manifest.json"
-app_sha=$(shasum -a 256 "$work/app.zip" | awk '{print $1}')
-manifest_sha=$(shasum -a 256 "$work/manifest.json" | awk '{print $1}')
+app_sha=$(riftvm_sha256 "$work/app.zip")
+manifest_sha=$(riftvm_sha256 "$work/manifest.json")
 started=$(date -u -v-1d '+%Y-%m-%dT%H:%M:%SZ')
 ended=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
@@ -67,29 +69,29 @@ ruby -rjson -e '
   }
   File.write(ARGV.fetch(3), JSON.generate(value))
 ' "$ended" "$agent_version" "$revision" "$work/lifecycle.json"
-integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
-lifecycle_sha=$(shasum -a 256 "$work/lifecycle.json" | awk '{print $1}')
+integration_sha=$(riftvm_sha256 "$work/integration.json")
+lifecycle_sha=$(riftvm_sha256 "$work/lifecycle.json")
 cp "$work/integration.json" "$work/integration.valid.json"
 cp "$work/lifecycle.json" "$work/lifecycle.valid.json"
 printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","eventTapEnabled":true,"commandSpaceKeyDownAndUpCaptured":true,"applicationActiveAfterCapture":true,"virtualMachineWindowKeyAfterCapture":true}\n' \
   "$ended" "$revision" >"$work/command-super.json"
-command_super_sha=$(shasum -a 256 "$work/command-super.json" | awk '{print $1}')
+command_super_sha=$(riftvm_sha256 "$work/command-super.json")
 cp "$work/command-super.json" "$work/command-super.valid.json"
 printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","snapshotID":"snapshot-test","snapshotName":"Before update","snapshotProtected":true,"beforeSHA256":"%064d","simulatedUpdateSHA256":"%064d","restoredSHA256":"%064d","restoredMatchesSnapshot":true,"workspaceReadyAfterRestore":true}\n' \
   "$ended" "$revision" 1 2 1 >"$work/rollback.json"
-rollback_sha=$(shasum -a 256 "$work/rollback.json" | awk '{print $1}')
+rollback_sha=$(riftvm_sha256 "$work/rollback.json")
 cp "$work/rollback.json" "$work/rollback.valid.json"
 printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","enteredAt":"%s","exitedAt":"%s","enteredAndExitedFullScreen":true,"applicationActiveAfterExit":true,"virtualMachineWindowKeyAfterExit":true,"virtualMachineViewFocusedAfterExit":true}\n' \
   "$ended" "$revision" "$ended" "$ended" >"$work/full-screen.json"
-full_screen_sha=$(shasum -a 256 "$work/full-screen.json" | awk '{print $1}')
+full_screen_sha=$(riftvm_sha256 "$work/full-screen.json")
 cp "$work/full-screen.json" "$work/full-screen.valid.json"
 printf '{"schemaVersion":1,"observedAt":"%s","sourceRevision":"%s","guestBootID":"boot-after","guestNotificationID":"notification-id","notificationTitle":"RiftVM notification 12345678-1234-1234-1234-123456789abc","macOSRequestAccepted":true}\n' \
   "$ended" "$revision" >"$work/notification.json"
-notification_sha=$(shasum -a 256 "$work/notification.json" | awk '{print $1}')
+notification_sha=$(riftvm_sha256 "$work/notification.json")
 cp "$work/notification.json" "$work/notification.valid.json"
 printf '{"schemaVersion":1,"startedAt":"%s","endedAt":"%s","sourceRevision":"%s","guestAgentVersion":"%s","agentInstanceID":"instance-soak","bootID":"boot-soak","firstGuestUptimeSeconds":1000,"lastGuestUptimeSeconds":87400,"sampleCount":720,"maximumSampleGapSeconds":120,"continuousOperationSeconds":86400,"desktopContinuouslyActive":true,"provisioningContinuouslyComplete":true}\n' \
   "$started" "$ended" "$revision" "$agent_version" >"$work/soak.json"
-soak_sha=$(shasum -a 256 "$work/soak.json" | awk '{print $1}')
+soak_sha=$(riftvm_sha256 "$work/soak.json")
 cp "$work/soak.json" "$work/soak.valid.json"
 
 write_evidence() {
@@ -123,14 +125,14 @@ write_evidence
 "${verify[@]}" >/dev/null
 
 ruby -rjson -e 'v=JSON.parse(File.read(ARGV[0])); v["workspaceCreatedAt"]="2000-01-01T00:00:00Z"; File.write(ARGV[0], JSON.generate(v))' "$work/integration.json"
-integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
+integration_sha=$(riftvm_sha256 "$work/integration.json")
 write_evidence
 if "${verify[@]}" >/dev/null 2>&1; then
   echo "evidence from a reused workspace was accepted as a clean install" >&2
   exit 1
 fi
 cp "$work/integration.valid.json" "$work/integration.json"
-integration_sha=$(shasum -a 256 "$work/integration.json" | awk '{print $1}')
+integration_sha=$(riftvm_sha256 "$work/integration.json")
 
 write_evidence failed
 if "${verify[@]}" >/dev/null 2>&1; then

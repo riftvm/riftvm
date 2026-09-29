@@ -14,7 +14,7 @@ fail() {
 
 [[ -n "$version" ]] || fail "usage: $0 <version> [source-revision]"
 [[ -n "$expected_revision" ]] || \
-  fail "expected source revision is required as argument 3 or RIFTVM_EXPECTED_SOURCE_REVISION"
+  fail "expected source revision is required as argument 2 or RIFTVM_EXPECTED_SOURCE_REVISION"
 command -v brew >/dev/null 2>&1 || fail "Homebrew is required"
 [[ ! -d /Applications/RiftVM.app ]] || ! pgrep -x RiftVM >/dev/null || \
   fail "quit RiftVM before verifying the Homebrew release"

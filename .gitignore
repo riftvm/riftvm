@@ -1,6 +1,9 @@
 RiftVM/RiftVM.xcodeproj/project.xcworkspace/xcuserdata/
 RiftVM/RiftVM.xcodeproj/xcuserdata/
-RiftVM/RiftVM.xcodeproj/xcshareddata/
+# Shared schemes are checked in so a fresh clone builds every target without
+# running scripts/integrate-omarchy-sources.rb first.
+RiftVM/RiftVM.xcodeproj/xcshareddata/*
+!RiftVM/RiftVM.xcodeproj/xcshareddata/xcschemes/
 .DS_Store
 .build/
 .swiftpm/
@@ -8,3 +11,6 @@ DerivedData/
 
 # Local LLVM coverage output
 *.profraw
+
+# Python bytecode
+__pycache__/
