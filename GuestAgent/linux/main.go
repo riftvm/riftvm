@@ -145,6 +145,32 @@ func serveWithInput(stream io.ReadWriter, config enrollment, input guestInput) e
 }
 
 func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input guestInput, readStatus func(bool, bool) status) error {
+	return serveSession(stream, config, input, sessionHooks{readStatus: readStatus})
+}
+
+// sessionHooks replaces the slow collaborators of a session in tests.
+type sessionHooks struct {
+	readStatus     func(bool, bool) status
+	handleTransfer func(*transferSession, string, []byte) transferResult
+}
+
+// livenessOperation reports whether an operation only proves the Agent is
+// alive and describes the guest. The Host declares the Agent unresponsive when
+// nothing answers for 30 seconds, so these must not wait behind a transfer
+// that hashes a large file or a clipboard request that waits for the desktop.
+func livenessOperation(operation string) bool {
+	return operation == "heartbeat" || operation == "status"
+}
+
+func serveSession(stream io.ReadWriter, config enrollment, input guestInput, hooks sessionHooks) error {
+	readStatus := hooks.readStatus
+	if readStatus == nil {
+		readStatus = currentStatus
+	}
+	handleTransfer := hooks.handleTransfer
+	if handleTransfer == nil {
+		handleTransfer = (*transferSession).handle
+	}
 	transfers := newTransferSession()
 	defer transfers.close()
 	guestNonceBytes := make([]byte, 32)
@@ -174,6 +200,8 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 
 	// Control operations stay ordered, but compositor probes, clipboard IPC and
 	// file transfers must not delay keyboard releases on the authenticated stream.
+	// Heartbeat and status run on their own ordered lane for the same reason:
+	// the Host matches every response by request ID, not by arrival order.
 	// Serialize response framing and sequence allocation, not request execution.
 	var sentSequence uint64
 	var writeLock sync.Mutex
@@ -217,7 +245,7 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 				os.Exit(0)
 			}()
 		case "uploadStart", "uploadChunk", "uploadCommit", "transferCancel", "downloadInfo", "downloadChunk":
-			result := transfers.handle(request.Operation, request.Payload)
+			result := handleTransfer(transfers, request.Operation, request.Payload)
 			payload, err := json.Marshal(result)
 			if err != nil {
 				return err
@@ -258,32 +286,40 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 		return nil
 	}
 	commands := make(chan envelope, 16)
-	workerDone := make(chan struct{})
-	workerError := make(chan error, 1)
-	go func() {
-		defer close(workerDone)
-		for {
-			select {
-			case <-stopped:
-				return
-			case request := <-commands:
+	liveness := make(chan envelope, 16)
+	var workers sync.WaitGroup
+	// One slot per lane: a failing worker never blocks on reporting its error.
+	workerError := make(chan error, 2)
+	for _, lane := range []chan envelope{commands, liveness} {
+		workers.Add(1)
+		go func(lane <-chan envelope) {
+			defer workers.Done()
+			for {
 				select {
 				case <-stopped:
 					return
-				default:
-				}
-				if err := control(request); err != nil {
-					workerError <- err
-					interruptSessionStream(stream)
-					return
+				case request := <-lane:
+					select {
+					case <-stopped:
+						return
+					default:
+					}
+					if err := control(request); err != nil {
+						workerError <- err
+						interruptSessionStream(stream)
+						return
+					}
 				}
 			}
-		}
-	}()
+		}(lane)
+	}
 	defer func() {
 		close(stopped)
+		// Abandon a checksum that is still reading the source file; its
+		// response can no longer be delivered.
+		transfers.interrupt()
 		interruptSessionStream(stream)
-		<-workerDone
+		workers.Wait()
 	}()
 	pressedKeys := make(map[uint16]bool)
 	defer func() {
@@ -311,9 +347,8 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 		}
 		receivedSequence = request.Sequence
 		if request.Operation == "input" {
-			result := handleInput(input, request.Payload)
+			result, events := handleInputEvents(input, request.Payload)
 			if result.Success {
-				events, _ := decodeInputBatch(request.Payload)
 				for _, event := range events {
 					if event.Type != 1 {
 						continue
@@ -333,8 +368,12 @@ func serveWithStatusProvider(stream io.ReadWriter, config enrollment, input gues
 				return err
 			}
 		} else {
+			lane := commands
+			if livenessOperation(request.Operation) {
+				lane = liveness
+			}
 			select {
-			case commands <- request:
+			case lane <- request:
 			default:
 				return errors.New("too many pending control requests")
 			}
@@ -354,7 +393,7 @@ func interruptSessionStream(stream io.ReadWriter) {
 
 func makeEnvelope(token []byte, sessionID string, sequence uint64, requestID, operation string, payload []byte) envelope {
 	value := envelope{Version: protocolVersion, SessionID: sessionID, Sequence: sequence, RequestID: requestID, Operation: operation, Payload: payload}
-	value.Proof = sign(token, envelopeText(value))
+	value.Proof = signBytes(token, appendEnvelopeText(nil, value))
 	return value
 }
 
@@ -368,20 +407,42 @@ func verifyEnvelope(token []byte, sessionID string, value envelope, lastSequence
 	if len(value.Payload) > maxFrameBytes {
 		return errors.New("oversized payload")
 	}
-	if !secureEqual(sign(token, envelopeText(value)), value.Proof) {
+	if !secureEqual(signBytes(token, appendEnvelopeText(nil, value)), value.Proof) {
 		return errors.New("invalid message proof")
 	}
 	return nil
 }
 
+// envelopeText is the exact text authenticated by an envelope proof:
+// "message|<version>|<sessionID>|<sequence>|<requestID>|<operation>|<base64 payload>".
 func envelopeText(value envelope) string {
-	return fmt.Sprintf("message|%d|%s|%d|%s|%s|%s", value.Version, value.SessionID, value.Sequence, value.RequestID, value.Operation, base64.StdEncoding.EncodeToString(value.Payload))
+	return string(appendEnvelopeText(nil, value))
+}
+
+func appendEnvelopeText(buffer []byte, value envelope) []byte {
+	buffer = append(buffer, "message|"...)
+	buffer = strconv.AppendInt(buffer, int64(value.Version), 10)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.SessionID...)
+	buffer = append(buffer, '|')
+	buffer = strconv.AppendUint(buffer, value.Sequence, 10)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.RequestID...)
+	buffer = append(buffer, '|')
+	buffer = append(buffer, value.Operation...)
+	buffer = append(buffer, '|')
+	return base64.StdEncoding.AppendEncode(buffer, value.Payload)
 }
 
 func sign(token []byte, text string) string {
+	return signBytes(token, []byte(text))
+}
+
+func signBytes(token, text []byte) string {
 	mac := hmac.New(sha256.New, token)
-	mac.Write([]byte(text))
-	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	mac.Write(text)
+	var digest [sha256.Size]byte
+	return base64.StdEncoding.EncodeToString(mac.Sum(digest[:0]))
 }
 
 func secureEqual(first, second string) bool {
@@ -406,12 +467,12 @@ func writeFrame(writer io.Writer, value any) error {
 	if len(payload) > maxFrameBytes {
 		return errors.New("frame too large")
 	}
-	var header [4]byte
-	binary.BigEndian.PutUint32(header[:], uint32(len(payload)))
-	if _, err := writer.Write(header[:]); err != nil {
-		return err
-	}
-	_, err = writer.Write(payload)
+	// Send the length prefix and the body with one Write: two writes put two
+	// packets on the stream and wake the peer twice for every frame.
+	frame := make([]byte, 4+len(payload))
+	binary.BigEndian.PutUint32(frame[:4], uint32(len(payload)))
+	copy(frame[4:], payload)
+	_, err = writer.Write(frame)
 	return err
 }
 
@@ -432,6 +493,11 @@ func readFrame(reader io.Reader, value any) error {
 }
 
 func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
+	return statusReport(inputAvailable, absolutePointerAvailable, newDesktopProbe(guestSystemAccess()), installedOmarchyRevision)
+}
+
+// statusReport builds one status from a single view of the desktop.
+func statusReport(inputAvailable, absolutePointerAvailable bool, desktop *desktopProbe, omarchyRevision func() string) status {
 	hostName, _ := os.Hostname()
 	addresses := []string{}
 	interfaces, _ := net.Interfaces()
@@ -448,16 +514,17 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
 	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1", "agent-restart-v1"}
-	if ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending") {
+	provisioningPending := ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending")
+	if provisioningPending {
 		capabilities = append(capabilities, ownerProvisioningCapability)
 	}
 	if sshListening() {
 		capabilities = append(capabilities, "ssh-addresses-v1")
 	}
-	desktopActive := desktopSessionActive()
+	desktopActive := desktop.desktopSessionActive()
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1", "input-horizontal-wheel-v1")
-		if desktopActive && desktopInputReady() {
+		if desktopActive && desktop.desktopInputReady() {
 			capabilities = append(capabilities, "input-uinput-desktop-v1", "desktop-input-v1")
 		}
 	}
@@ -475,10 +542,10 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	// must mean the running desktop actually reads the node. During firmware
 	// and login no user desktop exists yet, and there the device is the only
 	// path available.
-	if absolutePointerAvailable && (!desktopActive || desktopPointerInputReady()) {
+	if absolutePointerAvailable && (!desktopActive || desktop.desktopPointerInputReady()) {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: installedOmarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: omarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: desktop.inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: provisioningPending, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sshListening() bool {
@@ -535,74 +602,6 @@ func mountOptionsContain(options, wanted string) bool {
 		}
 	}
 	return false
-}
-
-func inputDeviceNames() []string {
-	data, err := os.ReadFile("/proc/bus/input/devices")
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, block := range strings.Split(string(data), "\n\n") {
-		name := ""
-		handlers := ""
-		for _, line := range strings.Split(block, "\n") {
-			switch {
-			case strings.HasPrefix(line, "N: Name="):
-				name = strings.Trim(strings.TrimPrefix(line, "N: Name="), "\"")
-			case strings.HasPrefix(line, "H: Handlers="):
-				handlers = strings.TrimSpace(strings.TrimPrefix(line, "H: Handlers="))
-			}
-		}
-		if name != "" {
-			if handlers != "" {
-				name += " [" + handlers + "]"
-			}
-			names = append(names, name)
-		}
-	}
-	if consumers := hyprlandInputDevices(); len(consumers) > 0 {
-		names = append(names, "Hyprland open input devices ["+strings.Join(consumers, " ")+"]")
-	} else {
-		names = append(names, "Hyprland open input devices [none]")
-	}
-	return append([]string{hyprlandDeviceDiagnostics(), inputDiagnostics()}, names...)
-}
-
-func hyprlandInputDevices() []string {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return nil
-	}
-	seen := make(map[string]bool)
-	var devices []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		pid := entry.Name()
-		if _, err := strconv.Atoi(pid); err != nil {
-			continue
-		}
-		comm := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
-		if !strings.Contains(comm, "hyprland") {
-			continue
-		}
-		fds, err := os.ReadDir("/proc/" + pid + "/fd")
-		if err != nil {
-			continue
-		}
-		for _, fd := range fds {
-			target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
-			if err != nil || !strings.HasPrefix(target, "/dev/input/event") || seen[target] {
-				continue
-			}
-			seen[target] = true
-			devices = append(devices, strings.TrimPrefix(target, "/dev/input/"))
-		}
-	}
-	sort.Strings(devices)
-	return devices
 }
 
 func kvmStatus() (bool, int, string) {

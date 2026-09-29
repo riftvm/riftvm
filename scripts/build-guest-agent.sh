@@ -22,6 +22,7 @@ trap 'rm -rf "$staging"' EXIT
   go test ./...
   GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
     -trimpath \
+    -buildvcs=false \
     -ldflags "-s -w -X main.version=$version" \
     -o "$staging/rift-agent-linux-arm64" .
 )

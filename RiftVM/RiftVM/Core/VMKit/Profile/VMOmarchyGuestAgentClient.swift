@@ -182,12 +182,24 @@ public struct VMOmarchyClipboardRequest: Codable, Equatable, Sendable {
     public let mimeType: String
     public let byteCount: UInt64
     public let sha256: String
+    /// Optional, captures only: the SHA-256 of the item the Host captured
+    /// last for this MIME type. It is omitted from the request when `nil`.
+    /// An Agent that knows the field answers `unchanged` instead of staging
+    /// the same item again; an older Agent ignores it and stages the item.
+    public let knownSHA256: String?
 
-    public init(relativePath: String, mimeType: String, byteCount: UInt64, sha256: String) {
+    public init(
+        relativePath: String,
+        mimeType: String,
+        byteCount: UInt64,
+        sha256: String,
+        knownSHA256: String? = nil
+    ) {
         self.relativePath = relativePath
         self.mimeType = mimeType
         self.byteCount = byteCount
         self.sha256 = sha256
+        self.knownSHA256 = knownSHA256
     }
 }
 
@@ -196,6 +208,111 @@ public struct VMOmarchyClipboardResult: Codable, Equatable, Sendable {
     public let message: String
     public let byteCount: UInt64?
     public let sha256: String?
+    /// Optional: `true` when the Guest selection still has the digest the
+    /// request named in `knownSHA256`. Nothing was staged in that case. An
+    /// older Agent never sends it.
+    public let unchanged: Bool?
+
+    public init(
+        success: Bool,
+        message: String,
+        byteCount: UInt64? = nil,
+        sha256: String? = nil,
+        unchanged: Bool? = nil
+    ) {
+        self.success = success
+        self.message = message
+        self.byteCount = byteCount
+        self.sha256 = sha256
+        self.unchanged = unchanged
+    }
+
+    /// Whether this answers a capture that named `knownSHA256` with "the
+    /// selection is still that item". An answer that claims so without
+    /// having been asked, or for another digest, is not trusted.
+    public func confirmsUnchanged(knownSHA256: String?) -> Bool {
+        guard success, unchanged == true, let knownSHA256, !knownSHA256.isEmpty else { return false }
+        return sha256 == knownSHA256
+    }
+}
+
+/// What the Host remembers between two Guest clipboard captures so that it
+/// can name the item it already holds and recognize the answer "unchanged".
+///
+/// The rule that keeps behaviour identical to capturing the item again: a
+/// digest is remembered for a MIME type only from one capture to the next,
+/// and only while that MIME type was actually probed. `unchanged` therefore
+/// always means "this capture has the same result as the previous capture",
+/// which the Host has already handled. Anything that changes how a captured
+/// item would be handled (an item sent to the Guest, a failed publication)
+/// must `reset()` the memory.
+public struct VMOmarchyClipboardCaptureMemory: Equatable, Sendable {
+    /// The outcome of probing one MIME type.
+    public enum Probe: Equatable, Sendable {
+        /// The Guest offers nothing for this MIME type, or the capture failed.
+        case failed
+        /// The Agent confirmed the digest named in the request.
+        case unchanged
+        /// The item was staged and read. `usable` is whether the Host can
+        /// publish it (a decodable image, valid UTF-8 text).
+        case captured(sha256: String, usable: Bool)
+    }
+
+    public enum Resolution: Equatable, Sendable {
+        /// The capture has the same result as the previous one.
+        case unchanged
+        /// The probed item is the result of this capture.
+        case captured
+        /// This MIME type yields nothing; probe the next one.
+        case tryNext
+    }
+
+    private struct Entry: Equatable, Sendable {
+        let sha256: String
+        let usable: Bool
+    }
+
+    private var entries: [String: Entry] = [:]
+    private var probed: Set<String> = []
+
+    public init() {}
+
+    /// The digest to name when probing `mimeType`, if any.
+    public func knownSHA256(for mimeType: String) -> String? {
+        entries[mimeType]?.sha256
+    }
+
+    public mutating func beginCapture() {
+        probed.removeAll()
+    }
+
+    public mutating func resolve(_ probe: Probe, for mimeType: String) -> Resolution {
+        probed.insert(mimeType)
+        switch probe {
+        case .failed:
+            entries[mimeType] = nil
+            return .tryNext
+        case .unchanged:
+            guard let entry = entries[mimeType] else { return .tryNext }
+            return entry.usable ? .unchanged : .tryNext
+        case let .captured(sha256, usable):
+            entries[mimeType] = Entry(sha256: sha256, usable: usable)
+            return usable ? .captured : .tryNext
+        }
+    }
+
+    /// Forgets every MIME type this capture did not probe: its item was not
+    /// part of the result, so a later "unchanged" for it would not mean that
+    /// the result is unchanged.
+    public mutating func endCapture() {
+        entries = entries.filter { probed.contains($0.key) }
+        probed.removeAll()
+    }
+
+    public mutating func reset() {
+        entries.removeAll()
+        probed.removeAll()
+    }
 }
 
 public struct VMOmarchyDesktopNotification: Codable, Equatable, Sendable {

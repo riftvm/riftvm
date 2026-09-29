@@ -38,6 +38,9 @@ replayed or out-of-order sequences, and any modified field.
 
 Input requests are handled independently of the ordered control-operation queue,
 so status probes, clipboard IPC, and transfers cannot hold up key releases.
+`heartbeat` and `status` are ordered among themselves but likewise independent
+of that queue: a transfer that hashes a large file, or a clipboard request that
+waits for the desktop, cannot make the Agent look unresponsive to the Host.
 Responses are matched by request ID and may complete in a different order from
 requests. Their framing and sequence allocation remain serialized. Disconnecting
 releases keys successfully pressed by that session and discards queued controls.
@@ -93,6 +96,26 @@ and the host keeps the single-folder layout for Agents without it. The Session
 Agent verifies the exact byte count and
 SHA-256 before publishing a selection and reads it back through Wayland before
 reporting success. The macOS integration is independently disableable.
+
+A `clipboardGet` request may carry the optional field `knownSHA256`: the
+lowercase SHA-256 of the item the Host captured last for that MIME type. An
+Agent that knows the field hashes the selection before it stages anything and,
+when the digest matches, answers with `success`, the `byteCount` and `sha256`
+of the selection, and the optional field `unchanged: true`, without writing to
+the staging directory. Otherwise it stages the selection and answers as it
+always has. Both fields are additive and need no capability:
+
+- An Agent that does not know `knownSHA256` ignores it and stages the
+  selection, so a Host that sends it behaves exactly as one that does not.
+- A Host that does not know the fields never sends `knownSHA256`, and an Agent
+  never answers `unchanged` to a request without a valid `knownSHA256`. A value
+  that is not a lowercase SHA-256 is ignored, not rejected.
+- `unchanged` counts only for the digest the request named. The Host treats
+  any other `unchanged` answer as a failed capture and reads no staged file.
+
+An Agent stages a capture only once the selection has produced data, so a
+capture of a format the selection does not offer fails without touching the
+staging directory.
 `desktop-notifications-v1` is advertised only when an active Wayland Session
 Agent can verify the current user's Omarchy notification-state directory. The
 read-only `desktopNotifications` operation accepts no action payload and returns

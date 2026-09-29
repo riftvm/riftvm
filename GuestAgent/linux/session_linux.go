@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -254,31 +253,6 @@ func detectSessionCapabilities(uid uint32) []string {
 func containsString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
-			return true
-		}
-	}
-	return false
-}
-
-func processOwnedBy(name string, uid uint32) bool {
-	entries, _ := filepath.Glob("/proc/[0-9]*/status")
-	for _, path := range entries {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		processName := ""
-		processUID := uint64(^uint32(0))
-		for _, line := range strings.Split(string(data), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) >= 2 && fields[0] == "Name:" {
-				processName = fields[1]
-			}
-			if len(fields) >= 2 && fields[0] == "Uid:" {
-				processUID, _ = strconv.ParseUint(fields[1], 10, 32)
-			}
-		}
-		if processName == name && uint32(processUID) == uid {
 			return true
 		}
 	}
