@@ -92,6 +92,7 @@ jobs:
           scripts/test-omarchy-lifecycle-observation.sh
           scripts/test-virgl-capture-preflight.sh
           scripts/test-virgl-performance-gate.sh
+          scripts/test-string-catalog.sh
 
   shell-scripts:
     runs-on: ubuntu-24.04
