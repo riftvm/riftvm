@@ -7,7 +7,8 @@ expected_revision=${2:-}
 expected_factory_version=${3:-}
 expected_agent_version=${4:-}
 
-fail() { echo "verify-omarchy-integration-observation: $*" >&2; exit 1; }
+# shellcheck source=scripts/lib/common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 
 [[ -f $observation && ! -L $observation ]] || fail "observation is missing or unsafe"
 [[ $expected_revision =~ ^[0-9a-f]{40}$ ]] || fail "expected revision must be a full Git commit"

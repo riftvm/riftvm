@@ -4,7 +4,9 @@ set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/.." && pwd -P)"
 verifier="$project_root/scripts/verify-virgl-performance.sh"
-temporary_directory="$(mktemp -d /tmp/riftvm-virgl-gate-tests.XXXXXX)"
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+temporary_directory="$(riftvm_mktemp_dir riftvm-virgl-gate-tests)"
 trap 'rm -rf "$temporary_directory"' EXIT
 
 write_report() {

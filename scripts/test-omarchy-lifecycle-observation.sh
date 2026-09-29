@@ -3,7 +3,9 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-lifecycle.XXXXXX")
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+work=$(riftvm_mktemp_dir riftvm-omarchy-lifecycle)
 trap 'rm -rf "$work"' EXIT
 agent=0123456789abcdef0123456789abcdef01234567
 revision=1234567890abcdef1234567890abcdef12345678
