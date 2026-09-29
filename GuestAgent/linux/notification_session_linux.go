@@ -9,16 +9,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
 	"syscall"
 	"time"
 )
-
-const maximumNotificationSnapshotBytes = 64 * 1024
-
-var omarchyNotificationFilePattern = regexp.MustCompile(`^([0-9]+)-([0-9]+)\.json$`)
 
 func desktopNotificationStateDirectory() string {
 	home, err := os.UserHomeDir()
@@ -36,70 +29,6 @@ func desktopNotificationStateAvailable(uid uint32) bool {
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	return ok && stat.Uid == uid
-}
-
-func loadDesktopNotifications(directory string, uid uint32) desktopNotificationBatch {
-	entries, err := os.ReadDir(directory)
-	if err != nil {
-		return desktopNotificationBatch{Message: "Omarchy notification state is unavailable."}
-	}
-	values := make([]desktopNotification, 0, len(entries))
-	for _, entry := range entries {
-		matches := omarchyNotificationFilePattern.FindStringSubmatch(entry.Name())
-		if len(matches) != 3 || entry.Type()&os.ModeSymlink != 0 {
-			continue
-		}
-		path := filepath.Join(directory, entry.Name())
-		info, err := os.Lstat(path)
-		if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > maximumNotificationSnapshotBytes {
-			continue
-		}
-		stat, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || stat.Uid != uid {
-			continue
-		}
-		file, err := os.Open(path)
-		if err != nil {
-			continue
-		}
-		// Revalidate the opened descriptor. The desktop user owns this directory
-		// and can replace a path between Lstat and Open; only consume the exact
-		// regular, owned, bounded file that is now open.
-		openedInfo, statError := file.Stat()
-		openedStat, statOK := openedInfo.Sys().(*syscall.Stat_t)
-		if statError != nil || !openedInfo.Mode().IsRegular() || openedInfo.Size() <= 0 ||
-			openedInfo.Size() > maximumNotificationSnapshotBytes || !statOK || openedStat.Uid != uid {
-			file.Close()
-			continue
-		}
-		var snapshot omarchyNotificationSnapshot
-		decodeError := json.NewDecoder(io.LimitReader(file, maximumNotificationSnapshotBytes+1)).Decode(&snapshot)
-		file.Close()
-		if decodeError != nil {
-			continue
-		}
-		fileTimestamp, _ := strconv.ParseUint(matches[1], 10, 64)
-		if snapshot.Timestamp == 0 {
-			snapshot.Timestamp = fileTimestamp
-		}
-		value, err := validatedDesktopNotification(desktopNotification{
-			ID: entry.Name(), App: snapshot.App, Title: snapshot.Summary,
-			Body: snapshot.Body, Urgency: snapshot.Urgency, Timestamp: snapshot.Timestamp,
-		})
-		if err == nil {
-			values = append(values, value)
-		}
-	}
-	sort.Slice(values, func(first, second int) bool {
-		if values[first].Timestamp == values[second].Timestamp {
-			return values[first].ID < values[second].ID
-		}
-		return values[first].Timestamp < values[second].Timestamp
-	})
-	if len(values) > maximumDesktopNotifications {
-		values = values[len(values)-maximumDesktopNotifications:]
-	}
-	return desktopNotificationBatch{Success: true, Message: "Current Omarchy notifications captured.", Notifications: values}
 }
 
 func proxyDesktopNotifications() desktopNotificationBatch {
@@ -152,5 +81,5 @@ func notificationSessionResponse() desktopNotificationBatch {
 	if directory == "" {
 		return desktopNotificationBatch{Message: "Omarchy notification state is unavailable."}
 	}
-	return loadDesktopNotifications(directory, uint32(os.Getuid()))
+	return desktopNotificationCache.load(directory, uint32(os.Getuid()), time.Now())
 }
