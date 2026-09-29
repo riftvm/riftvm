@@ -2099,18 +2099,21 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         var integrationClient: VMOmarchyGuestAgentClient?
         var agentClipboardController: OmarchyAgentClipboardController?
         var notificationController: OmarchyNotificationController?
+        var latestGuestStatus: VMOmarchyGuestStatus?
+        weak var machineView: VZVirtualMachineView?
+        // State of the automatic acceptance probes. Production has no probe
+        // implementation, so it carries none of their state either.
+        #if RIFTVM_ACCEPTANCE_HARNESS
         var notificationAcceptanceProbeTask: Task<Void, Never>?
         var notificationAcceptanceProbeStarted = false
         var notificationAcceptanceProbeCompleted = false
         var expectedAcceptanceNotificationTitle: String?
-        var latestGuestStatus: VMOmarchyGuestStatus?
         var clipboardProbeOwnsTransport = false
         var sharedFolderProbeTask: Task<Void, Never>?
         var sharedFolderProbePassed = false
         var desktopCommandStarted = false
         var clipboardProbeTask: Task<Void, Never>?
         var clipboardProbePassed = false
-        weak var machineView: VZVirtualMachineView?
         var dynamicDisplayProbeTask: Task<Void, Never>?
         var inputLatencyProbeTask: Task<Void, Never>?
         var inputLatencyProbeStarted = false
@@ -2119,6 +2122,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         var lockProbeTask: Task<Void, Never>?
         var bootUnlockAcceptanceStarted = false
         var dynamicDisplayProbePassed = false
+        #else
+        /// No probe exists to take the clipboard transport.
+        var clipboardProbeOwnsTransport: Bool { false }
+        #endif
         var acceptanceFailureRecorded = false
         var acceptanceEnabled: Bool {
             !acceptanceFailureRecorded && OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout)
@@ -2127,6 +2134,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func reportAcceptanceFailure(_ message: String) {
             guard !acceptanceFailureRecorded else { return }
             acceptanceFailureRecorded = true
+            #if RIFTVM_ACCEPTANCE_HARNESS
             automaticRecoveryStage = .idle
             lockProbeTask?.cancel()
             inputLatencyProbeTask?.cancel()
@@ -2137,6 +2145,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeTask?.cancel()
             guestRestartUnlockTimeoutTask?.cancel()
             hostWakeInteractiveTask?.cancel()
+            #endif
             NSLog("Omarchy acceptance failed (VM lifecycle unchanged): %@", message)
             let report: [String: Any] = [
                 "schemaVersion": 1, "result": "failed", "message": message,
@@ -2152,6 +2161,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             acceptanceFailureChanged(message)
         }
 
+        #if RIFTVM_ACCEPTANCE_HARNESS
         var automaticLockProbe = OmarchyLockAcceptanceState()
         var automaticPauseResumeProbeStarted = false
         var automaticRecoveryAfterResume = false
@@ -2162,12 +2172,12 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         var hostWakeInteractiveTask: Task<Void, Never>?
         var automaticCommandSpaceProbeStarted = false
         var automaticFullScreenProbeStarted = false
-        #if RIFTVM_ACCEPTANCE_HARNESS
         var fullScreenProbe: OmarchyFullScreenAcceptanceProbe?
         #endif
         var lastOwnerProvisioningSubmissionID: UUID?
         var ownerProgressFetchInFlight = false
 
+        #if RIFTVM_ACCEPTANCE_HARNESS
         enum AutomaticRecoveryStage {
             case idle
             case waitingForPostResumeReady
@@ -2177,6 +2187,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             case waitingForGuestReady
             case complete
         }
+        #endif
 
         init(
             sessionID: UUID,
@@ -2267,7 +2278,9 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             if let resumeObserver { NotificationCenter.default.removeObserver(resumeObserver) }
             if let keyboardPermissionObserver { NotificationCenter.default.removeObserver(keyboardPermissionObserver) }
             if let forceStopObserver { NotificationCenter.default.removeObserver(forceStopObserver) }
+            #if RIFTVM_ACCEPTANCE_HARNESS
             hostWakeInteractiveTask?.cancel()
+            #endif
         }
 
         func beginObservingCommands() {
@@ -2524,6 +2537,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                 return
             }
             guard notificationController == nil else { return }
+            #if RIFTVM_ACCEPTANCE_HARNESS
             let controller = OmarchyNotificationController(
                 client: integrationClient,
                 bootID: status.bootID,
@@ -2540,6 +2554,13 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     NSLog("Omarchy Guest notification was accepted by macOS Notification Center")
                 }
             )
+            #else
+            // Only a probe expects a particular notification.
+            let controller = OmarchyNotificationController(
+                client: integrationClient,
+                bootID: status.bootID
+            )
+            #endif
             notificationController = controller
             controller.start()
             startNotificationAcceptanceProbeIfNeeded(client: integrationClient)
@@ -2560,12 +2581,14 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         func stopNotifications() {
             notificationController?.stop()
             notificationController = nil
+            #if RIFTVM_ACCEPTANCE_HARNESS
             notificationAcceptanceProbeTask?.cancel()
             notificationAcceptanceProbeTask = nil
             expectedAcceptanceNotificationTitle = nil
             if !notificationAcceptanceProbeCompleted {
                 notificationAcceptanceProbeStarted = false
             }
+            #endif
         }
 
         @MainActor
@@ -2581,6 +2604,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
 
         @MainActor
         func handleAutomaticRecoveryDisconnect() {
+            #if RIFTVM_ACCEPTANCE_HARNESS
             switch automaticRecoveryStage {
             case .waitingForAgentDisconnect:
                 OmarchyAcceptanceObservationReporter.reportRecoveryEventIfEnabled(
@@ -2598,6 +2622,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                  .waitingForGuestReady, .complete:
                 break
             }
+            #endif
         }
 
         func requestStop() {
@@ -2649,7 +2674,9 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             }
                         }
                     case .failure(let error):
+                        #if RIFTVM_ACCEPTANCE_HARNESS
                         self.automaticPauseResumeProbeStarted = false
+                        #endif
                         self.phaseChanged(.failed(error.localizedDescription))
                     }
                 }
@@ -2670,15 +2697,19 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                             .resumed,
                             layout: self.layout
                         )
+                        #if RIFTVM_ACCEPTANCE_HARNESS
                         if self.automaticRecoveryAfterResume {
                             self.automaticRecoveryAfterResume = false
                             self.automaticRecoveryStage = .waitingForPostResumeReady
                         }
+                        #endif
                         self.integrationClient?.virtualMachineDidResume()
                         self.keyboardBridge?.start()
                         self.phaseChanged(.running)
                     case .failure(let error):
+                        #if RIFTVM_ACCEPTANCE_HARNESS
                         self.automaticPauseResumeProbeStarted = false
+                        #endif
                         self.phaseChanged(.failed(error.localizedDescription))
                     }
                 }
@@ -2715,6 +2746,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func stopImmediately() {
+            #if RIFTVM_ACCEPTANCE_HARNESS
             inputLatencyProbeTask?.cancel()
             inputLatencyProbeTask = nil
             sharedFolderProbeTask?.cancel()
@@ -2723,6 +2755,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             clipboardProbeTask = nil
             dynamicDisplayProbeTask?.cancel()
             dynamicDisplayProbeTask = nil
+            #endif
             keyboardBridge?.stop()
             keyboardBridge = nil
             stopIntegration()
@@ -2801,12 +2834,14 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         }
 
         func stopIntegration() {
+            #if RIFTVM_ACCEPTANCE_HARNESS
             lockProbeTask?.cancel()
             lockProbeTask = nil
             continuousInputProbeTask?.cancel()
             continuousInputProbeTask = nil
             inputLatencyProbeTask?.cancel()
             inputLatencyProbeTask = nil
+            #endif
             (machineView as? OmarchyVirtualMachineInputView)?.setGuestInputEventHandler(nil)
             let clipboardController = agentClipboardController
             agentClipboardController = nil
@@ -2814,6 +2849,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             let notifications = notificationController
             notificationController = nil
             Task { @MainActor in notifications?.stop() }
+            #if RIFTVM_ACCEPTANCE_HARNESS
             sharedFolderProbeTask?.cancel()
             sharedFolderProbeTask = nil
             sharedFolderProbePassed = false
@@ -2823,6 +2859,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             dynamicDisplayProbeTask?.cancel()
             dynamicDisplayProbeTask = nil
             dynamicDisplayProbePassed = false
+            #endif
             let client = integrationClient
             integrationClient = nil
             Task { @MainActor in client?.stop() }
