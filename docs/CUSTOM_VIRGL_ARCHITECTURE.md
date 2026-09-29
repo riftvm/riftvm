@@ -155,8 +155,14 @@ control-context fences retire immediately, so completions arrive out of order.
 `VirtioGPUOrderedCompletions` holds an early completion until every earlier
 fenced command has completed, and only then writes the responses, in guest
 submission order. Writing a newer response first let the guest reuse buffers
-the GPU was still drawing into. A fence that does not retire within 10 s is
+the GPU was still drawing into. A fence that does not retire within 2 s is
 completed with an error.
+
+The renderer thread polls for retired fences while any is pending: every 1 ms
+at first, then every 2 ms and finally every 4 ms once eight polls in a row at
+the previous interval retired nothing. New renderer work, a new fence, and a
+retired fence each return the poll to 1 ms. A guest paces its frames on fence
+completion, so the interval never exceeds 4 ms.
 
 ### Validate by resource target
 
