@@ -300,6 +300,8 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                 let result = try await OmarchyClipboardAcceptanceProbe.run(
                     client: integrationClient,
                     sharedDirectory: acceptanceSharedFolder,
+                    agentStagingDirectory: self.sharePlan?.clipboardStaging ?? self.layout.transfer,
+                    agentRelativePrefix: VMOmarchySharePlan.clipboardRelativePrefix,
                     unlockCredential: OmarchyAcceptanceUnlockCredential(
                         environment: ProcessInfo.processInfo.environment
                     )
@@ -749,6 +751,20 @@ extension OmarchyVirtualMachineRepresentable.Coordinator {
                     try await Task.sleep(for: .milliseconds(50))
                 }
                 guard self.keyboardBridge?.runAcceptanceCommandSpaceProbe() == true else {
+                    // A run on a Mac where the harness has no Accessibility
+                    // permission cannot test Command chords at all. When the
+                    // operator says so explicitly, record the probe as skipped
+                    // (never as passed) and continue with the probes that do
+                    // not need the event tap.
+                    if ProcessInfo.processInfo.environment[
+                        "RIFTVM_OMARCHY_ACCEPTANCE_SKIP_COMMAND_CHORDS"
+                    ] == "1" {
+                        // The lock probe sends its shortcut through the same
+                        // event tap, so it is skipped with it.
+                        NSLog("Omarchy Command+Space and lock acceptance skipped: no Accessibility event tap")
+                        self.startAutomaticPauseResumeProbeIfNeeded()
+                        return
+                    }
                     self.reportAcceptanceFailure(
                         "Focused Command+Space acceptance could not reach the Accessibility event tap."
                     )

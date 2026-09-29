@@ -3,7 +3,9 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-work=$(mktemp -d "${RUNNER_TEMP:-/tmp}/riftvm-omarchy-notification.XXXXXX")
+# shellcheck source=scripts/lib/common.sh
+source "$project_root/scripts/lib/common.sh"
+work=$(riftvm_mktemp_dir riftvm-omarchy-notification)
 trap 'rm -rf "$work"' EXIT
 revision=0123456789abcdef0123456789abcdef01234567
 observed=$(date -u '+%Y-%m-%dT%H:%M:%SZ')

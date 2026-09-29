@@ -1,7 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-work="$(mktemp -d /tmp/riftvm-context-sync.XXXXXX)"
+# shellcheck source=scripts/lib/common.sh
+source "$root/scripts/lib/common.sh"
+work="$(riftvm_mktemp_dir riftvm-context-sync)"
 trap 'rm -rf "$work"' EXIT
 clang -O2 -Wall -Wextra -Werror \
   "$root/Tests/CVirGLBridgeTests/ActiveContextSetTests.c" -o "$work/active-contexts"

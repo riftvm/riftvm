@@ -34,6 +34,20 @@ For a release update:
 3. Update the tap cask's version, download URL, and SHA-256 to match that archive.
 4. Verify installation of the published cask and the bundled CLI on a supported Mac.
 
+The release scripts do all four steps. `scripts/release-patch.sh` publishes the
+next patch version and is the routine entry point;
+`scripts/release-version.sh <major.minor.patch>` publishes an explicit version and
+is also how an interrupted release is resumed. Both hand over to
+`scripts/publish-release.sh`; the [scripts overview](README.md#scripts) lists
+what each one needs.
+
+`Casks/riftvm.rb` in this repository is the template the tap cask is written
+from. After the published cask has been verified, `publish-release.sh` copies it
+back and pushes one follow-up commit, `chore(cask): sync riftvm cask to <version>`,
+so the checked-in copy stays at the latest release. If that last step fails the
+release is still complete: copy the file from the tap and commit it before the
+next release. Set `RIFTVM_RELEASE_SKIP_CASK_SYNC=1` to leave the file alone.
+
 The cask requires `arch: :arm64` and `macos: :golden_gate` (macOS 27).
 Keep these requirements aligned with the app's deployment target and public
 installation instructions. Users with an older Homebrew should run `brew update`.

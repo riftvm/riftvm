@@ -103,7 +103,7 @@ final class VMLiveMachineCenterTests: XCTestCase {
         center.register(second.machine)
 
         XCTAssertEqual(center.requestTermination(), .terminateLater)
-        XCTAssertEqual(recorder.shown, ["Stopping 2 workspaces…"])
+        XCTAssertEqual(recorder.shown, ["Stopping 2 machines…"])
 
         center.unregister(first.machine)
         XCTAssertEqual(recorder.updated, ["Stopping macOS 27…"])

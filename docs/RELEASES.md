@@ -121,6 +121,101 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.0
+
+RiftVM 0.6.0 is a reliability and efficiency release: less work per frame and
+per keystroke, safer snapshots, and a display that comes back after resume.
+No feature is added or removed.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **The window redraws after pause and resume without waiting for Omarchy.**
+  Pausing dropped the view's scanout, and an idle desktop might not send a new
+  frame for a long time, so a resize or unhide after resume had nothing to
+  draw. The device now hands the current scanout back on resume.
+- **Renaming a snapshot can no longer lose it.** The rename wrote the metadata
+  in place; an interruption left a truncated file, the snapshot vanished from
+  the list and layer cleanup stopped for the whole machine. The write is now
+  atomic, like create and protect.
+- **Snapshot copies on volumes that cannot clone show progress and can be
+  cancelled.** On an external or non-APFS volume a large disk copied with the
+  progress bar at zero and Cancel ignored until the file finished.
+
+### Performance
+
+- **Graphics.** One Metal commit per guest 3D submit instead of two. Fence
+  polling backs off from 1 ms to at most 4 ms while nothing completes and no
+  longer allocates on every poll.
+- **Keyboard capture.** The event tap decides from the key event before it asks
+  which app is frontmost, so ordinary typing in other apps no longer triggers a
+  cross-process query while RiftVM is open.
+- **Guest agent connection.** The host reuses its message authenticator and
+  coders instead of creating them per frame, and the handshake write waits with
+  a deadline instead of a sleep loop.
+- **Clipboard.** The host remembers what it last received, and an agent that
+  supports it answers "unchanged" without staging a file. The factory image
+  still ships the previous agent, which ignores the new field; behaviour with
+  it is unchanged.
+
+### Simplified Chinese
+
+91 strings are newly translated, and 366 strings left over from the general
+virtual machine manager are removed from the catalog. Some current strings are
+still not in the catalog and appear in English.
+
+### Guest agent 0.6.0
+
+The agent archive published with this release takes one process snapshot per
+status report, answers heartbeats while a transfer runs, decodes each input
+frame once and writes each input report with one system call. It is wire
+compatible with earlier hosts. Existing machines keep the agent from their
+factory image until a new image carries this one.
+
+### Behaviour changes
+
+- A revoked Accessibility permission is noticed within about 10 seconds instead
+  of 2 while keyboard capture is active.
+- The detail text of a failed snapshot copy may read differently.
+
+### Validation
+
+Automated: 300 core tests, 93 app integration tests, 38 graphics runtime tests,
+the agent suite with the race detector, and every release gate script.
+
+On a disposable Omarchy machine from factory `v4.0.3-riftvm.19`, the same
+machine before and after, 1920x1080:
+
+| Check | 0.5.12 | 0.6.0 |
+| --- | --- | --- |
+| glmark2 (6 scenes, 1280x720) | 1517 | 1527 to 1556 |
+| Frames presented / missed drawables / failures | 2328 / 0 / 0 | 2349 to 2363 / 0 / 0 |
+| Fence timeouts | 0 | 0 |
+| Idle host CPU | 0.2% | 0.1% to 0.3% |
+
+Clipboard text both ways, notifications, shared folder read and write, and
+network passed on both. The acceptance harness passed continuous input, and in
+the lifecycle scenario the shared folder, clipboard (text and PNG both ways),
+display, pause and resume, and agent restart probes. The new agent was also
+installed in that guest: its Linux tests passed there as user and as root, and
+the checks above passed again with it.
+
+Not claimed: Command shortcuts, screen lock and the unlock after a guest
+restart were not exercised, because the harness had no Accessibility
+permission on the test Mac (the restart probe fails the same way on 0.5.12
+there). Host sleep and wake, display hot-plug, a 30 minute soak, a second
+physical display and ISO keyboards were not tested. The glmark2 difference is
+within run-to-run noise and is not a speed claim.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3 and says so in its own log;
+  the guest has OpenGL ES 3.0 and desktop GL 2.1 because ANGLE's Metal backend
+  tops out at GLES 3.0. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert, which is
+  expected on a virtual machine.
+
 ## 0.5.12
 
 RiftVM 0.5.12 makes ISO keyboards type what they say: no invented Shift on

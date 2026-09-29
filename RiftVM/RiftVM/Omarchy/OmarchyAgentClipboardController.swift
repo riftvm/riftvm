@@ -30,6 +30,21 @@ final class OmarchyAgentClipboardController {
     private var lastSentToGuest: String?
     private var lastReceivedFromGuest: String?
     private var pendingHostItem: Item?
+    /// What the previous capture saw, so an unchanged Guest selection is
+    /// neither staged nor read again.
+    private var captureMemory = VMOmarchyClipboardCaptureMemory()
+
+    private enum Capture {
+        /// The same result as the previous capture, which was handled then.
+        case unchanged
+        case item(Item)
+        case nothing
+    }
+
+    private enum CapturedData {
+        case unchanged
+        case data(Data, sha256: String)
+    }
 
     init(
         client: VMOmarchyGuestAgentClient,
@@ -88,6 +103,10 @@ final class OmarchyAgentClipboardController {
             operationTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 defer { self.operationTask = nil }
+                // Sending changes the Guest selection and what the next
+                // captured item is compared with.
+                self.captureMemory.reset()
+                defer { self.captureMemory.reset() }
                 do {
                     try await self.sendToGuest(item)
                     self.lastSentToGuest = item.fingerprint
@@ -105,18 +124,19 @@ final class OmarchyAgentClipboardController {
             guard let self else { return }
             defer { self.operationTask = nil }
             do {
-                if let item = try await self.captureFromGuest(),
+                if case let .item(item) = await self.captureFromGuest(),
                    item.fingerprint != self.lastSentToGuest,
                    item.fingerprint != self.lastReceivedFromGuest {
                     try Self.publish(item, on: self.pasteboard)
                     self.lastReceivedFromGuest = item.fingerprint
                     self.lastPasteboardChangeCount = self.pasteboard.changeCount
                 }
-            } catch is CancellationError {
             } catch {
                 // A requested format can be absent while the other one is
                 // active. Capture failures are transient and must not tear
-                // down the authenticated integration connection.
+                // down the authenticated integration connection. The item
+                // was not published, so it must be captured again.
+                self.captureMemory.reset()
             }
         }
     }
@@ -134,32 +154,81 @@ final class OmarchyAgentClipboardController {
         ))
     }
 
-    private func captureFromGuest() async throws -> Item? {
-        if let image = try? await capture(mimeType: Self.imageMIME, fileExtension: "png"),
-           NSBitmapImageRep(data: image) != nil {
-            return Item(data: image, mimeType: Self.imageMIME, fileExtension: "png")
+    /// Probes the image format first and text second, as before. An Agent
+    /// that does not know `knownSHA256` stages the item on every capture and
+    /// the result is handled exactly as it always was.
+    private func captureFromGuest() async -> Capture {
+        captureMemory.beginCapture()
+        defer { captureMemory.endCapture() }
+        for (mimeType, fileExtension) in [(Self.imageMIME, "png"), (Self.textMIME, "txt")] {
+            var item: Item?
+            let probe: VMOmarchyClipboardCaptureMemory.Probe
+            switch try? await capture(
+                mimeType: mimeType,
+                fileExtension: fileExtension,
+                knownSHA256: captureMemory.knownSHA256(for: mimeType)
+            ) {
+            case .none:
+                probe = .failed
+            case .some(.unchanged):
+                probe = .unchanged
+            case let .some(.data(data, sha256)):
+                let usable = Self.isUsable(data, mimeType: mimeType)
+                if usable {
+                    item = Item(data: data, mimeType: mimeType, fileExtension: fileExtension)
+                }
+                probe = .captured(sha256: sha256, usable: usable)
+            }
+            switch captureMemory.resolve(probe, for: mimeType) {
+            case .unchanged:
+                return .unchanged
+            case .captured:
+                if let item { return .item(item) }
+            case .tryNext:
+                break
+            }
         }
-        guard let text = try? await capture(mimeType: Self.textMIME, fileExtension: "txt"),
-              text.count <= Self.maximumBytes,
-              String(data: text, encoding: .utf8) != nil else { return nil }
-        return Item(data: text, mimeType: Self.textMIME, fileExtension: "txt")
+        return .nothing
     }
 
-    private func capture(mimeType: String, fileExtension: String) async throws -> Data {
+    private static func isUsable(_ data: Data, mimeType: String) -> Bool {
+        switch mimeType {
+        case imageMIME:
+            NSBitmapImageRep(data: data) != nil
+        default:
+            data.count <= maximumBytes && String(data: data, encoding: .utf8) != nil
+        }
+    }
+
+    private func capture(
+        mimeType: String,
+        fileExtension: String,
+        knownSHA256: String?
+    ) async throws -> CapturedData {
         let url = try stagingURL(fileExtension: fileExtension)
         defer { try? FileManager.default.removeItem(at: url) }
         let result = try await client.captureGuestClipboard(VMOmarchyClipboardRequest(
             relativePath: relativePath(for: url),
             mimeType: mimeType,
             byteCount: 0,
-            sha256: ""
+            sha256: "",
+            knownSHA256: knownSHA256
         ))
+        if result.unchanged == true {
+            // Nothing was staged. Only the answer to the digest that was
+            // asked about counts; anything else is a failed capture.
+            guard result.confirmsUnchanged(knownSHA256: knownSHA256) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            return .unchanged
+        }
         let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+        let sha256 = SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined()
         guard data.count <= Self.maximumBytes,
               result.byteCount == UInt64(data.count),
-              result.sha256 == SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined()
+              result.sha256 == sha256
         else { throw CocoaError(.fileReadCorruptFile) }
-        return data
+        return .data(data, sha256: sha256)
     }
 
     private func stagingURL(fileExtension: String) throws -> URL {

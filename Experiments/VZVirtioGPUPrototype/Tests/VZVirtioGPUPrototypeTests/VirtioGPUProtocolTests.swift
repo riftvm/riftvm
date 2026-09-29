@@ -557,3 +557,102 @@ import Testing
     #expect(order.complete(next, with: "again") == nil)
     #expect(order.complete(999, with: "unknown") == nil)
 }
+
+@Test func pollBackoffStartsFastAndNeverExceedsFourMilliseconds() {
+    var backoff = RendererPollBackoff()
+    var intervals: [TimeInterval] = []
+    for _ in 0..<40 { intervals.append(backoff.nextInterval()) }
+    #expect(intervals.prefix(8).allSatisfy { $0 == 0.001 })
+    #expect(intervals[8..<16].allSatisfy { $0 == 0.002 })
+    #expect(intervals[16...].allSatisfy { $0 == 0.004 })
+    #expect(intervals.max() == RendererPollBackoff.maximumInterval)
+    #expect(intervals.min() == RendererPollBackoff.minimumInterval)
+    // Non-decreasing: a poll never gets slower and then faster on its own.
+    #expect(zip(intervals, intervals.dropFirst()).allSatisfy { $0 <= $1 })
+}
+
+@Test func pollBackoffReturnsToOneMillisecondOnReset() {
+    var backoff = RendererPollBackoff()
+    for _ in 0..<100 { _ = backoff.nextInterval() }
+    #expect(backoff.nextInterval() == 0.004)
+    backoff.reset()
+    #expect(backoff == RendererPollBackoff())
+    for _ in 0..<RendererPollBackoff.pollsPerStep {
+        #expect(backoff.nextInterval() == 0.001)
+    }
+    #expect(backoff.nextInterval() == 0.002)
+}
+
+@Test func pollBackoffIdleCountSaturates() {
+    var backoff = RendererPollBackoff()
+    for _ in 0..<100_000 { _ = backoff.nextInterval() }
+    #expect(backoff.idlePolls == 2 * RendererPollBackoff.pollsPerStep)
+}
+
+@Test func fenceDeadlineBoundNeverMissesAnExpiredFence() {
+    var bound = FenceDeadlineBound()
+    #expect(!bound.mayHaveExpired(at: .max - 1))
+    bound.insert(300)
+    bound.insert(100)
+    bound.insert(200)
+    #expect(bound.earliest == 100)
+    #expect(!bound.mayHaveExpired(at: 99))
+    // The deadline itself has expired, as `deadline <= now` always meant.
+    #expect(bound.mayHaveExpired(at: 100))
+    // The fence due at 100 retired: the walk finds 200 is the earliest left.
+    bound.reset(to: 200)
+    #expect(!bound.mayHaveExpired(at: 150))
+    #expect(bound.mayHaveExpired(at: 200))
+    bound.reset()
+    #expect(!bound.mayHaveExpired(at: .max - 1))
+}
+
+@Test func rendererExecutorKeepsPollingWhileBackedOff() {
+    let executor = RendererExecutor()
+    defer { executor.stop() }
+    let lock = NSLock()
+    let polled = DispatchSemaphore(value: 0)
+    var pollCount = 0
+    // Enough idle polls to pass both backoff steps: 8 ms + 16 ms + 4 ms each.
+    let target = 2 * RendererPollBackoff.pollsPerStep + 4
+    executor.configurePolling {
+        lock.lock()
+        pollCount += 1
+        let finished = pollCount == target
+        lock.unlock()
+        if finished { polled.signal() }
+    }
+    let started = DispatchTime.now().uptimeNanoseconds
+    executor.setPollingEnabled(true)
+    #expect(polled.wait(timeout: .now() + 2) == .success)
+    let elapsed = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
+    executor.setPollingEnabled(false)
+    // 8 x 1 ms + 8 x 2 ms + 4 x 4 ms; timers only ever fire late.
+    #expect(elapsed >= 0.030)
+}
+
+@Test func resumeResubmitsOnlyAScanoutTheViewAlreadyHad() {
+    func decide(
+        zeroCopy: Bool = true, scanout: UInt32? = 7, published: UInt32? = 7,
+        resources: Set<UInt32> = [7], borrowed: Set<UInt32> = [7]
+    ) -> UInt32? {
+        VirtioGPU.scanoutResourceToResubmitAfterResume(
+            zeroCopyPresentationEnabled: zeroCopy,
+            scanoutResourceID: scanout,
+            lastPublishedScanoutResourceID: published,
+            resourceExists: resources.contains,
+            textureIsBorrowed: borrowed.contains
+        )
+    }
+    #expect(decide() == 7)
+    // The CPU fallback path publishes images, not scanout frames.
+    #expect(decide(zeroCopy: false) == nil)
+    // The guest disabled the scanout, or a reset cleared it.
+    #expect(decide(scanout: nil, published: nil) == nil)
+    // A scanout the guest set but never flushed has nothing to show yet.
+    #expect(decide(published: nil) == nil)
+    #expect(decide(scanout: 8, published: 7, resources: [7, 8], borrowed: [7, 8]) == nil)
+    // Never present a released resource or a texture that is not borrowed.
+    #expect(decide(resources: []) == nil)
+    #expect(decide(borrowed: []) == nil)
+}

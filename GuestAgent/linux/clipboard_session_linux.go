@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -134,6 +133,7 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 	stopSessionClipboardOwner()
 	command, err := startVerifiedClipboardOwner(
 		payload,
+		clipboardReadBack{sha256: digestText, byteCount: byteCount},
 		request.MIMEType,
 		func(payload []byte, mimeType string) *exec.Cmd {
 			command := exec.Command(sessionClipboardCopyExecutable, clipboardCopyArguments(mimeType)...)
@@ -145,7 +145,7 @@ func setSessionClipboard(path string, request clipboardRequest) clipboardResult 
 			command.Stderr = os.Stderr
 			return command
 		},
-		readSessionClipboardPayload,
+		readSessionClipboardDigest,
 		time.Sleep,
 	)
 	if err != nil {
@@ -195,75 +195,32 @@ func stopSessionClipboardOwner() {
 	}
 }
 
-const clipboardPublicationAttempts = 5
-const clipboardPublicationVerifications = 3
-
-func startVerifiedClipboardOwner(
-	payload []byte,
-	mimeType string,
-	makeCommand func([]byte, string) *exec.Cmd,
-	readBack func(string) ([]byte, error),
-	pause func(time.Duration),
-) (*exec.Cmd, error) {
-	var lastError error
-	for attempt := 0; attempt < clipboardPublicationAttempts; attempt++ {
-		command := makeCommand(payload, mimeType)
-		if err := command.Start(); err != nil {
-			lastError = err
-		} else {
-			// A freshly activated Hyprland data-control session can reject its
-			// first ownership request. Prove the exact bytes are serveable before
-			// acknowledging the authenticated Host request; a longer wait on the
-			// same rejected owner does not recover it.
-			verified := true
-			for verification := 0; verification < clipboardPublicationVerifications; verification++ {
-				pause(time.Duration(attempt+1) * 100 * time.Millisecond)
-				actual, err := readBack(mimeType)
-				if err != nil {
-					lastError = err
-					verified = false
-					break
-				}
-				if !bytes.Equal(actual, payload) {
-					lastError = errors.New("Wayland clipboard readback did not match")
-					verified = false
-					break
-				}
-			}
-			if verified {
-				return command, nil
-			}
-			if command.Process != nil {
-				_ = command.Process.Kill()
-			}
-			_ = command.Wait()
-		}
-		if attempt+1 < clipboardPublicationAttempts {
-			pause(time.Duration(attempt+1) * 100 * time.Millisecond)
-		}
-	}
-	return nil, fmt.Errorf("could not publish verified Wayland clipboard: %w", lastError)
-}
-
-func readSessionClipboardPayload(mimeType string) ([]byte, error) {
+// readSessionClipboardDigest reads the selection back through Wayland and
+// hashes it while it streams, so verifying a large item never holds a second
+// copy of it.
+func readSessionClipboardDigest(mimeType string) (clipboardReadBack, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, clipboardPasteArguments(mimeType)...)
+	hasher := sha256.New()
+	writer := &clipboardCountingWriter{writer: hasher, limit: maximumClipboardBytes}
+	command.Stdout = writer
+	command.Stderr = io.Discard
+	if err := command.Run(); err != nil {
+		return clipboardReadBack{}, err
+	}
+	if writer.byteCount > maximumClipboardBytes {
+		return clipboardReadBack{}, errors.New("clipboard readback exceeds limit")
+	}
+	return clipboardReadBack{sha256: hex.EncodeToString(hasher.Sum(nil)), byteCount: writer.byteCount}, nil
+}
+
+func clipboardPasteArguments(mimeType string) []string {
 	arguments := []string{"--type", mimeType}
 	if mimeType == clipboardTextMIME {
 		arguments = append(arguments, "--no-newline")
 	}
-	command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, arguments...)
-	var output bytes.Buffer
-	writer := &clipboardCountingWriter{writer: &output, limit: maximumClipboardBytes}
-	command.Stdout = writer
-	command.Stderr = io.Discard
-	if err := command.Run(); err != nil {
-		return nil, err
-	}
-	if writer.byteCount > maximumClipboardBytes {
-		return nil, errors.New("clipboard readback exceeds limit")
-	}
-	return output.Bytes(), nil
+	return arguments
 }
 
 func readClipboardPayload(reader io.Reader, limit uint64) ([]byte, uint64, string, error) {
@@ -274,75 +231,20 @@ func readClipboardPayload(reader io.Reader, limit uint64) ([]byte, uint64, strin
 }
 
 func getSessionClipboard(path string, request clipboardRequest) clipboardResult {
-	directory := filepath.Dir(path)
-	if err := os.MkdirAll(directory, 0700); err != nil {
-		return clipboardResult{Message: err.Error()}
-	}
-	// Create an unguessable file and retain an open descriptor for the parent.
-	// Committing through secureUploadTarget prevents symlink traversal and
-	// refuses to replace a destination that appeared during capture.
-	file, target, err := secureCreateUpload(path)
-	if err != nil {
-		return clipboardResult{Message: "could not create clipboard staging output: " + err.Error()}
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			target.cleanup()
-		}
-	}()
+	// One budget covers the capture, including the second read of a large
+	// selection that turned out to have changed.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	arguments := []string{"--type", request.MIMEType}
-	if request.MIMEType == clipboardTextMIME {
-		arguments = append(arguments, "--no-newline")
+	capture := clipboardCapture{
+		paste: func(mimeType string, output io.Writer) error {
+			command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, clipboardPasteArguments(mimeType)...)
+			command.Stdout = output
+			command.Stderr = io.Discard
+			return command.Run()
+		},
+		createStaging: createClipboardStaging,
 	}
-	command := exec.CommandContext(ctx, sessionClipboardPasteExecutable, arguments...)
-	hasher := sha256.New()
-	counter := &clipboardCountingWriter{
-		writer: io.MultiWriter(file, hasher),
-		limit:  maximumClipboardBytes,
-	}
-	command.Stdout = counter
-	command.Stderr = io.Discard
-	err = command.Run()
-	closeError := file.Close()
-	if counter.byteCount > maximumClipboardBytes {
-		return clipboardResult{Message: "clipboard output is invalid"}
-	}
-	if err != nil || closeError != nil {
-		return clipboardResult{Message: "could not read the Wayland clipboard"}
-	}
-	if err := target.commit(false); err != nil {
-		return clipboardResult{Message: "could not commit clipboard staging output: " + err.Error()}
-	}
-	committed = true
-	return clipboardResult{
-		Success: true, Message: "Guest clipboard captured.",
-		ByteCount: counter.byteCount, SHA256: hex.EncodeToString(hasher.Sum(nil)),
-	}
-}
-
-type clipboardCountingWriter struct {
-	writer    io.Writer
-	byteCount uint64
-	limit     uint64
-}
-
-func (writer *clipboardCountingWriter) Write(data []byte) (int, error) {
-	if writer.byteCount >= writer.limit+1 {
-		return 0, errors.New("clipboard output exceeds limit")
-	}
-	remaining := writer.limit + 1 - writer.byteCount
-	if uint64(len(data)) > remaining {
-		data = data[:remaining]
-	}
-	written, err := writer.writer.Write(data)
-	writer.byteCount += uint64(written)
-	if err == nil && writer.byteCount > writer.limit {
-		err = errors.New("clipboard output exceeds limit")
-	}
-	return written, err
+	return capture.get(path, request)
 }
 
 func proxyClipboardRequest(operation string, payload []byte) clipboardResult {
@@ -391,7 +293,7 @@ func proxyClipboardRequest(operation string, payload []byte) clipboardResult {
 	if json.Unmarshal(data, &result) != nil {
 		return clipboardResult{Message: "invalid desktop clipboard response"}
 	}
-	return result
+	return checkedClipboardProxyResult(operation, request, result)
 }
 
 func validateDesktopSessionSocket(session registeredSession) error {

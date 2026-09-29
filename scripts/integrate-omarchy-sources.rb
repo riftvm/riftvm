@@ -3,6 +3,7 @@
 
 require "xcodeproj"
 require "set"
+require "fileutils"
 
 project_path = File.expand_path("../RiftVM/RiftVM.xcodeproj", __dir__)
 source_root = File.expand_path("../RiftVM/RiftVM/Omarchy", __dir__)
@@ -76,5 +77,26 @@ project.targets.each do |item|
   end
 end
 
-project.recreate_user_schemes
+# Schemes are shared and checked in under xcshareddata/xcschemes, so a fresh
+# clone can build every target without running this script. Only a target that
+# has no shared scheme yet gets one here; an existing scheme is never rewritten,
+# which keeps the worktree clean whichever xcodeproj version runs this.
+shared_schemes_dir = Xcodeproj::XCScheme.shared_data_dir(project_path)
+FileUtils.mkdir_p(shared_schemes_dir)
+project.targets.each do |item|
+  shared_scheme = File.join(shared_schemes_dir, "#{item.name}.xcscheme")
+  unless File.exist?(shared_scheme)
+    scheme = Xcodeproj::XCScheme.new
+    scheme_test_target = item.respond_to?(:test_target_type?) && item.test_target_type? ? item : nil
+    scheme_launchable = item.respond_to?(:launchable_target_type?) && item.launchable_target_type?
+    scheme.configure_with_targets(item, scheme_test_target, launch_target: scheme_launchable)
+    scheme.save_as(project_path, item.name, true)
+  end
+  # Earlier versions of this script generated per-user copies of the same
+  # schemes. Next to a shared scheme they show up twice in `xcodebuild -list`,
+  # so drop those generated copies.
+  Dir.glob(File.join(project_path, "xcuserdata", "*.xcuserdatad", "xcschemes", "#{item.name}.xcscheme")).each do |path|
+    File.delete(path)
+  end
+end
 project.save

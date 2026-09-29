@@ -4,6 +4,35 @@ private final class RendererResultBox<Value>: @unchecked Sendable {
     var value: Value?
 }
 
+/// How long the renderer thread sleeps between fence polls while it has no
+/// queued work. A guest waits on its fence before it draws the next frame, so
+/// the poll starts at 1 ms and only backs off, to at most 4 ms, once that many
+/// polls in a row retired nothing. New work, a new fence, and a retired fence
+/// each return it to 1 ms.
+struct RendererPollBackoff: Equatable {
+    static let minimumInterval: TimeInterval = 0.001
+    static let maximumInterval: TimeInterval = 0.004
+    /// Idle polls spent at one interval before it doubles.
+    static let pollsPerStep = 8
+
+    private(set) var idlePolls = 0
+
+    mutating func reset() {
+        idlePolls = 0
+    }
+
+    /// The wait before the next poll. Counts that poll as idle until `reset`.
+    mutating func nextInterval() -> TimeInterval {
+        let step = idlePolls / Self.pollsPerStep
+        if idlePolls < 2 * Self.pollsPerStep { idlePolls += 1 }
+        switch step {
+        case 0: return Self.minimumInterval
+        case 1: return 2 * Self.minimumInterval
+        default: return Self.maximumInterval
+        }
+    }
+}
+
 final class RendererExecutor: @unchecked Sendable {
     private let condition = NSCondition()
     private let ready = DispatchSemaphore(value: 0)
@@ -14,11 +43,12 @@ final class RendererExecutor: @unchecked Sendable {
     private var hasStopped = false
     private var pollOperation: (() -> Void)?
     private var pollingEnabled = false
+    private var pollBackoff = RendererPollBackoff()
     private var thread: Thread!
 
     init() {
         thread = Thread { [unowned self] in run() }
-        thread.name = "com.riftvm.app.prototype.virgl-renderer"
+        thread.name = "com.riftvm.app.virgl-renderer"
         thread.qualityOfService = .userInteractive
         thread.start()
         ready.wait()
@@ -66,7 +96,15 @@ final class RendererExecutor: @unchecked Sendable {
             return
         }
         pollingEnabled = enabled
+        if enabled { pollBackoff.reset() }
         condition.signal()
+        condition.unlock()
+    }
+
+    /// The poll operation retired something, so more may follow shortly.
+    func pollDidMakeProgress() {
+        condition.lock()
+        pollBackoff.reset()
         condition.unlock()
     }
 
@@ -90,7 +128,7 @@ final class RendererExecutor: @unchecked Sendable {
             condition.lock()
             while jobsAreEmpty && !stopping {
                 if pollingEnabled {
-                    _ = condition.wait(until: Date(timeIntervalSinceNow: 0.001))
+                    _ = condition.wait(until: Date(timeIntervalSinceNow: pollBackoff.nextInterval()))
                     break
                 }
                 condition.wait()
@@ -105,6 +143,8 @@ final class RendererExecutor: @unchecked Sendable {
             if jobsAreEmpty {
                 job = nil
             } else {
+                // New work: a fence it creates or retires is worth a prompt poll.
+                pollBackoff.reset()
                 job = jobs[jobHead]
                 jobs[jobHead] = nil // Release captures before the next compaction.
                 jobHead += 1
