@@ -750,7 +750,7 @@ class VMVirGLDisplayView: VZVirtualMachineView {
         super.layout()
         if usesCustomGraphics {
             updateDrawableGeometry()
-            updateCursorGeometry()
+            if !cursorLayer.isHidden { updateCursorGeometry() }
         }
     }
 
@@ -852,17 +852,23 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             cursorImageSize = update.image.map { CGSize(width: $0.width, height: $0.height) } ?? .zero
         }
         updateCursorLayerVisibility()
-        updateCursorGeometry()
+        // The layer is hidden whenever the macOS cursor carries the guest image,
+        // which is every absolute-pointer session: a move has nothing to place.
+        if !cursorLayer.isHidden { updateCursorGeometry() }
         // A move only matters to the composited layer; the macOS cursor is
         // already where the mouse is.
         if update.replacesImage || before != guestCursor { applyHostCursor() }
     }
 
     private func updateCursorLayerVisibility() {
-        cursorLayer.isHidden = !guestCursor.showsCursorLayer(
+        let shows = guestCursor.showsCursorLayer(
             absolutePointer: absolutePointerEnabled,
             captured: pointerCaptured
         )
+        // Geometry is not maintained while the layer is hidden, so place the
+        // layer before it appears, never after.
+        if shows, cursorLayer.isHidden { updateCursorGeometry() }
+        cursorLayer.isHidden = !shows
     }
 
     override func cursorUpdate(with event: NSEvent) {
