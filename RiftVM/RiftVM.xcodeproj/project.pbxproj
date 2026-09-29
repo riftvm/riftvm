@@ -14,6 +14,7 @@
 		1A1B4B677F0840BEC6F56470 /* CreateProgressMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CABF51503FEF720971A7B03 /* CreateProgressMeter.swift */; };
 		1F900DBA23E5F942C64FA12D /* VMCustomVirGLGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5407E589317651D427C72537 /* VMCustomVirGLGraphics.swift */; };
 		306AEB3B497B8DD9772B2124 /* VMOmarchyFactoryManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 516FD555DC04ABE24EC74623 /* VMOmarchyFactoryManifest.swift */; };
+		328EC59BE93B0C9D86F5B52A /* VMSnapshotFileCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBBCE74447B54F26DCD6334B /* VMSnapshotFileCopier.swift */; };
 		3B3DE7B5220BD32916EAF208 /* VMOmarchyGuestAgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1471ED4B2D5A3896B2C74FDA /* VMOmarchyGuestAgentClient.swift */; };
 		54930AEA0491759C5F31F598 /* VMWindowCloseObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBC02A1DA5EDF62A658954C /* VMWindowCloseObserver.swift */; };
 		5553AC94B3D5830E818ADB3C /* OmarchyDynamicDisplayAcceptanceProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */; };
@@ -137,6 +138,7 @@
 		CA5E5AFE000000000000A009 /* VMGuestAgentProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentProtocol.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000A010 /* VMGuestAgentEnrollmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMGuestAgentEnrollmentStore.swift; sourceTree = "<group>"; };
 		CA5E5AFE000000000000E003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		CBBCE74447B54F26DCD6334B /* VMSnapshotFileCopier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMSnapshotFileCopier.swift; path = Snapshot/VMSnapshotFileCopier.swift; sourceTree = "<group>"; };
 		D1196EC328E868BC00CCC04D /* VMOSHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMOSHelper.swift; sourceTree = "<group>"; };
 		D11A80E828C8ECDD004C1AC4 /* VMCreateStepperGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMCreateStepperGuideView.swift; sourceTree = "<group>"; };
 		D120BD5028CF25E3009297E8 /* MacKitUtil.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MacKitUtil.swift; sourceTree = "<group>"; };
@@ -242,6 +244,7 @@
 				68701BB45AD479B32C520A8A /* VMCreateProgressMeterPolicy.swift */,
 				51B43C1E98CCF560C8090A78 /* ActiveWorkspace.swift */,
 				5407E589317651D427C72537 /* VMCustomVirGLGraphics.swift */,
+				CBBCE74447B54F26DCD6334B /* VMSnapshotFileCopier.swift */,
 			);
 			name = "Unified VMKit";
 			path = RiftVM/Core/VMKit;
@@ -754,6 +757,7 @@
 				54930AEA0491759C5F31F598 /* VMWindowCloseObserver.swift in Sources */,
 				1F900DBA23E5F942C64FA12D /* VMCustomVirGLGraphics.swift in Sources */,
 				6FD2DF65B0C62DF3D3526BA0 /* OmarchyPreparationSettings.swift in Sources */,
+				328EC59BE93B0C9D86F5B52A /* VMSnapshotFileCopier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
