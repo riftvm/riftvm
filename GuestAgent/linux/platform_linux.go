@@ -4,8 +4,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,48 +14,6 @@ import (
 	"time"
 	"unsafe"
 )
-
-type hyprlandSession struct {
-	pid        string
-	uid        uint32
-	gid        uint32
-	runtimeDir string
-	signature  string
-}
-
-func parseHyprlandEnvironment(data []byte) (string, string) {
-	var runtimeDir, signature string
-	for _, item := range strings.Split(string(data), "\x00") {
-		switch {
-		case strings.HasPrefix(item, "XDG_RUNTIME_DIR="):
-			runtimeDir = strings.TrimPrefix(item, "XDG_RUNTIME_DIR=")
-		case strings.HasPrefix(item, "HYPRLAND_INSTANCE_SIGNATURE="):
-			signature = strings.TrimPrefix(item, "HYPRLAND_INSTANCE_SIGNATURE=")
-		}
-	}
-	return runtimeDir, signature
-}
-
-func parseProcessCredentials(data []byte) (uint32, uint32, bool) {
-	var uid, gid uint64
-	var haveUID, haveGID bool
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
-		}
-		var err error
-		switch fields[0] {
-		case "Uid:":
-			uid, err = strconv.ParseUint(fields[1], 10, 32)
-			haveUID = err == nil
-		case "Gid:":
-			gid, err = strconv.ParseUint(fields[1], 10, 32)
-			haveGID = err == nil
-		}
-	}
-	return uint32(uid), uint32(gid), haveUID && haveGID
-}
 
 func hyprlandSignatures(paths ...string) []string {
 	seen := make(map[string]bool)
@@ -82,12 +38,26 @@ func hyprlandSignatures(paths ...string) []string {
 	return signatures
 }
 
-func findHyprlandSessions() []hyprlandSession {
+// guestSystemAccess reads the running guest.
+func guestSystemAccess() systemAccess {
+	return systemAccess{
+		processes:          scanProcesses,
+		readFile:           os.ReadFile,
+		descriptorTargets:  processDescriptorTargets,
+		hyprlandSignatures: hyprlandSignatures,
+		activeSessionUIDs:  func() map[uint32]bool { return activeSessionUIDs(time.Now()) },
+		run:                runDesktopCommand,
+		omarchyShell:       omarchyShellExecutable,
+		inputDiagnostics:   inputDiagnostics,
+	}
+}
+
+func scanProcesses() []processInfo {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil
 	}
-	var sessions []hyprlandSession
+	var processes []processInfo
 	for _, entry := range entries {
 		pid := entry.Name()
 		if !entry.IsDir() {
@@ -96,341 +66,45 @@ func findHyprlandSessions() []hyprlandSession {
 		if _, err := strconv.Atoi(pid); err != nil {
 			continue
 		}
-		comm, _ := os.ReadFile("/proc/" + pid + "/comm")
-		if !strings.Contains(strings.ToLower(string(comm)), "hyprland") {
-			continue
-		}
-		status, _ := os.ReadFile("/proc/" + pid + "/status")
-		uid, gid, ok := parseProcessCredentials(status)
-		if !ok {
-			continue
-		}
-		environment, _ := os.ReadFile("/proc/" + pid + "/environ")
-		runtimeDir, signature := parseHyprlandEnvironment(environment)
-		if runtimeDir == "" {
-			runtimeDir = "/run/user/" + strconv.FormatUint(uint64(uid), 10)
-		}
-		if signature == "" {
-			procRoot := "/proc/" + pid + "/root"
-			signatures := hyprlandSignatures(
-				filepath.Join(runtimeDir, "hypr"),
-				filepath.Join(procRoot, runtimeDir, "hypr"),
-				"/tmp/hypr",
-				filepath.Join(procRoot, "tmp/hypr"),
-			)
-			if len(signatures) > 0 {
-				signature = signatures[len(signatures)-1]
-			}
-		}
-		sessions = append(sessions, hyprlandSession{pid: pid, uid: uid, gid: gid, runtimeDir: runtimeDir, signature: signature})
+		processes = append(processes, processInfo{
+			pid:  pid,
+			comm: strings.ToLower(readTrimmed("/proc/" + pid + "/comm")),
+		})
 	}
-	return sessions
+	return processes
 }
 
-func activeUserHyprlandSessions() []hyprlandSession {
-	activeUIDs := activeSessionUIDs(time.Now())
-	var sessions []hyprlandSession
-	for _, session := range findHyprlandSessions() {
-		if activeUIDs[session.uid] {
-			sessions = append(sessions, session)
-		}
-	}
-	return sessions
-}
-
-func hyprlandDeviceDiagnostics() string {
-	sessions := activeUserHyprlandSessions()
-	if len(sessions) == 0 {
-		return "hyprctl devices unavailable: active user Hyprland session not found"
-	}
-	var failures []string
-	for _, session := range sessions {
-		if session.signature == "" {
-			failures = append(failures, "pid="+session.pid+" has no IPC signature")
-			continue
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		command := exec.CommandContext(ctx, "hyprctl", "-j", "devices")
-		command.Env = append(os.Environ(),
-			"XDG_RUNTIME_DIR="+session.runtimeDir,
-			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
-		)
-		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
-		output, commandErr := command.CombinedOutput()
-		cancel()
-		if commandErr != nil {
-			failures = append(failures, fmt.Sprintf("pid=%s uid=%d signature=%s: %v %s", session.pid, session.uid, session.signature, commandErr, strings.TrimSpace(string(output))))
-			continue
-		}
-		text := string(output)
-		index := strings.Index(strings.ToLower(text), "riftvm keyboard")
-		if index < 0 {
-			return "hyprctl devices has no RiftVM Keyboard"
-		}
-		start := max(0, index-250)
-		end := min(len(text), index+650)
-		return "hyprctl RiftVM Keyboard: " + strings.TrimSpace(text[start:end])
-	}
-	return "hyprctl devices failed: " + strings.Join(failures, "; ")
-}
-
-func desktopInputReady() bool {
-	if len(activeUserHyprlandSessions()) > 0 && strings.HasPrefix(hyprlandDeviceDiagnostics(), "hyprctl RiftVM Keyboard:") {
-		return true
-	}
-	return intersects(riftvmKeyboardEventDevices(), desktopCompositorInputDevices())
-}
-
-// desktopPointerInputReady reports whether the desktop compositor holds the
-// RiftVM absolute pointer open.
-//
-// The device node exists whenever the Agent could create it, including when a
-// wrong udev class makes libinput drop it, so "the device exists" cannot stand
-// in for "the desktop reads it". While this is false the Agent must not claim
-// absolute pointer input: the Host would send absolute coordinates into a node
-// nothing consumes and the cursor would never move. Relative pointer, wheel,
-// and button input stay available either way.
-func desktopPointerInputReady() bool {
-	data, err := os.ReadFile("/proc/bus/input/devices")
-	if err != nil {
-		return false
-	}
-	return riftvmInputOwnedByCompositor(
-		string(data),
-		"RiftVM Absolute Pointer",
-		desktopCompositorInputDevices(),
-	)
-}
-
-func desktopSessionActive() bool {
-	sessions := activeUserHyprlandSessions()
-	if len(sessions) == 0 || len(desktopLockerPIDs()) > 0 {
-		return false
-	}
-	if locked, determined := omarchyShellLockState(); determined {
-		return !locked
-	}
-	if locked, determined := hyprlandSessionLockState(); determined {
-		return !locked
-	}
-	return true
-}
-
-func omarchyShellLockState() (bool, bool) {
-	executable := "/usr/share/omarchy/bin/omarchy-shell"
-	if info, err := os.Stat(executable); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
-		executable, err = exec.LookPath("omarchy-shell")
-	}
-	if executable == "" {
-		return false, false
-	}
-	for _, session := range findHyprlandSessions() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		command := exec.CommandContext(ctx, executable, "lock", "isLocked")
-		command.Env = append(os.Environ(),
-			"XDG_RUNTIME_DIR="+session.runtimeDir,
-			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
-			"OMARCHY_SHELL_IPC_TIMEOUT=0.5s",
-		)
-		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
-		output, commandErr := command.Output()
-		cancel()
-		if commandErr != nil {
-			continue
-		}
-		if locked, determined := parseOmarchyShellLockState(output); determined {
-			return locked, true
-		}
-	}
-	return false, false
-}
-
-func parseOmarchyShellLockState(data []byte) (bool, bool) {
-	switch strings.TrimSpace(string(data)) {
-	case "true":
-		return true, true
-	case "false":
-		return false, true
-	default:
-		return false, false
-	}
-}
-
-func hyprlandSessionLockState() (bool, bool) {
-	for _, session := range findHyprlandSessions() {
-		if session.signature == "" {
-			continue
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		command := exec.CommandContext(ctx, "hyprctl", "-j", "monitors")
-		command.Env = append(os.Environ(),
-			"XDG_RUNTIME_DIR="+session.runtimeDir,
-			"HYPRLAND_INSTANCE_SIGNATURE="+session.signature,
-		)
-		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: session.uid, Gid: session.gid}}
-		output, err := command.Output()
-		cancel()
+func processDescriptorTargets(pid string) []string {
+	fds, _ := os.ReadDir("/proc/" + pid + "/fd")
+	var targets []string
+	for _, fd := range fds {
+		target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
 		if err != nil {
 			continue
 		}
-		if locked, determined := parseHyprlandSessionLockState(output); determined {
-			return locked, true
-		}
+		targets = append(targets, target)
 	}
-	return false, false
+	return targets
 }
 
-func parseHyprlandSessionLockState(data []byte) (bool, bool) {
-	var monitors []struct {
-		SolitaryBlockedBy []string `json:"solitaryBlockedBy"`
+func runDesktopCommand(request desktopCommand) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), request.timeout)
+	defer cancel()
+	command := exec.CommandContext(ctx, request.name, request.arguments...)
+	command.Env = append(os.Environ(), request.environment...)
+	command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: request.session.uid, Gid: request.session.gid}}
+	if request.combined {
+		return command.CombinedOutput()
 	}
-	if json.Unmarshal(data, &monitors) != nil || len(monitors) == 0 {
-		return false, false
+	return command.Output()
+}
+
+func omarchyShellExecutable() string {
+	executable := "/usr/share/omarchy/bin/omarchy-shell"
+	if info, err := os.Stat(executable); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
+		executable, _ = exec.LookPath("omarchy-shell")
 	}
-	readable := false
-	for _, monitor := range monitors {
-		hasWorkspace := false
-		for _, blocker := range monitor.SolitaryBlockedBy {
-			switch blocker {
-			case "LOCK":
-				return true, true
-			case "WORKSPACE":
-				hasWorkspace = true
-			}
-		}
-		if !hasWorkspace {
-			readable = true
-		}
-	}
-	if readable {
-		return false, true
-	}
-	return false, false
-}
-
-func desktopSessionInteractive(compositorPIDs, lockerPIDs []string) bool {
-	return len(compositorPIDs) > 0 && len(lockerPIDs) == 0
-}
-
-var desktopCompositorNames = map[string]bool{
-	"gnome-shell":  true,
-	"hyprland":     true,
-	"kwin_wayland": true,
-	"sway":         true,
-	"weston":       true,
-}
-
-var desktopLockerNames = map[string]bool{
-	"hyprlock": true,
-}
-
-func desktopCompositorPIDs() []string {
-	return desktopProcessPIDs(desktopCompositorNames)
-}
-
-func desktopLockerPIDs() []string {
-	return desktopProcessPIDs(desktopLockerNames)
-}
-
-func desktopProcessPIDs(names map[string]bool) []string {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return nil
-	}
-	var pids []string
-	for _, entry := range entries {
-		pid := entry.Name()
-		if !entry.IsDir() {
-			continue
-		}
-		if _, err := strconv.Atoi(pid); err != nil {
-			continue
-		}
-		name := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
-		if names[name] {
-			pids = append(pids, pid)
-		}
-	}
-	return pids
-}
-
-func desktopCompositorInputDevices() []string {
-	seen := make(map[string]bool)
-	var devices []string
-	for _, pid := range desktopCompositorPIDs() {
-		fds, _ := os.ReadDir("/proc/" + pid + "/fd")
-		for _, fd := range fds {
-			target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
-			if err != nil || !strings.HasPrefix(target, "/dev/input/event") {
-				continue
-			}
-			device := strings.TrimPrefix(target, "/dev/input/")
-			if !seen[device] {
-				seen[device] = true
-				devices = append(devices, device)
-			}
-		}
-	}
-	sort.Strings(devices)
-	return devices
-}
-
-func riftvmKeyboardEventDevices() []string {
-	return riftvmInputEventDevices("RiftVM Keyboard")
-}
-
-func riftvmAbsolutePointerEventDevices() []string {
-	return riftvmInputEventDevices("RiftVM Absolute Pointer")
-}
-
-func riftvmInputEventDevices(name string) []string {
-	data, err := os.ReadFile("/proc/bus/input/devices")
-	if err != nil {
-		return nil
-	}
-	return parseInputEventDevices(string(data), name)
-}
-
-// parseInputEventDevices returns the event handlers of every device that
-// reports the given kernel name in /proc/bus/input/devices.
-func parseInputEventDevices(procDevices, name string) []string {
-	marker := `N: Name="` + name + `"`
-	var devices []string
-	for _, block := range strings.Split(procDevices, "\n\n") {
-		if !strings.Contains(block, marker) {
-			continue
-		}
-		for _, line := range strings.Split(block, "\n") {
-			if !strings.HasPrefix(line, "H: Handlers=") {
-				continue
-			}
-			for _, field := range strings.Fields(strings.TrimPrefix(line, "H: Handlers=")) {
-				if strings.HasPrefix(field, "event") {
-					devices = append(devices, field)
-				}
-			}
-		}
-	}
-	return devices
-}
-
-// riftvmInputOwnedByCompositor reports whether the compositor holds one of the
-// event nodes belonging to the named RiftVM device.
-func riftvmInputOwnedByCompositor(procDevices, name string, compositorDevices []string) bool {
-	return intersects(parseInputEventDevices(procDevices, name), compositorDevices)
-}
-
-func intersects(left, right []string) bool {
-	values := make(map[string]bool, len(left))
-	for _, value := range left {
-		values[value] = true
-	}
-	for _, value := range right {
-		if values[value] {
-			return true
-		}
-	}
-	return false
+	return executable
 }
 
 type sockaddrVM struct {

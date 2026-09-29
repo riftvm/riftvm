@@ -493,6 +493,11 @@ func readFrame(reader io.Reader, value any) error {
 }
 
 func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
+	return statusReport(inputAvailable, absolutePointerAvailable, newDesktopProbe(guestSystemAccess()), installedOmarchyRevision)
+}
+
+// statusReport builds one status from a single view of the desktop.
+func statusReport(inputAvailable, absolutePointerAvailable bool, desktop *desktopProbe, omarchyRevision func() string) status {
 	hostName, _ := os.Hostname()
 	addresses := []string{}
 	interfaces, _ := net.Interfaces()
@@ -509,16 +514,17 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	sort.Strings(addresses)
 	kvmAvailable, kvmVersion, kvmError := kvmStatus()
 	capabilities := []string{"file-transfer-v1", "kvm-diagnostics-v1", "shutdown-v1", "agent-restart-v1"}
-	if ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending") {
+	provisioningPending := ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending")
+	if provisioningPending {
 		capabilities = append(capabilities, ownerProvisioningCapability)
 	}
 	if sshListening() {
 		capabilities = append(capabilities, "ssh-addresses-v1")
 	}
-	desktopActive := desktopSessionActive()
+	desktopActive := desktop.desktopSessionActive()
 	if inputAvailable {
 		capabilities = append(capabilities, "input-uinput-v1", "input-horizontal-wheel-v1")
-		if desktopActive && desktopInputReady() {
+		if desktopActive && desktop.desktopInputReady() {
 			capabilities = append(capabilities, "input-uinput-desktop-v1", "desktop-input-v1")
 		}
 	}
@@ -536,10 +542,10 @@ func currentStatus(inputAvailable, absolutePointerAvailable bool) status {
 	// must mean the running desktop actually reads the node. During firmware
 	// and login no user desktop exists yet, and there the device is the only
 	// path available.
-	if absolutePointerAvailable && (!desktopActive || desktopPointerInputReady()) {
+	if absolutePointerAvailable && (!desktopActive || desktop.desktopPointerInputReady()) {
 		capabilities = append(capabilities, "input-uinput-absolute-v1")
 	}
-	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: installedOmarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: ownerProvisioningAvailable("/var/lib/omarchy/provisioning/pending"), KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
+	return status{AgentVersion: version, AgentInstanceID: agentInstanceID, OmarchyRevision: omarchyRevision(), OperatingSystem: osName(), KernelVersion: kernelVersion(), HostName: hostName, Addresses: addresses, BootID: readTrimmed("/proc/sys/kernel/random/boot_id"), UptimeSeconds: uptime(), Capabilities: capabilities, InputDevices: desktop.inputDeviceNames(), DesktopSessionActive: desktopActive, ProvisioningPending: provisioningPending, KVMAvailable: kvmAvailable, KVMAPIVersion: kvmVersion, KVMError: kvmError}
 }
 
 func sshListening() bool {
@@ -596,74 +602,6 @@ func mountOptionsContain(options, wanted string) bool {
 		}
 	}
 	return false
-}
-
-func inputDeviceNames() []string {
-	data, err := os.ReadFile("/proc/bus/input/devices")
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, block := range strings.Split(string(data), "\n\n") {
-		name := ""
-		handlers := ""
-		for _, line := range strings.Split(block, "\n") {
-			switch {
-			case strings.HasPrefix(line, "N: Name="):
-				name = strings.Trim(strings.TrimPrefix(line, "N: Name="), "\"")
-			case strings.HasPrefix(line, "H: Handlers="):
-				handlers = strings.TrimSpace(strings.TrimPrefix(line, "H: Handlers="))
-			}
-		}
-		if name != "" {
-			if handlers != "" {
-				name += " [" + handlers + "]"
-			}
-			names = append(names, name)
-		}
-	}
-	if consumers := hyprlandInputDevices(); len(consumers) > 0 {
-		names = append(names, "Hyprland open input devices ["+strings.Join(consumers, " ")+"]")
-	} else {
-		names = append(names, "Hyprland open input devices [none]")
-	}
-	return append([]string{hyprlandDeviceDiagnostics(), inputDiagnostics()}, names...)
-}
-
-func hyprlandInputDevices() []string {
-	entries, err := os.ReadDir("/proc")
-	if err != nil {
-		return nil
-	}
-	seen := make(map[string]bool)
-	var devices []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		pid := entry.Name()
-		if _, err := strconv.Atoi(pid); err != nil {
-			continue
-		}
-		comm := strings.ToLower(readTrimmed("/proc/" + pid + "/comm"))
-		if !strings.Contains(comm, "hyprland") {
-			continue
-		}
-		fds, err := os.ReadDir("/proc/" + pid + "/fd")
-		if err != nil {
-			continue
-		}
-		for _, fd := range fds {
-			target, err := os.Readlink("/proc/" + pid + "/fd/" + fd.Name())
-			if err != nil || !strings.HasPrefix(target, "/dev/input/event") || seen[target] {
-				continue
-			}
-			seen[target] = true
-			devices = append(devices, strings.TrimPrefix(target, "/dev/input/"))
-		}
-	}
-	sort.Strings(devices)
-	return devices
 }
 
 func kvmStatus() (bool, int, string) {
