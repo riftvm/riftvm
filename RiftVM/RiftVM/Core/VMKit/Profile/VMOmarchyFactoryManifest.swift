@@ -218,12 +218,19 @@ public enum VMOmarchyFactoryValidator {
         value.count == 64 && value.allSatisfy(\.isHexDigit)
     }
 
+    /// Large enough that hashing a multi-gigabyte image is not dominated by
+    /// per-read overhead, small enough to keep memory use flat.
+    static let hashReadChunkBytes = 4 * 1_024 * 1_024
+
     private static func sha256(of url: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         var hasher = SHA256()
         while true {
-            let data = try handle.read(upToCount: 1_024 * 1_024) ?? Data()
+            // Each chunk is released before the next is read.
+            let data = try autoreleasepool {
+                try handle.read(upToCount: hashReadChunkBytes) ?? Data()
+            }
             if data.isEmpty { break }
             hasher.update(data: data)
         }

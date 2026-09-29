@@ -158,15 +158,11 @@ struct VMSnapshotModel: Identifiable, Codable {
     }
 
     var displayDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        return formatter.string(from: createdAt)
+        VMSnapshotDateFormatting.minuteTimestamp(createdAt)
     }
 
     var displayRelativeDate: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: createdAt, relativeTo: Date())
+        VMSnapshotDateFormatting.relativeDescription(of: createdAt, relativeTo: Date())
     }
 
     var displaySize: String {
@@ -177,11 +173,56 @@ struct VMSnapshotModel: Identifiable, Codable {
     }
 }
 
+/// Formatters are expensive to create and these strings are produced for every
+/// row on every SwiftUI render. The cached instances follow the user's current
+/// locale, calendar and time zone, so the output matches a formatter created at
+/// the moment of the call.
+enum VMSnapshotDateFormatting {
+    /// `DateFormatter` is documented as thread-safe for formatting.
+    private static let minuteTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.calendar = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
+
+    private static let relativeFormatterLock = NSLock()
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.calendar = .autoupdatingCurrent
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    static func minuteTimestamp(_ date: Date) -> String {
+        minuteTimestampFormatter.string(from: date)
+    }
+
+    static func relativeDescription(of date: Date, relativeTo reference: Date) -> String {
+        relativeFormatterLock.lock()
+        defer { relativeFormatterLock.unlock() }
+        return relativeFormatter.localizedString(for: date, relativeTo: reference)
+    }
+}
+
 struct VMSnapshotTreeNode: Identifiable {
     let snapshot: VMSnapshotModel
     let children: [VMSnapshotTreeNode]?
 
     var id: String { snapshot.id }
+}
+
+/// A consistent view of the snapshot store produced by
+/// `VMSnapshotManager.loadIndex(vmRootPath:)`.
+struct VMSnapshotIndex {
+    /// Newest first, exactly as `listSnapshots` returns them.
+    let snapshots: [VMSnapshotModel]
+    let tree: [VMSnapshotTreeNode]
+    let currentSnapshotID: String?
+    let maximumASIFLayerDepth: Int
 }
 
 
@@ -461,9 +502,7 @@ class VMSnapshotManager {
     }
 
     static func defaultSnapshotName() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        return "Snapshot \(formatter.string(from: Date()))"
+        "Snapshot \(VMSnapshotDateFormatting.minuteTimestamp(Date()))"
     }
 
     // machine files are everything in the bundle except the Snapshots
@@ -475,25 +514,57 @@ class VMSnapshotManager {
     }
 
     static func listSnapshots(vmRootPath: URL) -> [VMSnapshotModel] {
-        let rootURL = snapshotsRootURL(vmRootPath: vmRootPath)
-        guard let ids = try? FileManager.default.contentsOfDirectory(atPath: rootURL.path(percentEncoded: false)) else {
-            return []
+        scanSnapshotMetadata(vmRootPath: vmRootPath).snapshots
+    }
+
+    /// One pass over the snapshot store: every readable snapshot (newest
+    /// first) plus whether every snapshot directory had readable metadata.
+    private struct SnapshotMetadataScan {
+        let snapshots: [VMSnapshotModel]
+        let isComplete: Bool
+    }
+
+    private static func scanSnapshotMetadata(vmRootPath: URL) -> SnapshotMetadataScan {
+        let rootPath = snapshotsRootURL(vmRootPath: vmRootPath).path(percentEncoded: false)
+        guard let ids = try? FileManager.default.contentsOfDirectory(atPath: rootPath) else {
+            // A store that does not exist yet is complete and empty; one that
+            // exists but cannot be listed is not trustworthy.
+            return SnapshotMetadataScan(
+                snapshots: [],
+                isComplete: !FileManager.default.fileExists(atPath: rootPath)
+            )
         }
 
         var snapshots: [VMSnapshotModel] = []
+        var isComplete = true
         for id in ids {
             guard UUID(uuidString: id) != nil else { continue }
             let metaURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)
-            guard let data = try? Data(contentsOf: metaURL) else {
+            guard let data = try? Data(contentsOf: metaURL),
+                  let model = try? Self.jsonDecoder().decode(VMSnapshotModel.self, from: data),
+                  model.id == id else {
+                isComplete = false
                 continue
             }
-            guard let model = try? Self.jsonDecoder().decode(VMSnapshotModel.self, from: data) else {
-                continue
-            }
-            guard model.id == id else { continue }
             snapshots.append(model)
         }
-        return snapshots.sorted { $0.createdAt > $1.createdAt }
+        return SnapshotMetadataScan(
+            snapshots: snapshots.sorted { $0.createdAt > $1.createdAt },
+            isComplete: isComplete
+        )
+    }
+
+    /// Everything the snapshot list UI needs, loaded with a single scan of the
+    /// snapshot store instead of one scan per property.
+    static func loadIndex(vmRootPath: URL) -> VMSnapshotIndex {
+        let snapshots = listSnapshots(vmRootPath: vmRootPath)
+        let state = readState(vmRootPath: vmRootPath)
+        return VMSnapshotIndex(
+            snapshots: snapshots,
+            tree: snapshotTree(snapshots: snapshots),
+            currentSnapshotID: currentSnapshotID(state: state, snapshots: snapshots),
+            maximumASIFLayerDepth: maximumASIFLayerDepth(state: state, snapshots: snapshots)
+        )
     }
 
     /// Rolls an interrupted restore back to the complete pre-restore bundle.
@@ -586,18 +657,39 @@ class VMSnapshotManager {
     }
 
     static func currentSnapshotID(vmRootPath: URL) -> String? {
-        guard let currentID = readState(vmRootPath: vmRootPath).currentSnapshotID,
-              listSnapshots(vmRootPath: vmRootPath).contains(where: { $0.id == currentID }) else {
+        // The state is read first so a store without a current snapshot does
+        // not pay for a metadata scan.
+        let state = readState(vmRootPath: vmRootPath)
+        guard state.currentSnapshotID != nil else { return nil }
+        return currentSnapshotID(state: state, snapshots: listSnapshots(vmRootPath: vmRootPath))
+    }
+
+    private static func currentSnapshotID(
+        state: VMSnapshotStoreState,
+        snapshots: [VMSnapshotModel]
+    ) -> String? {
+        guard let currentID = state.currentSnapshotID,
+              snapshots.contains(where: { $0.id == currentID }) else {
             return nil
         }
         return currentID
     }
 
     static func maximumASIFLayerDepth(vmRootPath: URL) -> Int {
-        let activeDepth = readState(vmRootPath: vmRootPath).activeDiskLayers.values
+        maximumASIFLayerDepth(
+            state: readState(vmRootPath: vmRootPath),
+            snapshots: listSnapshots(vmRootPath: vmRootPath)
+        )
+    }
+
+    private static func maximumASIFLayerDepth(
+        state: VMSnapshotStoreState,
+        snapshots: [VMSnapshotModel]
+    ) -> Int {
+        let activeDepth = state.activeDiskLayers.values
             .map(\.count)
             .max() ?? 0
-        let snapshotDepth = listSnapshots(vmRootPath: vmRootPath)
+        let snapshotDepth = snapshots
             .flatMap(\.diskLayers)
             .map { $0.layerPaths.count }
             .max() ?? 0
@@ -658,7 +750,10 @@ class VMSnapshotManager {
     }
 
     static func snapshotTree(vmRootPath: URL) -> [VMSnapshotTreeNode] {
-        let snapshots = listSnapshots(vmRootPath: vmRootPath)
+        snapshotTree(snapshots: listSnapshots(vmRootPath: vmRootPath))
+    }
+
+    private static func snapshotTree(snapshots: [VMSnapshotModel]) -> [VMSnapshotTreeNode] {
         let snapshotsByID = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.id, $0) })
         var childrenByParentID: [String: [VMSnapshotModel]] = [:]
         var roots: [VMSnapshotModel] = []
@@ -793,15 +888,14 @@ class VMSnapshotManager {
             for fileName in fileNames {
                 try operationControl?.checkCancellation()
                 let sourceURL = vmRootPath.appending(path: fileName)
-                let targetURL = filesDir.appending(path: fileName)
-                try FileManager.default.copyItem(at: sourceURL, to: targetURL)
-                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
-                progress?(operationProgress(
-                    phase: .copying,
-                    completed: completedBytes,
-                    total: totalBytes,
-                    canCancel: true
-                ))
+                completedBytes = try copySnapshotItem(
+                    at: sourceURL,
+                    to: filesDir.appending(path: fileName),
+                    completedBytes: completedBytes,
+                    totalBytes: totalBytes,
+                    operationControl: operationControl,
+                    progress: progress
+                )
             }
 
             try operationControl?.checkCancellation()
@@ -959,14 +1053,14 @@ class VMSnapshotManager {
             for fileName in snapshotFileNames {
                 try operationControl?.checkCancellation()
                 let sourceURL = filesDir.appending(path: fileName)
-                try fm.copyItem(at: sourceURL, to: stagingDir.appending(path: fileName))
-                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
-                progress?(operationProgress(
-                    phase: .copying,
-                    completed: completedBytes,
-                    total: totalBytes,
-                    canCancel: true
-                ))
+                completedBytes = try copySnapshotItem(
+                    at: sourceURL,
+                    to: stagingDir.appending(path: fileName),
+                    completedBytes: completedBytes,
+                    totalBytes: totalBytes,
+                    operationControl: operationControl,
+                    progress: progress
+                )
             }
             try operationControl?.checkCancellation()
         } catch {
@@ -1233,7 +1327,7 @@ class VMSnapshotManager {
         model.name = newName
         do {
             let data = try Self.jsonEncoder().encode(model)
-            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id))
+            try data.write(to: snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: model.id), options: .atomic)
             return .success
         } catch {
             return .failure("Failed to rename snapshot : \(error.localizedDescription)")
@@ -1268,12 +1362,17 @@ class VMSnapshotManager {
         if snapshot.isProtected {
             return .failure("Unprotect this snapshot before deleting it")
         }
-        if listSnapshots(vmRootPath: vmRootPath).contains(where: { $0.parentSnapshotID == snapshot.id }) {
+        // The mutation lease is held, so one scan serves both checks.
+        let snapshots = listSnapshots(vmRootPath: vmRootPath)
+        if snapshots.contains(where: { $0.parentSnapshotID == snapshot.id }) {
             return .failure("Delete this snapshot's child snapshots first")
         }
 
         let snapshotDir = snapshotDirURL(vmRootPath: vmRootPath, snapshotId: snapshot.id)
-        let deletingCurrentSnapshot = currentSnapshotID(vmRootPath: vmRootPath) == snapshot.id
+        let deletingCurrentSnapshot = currentSnapshotID(
+            state: readState(vmRootPath: vmRootPath),
+            snapshots: snapshots
+        ) == snapshot.id
         do {
             if deletingCurrentSnapshot {
                 try writeCurrentSnapshotID(snapshot.parentSnapshotID, vmRootPath: vmRootPath)
@@ -1386,17 +1485,14 @@ class VMSnapshotManager {
             for fileName in nonDiskFileNames {
                 try operationControl?.checkCancellation()
                 let sourceURL = vmRootPath.appending(path: fileName)
-                try FileManager.default.copyItem(
+                completedBytes = try copySnapshotItem(
                     at: sourceURL,
-                    to: filesDir.appending(path: fileName)
+                    to: filesDir.appending(path: fileName),
+                    completedBytes: completedBytes,
+                    totalBytes: totalBytes,
+                    operationControl: operationControl,
+                    progress: progress
                 )
-                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
-                progress?(operationProgress(
-                    phase: .copying,
-                    completed: completedBytes,
-                    total: totalBytes,
-                    canCancel: true
-                ))
             }
 
             for base in bases {
@@ -1531,14 +1627,14 @@ class VMSnapshotManager {
             for fileName in snapshotFileNames {
                 try operationControl?.checkCancellation()
                 let sourceURL = filesDir.appending(path: fileName)
-                try fm.copyItem(at: sourceURL, to: stagingDir.appending(path: fileName))
-                completedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
-                progress?(operationProgress(
-                    phase: .copying,
-                    completed: completedBytes,
-                    total: totalBytes,
-                    canCancel: true
-                ))
+                completedBytes = try copySnapshotItem(
+                    at: sourceURL,
+                    to: stagingDir.appending(path: fileName),
+                    completedBytes: completedBytes,
+                    totalBytes: totalBytes,
+                    operationControl: operationControl,
+                    progress: progress
+                )
             }
             try injectRestoreFault(checkpoint, observer: checkpointObserver, at: .stagingPrepared)
             try operationControl?.checkCancellation()
@@ -1675,11 +1771,6 @@ class VMSnapshotManager {
         _ = image.size
     }
 
-    private static func relativePath(_ url: URL, under root: URL) -> String {
-        url.standardizedFileURL.pathComponents
-            .dropFirst(root.standardizedFileURL.pathComponents.count)
-            .joined(separator: "/")
-    }
 #endif
 
     private static func pruneUnreferencedLayers(vmRootPath: URL) {
@@ -1687,7 +1778,8 @@ class VMSnapshotManager {
         guard let layerNames = try? FileManager.default.contentsOfDirectory(atPath: layersRoot.path(percentEncoded: false)) else {
             return
         }
-        guard snapshotMetadataIndexIsComplete(vmRootPath: vmRootPath) else {
+        let index = scanSnapshotMetadata(vmRootPath: vmRootPath)
+        guard index.isComplete else {
             // A metadata record that cannot be decoded may still be the only
             // durable reference to an ASIF layer. Preserve every layer until
             // the snapshot index can be repaired instead of guessing which
@@ -1698,12 +1790,12 @@ class VMSnapshotManager {
             return
         }
         var referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
-        for snapshot in listSnapshots(vmRootPath: vmRootPath) {
+        for snapshot in index.snapshots {
             referenced.formUnion(snapshot.diskLayers.flatMap(\.layerPaths))
         }
         for layerName in layerNames {
             let url = layersRoot.appending(path: layerName)
-            let path = relativePathForPruning(url, under: vmRootPath)
+            let path = relativePath(url, under: vmRootPath)
             if !referenced.contains(path) {
                 try? FileManager.default.removeItem(at: url)
             }
@@ -1737,7 +1829,8 @@ class VMSnapshotManager {
             issues.append("A previous layer cleanup needs recovery before another cleanup can start.")
         }
 
-        guard snapshotMetadataIndexIsComplete(vmRootPath: vmRootPath) else {
+        let index = scanSnapshotMetadata(vmRootPath: vmRootPath)
+        guard index.isComplete else {
             issues.append("Snapshot metadata is incomplete or unreadable. Repair it before cleaning up layers.")
             return VMSnapshotMaintenanceReport(removableLayers: [], retainedLayerCount: 0, issues: issues)
         }
@@ -1748,7 +1841,7 @@ class VMSnapshotManager {
         }
 
         var referenced = Set(state.activeDiskLayers.values.flatMap { $0 })
-        for snapshot in listSnapshots(vmRootPath: vmRootPath) {
+        for snapshot in index.snapshots {
             referenced.formUnion(snapshot.diskLayers.flatMap(\.layerPaths))
         }
 
@@ -1786,7 +1879,7 @@ class VMSnapshotManager {
                 retainedCount += 1
                 continue
             }
-            let path = relativePathForPruning(entry, under: vmRootPath)
+            let path = relativePath(entry, under: vmRootPath)
             if referenced.contains(path) {
                 retainedCount += 1
             } else {
@@ -1928,27 +2021,6 @@ class VMSnapshotManager {
         }
     }
 
-    private static func snapshotMetadataIndexIsComplete(vmRootPath: URL) -> Bool {
-        let rootURL = snapshotsRootURL(vmRootPath: vmRootPath)
-        if !FileManager.default.fileExists(atPath: rootURL.path(percentEncoded: false)) {
-            return true
-        }
-        guard let entries = try? FileManager.default.contentsOfDirectory(
-            atPath: rootURL.path(percentEncoded: false)
-        ) else {
-            return false
-        }
-        for id in entries where UUID(uuidString: id) != nil {
-            let metadataURL = snapshotMetaURL(vmRootPath: vmRootPath, snapshotId: id)
-            guard let data = try? Data(contentsOf: metadataURL),
-                  let snapshot = try? jsonDecoder().decode(VMSnapshotModel.self, from: data),
-                  snapshot.id == id else {
-                return false
-            }
-        }
-        return true
-    }
-
     private static func strictlyDecodedState(vmRootPath: URL) -> VMSnapshotStoreState? {
         let url = stateURL(vmRootPath: vmRootPath)
         guard FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) else {
@@ -1958,7 +2030,7 @@ class VMSnapshotManager {
         return try? jsonDecoder().decode(VMSnapshotStoreState.self, from: data)
     }
 
-    private static func relativePathForPruning(_ url: URL, under root: URL) -> String {
+    private static func relativePath(_ url: URL, under root: URL) -> String {
         url.standardizedFileURL.pathComponents
             .dropFirst(root.standardizedFileURL.pathComponents.count)
             .joined(separator: "/")
@@ -2044,6 +2116,60 @@ class VMSnapshotManager {
         return overflow ? UInt64.max : sum
     }
 
+    /// Progress inside one file is reported at most once per this many
+    /// allocated bytes, so a large copy does not flood the observer.
+    private static let copyProgressReportingInterval: UInt64 = 4 * 1024 * 1024
+
+    /// Copies one machine or snapshot item and returns the new completed byte
+    /// count. A clone finishes without intermediate progress; a real data copy
+    /// reports progress and honours cancellation while the file is written.
+    private static func copySnapshotItem(
+        at sourceURL: URL,
+        to targetURL: URL,
+        completedBytes: UInt64,
+        totalBytes: UInt64,
+        operationControl: VMSnapshotOperationControl?,
+        progress: ((VMSnapshotOperationProgress) -> Void)?
+    ) throws -> UInt64 {
+        let allocatedBytes = allocatedSize(of: sourceURL)
+        let logicalBytes = UInt64(max(0, (try? sourceURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0))
+        var lastReportedBytes: UInt64 = 0
+        do {
+            try VMSnapshotFileCopier.copyItem(
+                at: sourceURL,
+                to: targetURL,
+                isCancelled: { operationControl?.isCancellationRequested ?? false },
+                progress: { copiedBytes in
+                    guard let progress, logicalBytes > 0 else { return }
+                    let fraction = min(1, Double(copiedBytes) / Double(logicalBytes))
+                    let partialBytes = UInt64(Double(allocatedBytes) * fraction)
+                    // The completed file is reported below, exactly once.
+                    guard partialBytes < allocatedBytes,
+                          partialBytes >= addingWithoutOverflow(lastReportedBytes, copyProgressReportingInterval) else {
+                        return
+                    }
+                    lastReportedBytes = partialBytes
+                    progress(operationProgress(
+                        phase: .copying,
+                        completed: addingWithoutOverflow(completedBytes, partialBytes),
+                        total: totalBytes,
+                        canCancel: true
+                    ))
+                }
+            )
+        } catch is VMSnapshotFileCopier.Cancelled {
+            throw VMSnapshotOperationCancelled()
+        }
+        let updatedBytes = addingWithoutOverflow(completedBytes, allocatedSize(of: sourceURL))
+        progress?(operationProgress(
+            phase: .copying,
+            completed: updatedBytes,
+            total: totalBytes,
+            canCancel: true
+        ))
+        return updatedBytes
+    }
+
     private static func operationProgress(
         phase: VMSnapshotOperationPhase,
         completed: UInt64 = 0,
@@ -2074,18 +2200,24 @@ class VMSnapshotManager {
         return UInt64(values.totalFileAllocatedSize ?? values.fileSize ?? 0)
     }
 
-    private static func jsonEncoder() -> JSONEncoder {
+    // JSONEncoder and JSONDecoder are safe to share once configured; the
+    // configuration below is never mutated after initialisation.
+    private static let sharedJSONEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return encoder
-    }
+    }()
 
-    private static func jsonDecoder() -> JSONDecoder {
+    private static let sharedJSONDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
-    }
+    }()
+
+    private static func jsonEncoder() -> JSONEncoder { sharedJSONEncoder }
+
+    private static func jsonDecoder() -> JSONDecoder { sharedJSONDecoder }
 }
 
 private enum VMSnapshotError: LocalizedError {

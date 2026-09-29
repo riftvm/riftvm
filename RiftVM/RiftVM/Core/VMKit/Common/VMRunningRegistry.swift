@@ -134,8 +134,9 @@ final class VMRunningRegistry {
         guard let descriptor = acquireCrossProcessLock(key: key) else { return nil }
         let lease = VMRunLease(id: UUID(), rootPath: URL(fileURLWithPath: key))
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        entries[key] = Entry(leaseID: lease.id, phase: phase, lockHandle: handle, usage: nil)
-        guard writeRecord(key: key, entry: entries[key]!) else {
+        let entry = Entry(leaseID: lease.id, phase: phase, lockHandle: handle, usage: nil)
+        entries[key] = entry
+        guard writeRecord(key: key, entry: entry) else {
             entries.removeValue(forKey: key)
             flock(descriptor, LOCK_UN)
             try? handle.close()
@@ -282,7 +283,9 @@ final class VMRunningRegistry {
         guard let files = try? FileManager.default.contentsOfDirectory(at: lockDirectory,
                                                                        includingPropertiesForKeys: nil) else { return nil }
         var result = own
-        for file in files where file.pathExtension == "json" && file != metadataURL(key: key) {
+        // Hashing the key once, not once per file in the directory.
+        let ownMetadataURL = metadataURL(key: key)
+        for file in files where file.pathExtension == "json" && file != ownMetadataURL {
             let lockFile = file.deletingPathExtension().appendingPathExtension("lock")
             let descriptor = open(lockFile.path, O_RDONLY | O_CLOEXEC)
             guard descriptor >= 0 else { continue }

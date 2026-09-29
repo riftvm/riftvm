@@ -283,36 +283,69 @@ final class VMOmarchySocketWriter: @unchecked Sendable {
         return cancelled
     }
 
+    static let writeTimeoutNanoseconds: UInt64 = 30_000_000_000
+
+    /// Writes every byte to a nonblocking descriptor, waiting for the peer
+    /// with poll(2) rather than sleeping, until `deadline` (uptime
+    /// nanoseconds) passes or `isCancelled` returns true.
+    static func writeAll(
+        _ data: Data,
+        to descriptor: Int32,
+        deadline: UInt64,
+        isCancelled: () -> Bool
+    ) throws {
+        try data.withUnsafeBytes { bytes in
+            guard let base = bytes.baseAddress else { return }
+            var offset = 0
+            while offset < bytes.count {
+                if isCancelled() { throw CancellationError() }
+                guard DispatchTime.now().uptimeNanoseconds < deadline else {
+                    throw POSIXError(.ETIMEDOUT)
+                }
+                let count = Darwin.write(descriptor, base.advanced(by: offset), bytes.count - offset)
+                if count > 0 { offset += count; continue }
+                if count < 0 && errno == EINTR { continue }
+                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    var event = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
+                    let result = Darwin.poll(&event, 1, 100)
+                    if result < 0 && errno != EINTR {
+                        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                    }
+                    if result > 0 && event.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 {
+                        throw POSIXError(.EPIPE)
+                    }
+                    continue
+                }
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+        }
+    }
+
+    /// Writes the handshake reply on the caller's thread. It is the only
+    /// frame sent before the session exists, so no queued session frame can
+    /// interleave with it.
+    func writeHandshake(_ data: Data) throws {
+        do {
+            try Self.writeAll(
+                data,
+                to: descriptor,
+                deadline: DispatchTime.now().uptimeNanoseconds + Self.writeTimeoutNanoseconds,
+                isCancelled: { self.isCancelled }
+            )
+        } catch {
+            // A partial frame poisons the stream, exactly as in enqueue.
+            cancel()
+            throw error
+        }
+    }
+
     func enqueue(_ data: Data, completion: @escaping @Sendable (Error?) -> Void) {
         // Include time spent queued in the deadline, so a slow peer cannot
         // keep old commands alive indefinitely behind another blocked write.
-        let deadline = DispatchTime.now().uptimeNanoseconds + 30_000_000_000
+        let deadline = DispatchTime.now().uptimeNanoseconds + Self.writeTimeoutNanoseconds
         queue.async { [self] in
             do {
-                try data.withUnsafeBytes { bytes in
-                    var offset = 0
-                    while offset < bytes.count {
-                        if isCancelled { throw CancellationError() }
-                        guard DispatchTime.now().uptimeNanoseconds < deadline else {
-                            throw POSIXError(.ETIMEDOUT)
-                        }
-                        let count = Darwin.write(descriptor, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
-                        if count > 0 { offset += count; continue }
-                        if count < 0 && errno == EINTR { continue }
-                        if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            var event = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
-                            let result = Darwin.poll(&event, 1, 100)
-                            if result < 0 && errno != EINTR {
-                                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-                            }
-                            if result > 0 && event.revents & Int16(POLLERR | POLLHUP | POLLNVAL) != 0 {
-                                throw POSIXError(.EPIPE)
-                            }
-                            continue
-                        }
-                        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-                    }
-                }
+                try Self.writeAll(data, to: descriptor, deadline: deadline, isCancelled: { self.isCancelled })
                 completion(nil)
             } catch {
                 // A partial frame poisons the stream. Never send another
@@ -354,6 +387,17 @@ public final class VMOmarchyGuestAgentClient {
     private var pendingInputBatches: [[VMGuestAgentInputEvent]] = []
     private var inputGeneration: UInt64 = 0
     private var inputTask: Task<Void, Never>?
+    /// Signs outgoing envelopes. Built on first use and kept for the rest of
+    /// the client's life: the enrollment it is derived from never changes.
+    private var sendAuthenticator: VMGuestAgentAuthenticator?
+    // Default-configured coders for request payloads, used on the main actor
+    // only. The frame itself is encoded by VMGuestAgentFrameCodec.
+    private let payloadEncoder = JSONEncoder()
+    private let payloadDecoder = JSONDecoder()
+    /// The environment cannot change while the process runs, so it is read
+    /// once instead of once per input report.
+    private static let inputLatencyTraceEnabled =
+        ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
 
     /// Latest capabilities advertised by the authenticated Guest session.
     /// Session-scoped capabilities can appear after the system Agent is ready
@@ -455,7 +499,7 @@ public final class VMOmarchyGuestAgentClient {
             // so acknowledge each key transition batch before sending the next
             // instead of trading correctness for cross-key coalescing.
             let events = pendingInputBatches.removeFirst()
-            let traceEnabled = ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
+            let traceEnabled = Self.inputLatencyTraceEnabled
             let traceID = traceEnabled ? UUID().uuidString.lowercased() : nil
             let sentAt = traceEnabled ? Self.unixNanoseconds() : nil
             let hostStarted = DispatchTime.now().uptimeNanoseconds
@@ -639,7 +683,7 @@ public final class VMOmarchyGuestAgentClient {
         }
         var pressedKeys: [UInt16] = []
         func send(_ code: UInt16, pressed: Bool) async throws {
-            let traceEnabled = ProcessInfo.processInfo.environment["RIFTVM_INPUT_LATENCY_TRACE"] == "1"
+            let traceEnabled = Self.inputLatencyTraceEnabled
             let started = DispatchTime.now().uptimeNanoseconds
             if traceEnabled { NSLog("RiftVM chord send code=%d pressed=%d", code, pressed ? 1 : 0) }
             let result: VMGuestAgentInputResult = try await request(
@@ -975,10 +1019,7 @@ public final class VMOmarchyGuestAgentClient {
                             guestNonce: hello.guestNonce,
                             hostNonce: hostNonce
                         )
-                        try Self.writeAll(
-                            descriptor: descriptor,
-                            data: VMGuestAgentFrameCodec.encode(welcome)
-                        )
+                        try writer.writeHandshake(VMGuestAgentFrameCodec.encode(welcome))
                         activeSessionID = established
                         Task { @MainActor [weak self] in
                             self?.authenticated(sessionID: established, generation: generation)
@@ -1020,7 +1061,7 @@ public final class VMOmarchyGuestAgentClient {
         guard !stopped, self.generation == generation else { return }
         lastResponseAt = Date()
         if envelope.operation == .status || envelope.operation == .heartbeat {
-            guard let status = try? JSONDecoder().decode(
+            guard let status = try? payloadDecoder.decode(
                 VMGuestAgentStatus.self, from: envelope.payload
             ) else {
                 disconnected("The Guest Agent returned invalid status.", generation: generation)
@@ -1065,7 +1106,7 @@ public final class VMOmarchyGuestAgentClient {
         payload value: Value
     ) async throws -> Response {
         guard let sessionID else { throw CocoaError(.fileNoSuchFile) }
-        let payload = try JSONEncoder().encode(value)
+        let payload = try payloadEncoder.encode(value)
         let requestID = UUID().uuidString
         let response: Data = try await withCheckedThrowingContinuation { continuation in
             let timeout = Task { [weak self] in
@@ -1091,7 +1132,7 @@ public final class VMOmarchyGuestAgentClient {
                 continuation.resume(throwing: error)
             }
         }
-        return try JSONDecoder().decode(Response.self, from: response)
+        return try payloadDecoder.decode(Response.self, from: response)
     }
 
     private func sendEnvelope(
@@ -1102,10 +1143,16 @@ public final class VMOmarchyGuestAgentClient {
     ) throws {
         guard let writer else { throw CocoaError(.fileNoSuchFile) }
         sendSequence &+= 1
-        let authenticator = try VMGuestAgentAuthenticator(
-            tokenData: enrollment.token,
-            machineID: enrollment.machineID
-        )
+        let authenticator: VMGuestAgentAuthenticator
+        if let sendAuthenticator {
+            authenticator = sendAuthenticator
+        } else {
+            authenticator = try VMGuestAgentAuthenticator(
+                tokenData: enrollment.token,
+                machineID: enrollment.machineID
+            )
+            sendAuthenticator = authenticator
+        }
         let envelope = try authenticator.makeEnvelope(
             sessionID: sessionID,
             sequence: sendSequence,
@@ -1206,7 +1253,7 @@ public final class VMOmarchyGuestAgentClient {
 
     private func sendTransferCancel(_ transferID: String) {
         guard let sessionID,
-              let payload = try? JSONEncoder().encode(
+              let payload = try? payloadEncoder.encode(
                 VMGuestAgentTransferID(transferID: transferID)
               ) else { return }
         try? sendEnvelope(
@@ -1251,23 +1298,6 @@ public final class VMOmarchyGuestAgentClient {
             return
         }
         send(.heartbeat)
-    }
-
-    private nonisolated static func writeAll(descriptor: Int32, data: Data) throws {
-        try data.withUnsafeBytes { buffer in
-            guard let base = buffer.baseAddress else { return }
-            var offset = 0
-            while offset < buffer.count {
-                let count = Darwin.write(descriptor, base.advanced(by: offset), buffer.count - offset)
-                if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    usleep(10_000)
-                    continue
-                }
-                if count < 0 && errno == EINTR { continue }
-                if count <= 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-                offset += count
-            }
-        }
     }
 
     private func disconnected(_ reason: String, generation: UInt64) {

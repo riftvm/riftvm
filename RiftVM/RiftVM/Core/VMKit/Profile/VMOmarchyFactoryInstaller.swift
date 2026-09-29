@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public protocol VMOmarchyFactoryTransport {
@@ -64,12 +65,10 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
-        lock.withLock {
-            activeDownloads[downloadTask.taskIdentifier]?.progress(
-                totalBytesWritten,
-                totalBytesExpectedToWrite
-            )
-        }
+        // The closure belongs to the caller and may block or re-enter this
+        // transport, so it must never run while the lock is held.
+        let progress = lock.withLock { activeDownloads[downloadTask.taskIdentifier]?.progress }
+        progress?(totalBytesWritten, totalBytesExpectedToWrite)
     }
 
     public func urlSession(
@@ -187,12 +186,104 @@ public enum VMOmarchyFactoryChannelState: Equatable, Sendable {
     }
 }
 
+/// What RiftVM knew about a cached factory image the last time it hashed the
+/// whole file. It lets a later install skip re-reading a multi-gigabyte image
+/// that has not been touched since.
+///
+/// This is an optimisation against redundant reads, not a trust anchor: the
+/// record is only honoured when every field still matches the file on disk and
+/// the recorded digest is the one the signed manifest demands. Anything else
+/// falls back to hashing the image again.
+struct VMOmarchyFactoryImageVerificationRecord: Codable, Equatable {
+    static let currentSchemaVersion = 1
+    static let maximumEncodedBytes = 4 * 1_024
+
+    struct Fingerprint: Codable, Equatable {
+        let fileSize: UInt64
+        let modificationSeconds: Int64
+        let modificationNanoseconds: Int64
+        /// Changes whenever content or metadata changes and, unlike the
+        /// modification date, cannot be set back by the file's owner.
+        let statusChangeSeconds: Int64
+        let statusChangeNanoseconds: Int64
+        let inode: UInt64
+
+        /// Returns nil unless `url` is a regular file that is not reached
+        /// through a symbolic link.
+        static func current(of url: URL) -> Fingerprint? {
+            var status = stat()
+            guard lstat(url.path(percentEncoded: false), &status) == 0,
+                  (status.st_mode & S_IFMT) == S_IFREG,
+                  status.st_size >= 0 else {
+                return nil
+            }
+            return Fingerprint(
+                fileSize: UInt64(status.st_size),
+                modificationSeconds: Int64(status.st_mtimespec.tv_sec),
+                modificationNanoseconds: Int64(status.st_mtimespec.tv_nsec),
+                statusChangeSeconds: Int64(status.st_ctimespec.tv_sec),
+                statusChangeNanoseconds: Int64(status.st_ctimespec.tv_nsec),
+                inode: UInt64(status.st_ino)
+            )
+        }
+
+        /// A rename changes the status-change time but nothing else.
+        func matchesIgnoringStatusChange(_ other: Fingerprint) -> Bool {
+            fileSize == other.fileSize
+                && modificationSeconds == other.modificationSeconds
+                && modificationNanoseconds == other.modificationNanoseconds
+                && inode == other.inode
+        }
+    }
+
+    let schemaVersion: Int
+    let fingerprint: Fingerprint
+    /// Lowercase hexadecimal SHA-256 of the image when it was verified.
+    let sha256: String
+
+    static func url(forImageAt imageURL: URL) -> URL {
+        imageURL.deletingLastPathComponent()
+            .appending(path: "\(imageURL.lastPathComponent).verified.json")
+    }
+
+    /// Returns nil for a missing, oversized, linked or undecodable record.
+    static func read(forImageAt imageURL: URL) -> Self? {
+        let recordURL = url(forImageAt: imageURL)
+        var status = stat()
+        guard lstat(recordURL.path(percentEncoded: false), &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_size > 0,
+              status.st_size <= maximumEncodedBytes,
+              let data = try? Data(contentsOf: recordURL),
+              data.count <= maximumEncodedBytes,
+              let record = try? JSONDecoder().decode(Self.self, from: data),
+              record.schemaVersion == currentSchemaVersion else {
+            return nil
+        }
+        return record
+    }
+
+    func write(forImageAt imageURL: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(self).write(to: Self.url(forImageAt: imageURL), options: .atomic)
+    }
+
+    static func remove(forImageAt imageURL: URL) {
+        try? FileManager.default.removeItem(at: url(forImageAt: imageURL))
+    }
+}
+
 public struct VMOmarchyFactoryInstaller {
     public static let maximumManifestBytes = 256 * 1_024
     public let profile: VMOmarchyProfile
     public let cacheDirectory: URL
     public let publicKeys: [Data]
     public let transport: any VMOmarchyFactoryTransport
+    /// Hashes the whole image. Replaceable so tests can count full reads.
+    var validateImage: (URL, VMOmarchyFactoryManifest) throws -> Void = { imageURL, manifest in
+        try VMOmarchyFactoryValidator.validateImage(at: imageURL, manifest: manifest)
+    }
 
     public init(
         profile: VMOmarchyProfile,
@@ -223,9 +314,12 @@ public struct VMOmarchyFactoryInstaller {
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
         guard !FileManager.default.fileExists(atPath: published.path) else {
             stage("Verifying the cached image")
-            try VMOmarchyFactoryValidator.validateImage(at: published, manifest: manifest)
+            try verifyCachedImage(at: published, manifest: manifest)
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         }
+        // A record left behind by an image that no longer exists must never
+        // describe the image that is about to be published.
+        VMOmarchyFactoryImageVerificationRecord.remove(forImageAt: published)
         let staging = cacheDirectory.appending(path: ".Factory-\(UUID().uuidString).download")
         do {
             stage("Downloading Omarchy")
@@ -242,12 +336,69 @@ public struct VMOmarchyFactoryInstaller {
                 throw VMOmarchyFactoryValidationError.invalidManifest
             }
             stage("Verifying the downloaded image")
-            try VMOmarchyFactoryValidator.validateImage(at: staging, manifest: manifest)
+            let verified = try validateImageReturningStableFingerprint(at: staging, manifest: manifest)
             try FileManager.default.moveItem(at: staging, to: published)
+            if let verified,
+               let installed = VMOmarchyFactoryImageVerificationRecord.Fingerprint.current(of: published),
+               installed.matchesIgnoringStatusChange(verified) {
+                recordVerification(of: published, fingerprint: installed, manifest: manifest)
+            }
             return VMOmarchyFactoryInstallResult(diskURL: published, manifest: manifest)
         } catch {
             try? FileManager.default.removeItem(at: staging)
             throw error
+        }
+    }
+
+    /// Skips the full hash only when the image is byte-for-byte the file that
+    /// was hashed before, as far as the file system can tell, and that hash is
+    /// the one this manifest expects. Every doubt ends in a full re-hash.
+    private func verifyCachedImage(at imageURL: URL, manifest: VMOmarchyFactoryManifest) throws {
+        let expectedDigest = manifest.payload.imageSHA256.lowercased()
+        if let current = VMOmarchyFactoryImageVerificationRecord.Fingerprint.current(of: imageURL),
+           let record = VMOmarchyFactoryImageVerificationRecord.read(forImageAt: imageURL),
+           record.fingerprint == current,
+           record.sha256 == expectedDigest,
+           current.fileSize == manifest.payload.imageByteCount {
+            return
+        }
+
+        VMOmarchyFactoryImageVerificationRecord.remove(forImageAt: imageURL)
+        if let verified = try validateImageReturningStableFingerprint(at: imageURL, manifest: manifest) {
+            recordVerification(of: imageURL, fingerprint: verified, manifest: manifest)
+        }
+    }
+
+    /// Returns the image's fingerprint when it was identical before and after
+    /// hashing, and nil when the file changed while it was being read.
+    private func validateImageReturningStableFingerprint(
+        at imageURL: URL,
+        manifest: VMOmarchyFactoryManifest
+    ) throws -> VMOmarchyFactoryImageVerificationRecord.Fingerprint? {
+        let before = VMOmarchyFactoryImageVerificationRecord.Fingerprint.current(of: imageURL)
+        try validateImage(imageURL, manifest)
+        guard let before,
+              VMOmarchyFactoryImageVerificationRecord.Fingerprint.current(of: imageURL) == before else {
+            return nil
+        }
+        return before
+    }
+
+    /// Failing to write the record only costs a re-hash next time.
+    private func recordVerification(
+        of imageURL: URL,
+        fingerprint: VMOmarchyFactoryImageVerificationRecord.Fingerprint,
+        manifest: VMOmarchyFactoryManifest
+    ) {
+        let record = VMOmarchyFactoryImageVerificationRecord(
+            schemaVersion: VMOmarchyFactoryImageVerificationRecord.currentSchemaVersion,
+            fingerprint: fingerprint,
+            sha256: manifest.payload.imageSHA256.lowercased()
+        )
+        do {
+            try record.write(forImageAt: imageURL)
+        } catch {
+            VMOmarchyFactoryImageVerificationRecord.remove(forImageAt: imageURL)
         }
     }
 

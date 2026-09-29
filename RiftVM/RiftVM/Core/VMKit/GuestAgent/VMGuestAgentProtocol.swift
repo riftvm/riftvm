@@ -1047,9 +1047,17 @@ struct VMGuestAgentAuthenticator {
 }
 
 enum VMGuestAgentFrameCodec {
-    static func encode<T: Encodable>(_ value: T) throws -> Data {
+    // Shared by the main actor and the connection's read queue. JSONEncoder
+    // and JSONDecoder are Sendable and these are never reconfigured.
+    private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }()
+
+    private static let decoder = JSONDecoder()
+
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
         let payload = try encoder.encode(value)
         guard payload.count <= VMGuestAgentProtocol.maximumFrameBytes else {
             throw VMGuestAgentAuthenticationError.oversizedFrame
@@ -1065,7 +1073,7 @@ enum VMGuestAgentFrameCodec {
         let length = frame.prefix(4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
         guard length <= VMGuestAgentProtocol.maximumFrameBytes else { throw VMGuestAgentAuthenticationError.oversizedFrame }
         guard frame.count == Int(length) + 4 else { throw CocoaError(.fileReadCorruptFile) }
-        return try JSONDecoder().decode(type, from: frame.dropFirst(4))
+        return try decoder.decode(type, from: frame.dropFirst(4))
     }
 }
 
