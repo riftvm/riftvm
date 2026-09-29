@@ -630,3 +630,29 @@ import Testing
     // 8 x 1 ms + 8 x 2 ms + 4 x 4 ms; timers only ever fire late.
     #expect(elapsed >= 0.030)
 }
+
+@Test func resumeResubmitsOnlyAScanoutTheViewAlreadyHad() {
+    func decide(
+        zeroCopy: Bool = true, scanout: UInt32? = 7, published: UInt32? = 7,
+        resources: Set<UInt32> = [7], borrowed: Set<UInt32> = [7]
+    ) -> UInt32? {
+        VirtioGPU.scanoutResourceToResubmitAfterResume(
+            zeroCopyPresentationEnabled: zeroCopy,
+            scanoutResourceID: scanout,
+            lastPublishedScanoutResourceID: published,
+            resourceExists: resources.contains,
+            textureIsBorrowed: borrowed.contains
+        )
+    }
+    #expect(decide() == 7)
+    // The CPU fallback path publishes images, not scanout frames.
+    #expect(decide(zeroCopy: false) == nil)
+    // The guest disabled the scanout, or a reset cleared it.
+    #expect(decide(scanout: nil, published: nil) == nil)
+    // A scanout the guest set but never flushed has nothing to show yet.
+    #expect(decide(published: nil) == nil)
+    #expect(decide(scanout: 8, published: 7, resources: [7, 8], borrowed: [7, 8]) == nil)
+    // Never present a released resource or a texture that is not borrowed.
+    #expect(decide(resources: []) == nil)
+    #expect(decide(borrowed: []) == nil)
+}

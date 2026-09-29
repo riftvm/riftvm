@@ -315,8 +315,40 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     }
 
     func customVirtioDeviceWillResume(_ device: VZCustomVirtioDevice) {
-        guard !isStopped, self.device === device else { return }
-        print("[stage6] custom Virtio GPU resumed")
+        let resume = { [self] in
+            guard !isStopped, self.device === device else { return }
+            resubmitScanoutAfterResume()
+            print("[stage6] custom Virtio GPU resumed")
+        }
+        // Scanout state belongs to the device queue, where a reset also runs,
+        // so the two can never interleave.
+        if DispatchQueue.getSpecific(key: deviceQueueKey) != nil {
+            resume()
+        } else {
+            deviceQueue.async(execute: resume)
+        }
+    }
+
+    /// Pausing told the view to forget its scanout, and an idle guest may not
+    /// flush again for a long time. Pausing releases nothing in the renderer,
+    /// so the frame the view had is still there: hand it back through the
+    /// ordinary frame path, with a sequence newer than the invalidation.
+    private func resubmitScanoutAfterResume() {
+        guard let scanoutRect,
+              let resourceID = VirtioGPU.scanoutResourceToResubmitAfterResume(
+                zeroCopyPresentationEnabled: zeroCopyPresentationEnabled,
+                scanoutResourceID: scanoutResourceID,
+                lastPublishedScanoutResourceID: lastPublishedScanoutResourceID,
+                resourceExists: { resources[$0] != nil },
+                textureIsBorrowed: { borrowedScanoutResources.contains($0) }
+              ) else { return }
+        frameScheduler.submit(ScanoutFrame(
+            resourceID: resourceID,
+            x: Int(scanoutRect.x), y: Int(scanoutRect.y),
+            width: Int(scanoutRect.width), height: Int(scanoutRect.height),
+            eventSequence: nextPresentationEventSequence()
+        ))
+        log("resubmitted scanout resource=\(resourceID) after resume")
     }
 
     func customVirtioDevice(
@@ -1363,5 +1395,26 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         } catch {
             print("[gpu] response write failed: \(error)")
         }
+    }
+}
+
+extension VirtioGPU {
+    /// The scanout to present again after a resume, if the one the view had
+    /// before the pause is still the guest's scanout and still presentable:
+    /// the guest flushed it at least once, its resource was not released, and
+    /// its texture is still borrowed from the renderer.
+    static func scanoutResourceToResubmitAfterResume(
+        zeroCopyPresentationEnabled: Bool,
+        scanoutResourceID: UInt32?,
+        lastPublishedScanoutResourceID: UInt32?,
+        resourceExists: (UInt32) -> Bool,
+        textureIsBorrowed: (UInt32) -> Bool
+    ) -> UInt32? {
+        guard zeroCopyPresentationEnabled,
+              let resourceID = scanoutResourceID,
+              resourceID == lastPublishedScanoutResourceID,
+              resourceExists(resourceID),
+              textureIsBorrowed(resourceID) else { return nil }
+        return resourceID
     }
 }

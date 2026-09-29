@@ -339,6 +339,13 @@ snapshots. It does **not** support Virtualization.framework machine-state
 save/restore. Guest RAM does not contain enough information to recreate host
 VirGL contexts, GL objects, mappings, borrowed textures, or in-flight fences.
 
+Pause cancels scheduled frames and tells the view to forget its scanout, but
+releases nothing in the renderer. Resume hands the view the scanout it had,
+through the ordinary frame path, when that resource is still the guest's
+flushed scanout and its texture is still borrowed. An idle guest may not flush
+again for a long time, and without a scanout the view cannot redraw after a
+resize or after being hidden.
+
 The UI must continue to disable or explain state-save operations for this
 backend. A future implementation would need an explicit renderer-state
 serialization contract; silently attempting native save/restore is unsafe.
