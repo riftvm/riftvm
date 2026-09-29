@@ -550,6 +550,9 @@ struct OmarchyVirtualMachineView: View {
     /// the desktop and stays a normal window for the preparation and stopped
     /// screens.
     @State private var fullScreenRequest = 0
+    /// The stopped screen's hardware line. It comes from the machine's metadata
+    /// on disk, so it is read when that can have changed, not on every render.
+    @State private var hardwareSummary: HardwareSummary?
 
     private var phase: Phase { lifecycle.phase }
 
@@ -587,7 +590,8 @@ struct OmarchyVirtualMachineView: View {
             workspace: workspace,
             showsSnapshots: $showsSnapshots,
             isShowingRemovalConfirmation: $isShowingRemovalConfirmation,
-            remove: removeWorkspace
+            remove: removeWorkspace,
+            snapshotsDismissed: refreshHardwareSummary
         ))
         .alert("Stop Omarchy and Close?", isPresented: $isShowingCloseConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -611,6 +615,7 @@ struct OmarchyVirtualMachineView: View {
         }
         .onAppear {
             refreshRecoveryPoints()
+            refreshHardwareSummary()
             if sharedFolders == nil {
                 sharedFolders = VMOmarchySharedFolderStore.load(layout: layout)
             }
@@ -847,6 +852,8 @@ struct OmarchyVirtualMachineView: View {
 
     @ViewBuilder
     private var integrationMenu: some View {
+        let assessment = integrationAssessment
+        let integrationReady = assessment?.isReady == true
         Menu {
             switch integration {
             case .connecting:
@@ -858,18 +865,16 @@ struct OmarchyVirtualMachineView: View {
                 Text(reason).foregroundStyle(.secondary)
             case .ready(let status):
                 Text("Agent \(status.agentVersion) • \(status.hostName)")
-                let assessment = VMOmarchyIntegrationAssessment.evaluate(
-                    status: status,
-                    requiredCapabilities: profile.requiredGuestCapabilities
-                )
-                if assessment.provisioningPending {
-                    Text("Complete Omarchy owner setup")
-                } else if !assessment.desktopSessionActive {
-                    Text("Waiting for Omarchy desktop")
-                } else if !assessment.missingCapabilities.isEmpty {
-                    Text("Missing: \(assessment.missingCapabilities.joined(separator: ", "))")
-                } else {
-                    Text("Omarchy desktop integration ready")
+                if let assessment {
+                    if assessment.provisioningPending {
+                        Text("Complete Omarchy owner setup")
+                    } else if !assessment.desktopSessionActive {
+                        Text("Waiting for Omarchy desktop")
+                    } else if !assessment.missingCapabilities.isEmpty {
+                        Text("Missing: \(assessment.missingCapabilities.joined(separator: ", "))")
+                    } else {
+                        Text("Omarchy desktop integration ready")
+                    }
                 }
                 if !status.addresses.isEmpty { Text(status.addresses.joined(separator: ", ")) }
                 if status.capabilities.contains("shared-folders-v1") {
@@ -948,14 +953,13 @@ struct OmarchyVirtualMachineView: View {
         .help("Create or restore protected Omarchy recovery points")
     }
 
-    private var integrationReady: Bool {
-        if case .ready(let status) = integration {
-            return VMOmarchyIntegrationAssessment.evaluate(
-                status: status,
-                requiredCapabilities: profile.requiredGuestCapabilities
-            ).isReady
-        }
-        return false
+    /// The assessment of the connected Agent, made once for the whole menu.
+    private var integrationAssessment: VMOmarchyIntegrationAssessment? {
+        guard case .ready(let status) = integration else { return nil }
+        return VMOmarchyIntegrationAssessment.evaluate(
+            status: status,
+            requiredCapabilities: profile.requiredGuestCapabilities
+        )
     }
 
     private var microphoneBinding: Binding<Bool> {
@@ -1464,6 +1468,7 @@ struct OmarchyVirtualMachineView: View {
         case .stopped:
             handle(.machineStopped)
             refreshRecoveryPoints()
+            refreshHardwareSummary()
             if prepareUpdateAfterStop {
                 prepareUpdateAfterStop = false
                 createProtectedBackup(forUpdate: true)
@@ -1494,6 +1499,7 @@ struct OmarchyVirtualMachineView: View {
                 case .success:
                     recoveryOperation = .idle
                     refreshRecoveryPoints()
+                    refreshHardwareSummary()
                     notice = UserNotice(title: "Recovery Point Created", message: forUpdate
                         ? "Start Omarchy, then choose Update in the Omarchy menu. If the update fails, stop Omarchy and choose Before Omarchy update in Recovery. Keep this recovery point until you have checked the updated system."
                         : "Your recovery point is ready. To restore it later, stop Omarchy and select it in Recovery.")
@@ -1517,6 +1523,7 @@ struct OmarchyVirtualMachineView: View {
                 case .success:
                     recoveryOperation = .idle
                     refreshRecoveryPoints()
+                    refreshHardwareSummary()
                     factoryChannel = .idle
                     notice = UserNotice(title: "Recovery Complete", message: "Omarchy has been restored. Choose Start Omarchy to use it.")
                 case .failure(let error):
@@ -1601,6 +1608,22 @@ struct OmarchyVirtualMachineView: View {
     }
 
     private var workspaceHardwareSummary: String {
+        if let hardwareSummary, hardwareSummary.root == layout.applicationSupportRoot {
+            return hardwareSummary.text
+        }
+        return readWorkspaceHardwareSummary()
+    }
+
+    /// Reads the metadata again: when the window appears, when Omarchy stops,
+    /// and after a backup, a restore, or the snapshots sheet.
+    private func refreshHardwareSummary() {
+        hardwareSummary = HardwareSummary(
+            root: layout.applicationSupportRoot,
+            text: readWorkspaceHardwareSummary()
+        )
+    }
+
+    private func readWorkspaceHardwareSummary() -> String {
         let resources = profile.resources(
             forHostMemory: ProcessInfo.processInfo.physicalMemory,
             activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount
@@ -1674,6 +1697,12 @@ struct OmarchyVirtualMachineView: View {
         }
     }
 
+    private struct HardwareSummary {
+        /// The machine the text was read for.
+        let root: URL
+        let text: String
+    }
+
     private struct UserNotice: Identifiable {
         let id = UUID()
         let title: String
@@ -1688,10 +1717,12 @@ private struct WorkspaceWindowPresentations: ViewModifier {
     @Binding var showsSnapshots: Bool
     @Binding var isShowingRemovalConfirmation: Bool
     let remove: () -> Void
+    /// A snapshot restore replaces the machine's files, metadata included.
+    let snapshotsDismissed: () -> Void
 
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $showsSnapshots) {
+            .sheet(isPresented: $showsSnapshots, onDismiss: snapshotsDismissed) {
                 MachineSnapshotsView(machineName: workspace.name, rootPath: workspace.bundleURL)
                     .frame(minWidth: 820, minHeight: 620)
             }
