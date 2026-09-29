@@ -106,9 +106,9 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
                 forName: name, object: window, queue: .main
             ) { [weak self] _ in self?.refreshDisplayAfterTransition() })
         }
-        displayObservers.append(NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification, object: window, queue: .main
-        ) { [weak self] _ in self?.scheduleDisplayRefresh() })
+        // A window resize reaches the display through layout(), which sees
+        // every change of this view's size; the guest keeps its mode, so
+        // there is nothing else for a resize to update.
         displayObservers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
         ) { [weak self, weak window] _ in
@@ -176,14 +176,13 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
         displayRefreshGeneration &+= 1
         let generation = displayRefreshGeneration
         guard let targetWindow = window else { return }
-        // The Custom VirGL backend already coalesces geometry changes. Extra
-        // delayed retries would restart its debounce and postpone every mode
-        // change. Layout and window notifications supply the final geometry.
+        // The guest keeps one display mode for the session, so the backend
+        // only records the geometry it scales into. AppKit lays the window out
+        // on its own, and a size it changes later arrives through layout().
         DispatchQueue.main.async { [weak self, weak targetWindow] in
             guard let self, let targetWindow, self.window === targetWindow,
                   self.displayRefreshGeneration == generation,
                   !self.hostOverlayVisible else { return }
-            targetWindow.contentView?.layoutSubtreeIfNeeded()
             self.displayConfigurationChanged?()
         }
     }
