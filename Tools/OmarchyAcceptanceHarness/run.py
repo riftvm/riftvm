@@ -34,6 +34,11 @@ def main():
         action="store_true",
         help="log virtio-GPU resource counts and renderer bytes to the harness log",
     )
+    parser.add_argument(
+        "--skip-command-chords",
+        action="store_true",
+        help="record the Command chord and lock probes as skipped when the harness has no Accessibility permission",
+    )
     parser.add_argument("--trace-input", action="store_true", help="Record local key-code ordering, without text, in the temporary harness log")
     parser.add_argument("--ime-stage-capture", action="store_true", help="Capture IME stages for diagnosis only; does not qualify timing-sensitive acceptance")
     args = parser.parse_args()
@@ -72,6 +77,8 @@ def main():
     )
     if args.boot_unlock:
         environment["RIFTVM_OMARCHY_BOOT_UNLOCK_ACCEPTANCE"] = "1"
+    if args.skip_command_chords:
+        environment["RIFTVM_OMARCHY_ACCEPTANCE_SKIP_COMMAND_CHORDS"] = "1"
     if args.desktop_command:
         environment["RIFTVM_OMARCHY_ACCEPTANCE_DESKTOP_COMMAND"] = args.desktop_command
     if args.ime_stage_capture:

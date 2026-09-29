@@ -10,14 +10,22 @@ enum OmarchyClipboardAcceptanceProbe {
     static func run(
         client: VMOmarchyGuestAgentClient,
         sharedDirectory: URL,
+        agentStagingDirectory: URL,
+        agentRelativePrefix: String,
         unlockCredential: OmarchyAcceptanceUnlockCredential? = nil,
         pasteboard: NSPasteboard = .general
     ) async throws -> OmarchyClipboardRoundTrip {
+        // The Agent only stages clipboard items inside RiftVM's own entry of
+        // the shared-folder root, never inside a folder the user shares.
+        self.agentRelativePrefix = agentRelativePrefix
+        try FileManager.default.createDirectory(
+            at: agentStagingDirectory, withIntermediateDirectories: true
+        )
         let nonce = UUID().uuidString.lowercased()
         let probeDirectory = sharedDirectory.appending(path: ".riftvm-clipboard-\(nonce)")
         let guestDirectory = "\(OmarchyAcceptanceGuestPaths.sharedRoot)/\(probeDirectory.lastPathComponent)"
         func agentStagingURL(_ fileExtension: String) -> URL {
-            sharedDirectory.appending(
+            agentStagingDirectory.appending(
                 path: ".riftvm-clipboard-\(UUID().uuidString.lowercased()).\(fileExtension)"
             )
         }
@@ -428,8 +436,10 @@ enum OmarchyClipboardAcceptanceProbe {
         )
     }
 
+    private static var agentRelativePrefix = ""
+
     private static func relativeClipboardPath(for url: URL, sharedDirectory: URL) -> String {
-        String(url.path.dropFirst(sharedDirectory.path.count + 1))
+        agentRelativePrefix + url.lastPathComponent
     }
 
     private static func publishTextFromExternalProcess(_ text: String) throws {
