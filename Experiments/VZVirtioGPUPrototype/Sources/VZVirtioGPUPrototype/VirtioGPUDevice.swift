@@ -68,7 +68,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
     let onScanoutInvalidated: @MainActor (UInt64) -> Void
     let onCursor: @MainActor (RiftVMVirGLRuntime.CursorUpdate) -> Void
     let zeroCopyPresentationEnabled: Bool
-    let deviceQueue = DispatchQueue(label: "com.riftvm.app.prototype.virtio-gpu")
+    let deviceQueue = DispatchQueue(label: "com.riftvm.app.virtio-gpu")
     private let deviceQueueKey = DispatchSpecificKey<UInt8>()
 
     private(set) var device: VZCustomVirtioDevice?
@@ -263,6 +263,16 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
     }
 
+    /// Development detail: visible with `log stream --level debug`, never
+    /// persisted, and not formatted unless debug logging is on.
+    private func debugLog(_ message: @autoclosure () -> String) {
+        guard debugLogHandle.isEnabled(type: .debug) else { return }
+        let text = message()
+        logger.debug("\(text, privacy: .public)")
+    }
+
+    private let debugLogHandle = OSLog(subsystem: "com.riftvm.app", category: "virtio-gpu")
+
     private func diagnosticLog(_ message: String) {
         guard diagnosticsEnabled else { return }
         log(message)
@@ -291,13 +301,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         guard !isStopped else { return }
         self.device = device
         device.delegate = self
-        print("[stage1] Virtualization created custom virtio device id=\(deviceConfiguration.deviceID)")
+        debugLog("Virtualization created custom virtio device id=\(deviceConfiguration.deviceID)")
     }
 
     func customVirtioDeviceDidAcceptDriverOk(_ device: VZCustomVirtioDevice) {
         guard !isStopped, self.device === device else { return }
-        print("[stage1] Linux driver accepted DRIVER_OK; standard virtio-gpu identity is viable")
-        print("[stage1] queues: control=\(device.queue(at: 0) != nil), cursor=\(device.queue(at: 1) != nil)")
+        debugLog("Linux driver accepted DRIVER_OK; standard virtio-gpu identity is viable")
+        debugLog("queues: control=\(device.queue(at: 0) != nil), cursor=\(device.queue(at: 1) != nil)")
     }
 
     func customVirtioDeviceWillStop(_ device: VZCustomVirtioDevice) {
@@ -318,14 +328,14 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         frameScheduler.cancel()
         let sequence = nextPresentationEventSequence()
         Self.onMain { [onScanoutInvalidated] in onScanoutInvalidated(sequence) }
-        print("[stage6] custom Virtio GPU paused")
+        debugLog("custom Virtio GPU paused")
     }
 
     func customVirtioDeviceWillResume(_ device: VZCustomVirtioDevice) {
         let resume = { [self] in
             guard !isStopped, self.device === device else { return }
             resubmitScanoutAfterResume()
-            print("[stage6] custom Virtio GPU resumed")
+            debugLog("custom Virtio GPU resumed")
         }
         // Scanout state belongs to the device queue, where a reset also runs,
         // so the two can never interleave.
@@ -407,7 +417,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 replacesImage: true, isVisible: false, isReset: true
             ))
         }
-        print("[stage6] released custom Virtio GPU state for \(reason)")
+        debugLog("released custom Virtio GPU state for \(reason)")
     }
 
     private func process(
@@ -421,28 +431,28 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 if let header = VirtioGPU.Header(request) {
                     write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
                 }
-                print("[gpu] rejected oversized request on queue \(queueIndex)")
+                debugLog("rejected oversized request on queue \(queueIndex)")
                 return true
             }
             request.append(buffer)
         }
         guard let header = VirtioGPU.Header(request) else {
-            print("[gpu] short request on queue \(queueIndex): \(request.count) bytes")
+            debugLog("short request on queue \(queueIndex): \(request.count) bytes")
             return true
         }
 
         guard let command = VirtioGPU.Command(rawValue: header.type) else {
-            print(String(format: "[gpu] unsupported command 0x%04x", header.type))
+            debugLog(String(format: "unsupported command 0x%04x", header.type))
             write(VirtioGPU.responseHeader(.errorUnspecified, request: header), to: element)
             return true
         }
         guard VirtioGPU.command(command, isValidOn: queueIndex) else {
-            print("[gpu] command \(command) arrived on invalid queue \(queueIndex)")
+            debugLog("command \(command) arrived on invalid queue \(queueIndex)")
             write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
             return true
         }
         guard request.count >= VirtioGPU.minimumRequestBytes(for: command) else {
-            print("[gpu] short \(command) request: \(request.count) bytes")
+            debugLog("short \(command) request: \(request.count) bytes")
             write(VirtioGPU.responseHeader(.errorInvalidParameter, request: header), to: element)
             return true
         }
@@ -660,8 +670,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         response.appendLittleEndian(capset.maxVersion)
         response.appendLittleEndian(capset.maxSize)
         response.appendLittleEndian(UInt32(0))
-        print(
-            "[stage3] guest requested VirGL capset info: "
+        debugLog(
+            "guest requested VirGL capset info: "
                 + "version=\(capset.maxVersion), size=\(capset.maxSize)"
         )
         return response
@@ -673,13 +683,13 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         let id = request.littleEndianUInt32(at: 24)
         let version = request.littleEndianUInt32(at: 28)
-        print("[stage3] guest requested capset \(id), version \(version)")
+        debugLog("guest requested capset \(id), version \(version)")
         guard let capabilities = renderer.capabilities(id: id, version: version) else {
             return VirtioGPU.responseHeader(.errorInvalidParameter, request: header)
         }
         var response = VirtioGPU.responseHeader(.okCapset, request: header)
         response.append(capabilities)
-        print("[stage3] delivered VirGL capset \(id), version \(version)")
+        debugLog("delivered VirGL capset \(id), version \(version)")
         return response
     }
 
@@ -742,7 +752,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         resources[resourceID] = resource
         totalPixelBytes += byteCount
-        print("[stage2] create 2D resource \(resourceID): \(width)x\(height), format=\(format)")
+        debugLog("create 2D resource \(resourceID): \(width)x\(height), format=\(format)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
 
@@ -939,7 +949,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         }
         contexts.insert(header.contextID)
         contextResources[header.contextID] = []
-        print("[stage3] created VirGL context \(header.contextID): \(name)")
+        debugLog("created VirGL context \(header.contextID): \(name)")
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
 
@@ -988,7 +998,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         diagnosticWindowSubmitCount += 1
         recordDiagnosticsIfNeeded(trigger: "submit")
         if submittedCommandCount <= 10 || submittedCommandCount.isMultiple(of: 500) {
-            print("[stage3] submitted command \(submittedCommandCount): \(byteCount) bytes, context \(header.contextID)")
+            debugLog("submitted command \(submittedCommandCount): \(byteCount) bytes, context \(header.contextID)")
         }
         return VirtioGPU.responseHeader(.okNoData, request: header)
     }
@@ -1278,8 +1288,8 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
                 return VirtioGPU.responseHeader(.okNoData, request: header)
             }
             borrowedScanoutResources.insert(resourceID)
-            print(
-                "[stage4] borrowed zero-copy scanout texture: resource=\(resourceID), "
+            debugLog(
+                "borrowed zero-copy scanout texture: resource=\(resourceID), "
                     + "texture=\(texture.id), \(texture.width)x\(texture.height), "
                     + "format=\(texture.format), stride=\(texture.stride)"
             )
@@ -1356,15 +1366,10 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
 
     private func publish(_ resource: Resource) {
         publishedFrameCount += 1
-        let sampledNonzeroBytes = resource.pixels.enumerated().lazy
-            .filter { $0.offset.isMultiple(of: 4096) && $0.element != 0 }
-            .prefix(16)
-            .count
         if publishedFrameCount == 1 || publishedFrameCount.isMultiple(of: 300) {
-            print(
-                "[stage2] frame \(publishedFrameCount) flushed: "
-                    + "\(resource.width)x\(resource.height), "
-                    + "sampledNonzeroBytes=\(sampledNonzeroBytes)"
+            debugLog(
+                "frame \(publishedFrameCount) flushed: "
+                    + "\(resource.width)x\(resource.height)"
             )
         }
         guard let image = makeImage(resource) else { return }
@@ -1400,7 +1405,7 @@ final class VirtioGPUDevice: NSObject, @unchecked Sendable,
         do {
             try element.write(response)
         } catch {
-            print("[gpu] response write failed: \(error)")
+            debugLog("response write failed: \(error)")
         }
     }
 }
