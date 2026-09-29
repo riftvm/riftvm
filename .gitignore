@@ -11,3 +11,6 @@ DerivedData/
 
 # Local LLVM coverage output
 *.profraw
+
+# Python bytecode
+__pycache__/
