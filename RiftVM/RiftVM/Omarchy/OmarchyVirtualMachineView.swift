@@ -2336,6 +2336,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
                     guard window.isKeyWindow, NSApp.keyWindow === window, NSApp.modalWindow == nil,
                           window.attachedSheet == nil else { return false }
                     guard let responder = window.firstResponder as? NSView else { return false }
+                    // In-process state first: the frontmost-application query
+                    // below is only worth making once everything else holds.
+                    guard NSApp.isActive,
+                          responder === view || responder.isDescendant(of: view) else { return false }
                     // AppKit can retain a key window while another application
                     // is frontmost. A session-wide event tap must not capture it.
                     return OmarchyCommandCapturePolicy.hasKeyboardFocus(
