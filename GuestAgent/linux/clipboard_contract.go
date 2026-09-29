@@ -28,6 +28,10 @@ type clipboardRequest struct {
 	MIMEType     string `json:"mimeType"`
 	ByteCount    uint64 `json:"byteCount,omitempty"`
 	SHA256       string `json:"sha256,omitempty"`
+	// KnownSHA256 is optional and only meaningful for clipboardGet: the
+	// digest of the selection the Host captured last for this MIME type. An
+	// Agent that does not know the field ignores it and stages the selection.
+	KnownSHA256 string `json:"knownSHA256,omitempty"`
 }
 
 type clipboardResult struct {
@@ -35,6 +39,9 @@ type clipboardResult struct {
 	Message   string `json:"message"`
 	ByteCount uint64 `json:"byteCount,omitempty"`
 	SHA256    string `json:"sha256,omitempty"`
+	// Unchanged is only ever set in answer to a request that named
+	// KnownSHA256: the selection still has that digest and nothing was staged.
+	Unchanged bool `json:"unchanged,omitempty"`
 }
 
 func validateClipboardRequest(request clipboardRequest) (string, error) {
