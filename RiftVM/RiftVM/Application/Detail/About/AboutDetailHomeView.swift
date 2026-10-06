@@ -97,6 +97,7 @@ struct AboutDetailHomeView: View {
                 .frame(maxWidth: 420)
                 .padding(.bottom, 8)
 
+            Link("Discord", destination: URL(string: "https://discord.gg/eGzEaP6TzR")!)
             DetailLinkCardView(
                 image: "globe",
                 title: "Website",
