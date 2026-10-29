@@ -333,9 +333,56 @@ struct WorkspaceCreationView: View {
             }
             if session.phase == .creating { progressCard }
             if let error = session.errorMessage { errorView(error) }
+            if session.phase == .failed, let manual = session.form.manualFactoryDownload {
+                manualDownloadHelp(manual)
+            }
             if !session.form.logs.isEmpty { detailsDisclosure }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func manualDownloadHelp(_ manual: VMOmarchyFactoryManualDownload) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Download manually", systemImage: "arrow.down.doc")
+                .font(.headline)
+            Group {
+                if manual.files.count == 1 {
+                    Text("Download the manifest below in your browser and place it in this folder. Click Retry to see the image download links.")
+                } else {
+                    Text("Download the image files below in your browser, keep the filenames shown, and place them in this folder. Then click Retry. RiftVM verifies the files and combines image parts automatically.")
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            ForEach(manual.files, id: \.destination) { file in
+                VStack(alignment: .leading, spacing: 3) {
+                    Link(file.destination.lastPathComponent, destination: file.source)
+                        .font(.callout.weight(.medium))
+                    Text(file.source.absoluteString)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            Text(NSString(string: manual.directory.path).abbreviatingWithTildeInPath)
+                .font(.caption.monospaced())
+                .textSelection(.enabled)
+            Button("Open Download Folder", systemImage: "folder") {
+                do {
+                    try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(manual.directory)
+                } catch {
+                    session.errorMessage = error.localizedDescription
+                }
+            }
+            Text("Replace any incomplete or invalid files before retrying. This download folder is separate from your Omarchy machine.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityIdentifier("omarchy-manual-download")
     }
 
     private var progressHeadline: String {

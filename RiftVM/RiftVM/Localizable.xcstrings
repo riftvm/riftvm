@@ -577,6 +577,36 @@
         }
       }
     },
+    "Download manually" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手动下载"
+          }
+        }
+      }
+    },
+    "Download the image files below in your browser, keep the filenames shown, and place them in this folder. Then click Retry. RiftVM verifies the files and combines image parts automatically." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中下载下方的镜像文件，保留显示的文件名并放入此文件夹，然后点击“重试”。RiftVM 会校验文件并自动合并镜像分片。"
+          }
+        }
+      }
+    },
+    "Download the manifest below in your browser and place it in this folder. Click Retry to see the image download links." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中下载下方的清单文件，将其放入此文件夹，然后点击“重试”查看镜像下载链接。"
+          }
+        }
+      }
+    },
     "Downloading" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1034,6 +1064,16 @@
         }
       }
     },
+    "Open Download Folder" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开下载文件夹"
+          }
+        }
+      }
+    },
     "Open settings for this virtual machine" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1316,6 +1356,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在重命名快照“%@”…"
+          }
+        }
+      }
+    },
+    "Replace any incomplete or invalid files before retrying. This download folder is separate from your Omarchy machine." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试前请替换未下载完整或无效的文件。此下载文件夹与 Omarchy 虚拟机目录分开存放。"
           }
         }
       }

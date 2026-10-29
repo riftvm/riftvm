@@ -170,10 +170,142 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.path))
     }
 
+    func testManualSingleImageAndManifestInstallWithoutNetwork() async throws {
+        let fixture = try Fixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: Data(), downloads: [:])
+        transport.fetchError = URLError(.notConnectedToInternet)
+        let installer = fixture.installer(transport: transport)
+        let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: fixture.manifestData)
+        let manual = installer.manualDownload(manifest: manifest)
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        try fixture.manifestData.write(to: manual.files[0].destination)
+        try fixture.image.write(to: manual.files[1].destination)
+
+        let installed = try await installer.install()
+
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(try Data(contentsOf: manual.files[1].destination), fixture.image)
+        XCTAssertEqual(transport.fetchCount, 0)
+        XCTAssertEqual(transport.downloadCount, 0)
+        XCTAssertEqual(manual.files.map(\.destination.lastPathComponent), ["manifest.json", "factory.asif"])
+    }
+
+    func testManualMultipartImageInstallsOfflineAndPreservesOriginals() async throws {
+        let fixture = try Fixture(multipart: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: Data(), downloads: [:])
+        transport.fetchError = URLError(.notConnectedToInternet)
+        let installer = fixture.installer(transport: transport)
+        let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: fixture.manifestData)
+        let manual = installer.manualDownload(manifest: manifest)
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        try fixture.manifestData.write(to: manual.files[0].destination)
+        for file in manual.files.dropFirst() {
+            try XCTUnwrap(fixture.downloads[file.source]).write(to: file.destination)
+        }
+
+        let installed = try await installer.install()
+
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(transport.fetchCount, 0)
+        XCTAssertEqual(transport.downloadCount, 0)
+        for file in manual.files.dropFirst() {
+            XCTAssertEqual(try Data(contentsOf: file.destination), fixture.downloads[file.source])
+        }
+    }
+
+    func testManualPartCanBeCombinedWithAutomaticallyDownloadedPart() async throws {
+        let fixture = try Fixture(multipart: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: fixture.manifestData, downloads: fixture.downloads)
+        let installer = fixture.installer(transport: transport)
+        let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: fixture.manifestData)
+        let manual = installer.manualDownload(manifest: manifest)
+        let first = manual.files[1]
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        try XCTUnwrap(fixture.downloads[first.source]).write(to: first.destination)
+
+        let installed = try await installer.install()
+
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(transport.downloadCount, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.destination.path))
+    }
+
+    func testFailedDownloadPublishesLinksAndRetainsManifestForOfflineRetry() async throws {
+        let fixture = try Fixture(multipart: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: fixture.manifestData, downloads: [:])
+        let installer = fixture.installer(transport: transport)
+        var offered: VMOmarchyFactoryManualDownload?
+        await XCTAssertThrowsErrorAsync(try await installer.install(
+            stage: { _ in }, manualDownloadAvailable: { offered = $0 }
+        ))
+        let manual = try XCTUnwrap(offered)
+        XCTAssertEqual(manual.files[0].source, fixture.profile.factoryImage.manifestURL)
+        XCTAssertEqual(Set(manual.files.dropFirst().map(\.source)), Set(fixture.downloads.keys))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: manual.files[0].destination.path))
+        for file in manual.files.dropFirst() {
+            try XCTUnwrap(fixture.downloads[file.source]).write(to: file.destination)
+        }
+        let offline = MockTransport(manifestData: Data(), downloads: [:])
+        offline.fetchError = URLError(.notConnectedToInternet)
+
+        let installed = try await fixture.installer(transport: offline).install()
+
+        XCTAssertEqual(try Data(contentsOf: installed.diskURL), fixture.image)
+        XCTAssertEqual(offline.fetchCount, 0)
+        XCTAssertEqual(offline.downloadCount, 0)
+    }
+
+    func testTamperedManualPartIsRejectedWithoutDeletingUserFiles() async throws {
+        let fixture = try Fixture(multipart: true, tamperSecondPart: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: fixture.manifestData, downloads: [:])
+        let installer = fixture.installer(transport: transport)
+        let manifest = try JSONDecoder().decode(VMOmarchyFactoryManifest.self, from: fixture.manifestData)
+        let manual = installer.manualDownload(manifest: manifest)
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        for file in manual.files.dropFirst() {
+            try XCTUnwrap(fixture.downloads[file.source]).write(to: file.destination)
+        }
+
+        await XCTAssertThrowsErrorAsync(try await installer.install()) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryInstallError, .invalidManualDownload(
+                fileName: "factory.part-01", reason: VMOmarchyFactoryValidationError.imageDigestMismatch.localizedDescription
+            ))
+        }
+
+        XCTAssertEqual(transport.downloadCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.cache.appending(path: "Factory-test.asif").path))
+        for file in manual.files.dropFirst() {
+            XCTAssertEqual(try Data(contentsOf: file.destination), fixture.downloads[file.source])
+        }
+    }
+
+    func testManualManifestMustStillHaveTrustedSignature() async throws {
+        let fixture = try Fixture(tamperSignature: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let transport = MockTransport(manifestData: Data(), downloads: [:])
+        let installer = fixture.installer(transport: transport)
+        let manual = installer.manualDownload()
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        try fixture.manifestData.write(to: manual.files[0].destination)
+
+        await XCTAssertThrowsErrorAsync(try await installer.install()) { error in
+            XCTAssertEqual(error as? VMOmarchyFactoryValidationError, .invalidSignature)
+        }
+        XCTAssertEqual(transport.fetchCount, 0)
+        XCTAssertEqual(transport.downloadCount, 0)
+    }
+
     private final class MockTransport: VMOmarchyFactoryTransport {
         let manifestData: Data
         let downloads: [URL: Data]
         var downloadCount = 0
+        var fetchCount = 0
+        var fetchError: Error?
 
         init(manifestData: Data, image: Data) {
             self.manifestData = manifestData
@@ -189,7 +321,11 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
 
         private let fallbackImage: Data?
 
-        func fetchData(from url: URL) async throws -> Data { manifestData }
+        func fetchData(from url: URL) async throws -> Data {
+            fetchCount += 1
+            if let fetchError { throw fetchError }
+            return manifestData
+        }
 
         func downloadFile(
             from url: URL,
@@ -290,6 +426,13 @@ final class VMOmarchyFactoryInstallerTests: XCTestCase {
 
         private static func digest(_ data: Data) -> String {
             SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        }
+
+        func installer(transport: any VMOmarchyFactoryTransport) -> VMOmarchyFactoryInstaller {
+            VMOmarchyFactoryInstaller(
+                profile: profile, cacheDirectory: cache,
+                publicKeys: [key.publicKey.rawRepresentation], transport: transport
+            )
         }
     }
 }

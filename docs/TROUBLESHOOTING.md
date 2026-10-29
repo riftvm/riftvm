@@ -33,6 +33,27 @@ its status and recovery controls. `riftvm doctor` reports host information, and
 not attach disks, enrollment files, or logs containing credentials to a bug
 report.
 
+## Preparing Omarchy fails during download
+
+The preparation error screen offers **Download manually**, with the exact
+release links and a selectable destination path. Click **Open Download Folder**,
+download the listed image files in a browser, and move them into that folder
+with the filenames shown. Click **Retry**. RiftVM verifies each file and
+automatically combines multipart images before creating the machine.
+
+If the manifest itself could not be downloaded, the screen first shows its
+link. Save that file in the indicated folder and click **Retry** to reveal the
+image links. A verified manifest is retained for subsequent attempts, so a
+complete manual download can be installed without another network request.
+Replace incomplete or invalid files before retrying; RiftVM preserves manual
+downloads when verification fails.
+
+The download folder is under
+`~/Library/Application Support/RiftVM/FactoryCache/ManualDownloads/`, in a
+release-specific subfolder shown by the app. It is separate from
+`~/.riftvm/Omarchy.riftvm`, which is populated only after image verification
+succeeds.
+
 ## App runs but no window appears
 
 A PID, valid signature, successful notarization, and Gatekeeper acceptance do

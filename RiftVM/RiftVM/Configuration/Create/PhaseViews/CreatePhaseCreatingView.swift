@@ -36,6 +36,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
         context.formData.logs = []
         context.formData.downloadBytesReceived = nil
         context.formData.downloadBytesExpected = nil
+        context.formData.manualFactoryDownload = nil
         context.formData.installingProgress = 0
         context.formData.creationStage = "Preparing"
         context.formData.isCreating = true
@@ -97,6 +98,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 publicKeys: publicKeys,
                 transport: transport
             )
+            context.formData.manualFactoryDownload = installer.manualDownload()
             context.formData.creationStage = "Downloading and verifying Omarchy"
             context.formData.addLog("Fetching the signed Omarchy Factory manifest")
             let factory = try await installer.install(stage: { stage in
@@ -107,6 +109,10 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                         context.formData.downloadBytesExpected = nil
                     }
                 }
+            }, manualDownloadAvailable: { manual in
+                await MainActor.run {
+                    context.formData.manualFactoryDownload = manual
+                }
             }) { received, expected in
                 let fraction = Double(received) / Double(max(expected, 1))
                 Task { @MainActor in
@@ -116,6 +122,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
                 }
             }
             if factoryCancellationRequested { throw CancellationError() }
+            context.formData.manualFactoryDownload = nil
             context.formData.canCancelCreation = false
             context.formData.creationCancellationKind = nil
             context.formData.downloadBytesReceived = nil
@@ -146,6 +153,7 @@ class CreatePhaseCreatingViewHandler: VMCreateStepperGuidePhaseHandler {
             return .success
         } catch {
             if factoryCancellationRequested {
+                context.formData.manualFactoryDownload = nil
                 context.formData.creationStage = "Creation cancelled"
                 return .failure("Creation was cancelled. You can retry when you’re ready.")
             }

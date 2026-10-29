@@ -41,6 +41,7 @@ class VMCreateViewStateObject {
     var installingProgress: Double = 0.0
     var downloadBytesReceived: Int64?
     var downloadBytesExpected: Int64?
+    var manualFactoryDownload: VMOmarchyFactoryManualDownload?
 
     var disablePreviousButton = false
 

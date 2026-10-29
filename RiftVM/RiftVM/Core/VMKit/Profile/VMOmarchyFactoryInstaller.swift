@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 public protocol VMOmarchyFactoryTransport {
     func fetchData(from url: URL) async throws -> Data
@@ -16,6 +17,7 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         let resumeDataURL: URL
         let progress: (Int64, Int64) -> Void
         let continuation: CheckedContinuation<Void, Error>
+        var publicationError: Error?
     }
 
     private let lock = NSLock()
@@ -86,6 +88,9 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
             )
             try FileManager.default.moveItem(at: location, to: active.destination)
         } catch {
+            lock.withLock {
+                activeDownloads[downloadTask.taskIdentifier]?.publicationError = error
+            }
             downloadTask.cancel()
         }
     }
@@ -96,7 +101,7 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         didCompleteWithError error: Error?
     ) {
         guard let active = lock.withLock({ activeDownloads.removeValue(forKey: task.taskIdentifier) }) else { return }
-        if let error {
+        if let error = active.publicationError ?? error {
             let cocoa = error as NSError
             if let resumeData = cocoa.userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
                 try? resumeData.write(to: active.resumeDataURL, options: .atomic)
@@ -138,6 +143,7 @@ public enum VMOmarchyFactoryInstallError: Error, Equatable, LocalizedError {
     case downloadDidNotPublish
     case manifestTooLarge
     case invalidManifestEncoding
+    case invalidManualDownload(fileName: String, reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -153,6 +159,8 @@ public enum VMOmarchyFactoryInstallError: Error, Equatable, LocalizedError {
             "The Omarchy factory manifest exceeds the allowed size."
         case .invalidManifestEncoding:
             "The Omarchy factory manifest is not valid signed-channel metadata."
+        case .invalidManualDownload(let fileName, let reason):
+            "The manual download \"\(fileName)\" could not be verified: \(reason) Replace this file and retry."
         }
     }
 }
@@ -165,6 +173,18 @@ public struct VMOmarchyFactoryInstallResult: Equatable {
         self.diskURL = diskURL
         self.manifest = manifest
     }
+}
+
+/// Browser downloads live separately from temporary downloads, so retries never
+/// delete the user's files. All inputs still pass the signed manifest checks.
+public struct VMOmarchyFactoryManualDownload: Equatable, Sendable {
+    public struct File: Equatable, Sendable {
+        public let source: URL
+        public let destination: URL
+    }
+
+    public let directory: URL
+    public let files: [File]
 }
 
 public enum VMOmarchyFactoryChannelState: Equatable, Sendable {
@@ -206,6 +226,30 @@ public struct VMOmarchyFactoryInstaller {
         self.transport = transport
     }
 
+    public func manualDownload(manifest: VMOmarchyFactoryManifest? = nil) -> VMOmarchyFactoryManualDownload {
+        // Isolate immutable release channels so files from an older app cannot
+        // override the manifest selected by a newer build.
+        let channel = SHA256.hash(data: Data(profile.factoryImage.manifestURL.absoluteString.utf8))
+            .prefix(6).map { String(format: "%02x", $0) }.joined()
+        let directory = cacheDirectory.appending(path: "ManualDownloads/\(channel)", directoryHint: .isDirectory)
+        var sources = [profile.factoryImage.manifestURL]
+        if let manifest {
+            sources += manifest.payload.imageURL.map { [$0] }
+                ?? manifest.payload.imageParts?.map(\.url) ?? []
+        }
+        var names = Set<String>()
+        let files = sources.enumerated().map { index, source in
+            var name = source.lastPathComponent.replacingOccurrences(of: "/", with: "_")
+            if name.isEmpty || name == "." || name == ".." { name = "download-\(index)" }
+            while !names.insert(name).inserted { name = "\(index)-\(name)" }
+            return VMOmarchyFactoryManualDownload.File(
+                source: source,
+                destination: directory.appendingPathComponent(name, isDirectory: false)
+            )
+        }
+        return VMOmarchyFactoryManualDownload(directory: directory, files: files)
+    }
+
     public func install(
         progress: @escaping (Int64, Int64) -> Void = { _, _ in }
     ) async throws -> VMOmarchyFactoryInstallResult {
@@ -214,11 +258,18 @@ public struct VMOmarchyFactoryInstaller {
 
     public func install(
         stage: @escaping (String) -> Void,
+        manualDownloadAvailable: @escaping (VMOmarchyFactoryManualDownload) async -> Void = { _ in },
         progress: @escaping (Int64, Int64) -> Void = { _, _ in }
     ) async throws -> VMOmarchyFactoryInstallResult {
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         stage("Checking the image manifest")
         let manifest = try await fetchVerifiedManifest()
+        let manual = manualDownload(manifest: manifest)
+        await manualDownloadAvailable(manual)
+        try FileManager.default.createDirectory(at: manual.directory, withIntermediateDirectories: true)
+        // Retain verified metadata so manual image downloads can be retried
+        // without another network request, including after relaunching the app.
+        try JSONEncoder().encode(manifest).write(to: manual.files[0].destination, options: .atomic)
 
         let published = cacheDirectory.appending(path: "Factory-\(manifest.payload.imageVersion).asif")
         guard !FileManager.default.fileExists(atPath: published.path) else {
@@ -230,14 +281,27 @@ public struct VMOmarchyFactoryInstaller {
         do {
             stage("Downloading Omarchy")
             if let imageURL = manifest.payload.imageURL {
-                try await transport.downloadFile(
-                    from: imageURL,
-                    to: staging,
-                    resumeDataURL: cacheDirectory.appending(path: "Factory.resume"),
-                    progress: progress
-                )
+                let local = manual.files[1].destination
+                if FileManager.default.fileExists(atPath: local.path) {
+                    stage("Verifying the manual download")
+                    do {
+                        try VMOmarchyFactoryValidator.validateImage(at: local, manifest: manifest)
+                    } catch {
+                        throw VMOmarchyFactoryInstallError.invalidManualDownload(
+                            fileName: local.lastPathComponent, reason: error.localizedDescription
+                        )
+                    }
+                    try FileManager.default.copyItem(at: local, to: staging)
+                } else {
+                    try await transport.downloadFile(
+                        from: imageURL,
+                        to: staging,
+                        resumeDataURL: cacheDirectory.appending(path: "Factory.resume"),
+                        progress: progress
+                    )
+                }
             } else if let parts = manifest.payload.imageParts {
-                try await downloadAndAssemble(parts, to: staging, stage: stage, progress: progress)
+                try await downloadAndAssemble(parts, manual: manual, to: staging, stage: stage, progress: progress)
             } else {
                 throw VMOmarchyFactoryValidationError.invalidManifest
             }
@@ -253,6 +317,7 @@ public struct VMOmarchyFactoryInstaller {
 
     private func downloadAndAssemble(
         _ parts: [VMOmarchyFactoryManifest.ImagePart],
+        manual: VMOmarchyFactoryManualDownload,
         to destination: URL,
         stage: @escaping (String) -> Void,
         progress: @escaping (Int64, Int64) -> Void
@@ -265,21 +330,36 @@ public struct VMOmarchyFactoryInstaller {
             cacheDirectory.appending(path: ".Factory.part-\($0).download")
         }
         defer { localParts.forEach { try? FileManager.default.removeItem(at: $0) } }
+        var assemblyParts: [URL] = []
 
         for (index, part) in parts.enumerated() {
             stage("Downloading Omarchy")
-            let local = localParts[index]
-            let resume = cacheDirectory.appending(path: "Factory.part-\(index).resume")
-            try? FileManager.default.removeItem(at: local)
-            try await transport.downloadFile(
-                from: part.url,
-                to: local,
-                resumeDataURL: resume
-            ) { received, _ in
-                progress(min(completed + max(received, 0), total), total)
+            let manualPart = manual.files[index + 1].destination
+            let local: URL
+            if FileManager.default.fileExists(atPath: manualPart.path) {
+                local = manualPart
+            } else {
+                local = localParts[index]
+                let resume = cacheDirectory.appending(path: "Factory.part-\(index).resume")
+                try? FileManager.default.removeItem(at: local)
+                try await transport.downloadFile(
+                    from: part.url,
+                    to: local,
+                    resumeDataURL: resume
+                ) { received, _ in
+                    progress(min(completed + max(received, 0), total), total)
+                }
             }
             stage("Verifying image part \(index + 1) of \(parts.count)")
-            try VMOmarchyFactoryValidator.validatePart(at: local, part: part)
+            do {
+                try VMOmarchyFactoryValidator.validatePart(at: local, part: part)
+            } catch {
+                guard local == manualPart else { throw error }
+                throw VMOmarchyFactoryInstallError.invalidManualDownload(
+                    fileName: local.lastPathComponent, reason: error.localizedDescription
+                )
+            }
+            assemblyParts.append(local)
             completed += Int64(clamping: part.byteCount)
             progress(completed, total)
         }
@@ -288,7 +368,7 @@ public struct VMOmarchyFactoryInstaller {
         FileManager.default.createFile(atPath: destination.path, contents: nil)
         let output = try FileHandle(forWritingTo: destination)
         defer { try? output.close() }
-        for local in localParts {
+        for local in assemblyParts {
             let input = try FileHandle(forReadingFrom: local)
             defer { try? input.close() }
             while true {
@@ -303,7 +383,15 @@ public struct VMOmarchyFactoryInstaller {
     /// Fetches and authenticates channel metadata without downloading or
     /// changing a factory image or the user's workspace.
     public func fetchVerifiedManifest() async throws -> VMOmarchyFactoryManifest {
-        let manifestData = try await transport.fetchData(from: profile.factoryImage.manifestURL)
+        let local = manualDownload().files[0].destination
+        let manifestData: Data
+        if FileManager.default.fileExists(atPath: local.path) {
+            let input = try FileHandle(forReadingFrom: local)
+            defer { try? input.close() }
+            manifestData = try input.read(upToCount: Self.maximumManifestBytes + 1) ?? Data()
+        } else {
+            manifestData = try await transport.fetchData(from: profile.factoryImage.manifestURL)
+        }
         guard manifestData.count <= Self.maximumManifestBytes else {
             throw VMOmarchyFactoryInstallError.manifestTooLarge
         }

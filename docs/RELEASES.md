@@ -121,6 +121,40 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.2
+
+RiftVM 0.6.2 lets you recover from a failed Omarchy image download by downloading
+the files in your browser and retrying preparation.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- **Manual download recovery.** If preparation fails during download, the app
+  shows the release links, filenames, and destination folder. Open the folder,
+  place the downloaded files there, and click Retry. RiftVM verifies the signed
+  manifest and each image part, then combines the parts automatically. A
+  retained manifest lets a complete manual download install offline.
+- **Useful download errors.** HTTP and file-saving errors retain their original
+  details. An invalid manual image file is identified by name so it can be
+  replaced before retrying.
+- Community links in the app and documentation use the same Discord invite.
+
+### Validation
+
+All 28 factory installer and manifest tests pass, including offline installation,
+mixed manual and automatic downloads, and rejection of tampered files. The
+desktop app builds successfully, and the English and Chinese String Catalog
+checks pass. No new real-guest, sleep/wake, or graphics acceptance run is claimed
+for this download recovery change.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3; the guest exposes OpenGL ES
+  3.0 and desktop GL 2.1. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert on the virtual
+  machine.
+
 ## 0.6.1
 
 RiftVM 0.6.1 prepares Omarchy from factory image `v4.0.3-riftvm.20`, which
