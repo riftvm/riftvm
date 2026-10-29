@@ -101,6 +101,7 @@ struct WorkspaceCreationView: View {
     @State private var showResources = false
     @State private var showSharing = false
     @State private var showDetails = false
+    @State private var copiedErrorMessage: String?
     /// The meter holds the finished row for a beat before the ready icon takes
     /// the slot over.
     @State private var meterOpacity: Double = 1
@@ -136,7 +137,9 @@ struct WorkspaceCreationView: View {
         .environment(session.config)
         .frame(minWidth: 680, idealWidth: 760, minHeight: 590, idealHeight: 620)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: session.phase)
+        .onChange(of: session.errorMessage) { _, _ in copiedErrorMessage = nil }
         .onChange(of: session.phase) { _, phase in
+            copiedErrorMessage = nil
             guard phase == .ready else {
                 meterOpacity = 1
                 return
@@ -501,9 +504,42 @@ struct WorkspaceCreationView: View {
     }
 
     private func errorView(_ message: String) -> some View {
-        Label(message, systemImage: "exclamationmark.triangle")
-            .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-            .accessibilityIdentifier("omarchy-prepare-error")
+        let report = VMOmarchyPreparationFailureReport(
+            error: message,
+            environment: AppInfo.diagnosticText,
+            logs: session.form.logs.reversed().map { "\($0.time)  \($0.log)" },
+            manifestURL: VMOmarchyProfile.production.factoryImage.manifestURL
+        )
+        return VStack(spacing: 10) {
+            Label(message, systemImage: "exclamationmark.triangle")
+                .font(.callout).foregroundStyle(.orange).textSelection(.enabled)
+                .accessibilityIdentifier("omarchy-prepare-error")
+            HStack(spacing: 12) {
+                Button {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    if pasteboard.setString(report.text, forType: .string) {
+                        copiedErrorMessage = message
+                    }
+                } label: {
+                    if copiedErrorMessage == message {
+                        Label("Copied", systemImage: "checkmark")
+                    } else {
+                        Label("Copy Error", systemImage: "doc.on.doc")
+                    }
+                }
+                .accessibilityIdentifier("omarchy-copy-error")
+                Link(destination: report.issueURL) {
+                    Label("Report on GitHub…", systemImage: "arrow.up.right.square")
+                }
+                .accessibilityIdentifier("omarchy-report-error")
+            }
+            .buttonStyle(.bordered)
+            Text("Opens a prefilled GitHub issue for you to review and submit.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: 560)
     }
     private func workspaceIcon(size: CGFloat) -> some View {
         WorkspaceSystemIcon(size: size)

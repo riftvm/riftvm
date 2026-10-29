@@ -26,6 +26,17 @@ executable="$app_path/Contents/MacOS/RiftVM"
 cli="$app_path/Contents/Helpers/riftvm"
 [[ -x "$cli" ]] || fail "CLI executable not found: $cli"
 
+# Keep the shipped interface in English on hosts with other preferred languages.
+development_region="$(defaults read "$app_path/Contents/Info" CFBundleDevelopmentRegion)"
+[[ "$development_region" == en ]] || fail "the release development language must be English"
+for localization in "$app_path/Contents/Resources/"*.lproj; do
+  [[ -d "$localization" ]] || continue
+  case "${localization##*/}" in
+    en.lproj|Base.lproj) ;;
+    *) fail "unexpected non-English interface resources: ${localization##*/}" ;;
+  esac
+done
+
 # Launching a quarantined copy exercises Gatekeeper's first-launch path, which
 # consults the host security daemon before the process reaches main(). On a host
 # whose daemon is unresponsive the probe blocks forever with no output, which

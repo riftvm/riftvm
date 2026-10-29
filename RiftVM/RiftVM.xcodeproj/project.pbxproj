@@ -29,6 +29,7 @@
 		63E00C2846166435F2D62019 /* OmarchyEventTapCostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C430602BDBF4CE27B84873F /* OmarchyEventTapCostTests.swift */; };
 		655C4B3505B05EAD27789719 /* OmarchyVirtualMachineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */; };
 		6A54599CC533FAF13CF2DC87 /* OmarchyDynamicDisplayAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FE576F9BB1E48DB5F6BD01 /* OmarchyDynamicDisplayAcceptanceProbeImplementation.swift */; };
+		6E37EABF603D2F810B386B78 /* VMOmarchyPreparationFailureReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B54644F2FB4E9D42DEA1FC /* VMOmarchyPreparationFailureReport.swift */; };
 		6FD2DF65B0C62DF3D3526BA0 /* OmarchyPreparationSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80BA538573FACECC4226EB65 /* OmarchyPreparationSettings.swift */; };
 		728E4648EAAE8988915F0BB5 /* OmarchyFullScreenAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA8AACC1132E342E470BD8BA /* OmarchyFullScreenAcceptanceProbeImplementation.swift */; };
 		7A211B906FEAE84F4B02A237 /* VMOmarchySharedFolderImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 699062CED4109B9C80794E8C /* VMOmarchySharedFolderImporter.swift */; };
@@ -136,6 +137,7 @@
 		93253F6D465E5EF8720C6C79 /* OmarchyDynamicDisplayAcceptanceProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyDynamicDisplayAcceptanceProbe.swift; sourceTree = "<group>"; };
 		9C5AB613058CEC80F0AE28CF /* OmarchyInputDiagnosticsAcceptanceProbeImplementation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyInputDiagnosticsAcceptanceProbeImplementation.swift; sourceTree = "<group>"; };
 		A195A1D67996750839750251 /* GeneratedWorkspaceThumbnailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeneratedWorkspaceThumbnailView.swift; sourceTree = "<group>"; };
+		A8B54644F2FB4E9D42DEA1FC /* VMOmarchyPreparationFailureReport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyPreparationFailureReport.swift; path = Profile/VMOmarchyPreparationFailureReport.swift; sourceTree = "<group>"; };
 		B5E1CB67CDCB33250E6A1A1B /* VMDisplayCursorPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMDisplayCursorPolicy.swift; path = Common/VMDisplayCursorPolicy.swift; sourceTree = "<group>"; };
 		BA8AACC1132E342E470BD8BA /* OmarchyFullScreenAcceptanceProbeImplementation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyFullScreenAcceptanceProbeImplementation.swift; sourceTree = "<group>"; };
 		C30D7AA1F3CAF31648E3927E /* VMOmarchyProfile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VMOmarchyProfile.swift; path = Profile/VMOmarchyProfile.swift; sourceTree = "<group>"; };
@@ -258,6 +260,7 @@
 				51B43C1E98CCF560C8090A78 /* ActiveWorkspace.swift */,
 				5407E589317651D427C72537 /* VMCustomVirGLGraphics.swift */,
 				CBBCE74447B54F26DCD6334B /* VMSnapshotFileCopier.swift */,
+				A8B54644F2FB4E9D42DEA1FC /* VMOmarchyPreparationFailureReport.swift */,
 			);
 			name = "Unified VMKit";
 			path = RiftVM/Core/VMKit;
@@ -662,7 +665,6 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				"zh-Hans",
 				Base,
 			);
 			mainGroup = F2C5DC952866F7C800B2F41F;
@@ -782,6 +784,7 @@
 				D45CEC30B55B92FE66AC02BB /* OmarchyVirtualMachineInputView.swift in Sources */,
 				02D89F639FE34DC2652B6C9C /* OmarchyVirtualMachineRepresentable.swift in Sources */,
 				89F1B6B1ECBE04D524FC2990 /* VMTerminalStateWaiter.swift in Sources */,
+				6E37EABF603D2F810B386B78 /* VMOmarchyPreparationFailureReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

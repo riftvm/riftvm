@@ -35,6 +35,12 @@ report.
 
 ## Preparing Omarchy fails during download
 
+Click **Copy Error** below the error to copy the error message, RiftVM and macOS
+versions, factory manifest link, and preparation logs. **Report on GitHub…**
+opens the bug-report form with those details prefilled; review the form and
+submit it on GitHub. Long reports are shortened in the link; **Copy Error**
+retains the complete report. Personal home-directory paths are abbreviated.
+
 The preparation error screen offers **Download manually**, with the exact
 release links and a selectable destination path. Click **Open Download Folder**,
 download the listed image files in a browser, and move them into that folder

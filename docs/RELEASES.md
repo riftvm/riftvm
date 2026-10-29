@@ -121,6 +121,39 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.3
+
+RiftVM 0.6.3 makes preparation errors easier to share and keeps the app interface
+in English on every host language setting.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- **Copy Error.** Copy the full preparation error, RiftVM and macOS versions,
+  factory manifest link, and preparation logs with one click. The button confirms
+  when the report is copied.
+- **Report on GitHub.** Open a bug-report form with the error and environment
+  details filled in, then review and submit it on GitHub. Long reports are
+  shortened in the link; Copy Error retains the full report. Personal home
+  directory paths are abbreviated.
+- **English interface.** The app ships English interface resources only,
+  including the preparation, manual-download, and error-reporting controls.
+
+### Validation
+
+Failure-report tests cover bug-report fields, URL encoding, long Unicode errors,
+full copied reports, and home-directory abbreviation. The String Catalog and
+release-bundle checks enforce English-only interface resources. No new real-guest,
+sleep/wake, or graphics acceptance run is claimed for these interface changes.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3; the guest exposes OpenGL ES
+  3.0 and desktop GL 2.1. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert on the virtual
+  machine.
+
 ## 0.6.2
 
 RiftVM 0.6.2 lets you recover from a failed Omarchy image download by downloading

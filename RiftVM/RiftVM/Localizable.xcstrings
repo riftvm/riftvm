@@ -11,24 +11,11 @@
             "state" : "new",
             "value" : "· %1$lld snapshots · %2$@"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· %1$lld 个快照 · %2$@"
-          }
         }
       }
     },
     "· %lld-layer depth" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· 层深 %lld"
-          }
-        }
-      }
+
     },
     "%@ · %@" : {
       "localizations" : {
@@ -47,12 +34,6 @@
             "state" : "new",
             "value" : "%1$@ · %2$@ of %3$@"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ · 已完成 %2$@/%3$@"
-          }
         }
       }
     },
@@ -63,47 +44,20 @@
             "state" : "new",
             "value" : "%1$@ · %2$llu of %3$llu snapshots"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ · 已完成 %2$llu/%3$llu 个快照"
-          }
         }
       }
     },
     "%@ disconnected" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 已断开"
-          }
-        }
-      }
+
     },
     "%@ RiftVM will ask the guest to shut down, force stop only if it does not respond, and then close this window." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ RiftVM 将请求客体系统关机，仅在其无响应时强制停止，然后关闭此窗口。"
-          }
-        }
-      }
+
     },
     "%@ GB" : {
 
     },
     "%@ was disconnected from the virtual machine." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 已从虚拟机断开。"
-          }
-        }
-      }
+
     },
     "%@, %@" : {
       "localizations" : {
@@ -111,12 +65,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@, %2$@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@，%2$@"
           }
         }
       }
@@ -128,12 +76,6 @@
             "state" : "new",
             "value" : "%1$@: %2$@"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@：%2$@"
-          }
         }
       }
     },
@@ -144,14 +86,7 @@
 
     },
     "%llu gigabytes" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%llu GB"
-          }
-        }
-      }
+
     },
     "×" : {
 
@@ -163,510 +98,163 @@
 
     },
     "A simple, native virtual machine app for Apple silicon Macs, built on Apple's Virtualization framework." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一款简洁的原生虚拟机 App，专为搭载 Apple 芯片的 Mac 打造，基于 Apple 的 Virtualization 框架构建。"
-          }
-        }
-      }
+
     },
     "About" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关于"
-          }
-        }
-      }
+
     },
     "About - RiftVM" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关于 - RiftVM"
-          }
-        }
-      }
+
     },
     "Access" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "访问权限"
-          }
-        }
-      }
+
     },
     "All %lld snapshots passed integrity checks" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全部 %lld 个快照均通过完整性检查"
-          }
-        }
-      }
+
     },
     "All snapshots are structurally valid; %lld warning(s)" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所有快照结构均有效；有 %lld 条警告"
-          }
-        }
-      }
+
     },
     "APFS clone" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "APFS 克隆"
-          }
-        }
-      }
+
     },
     "ASIF layered" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ASIF 分层"
-          }
-        }
-      }
+
     },
     "ASIF layers" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ASIF 层"
-          }
-        }
-      }
+
     },
     "Audio" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "音频"
-          }
-        }
-      }
+
     },
     "Audit" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "审计"
-          }
-        }
-      }
+
     },
     "Auditing snapshot integrity…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在审计快照完整性…"
-          }
-        }
-      }
+
     },
     "Automatic" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自动"
-          }
-        }
-      }
+
     },
     "Automatic account creation requires a macOS 27 or later guest. The selected restore image contains macOS %@. Choose a macOS 27 or later IPSW." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自动创建账户要求客体系统为 macOS 27 或更高版本。所选恢复映像包含 macOS %@。请选择 macOS 27 或更高版本的 IPSW。"
-          }
-        }
-      }
+
     },
     "Begin the verified restore transaction." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "开始已验证的恢复事务。"
-          }
-        }
-      }
+
     },
     "Building a read-only reference map before offering any cleanup." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在建立只读引用映射，之后才会提供清理选项。"
-          }
-        }
-      }
+
     },
     "Cancel" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消"
-          }
-        }
-      }
+
     },
     "Cancellation requested. RiftVM will stop at the next safe boundary." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已请求取消。RiftVM 将在下一个安全边界停止。"
-          }
-        }
-      }
+
     },
     "Cancelling…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在取消…"
-          }
-        }
-      }
+
     },
     "Capture the virtual machine display" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "捕捉虚拟机画面"
-          }
-        }
-      }
+
     },
     "Change" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改"
-          }
-        }
-      }
+
     },
     "Checking disk space and preserving the current machine files." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在检查磁盘空间并保留当前虚拟机文件。"
-          }
-        }
-      }
+
     },
     "Checking snapshot integrity and available disk space." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在检查快照完整性和可用磁盘空间。"
-          }
-        }
-      }
+
     },
     "Clean up unreferenced snapshot layers?" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清理未引用的快照层？"
-          }
-        }
-      }
+
     },
     "Clean Up…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清理…"
-          }
-        }
-      }
+
     },
     "Cleaning snapshot storage…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在清理快照存储…"
-          }
-        }
-      }
+
     },
     "Close" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭"
-          }
-        }
-      }
+
     },
     "Close Snapshots" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭快照"
-          }
-        }
-      }
+
     },
     "Confirm" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "确认"
-          }
-        }
-      }
+
     },
     "Confirm that you can sign in as “%@”. RiftVM will permanently remove the temporary provisioning password from this Mac’s Keychain. This cannot be undone." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请确认可以使用“%@”登录。RiftVM 将永久移除此 Mac 钥匙串中的临时预配置密码，此操作无法撤销。"
-          }
-        }
-      }
+
+    },
+    "Copied" : {
+
+    },
+    "Copy Error" : {
+
     },
     "Copying machine data" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在复制虚拟机数据"
-          }
-        }
-      }
+
     },
     "Create Snapshot" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创建快照"
-          }
-        }
-      }
+
     },
     "Current branch" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前分支"
-          }
-        }
-      }
+
     },
     "Custom" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自定义"
-          }
-        }
-      }
+
     },
     "Custom VirGL repeatedly failed to present the guest display. The VM is still running; if the display does not recover, stop it and disable Custom VirGL before restarting." : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 多次无法呈现客体画面。虚拟机仍在运行；如果画面没有恢复，请停止虚拟机，关闭自定义 VirGL 后再重新启动。" } }
-      }
+
     },
     "Delete" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除"
-          }
-        }
-      }
+
     },
     "Delete child snapshots first" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先删除子快照"
-          }
-        }
-      }
+
     },
     "Delete snapshot \"%@\"? This cannot be undone." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要删除快照“%@”吗？此操作无法撤销。"
-          }
-        }
-      }
+
     },
     "Deleting snapshot \"%@\"…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在删除快照“%@”…"
-          }
-        }
-      }
+
     },
     "Dismiss" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭提示"
-          }
-        }
-      }
+
     },
     "Display" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示"
-          }
-        }
-      }
+
     },
     "Done" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成"
-          }
-        }
-      }
+
     },
     "Download manually" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "手动下载"
-          }
-        }
-      }
+
     },
     "Download the image files below in your browser, keep the filenames shown, and place them in this folder. Then click Retry. RiftVM verifies the files and combines image parts automatically." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在浏览器中下载下方的镜像文件，保留显示的文件名并放入此文件夹，然后点击“重试”。RiftVM 会校验文件并自动合并镜像分片。"
-          }
-        }
-      }
+
     },
     "Download the manifest below in your browser and place it in this folder. Click Retry to see the image download links." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在浏览器中下载下方的清单文件，将其放入此文件夹，然后点击“重试”查看镜像下载链接。"
-          }
-        }
-      }
+
     },
     "Downloading" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在下载"
-          }
-        }
-      }
+      "extractionState" : "stale"
     },
     "Edit" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑"
-          }
-        }
-      }
+
     },
     "Enabled by you. macOS requires Screen & System Audio Recording permission. Turn this off to stop RiftVM from capturing VM windows." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已由您启用。macOS 要求授予“录屏与系统录音”权限。关闭此选项后，RiftVM 将不再捕捉虚拟机窗口。"
-          }
-        }
-      }
+
     },
     "Estimating restore storage…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在估算恢复所需空间…"
-          }
-        }
-      }
+
     },
     "Export Diagnostics" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导出诊断信息"
-          }
-        }
-      }
+
     },
     "Export Diagnostics…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导出诊断信息…"
-          }
-        }
-      }
+
     },
     "riftvm" : {
 
@@ -675,44 +263,16 @@
 
     },
     "RiftVM will download the selected image if needed, then create and install your virtual machine. You can leave this window open and wait once." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RiftVM 会在需要时下载所选映像，然后创建并安装虚拟机。保持此窗口打开，等待一次即可。"
-          }
-        }
-      }
+
     },
     "RiftVM will keep a recovery point before replacing the machine state." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "替换虚拟机状态前，RiftVM 会保留一个恢复点。"
-          }
-        }
-      }
+
     },
     "RiftVM will save the virtual machine’s current state, stop it, and then close this window. You can resume from the same state next time." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "RiftVM 将保存虚拟机的当前状态并将其停止，然后关闭此窗口。下次可以从相同状态继续运行。"
-          }
-        }
-      }
+
     },
     "Finishing safely" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在安全完成"
-          }
-        }
-      }
+
     },
     "Found %lld unreferenced layer(s) using %@" : {
       "localizations" : {
@@ -721,192 +281,65 @@
             "state" : "new",
             "value" : "Found %1$lld unreferenced layer(s) using %2$@"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "发现 %1$lld 个未引用的层，占用 %2$@"
-          }
         }
       }
     },
     "Free disk space before restoring." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "恢复前请先释放磁盘空间。"
-          }
-        }
-      }
+
     },
     "From %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来自 %@"
-          }
-        }
-      }
+
     },
     "Full name" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全名"
-          }
-        }
-      }
+
     },
     "Generated cover style" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "生成封面样式"
-          }
-        }
-      }
+
     },
     "Granted" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已授予"
-          }
-        }
-      }
+
     },
     "Graphics" : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "图形" } }
-      }
+
     },
     "Guest Agent" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "客体代理"
-          }
-        }
-      }
+
     },
     "Has child snapshots" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "包含子快照"
-          }
-        }
-      }
+
     },
     "Height" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "高度"
-          }
-        }
-      }
+
     },
     "Inspecting snapshot storage…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在检查快照存储…"
-          }
-        }
-      }
+
     },
     "Inspecting the target snapshot and current machine without changing either one." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在检查目标快照和当前虚拟机，不会更改任何内容。"
-          }
-        }
-      }
+
     },
     "Installation details" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安装详情"
-          }
-        }
-      }
+
     },
     "Installing the verified snapshot transaction. This window will unlock when the machine is safe to use." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在安装已验证的快照事务。虚拟机恢复到安全可用状态后，此窗口将自动解锁。"
-          }
-        }
-      }
+
     },
     "Installing the verified transaction" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在安装已验证的事务"
-          }
-        }
-      }
+
     },
     "Keep the current state as a snapshot before restoring" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "恢复前将当前状态保留为快照"
-          }
-        }
-      }
+
     },
     "Kind" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "种类"
-          }
-        }
-      }
+
     },
     "LINUX" : {
 
     },
     "Linux virtual machine" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Linux 虚拟机"
-          }
-        }
-      }
+
     },
     "LINUX VIRTUAL MACHINE" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "LINUX 虚拟机"
-          }
-        }
-      }
+
     },
     "MACOS" : {
 
@@ -915,404 +348,127 @@
 
     },
     "macOS guest iCloud identity is automatic for VMs created from a supported macOS restore image; upgrading an older VM does not add that identity. Metal improvements are supplied automatically by the supported host, guest, and Mac hardware model. Neither requires an additional RiftVM entitlement." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用受支持的 macOS 恢复映像创建的虚拟机会自动获得 macOS 客体 iCloud 身份；升级旧虚拟机不会添加该身份。Metal 改进由受支持的主机、客体系统和 Mac 硬件型号自动提供。两者都不需要额外的 RiftVM 权限。"
-          }
-        }
-      }
+
     },
     "Maximum ASIF overlay depth across the active machine and saved snapshots." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前虚拟机与已保存快照中 ASIF 叠加层的最大深度。"
-          }
-        }
-      }
+
     },
     "Memory" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "内存"
-          }
-        }
-      }
+
     },
     "Missing" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "缺失"
-          }
-        }
-      }
+
     },
     "More" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更多"
-          }
-        }
-      }
+
     },
     "Move to Trash" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移到废纸篓"
-          }
-        }
-      }
+
     },
     "Moving verified orphan layers through a recoverable cleanup transaction." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在通过可恢复的清理事务移动已验证的孤立层。"
-          }
-        }
-      }
+
     },
     "Name" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名称"
-          }
-        }
-      }
+
     },
     "Network" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "网络"
-          }
-        }
-      }
+
     },
     "No Shared Folders" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有共享文件夹"
-          }
-        }
-      }
+
     },
     "No snapshots yet" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有快照"
-          }
-        }
-      }
+
     },
     "No unreferenced ASIF layers were found" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未发现未引用的 ASIF 层"
-          }
-        }
-      }
+
     },
     "Off by default. RiftVM uses a generated title cover and never requests screen recording permission." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "默认关闭。RiftVM 使用生成的标题封面，绝不会请求录屏权限。"
-          }
-        }
-      }
+
     },
     "OK" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "好"
-          }
-        }
-      }
+
     },
     "Open" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开"
-          }
-        }
-      }
+
     },
     "Open Download Folder" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开下载文件夹"
-          }
-        }
-      }
+
     },
     "Open settings for this virtual machine" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开此虚拟机的设置"
-          }
-        }
-      }
+
     },
     "Open source under the MIT license" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "基于 MIT 许可证开源"
-          }
-        }
-      }
+
+    },
+    "Opens a prefilled GitHub issue for you to review and submit." : {
+
     },
     "Opens in your browser" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将在浏览器中打开"
-          }
-        }
-      }
+
     },
     "Password" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "密码"
-          }
-        }
-      }
+
     },
     "Pause" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂停"
-          }
-        }
-      }
+
     },
     "Preparing %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在准备 %@"
-          }
-        }
-      }
+
     },
     "Preparing and checking available space" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在准备并检查可用空间"
-          }
-        }
-      }
+
     },
     "Preparing restore…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在准备恢复…"
-          }
-        }
-      }
+
     },
     "Preparing snapshot…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在准备快照…"
-          }
-        }
-      }
+
     },
     "Preview unreferenced ASIF layers before removing anything." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移除任何内容前，先预览未被引用的 ASIF 层。"
-          }
-        }
-      }
+
     },
     "Processors" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "处理器"
-          }
-        }
-      }
+
     },
     "Protect" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保护"
-          }
-        }
-      }
+
     },
     "Protect from deletion" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保护以防删除"
-          }
-        }
-      }
+
     },
     "Protected" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已保护"
-          }
-        }
-      }
+
     },
     "Protected from deletion" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已受保护，不会被删除"
-          }
-        }
-      }
+
     },
     "Protecting snapshot \"%@\"…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在保护快照“%@”…"
-          }
-        }
-      }
+
     },
     "Provisioning for “%@” is ready to retry once. If this VM is running, shut it down; then close this window and run the VM again." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“%@”的预配置已准备好重试一次。如果虚拟机正在运行，请先将其关闭；然后关闭此窗口并重新运行虚拟机。"
-          }
-        }
-      }
+
     },
     "Read Only" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "只读"
-          }
-        }
-      }
+
     },
     "Ready" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "就绪"
-          }
-        }
-      }
+
     },
     "Refresh" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刷新"
-          }
-        }
-      }
+
     },
     "Refresh Signed Capabilities" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刷新已签名功能"
-          }
-        }
-      }
+
     },
     "Remove" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移除"
-          }
-        }
-      }
+
     },
     "Remove %@" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移除 %@"
-          }
-        }
-      }
+
     },
     "Remove %lld Layer(s)" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移除 %lld 个层"
-          }
-        }
-      }
+
     },
     "Removed %lld unreferenced layer(s) and reclaimed %@" : {
       "localizations" : {
@@ -1321,559 +477,176 @@
             "state" : "new",
             "value" : "Removed %1$lld unreferenced layer(s) and reclaimed %2$@"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已移除 %1$lld 个未引用的层，并释放 %2$@"
-          }
         }
       }
     },
     "Removing only data that is no longer referenced." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅移除不再被引用的数据。"
-          }
-        }
-      }
+
     },
     "Rename" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重命名"
-          }
-        }
-      }
+
     },
     "Renaming snapshot \"%@\"…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重命名快照“%@”…"
-          }
-        }
-      }
+
     },
     "Replace any incomplete or invalid files before retrying. This download folder is separate from your Omarchy machine." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重试前请替换未下载完整或无效的文件。此下载文件夹与 Omarchy 虚拟机目录分开存放。"
-          }
-        }
-      }
+
+    },
+    "Report on GitHub…" : {
+
     },
     "Required" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "必需"
-          }
-        }
-      }
+
     },
     "Requires both a macOS 27 host and a macOS 27 or later restore image. RiftVM verifies the IPSW before installation." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "要求主机运行 macOS 27，且恢复映像为 macOS 27 或更高版本。RiftVM 会在安装前验证 IPSW。"
-          }
-        }
-      }
+
     },
     "Restore" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "恢复"
-          }
-        }
-      }
+
     },
     "Restore review ready" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "恢复检查已就绪"
-          }
-        }
-      }
+
     },
     "Restoring snapshot \"%@\"…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在恢复快照“%@”…"
-          }
-        }
-      }
+
     },
     "Resume" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "继续运行"
-          }
-        }
-      }
+
     },
     "Review Restore" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "检查恢复操作"
-          }
-        }
-      }
+
     },
     "Root snapshot" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "根快照"
-          }
-        }
-      }
+
     },
     "Run" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "运行"
-          }
-        }
-      }
+
     },
     "Save" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存"
-          }
-        }
-      }
+
     },
     "Save State and Stop" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存状态并停止"
-          }
-        }
-      }
+
     },
     "Saving the current state first…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在先保存当前状态…"
-          }
-        }
-      }
+
     },
     "Search snapshots" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "搜索快照"
-          }
-        }
-      }
+
     },
     "Settings" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置"
-          }
-        }
-      }
+
     },
     "Shared Folder" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共享文件夹"
-          }
-        }
-      }
+
     },
     "Shared Folders" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共享文件夹"
-          }
-        }
-      }
+
     },
     "Show in Finder" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在访达中显示"
-          }
-        }
-      }
+
     },
     "Signed capabilities" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已签名功能"
-          }
-        }
-      }
+
     },
     "Snapshot \"%@\" can now be deleted" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照“%@”现在可以删除"
-          }
-        }
-      }
+
     },
     "Snapshot \"%@\" created" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照“%@”已创建"
-          }
-        }
-      }
+
     },
     "Snapshot \"%@\" deleted" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照“%@”已删除"
-          }
-        }
-      }
+
     },
     "Snapshot \"%@\" protected from deletion" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照“%@”已受保护，不会被删除"
-          }
-        }
-      }
+
     },
     "Snapshot \"%@\" restored" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照“%@”已恢复"
-          }
-        }
-      }
+
     },
     "Snapshot audit cancelled" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照审计已取消"
-          }
-        }
-      }
+
     },
     "Snapshot name" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照名称"
-          }
-        }
-      }
+
     },
     "Snapshot renamed to \"%@\"" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照已重命名为“%@”"
-          }
-        }
-      }
+
     },
     "Snapshot storage is already clean" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照存储已经是干净状态"
-          }
-        }
-      }
+
     },
     "Snapshots" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照"
-          }
-        }
-      }
+
     },
     "Snapshots are stored inside the machine bundle and use APFS copy-on-write when available." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照存储在虚拟机包内，并在可用时使用 APFS 写时拷贝。"
-          }
-        }
-      }
+
     },
     "Snapshots form a history tree. Restore an earlier snapshot and create a new one to start another branch." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照构成一棵历史树。恢复到较早的快照并创建新快照，即可开启另一个分支。"
-          }
-        }
-      }
+
     },
     "Snapshots use macOS 27 ASIF overlay layers and are stored inside the machine bundle." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照使用 macOS 27 的 ASIF 叠加层，并存储在虚拟机包内。"
-          }
-        }
-      }
+
     },
     "Stop at the next safe boundary before machine files are replaced." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在替换虚拟机文件前，于下一个安全边界停止。"
-          }
-        }
-      }
+
     },
     "Storage" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "存储空间"
-          }
-        }
-      }
+
     },
     "The Custom VirGL backend requires macOS 27 or later." : {
-      "localizations" : {
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "自定义 VirGL 后端需要 macOS 27 或更高版本。" } }
-      }
+
     },
     "The snapshot transaction is finishing and can no longer be cancelled" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "快照事务正在安全完成，现已无法取消"
-          }
-        }
-      }
+
     },
     "The virtual machine is running. Shut it down before creating or restoring snapshots." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "虚拟机正在运行。请先将其关机，再创建或恢复快照。"
-          }
-        }
-      }
+
     },
     "These values come from the macOS 27 entitlements in the running RiftVM process." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这些值来自当前运行的 RiftVM 进程中的 macOS 27 权限。"
-          }
-        }
-      }
+
     },
     "This snapshot chain is deep. Audit it before adding more snapshots, keep an exported backup, and remove unneeded leaf branches. RiftVM does not compact layered ASIF disks in place." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此快照链层数较深。继续添加快照前请先审计完整性、保留导出备份，并删除不再需要的叶子分支。RiftVM 目前不能原地压缩分层 ASIF 磁盘。"
-          }
-        }
-      }
+
     },
     "Thumbnails" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "缩略图"
-          }
-        }
-      }
+
     },
     "Transport" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "传输"
-          }
-        }
-      }
+
     },
     "Try Again" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重试"
-          }
-        }
-      }
+
     },
     "Type" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "类型"
-          }
-        }
-      }
+
     },
     "Unprotect" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消保护"
-          }
-        }
-      }
+
     },
     "Unprotect before deleting" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除前请先取消保护"
-          }
-        }
-      }
+
     },
     "Unprotecting snapshot \"%@\"…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在取消保护快照“%@”…"
-          }
-        }
-      }
+
     },
     "Updating snapshot metadata safely." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在安全地更新快照元数据。"
-          }
-        }
-      }
+
     },
     "Updating snapshot protection metadata safely." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在安全地更新快照保护元数据。"
-          }
-        }
-      }
+
     },
     "USB" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "USB"
-          }
-        }
-      }
+
     },
     "Username" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用户名"
-          }
-        }
-      }
+
     },
     "Validating metadata, files, and every ASIF layer stack." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在验证元数据、文件及每个 ASIF 层堆栈。"
-          }
-        }
-      }
+
     },
     "Verifying snapshot integrity" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在验证快照完整性"
-          }
-        }
-      }
+
     },
     "Version %@ (%@)" : {
       "localizations" : {
@@ -1882,34 +655,14 @@
             "state" : "new",
             "value" : "Version %1$@ (%2$@)"
           }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本 %1$@ (%2$@)"
-          }
         }
       }
     },
     "Wait until the snapshot transaction finishes safely before closing this window." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请等待快照事务安全完成后再关闭此窗口。"
-          }
-        }
-      }
+
     },
     "Width" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "宽度"
-          }
-        }
-      }
+
     }
   },
   "version" : "1.0"

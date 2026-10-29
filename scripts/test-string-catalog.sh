@@ -12,11 +12,14 @@ catalog="$project_root/RiftVM/RiftVM/Localizable.xcstrings"
 
 ruby -rjson -e '
   catalog = JSON.parse(File.read(ARGV.fetch(0)))
+  abort "the app must use English source strings" unless catalog.fetch("sourceLanguage") == "en"
   strings = catalog.fetch("strings")
   format_tokens = /%(?:\d+\$)?(?:lld|llu|ld|lu|[duf@])/ 
 
   strings.each do |key, entry|
-    value = entry.dig("localizations", "zh-Hans", "stringUnit", "value")
+    languages = entry.fetch("localizations", {}).keys
+    abort "non-English localization for #{key.inspect}" unless (languages - ["en"]).empty?
+    value = entry.dig("localizations", "en", "stringUnit", "value")
     next unless value
 
     source_tokens = key.scan(format_tokens).map { |token| token.sub(/%\d+\$/, "%") }.sort
@@ -53,14 +56,16 @@ ruby -rjson -e '
     "The virtual machine is running. Shut it down before creating or restoring snapshots.",
     "RiftVM will keep a recovery point before replacing the machine state.",
     "· %lld snapshots · %@",
-    "Version %@ (%@)"
+    "Version %@ (%@)",
+    "Copied",
+    "Copy Error",
+    "Report on GitHub…",
+    "Opens a prefilled GitHub issue for you to review and submit."
   ]
 
   required.each do |key|
-    unit = strings.dig(key, "localizations", "zh-Hans", "stringUnit")
-    abort "missing required translation: #{key.inspect}" unless unit&.fetch("state", nil) == "translated"
-    abort "empty required translation: #{key.inspect}" if unit.fetch("value", "").strip.empty?
+    abort "missing required English string: #{key.inspect}" unless strings.key?(key)
   end
 ' "$catalog"
 
-echo "Verified String Catalog placeholders and core runtime translations."
+echo "Verified English-only String Catalog keys and format placeholders."
