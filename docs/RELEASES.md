@@ -121,6 +121,37 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.4
+
+RiftVM 0.6.4 restores Control-key shortcuts inside Omarchy applications.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- **Control shortcuts reach the guest.** RiftVM forwards physical Control-key
+  chords to Omarchy when its display has focus, fixing missing letters in
+  shortcuts such as Ctrl+f, Ctrl+r, Ctrl+t, and Ctrl+n.
+
+### Validation
+
+On November 2, 2026, the fix ran against Omarchy Factory
+`v4.0.3-riftvm.20` in a disposable VM on macOS 27.0.1. Guest `wev` recorded
+Control plus each of `f`, `r`, `t`, and `n` as pressed and released. Chromium
+opened its find box, a new tab, and a new window with Ctrl+f, Ctrl+t, and
+Ctrl+n. All 94 macOS integration tests passed, including a new regression test
+for these four chords. The Swift and Go test suites and VirGL context sync test
+passed. Zen was not installed in the Factory image, so its own shortcut actions
+were not directly tested. This run did not repeat the full V1 graphics, host
+sleep, and long-soak checklist.
+
+### Known issues
+
+- **Ghostty will not start.** It requires OpenGL 4.3; the guest exposes OpenGL ES
+  3.0 and desktop GL 2.1. The image's terminal is `foot`.
+- Brightness, night light and Bluetooth menu entries are inert on the virtual
+  machine.
+
 ## 0.6.3
 
 RiftVM 0.6.3 makes preparation errors easier to share and keeps the app interface

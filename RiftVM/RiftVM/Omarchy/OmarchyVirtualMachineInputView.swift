@@ -336,6 +336,29 @@ final class OmarchyVirtualMachineInputView: VMVirGLDisplayView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         recordAcceptanceRoute("performKeyEquivalent", event: event)
         if commandEventHandler?(event) == true { return true }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let guestHasFocus: Bool
+        if let window {
+            let responder = window.firstResponder as? NSView
+            guestHasFocus = window.isKeyWindow && responder.map {
+                $0 === self || $0.isDescendant(of: self)
+            } == true
+        } else {
+            guestHasFocus = true
+        }
+        if event.type == .keyDown,
+           !hostOverlayVisible,
+           guestHasFocus,
+           flags.contains(.control),
+           !flags.contains(.command),
+           !flags.contains(.option),
+           VMGuestAgentKeyboard.linuxKeyCode(forMacVirtualKey: event.keyCode) != nil {
+            // AppKit offers Control chords as key equivalents before keyDown.
+            // VZ can consume them as text commands, so route their physical
+            // key codes through the same path as ordinary guest typing.
+            keyDown(with: event)
+            return true
+        }
         return super.performKeyEquivalent(with: event)
     }
 

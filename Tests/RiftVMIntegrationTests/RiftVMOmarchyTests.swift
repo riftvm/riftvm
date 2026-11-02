@@ -700,6 +700,39 @@ final class RiftVMOmarchyTests: XCTestCase {
     }
 
     @MainActor
+    func testControlKeyEquivalentsReachGuestAsPhysicalChords() throws {
+        let view = OmarchyVirtualMachineInputView()
+        var batches: [[VMGuestAgentInputEvent]] = []
+        view.setGuestInputEventHandler { batches.append($0) }
+        func event(_ type: NSEvent.EventType, keyCode: UInt16, characters: String, ignoring: String = "", flags: NSEvent.ModifierFlags) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: flags, timestamp: 0,
+                windowNumber: 0, context: nil, characters: characters,
+                charactersIgnoringModifiers: ignoring, isARepeat: false, keyCode: keyCode
+            ))
+        }
+
+        view.flagsChanged(with: try event(.flagsChanged, keyCode: 59, characters: "", flags: .control))
+        for (keyCode, linuxCode, controlCharacter, letter) in [
+            (UInt16(3), UInt16(33), "\u{6}", "f"),
+            (15, 19, "\u{12}", "r"),
+            (17, 20, "\u{14}", "t"),
+            (45, 49, "\u{E}", "n"),
+        ] {
+            let down = try event(.keyDown, keyCode: keyCode, characters: controlCharacter, ignoring: letter, flags: .control)
+            XCTAssertTrue(view.performKeyEquivalent(with: down))
+            view.keyUp(with: try event(.keyUp, keyCode: keyCode, characters: controlCharacter, ignoring: letter, flags: .control))
+            XCTAssertEqual(batches.suffix(2).map { $0 }, [
+                VMGuestAgentInputBatch.key(code: linuxCode, pressed: true).events,
+                VMGuestAgentInputBatch.key(code: linuxCode, pressed: false).events,
+            ])
+        }
+        view.flagsChanged(with: try event(.flagsChanged, keyCode: 59, characters: "", flags: []))
+        XCTAssertEqual(batches.first, VMGuestAgentInputBatch.key(code: 29, pressed: true).events)
+        XCTAssertEqual(batches.last, VMGuestAgentInputBatch.key(code: 29, pressed: false).events)
+    }
+
+    @MainActor
     func testCapsLockSendsAWholeKeystrokeForEachPress() throws {
         let view = OmarchyVirtualMachineInputView()
         var batches: [[VMGuestAgentInputEvent]] = []
