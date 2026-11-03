@@ -146,7 +146,8 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
     public func present(
         resourceID: UInt32,
         sourceX: Int, sourceY: Int, sourceWidth: Int, sourceHeight: Int,
-        into texture: any MTLTexture
+        into texture: any MTLTexture,
+        smoothScaling: Bool = true
     ) throws -> Bool {
         guard let source = VirtioGPU.presentationRegion(
             x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight
@@ -165,7 +166,8 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
             sourceX: source.x, sourceY: source.y,
             sourceWidth: source.width, sourceHeight: source.height,
             width: destinationWidth,
-            height: destinationHeight
+            height: destinationHeight,
+            smoothScaling: smoothScaling
         )
     }
 
@@ -173,6 +175,7 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
         resourceID: UInt32,
         sourceX: Int, sourceY: Int, sourceWidth: Int, sourceHeight: Int,
         into texture: any MTLTexture,
+        smoothScaling: Bool = true,
         completion: @escaping (Bool) -> Void
     ) {
         guard let source = VirtioGPU.presentationRegion(
@@ -197,6 +200,7 @@ public final class RiftVMVirGLRuntime: @unchecked Sendable {
             sourceWidth: source.width, sourceHeight: source.height,
             width: destinationWidth,
             height: destinationHeight,
+            smoothScaling: smoothScaling,
             completion: completion
         )
     }

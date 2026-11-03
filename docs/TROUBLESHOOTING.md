@@ -140,6 +140,24 @@ display event until the guest acknowledges display-info/EDID.
 - Confirm the compositor selected the announced mode rather than judging only
   the outer macOS window size.
 
+## Browser text looks jagged on a Retina display
+
+Omarchy currently renders its desktop at the Mac screen's logical resolution.
+On a 2× Retina screen, a 1920×1080 guest framebuffer fills a 3840×2160 drawable.
+This affects both Zen and Chromium because RiftVM scales the whole guest image
+after the browser has rendered its fonts. Fontconfig antialiasing inside the
+guest cannot restore detail that was never rendered.
+
+- In the browser's Zoom menu, try 125% or 150% to give small text more guest
+  pixels. This is available in the current release and does not require a guest
+  configuration change.
+- In the source build, the **Graphics → Smooth Display Scaling** switch uses
+  linear interpolation when the guest image and host drawable differ in size.
+  It reduces visible square pixel edges, but small text can look softer. Turn
+  it off if sharper pixels are preferable. An actual Retina-resolution guest
+  mode would render finer text; it needs guest compositor scaling and
+  performance validation before it can replace the current session mode.
+
 ## First-run owner setup does not complete
 
 The current flow collects username, password, keyboard, hostname, and time zone

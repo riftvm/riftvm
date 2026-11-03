@@ -90,6 +90,13 @@ are distinct quantities. The validated full-screen example was:
 bounds=1920x1080 guest=1920x1080 layer=1920x1080 drawable=3840x2160
 ```
 
+The Graphics menu's Smooth Display Scaling switch defaults to interpolation
+when the guest scanout and drawable have different pixel dimensions. This
+softens the visible stair steps from nearest-neighbor upscaling, including
+small browser text, but cannot add the detail of a native Retina guest
+framebuffer. A future 2× guest mode also needs matching Hyprland scale and a
+separate performance and desktop-stability check.
+
 ### Cursor
 
 Hyprland draws its pointer on virtio-gpu's cursor plane, so every

@@ -359,12 +359,14 @@ final class VirGLRenderer {
         sourceWidth: UInt32,
         sourceHeight: UInt32,
         width: UInt32,
-        height: UInt32
+        height: UInt32,
+        smoothScaling: Bool = true
     ) -> Bool {
         let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
         return serialized {
             vzvg_renderer_present_scanout(
-                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height
+                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height,
+                smoothScaling ? 1 : 0
             ) == 0
         }
     }
@@ -378,12 +380,14 @@ final class VirGLRenderer {
         sourceHeight: UInt32,
         width: UInt32,
         height: UInt32,
+        smoothScaling: Bool = true,
         completion: @escaping (Bool) -> Void
     ) {
         executor.async {
             let pointer = Unmanaged.passUnretained(texture as AnyObject).toOpaque()
             let result = vzvg_renderer_present_scanout(
-                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height
+                resourceID, pointer, sourceX, sourceY, sourceWidth, sourceHeight, width, height,
+                smoothScaling ? 1 : 0
             )
             if result != 0 {
                 self.logger.error(

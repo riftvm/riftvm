@@ -82,6 +82,13 @@ class VMVirGLDisplayView: VZVirtualMachineView {
     private var nativePressedButtons = Set<Int>()
     private var presentationDemand = VMGraphicsPresentationDemand()
     private var latestScanout: (resourceID: UInt32, x: Int, y: Int, width: Int, height: Int)?
+    var smoothDisplayScaling = true {
+        didSet {
+            guard smoothDisplayScaling != oldValue, latestScanout != nil else { return }
+            presentationDemand.request()
+            drainLatestPresentation()
+        }
+    }
     private var presentationIsActive = false
     private var displayRefreshTimer: Timer?
     var isDisplayRefreshScheduled: Bool { displayRefreshTimer != nil }
@@ -754,7 +761,8 @@ class VMVirGLDisplayView: VZVirtualMachineView {
             runtime.presentAsync(
                 resourceID: resourceID,
                 sourceX: x, sourceY: y, sourceWidth: width, sourceHeight: height,
-                into: drawable.texture
+                into: drawable.texture,
+                smoothScaling: self.smoothDisplayScaling
             ) { [weak self] succeeded in
                 DispatchQueue.main.async { [weak self] in
                     guard let self,

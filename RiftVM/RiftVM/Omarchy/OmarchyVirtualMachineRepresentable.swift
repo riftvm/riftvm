@@ -7,6 +7,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let clipboardEnabled: Bool
     let notificationsEnabled: Bool
     let microphoneEnabled: Bool
+    let smoothDisplayScaling: Bool
     let hostOverlayVisible: Bool
     let sharedFolders: VMOmarchySharedFolderSettings?
     let sessionID: UUID
@@ -49,6 +50,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
         let metadata = Result { try VMOmarchyWorkspaceManager(layout: layout).metadata() }
         let view = OmarchyVirtualMachineInputView()
         view.capturesSystemKeys = true
+        view.smoothDisplayScaling = smoothDisplayScaling
         view.setHostOverlayVisible(hostOverlayVisible)
         context.coordinator.machineView = view
         // Stop/recovery must remain available even when graphics or VM
@@ -116,7 +118,10 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: VZVirtualMachineView, context: Context) {
-        (nsView as? OmarchyVirtualMachineInputView)?.setHostOverlayVisible(hostOverlayVisible)
+        if let view = nsView as? OmarchyVirtualMachineInputView {
+            view.smoothDisplayScaling = smoothDisplayScaling
+            view.setHostOverlayVisible(hostOverlayVisible)
+        }
         context.coordinator.setClipboardEnabled(clipboardEnabled)
         context.coordinator.setNotificationsEnabled(notificationsEnabled)
         if let ownerProvisioningSubmission {

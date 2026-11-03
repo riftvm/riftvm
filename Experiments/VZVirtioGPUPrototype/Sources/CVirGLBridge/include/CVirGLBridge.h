@@ -69,7 +69,8 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   uint32_t source_width,
                                   uint32_t source_height,
                                   uint32_t destination_width,
-                                  uint32_t destination_height);
+                                  uint32_t destination_height,
+                                  int smooth_scaling);
 void vzvg_renderer_set_diagnostics_enabled(int enabled);
 uint64_t vzvg_renderer_scanout_signature(void);
 uint64_t vzvg_renderer_scanout_signature_generation(void);

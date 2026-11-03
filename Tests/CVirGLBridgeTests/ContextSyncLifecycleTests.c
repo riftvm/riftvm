@@ -40,12 +40,12 @@ int main(void) {
     vzvg_renderer_submit(NULL, 65535, 0); // Reused ID is active again.
     vzvg_renderer_submit(NULL, 64, 0);
     fail_wait = true;
-    assert(vzvg_renderer_present_scanout(1, (void *)1, 0, 0, 1, 1, 1, 1) == -1);
+    assert(vzvg_renderer_present_scanout(1, (void *)1, 0, 0, 1, 1, 1, 1, 1) == -1);
     assert(waited == 1 && destroyed == 3);
     assert(guest_context_syncs[64] == NULL);
     assert(guest_context_syncs[65535] != NULL); // Retry retains unvisited work.
     fail_wait = false;
-    assert(vzvg_renderer_present_scanout(1, (void *)1, 0, 0, 1, 1, 1, 1) == -1);
+    assert(vzvg_renderer_present_scanout(1, (void *)1, 0, 0, 1, 1, 1, 1, 1) == -1);
     assert(waited == 2 && destroyed == 4);
     vzvg_renderer_submit(NULL, 0, 0);
     vzvg_renderer_submit(NULL, 4096, 0);

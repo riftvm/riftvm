@@ -164,6 +164,7 @@ typedef void *EGLSync;
 #define GL_COLOR_ATTACHMENT0 0x8CE0
 #define GL_COLOR_BUFFER_BIT 0x00004000
 #define GL_NEAREST 0x2600
+#define GL_LINEAR 0x2601
 #define GL_FRAMEBUFFER_COMPLETE 0x8CD5
 #define GL_NO_ERROR 0
 #define GL_RGBA 0x1908
@@ -642,7 +643,8 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
                                   uint32_t source_width,
                                   uint32_t source_height,
                                   uint32_t destination_width,
-                                  uint32_t destination_height) {
+                                  uint32_t destination_height,
+                                  int smooth_scaling) {
     if (!metal_texture || source_width == 0 || source_height == 0 ||
         destination_width == 0 || destination_height == 0) return -1;
 
@@ -749,11 +751,18 @@ int vzvg_renderer_present_scanout(uint32_t resource_id,
         goto cleanup;
     }
     while (gl_get_error() != GL_NO_ERROR) {}
+    // The guest renders at logical resolution while CAMetalLayer uses Retina
+    // backing pixels. Nearest-neighbor expansion doubles the guest's font
+    // pixels into visible square steps. Let the user disable interpolation if
+    // they prefer sharp pixels to softer text. A same-size blit needs no filter.
+    unsigned int filter = smooth_scaling &&
+                          (source_width != destination_width ||
+                           source_height != destination_height) ? GL_LINEAR : GL_NEAREST;
     gl_blit_framebuffer(
         (int)source_x, (int)source_y,
         (int)(source_x + source_width), (int)(source_y + source_height),
         0, 0, (int)destination_width, (int)destination_height,
-        GL_COLOR_BUFFER_BIT, GL_NEAREST
+        GL_COLOR_BUFFER_BIT, filter
     );
     unsigned int blit_error = gl_get_error();
     if (blit_error != GL_NO_ERROR) {

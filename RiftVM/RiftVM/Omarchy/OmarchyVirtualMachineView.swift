@@ -29,6 +29,7 @@ struct OmarchyVirtualMachineView: View {
     @AppStorage("omarchyClipboardEnabled") private var clipboardEnabled = true
     @AppStorage("omarchyMicrophoneEnabled") private var microphoneEnabled = false
     @AppStorage("omarchyNotificationsEnabled") private var notificationsEnabled = false
+    @AppStorage("omarchySmoothDisplayScaling") private var smoothDisplayScaling = true
     @State private var lifecycle = OmarchyMachineLifecycle()
     @State private var sessionID = UUID()
     @State private var keyboardIntegration: OmarchyKeyboardIntegrationState = .accessibilityRequired
@@ -183,6 +184,7 @@ struct OmarchyVirtualMachineView: View {
                 clipboardEnabled: clipboardEnabled,
                 notificationsEnabled: notificationsEnabled,
                 microphoneEnabled: microphoneEnabled,
+                smoothDisplayScaling: smoothDisplayScaling,
                 hostOverlayVisible: ownerSetupAvailable || phase != .running,
                 sharedFolders: sharedFolders,
                 sessionID: sessionID,
@@ -341,6 +343,8 @@ struct OmarchyVirtualMachineView: View {
     private var graphicsMenu: some View {
         Menu {
             Text(VMGraphicsBackendKind.customVirGL.displayName)
+            Toggle("Smooth Display Scaling", isOn: $smoothDisplayScaling)
+                .help("Softens pixel edges when the guest image is enlarged on a Retina display.")
             if let graphicsIssue { Text(graphicsIssue) }
             Text("RiftVM renders the guest desktop through its own VirGL device.")
         } label: { Label("Graphics", systemImage: "display") }
