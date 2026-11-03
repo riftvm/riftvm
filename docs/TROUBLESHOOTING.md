@@ -151,7 +151,7 @@ guest cannot restore detail that was never rendered.
 - In the browser's Zoom menu, try 125% or 150% to give small text more guest
   pixels. This is available in the current release and does not require a guest
   configuration change.
-- In the source build, the **Graphics → Smooth Display Scaling** switch uses
+- The **Graphics → Smooth Display Scaling** switch uses
   linear interpolation when the guest image and host drawable differ in size.
   It reduces visible square pixel edges, but small text can look softer. Turn
   it off if sharper pixels are preferable. An actual Retina-resolution guest

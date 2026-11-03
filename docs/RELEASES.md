@@ -121,6 +121,44 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.5
+
+RiftVM 0.6.5 softens jagged browser text when Omarchy's desktop is enlarged on
+a Retina display.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Features
+
+- **Smooth Display Scaling is on by default.** When the guest scanout is
+  enlarged to fit the Mac's drawable, RiftVM interpolates its pixels instead of
+  duplicating hard square edges. The **Graphics → Smooth Display Scaling**
+  switch applies immediately; turn it off if sharper pixel edges look better.
+
+### Validation
+
+On November 3, 2026, a local acceptance build ran against a disposable Omarchy
+Factory `v4.0.3-riftvm.20` VM on macOS 27.0.1. The scaling switch changed the
+display immediately at the normal guest resolution. In a separate, test-only
+3840×2160 guest mode with Hyprland scale 2, 12–20 px text in Zen 1.24b and
+Chromium was visibly sharper; Zen's Ctrl+F/R/T/N actions also worked. That 4K
+guest mode is not included in this release because Omarchy currently selects
+scale 1.5 automatically and its sustained performance has not been qualified.
+
+The VirGL package's 38 tests, 309 core tests (one skipped), 4 CLI tests,
+69 macOS integration tests, Guest Agent Go tests and vet, and VirGL context
+sync test passed. The image repository's static checks passed until a
+Linux-specific display-watcher test reached Bash behavior unavailable on this
+Mac. The full V1 host sleep/wake and 30-minute graphics soak were not repeated.
+
+### Known issues
+
+- Smooth scaling cannot recover the detail of a native Retina guest framebuffer;
+  small text may look softer. Browser zoom at 125% or 150% gives text more guest
+  pixels in the current fixed-resolution mode.
+- Ghostty requires OpenGL 4.3 and cannot start with the guest's OpenGL ES 3.0
+  and desktop GL 2.1 support; Omarchy uses `foot` as its terminal.
+
 ## 0.6.4
 
 RiftVM 0.6.4 restores Control-key shortcuts inside Omarchy applications.
