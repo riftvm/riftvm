@@ -121,6 +121,41 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.6
+
+RiftVM 0.6.6 creates new workspaces from the signed Omarchy 4.0.6 Factory
+image for Apple silicon.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- New workspaces use Omarchy 4.0.6 and its official AArch64 package repository.
+- Smooth Display Scaling remains enabled by default for browser text on Retina
+  Macs. For small text, browser zoom at 125% or 150% gives the guest more pixels
+  to draw each glyph.
+
+### Validation
+
+A disposable 4.0.6 VM booted on macOS 27.0.1 and reported `omarchy 4.0.6-1`,
+`omarchy-settings 4.0.6-1`, and `hyprland 0.57.1-1` on AArch64. After installing
+official Zen 1.24b in that disposable workspace, Ctrl+F opened Find in Page,
+Ctrl+T opened a tab, Ctrl+N opened a window, and Ctrl+R increased a local page's
+load count from 1 to 2. The same 12–20 px font sample was rendered in Zen and
+Chromium. The Factory release's split assets and signed ASIF manifest were
+verified before publication.
+
+The host acceptance harness could not complete its Command+Space event-tap
+check because that temporary build lacked macOS Accessibility permission.
+Shared-folder, clipboard, display, first-boot, and browser checks ran separately.
+
+### Known issues
+
+- Smooth scaling cannot recover the detail of a native Retina guest framebuffer;
+  small text may still look soft at the standard 1920×1080 guest resolution.
+- Ghostty requires OpenGL 4.3 and cannot start with the guest's OpenGL ES 3.0
+  and desktop GL 2.1 support; Omarchy uses `foot` as its terminal.
+
 ## 0.6.5
 
 RiftVM 0.6.5 softens jagged browser text when Omarchy's desktop is enlarged on
