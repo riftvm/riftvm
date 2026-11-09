@@ -71,6 +71,9 @@ final class VMOmarchyVirtualMachineBuilderTests: XCTestCase {
         XCTAssertEqual(configuration.customVirtioDevices.count, 1)
         XCTAssertTrue(configuration.customVirtioDevices.first === gpu)
         XCTAssertEqual(configuration.socketDevices.count, 1)
+        let usbController = try XCTUnwrap(configuration.usbControllers.first as? VZXHCIControllerConfiguration)
+        XCTAssertEqual(configuration.usbControllers.count, 1)
+        XCTAssertTrue(usbController.usbDevices.isEmpty, "USB accessories require explicit macOS assignment")
         XCTAssertEqual(configuration.directorySharingDevices.count, 2)
         XCTAssertEqual(
             (configuration.directorySharingDevices.first as? VZVirtioFileSystemDeviceConfiguration)?.tag,

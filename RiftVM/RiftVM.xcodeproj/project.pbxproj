@@ -40,6 +40,7 @@
 		89F1B6B1ECBE04D524FC2990 /* VMTerminalStateWaiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 207E4985A3CC436A009E4C60 /* VMTerminalStateWaiter.swift */; };
 		9432AA110B0CD575C9658558 /* RiftVMOmarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */; };
 		978FECA8BEF6EC44F0C2599E /* OmarchyMachineCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */; };
+		A4B7C8012D81000000000002 /* OmarchyUSBPassthroughController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4B7C8012D81000000000003 /* OmarchyUSBPassthroughController.swift */; };
 		99D707A75AFAD189109A2B46 /* OmarchyNotificationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FDCE5EF0F509F3741AC3ADA /* OmarchyNotificationController.swift */; };
 		A390FC98504611476CD525D8 /* OmarchyReleaseReadinessReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B95DC9A19634B5BA45D346 /* OmarchyReleaseReadinessReporter.swift */; };
 		B05DA408570257CF297372FF /* OmarchyInputLatencyAcceptanceProbeImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AFA0739F5E2F87477B87B24 /* OmarchyInputLatencyAcceptanceProbeImplementation.swift */; };
@@ -168,6 +169,7 @@
 		DE2AE14909D28383C752ECF1 /* VMLiveMachineCenterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VMLiveMachineCenterTests.swift; sourceTree = "<group>"; };
 		E2483A43DD636518C9A815A7 /* OmarchyVirtualMachineView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyVirtualMachineView.swift; sourceTree = "<group>"; };
 		E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyMachineCoordinator.swift; sourceTree = "<group>"; };
+		A4B7C8012D81000000000003 /* OmarchyUSBPassthroughController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyUSBPassthroughController.swift; sourceTree = "<group>"; };
 		EA7CB65A6C1C75A12F601CA6 /* RiftVMOmarchyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RiftVMOmarchyTests.swift; sourceTree = "<group>"; };
 		EE2525174AAC22D8B14C0B3C /* WorkspaceHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WorkspaceHomeView.swift; path = RiftVM/Application/Entry/WorkspaceHomeView.swift; sourceTree = "<group>"; };
 		EFA8C875BEF8F2C714B413DF /* RiftVMOmarchyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RiftVMOmarchyApp.swift; sourceTree = "<group>"; };
@@ -176,7 +178,6 @@
 		F2C5DCA52866F7C900B2F41F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2C5DCA82866F7C900B2F41F /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		F2C5DCAA2866F7C900B2F41F /* RiftVM.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiftVM.entitlements; sourceTree = "<group>"; };
-		A4B7C8012D81000000000001 /* RiftVMUSB.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RiftVMUSB.entitlements; sourceTree = "<group>"; };
 		F2C5DCBC2866F7F700B2F41F /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F3B95DC9A19634B5BA45D346 /* OmarchyReleaseReadinessReporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OmarchyReleaseReadinessReporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -559,7 +560,6 @@
 				F2C5DCA52866F7C900B2F41F /* Assets.xcassets */,
 				CA5E5AFE000000000000E003 /* Localizable.xcstrings */,
 				F2C5DCAA2866F7C900B2F41F /* RiftVM.entitlements */,
-				A4B7C8012D81000000000001 /* RiftVMUSB.entitlements */,
 				F2C5DCA72866F7C900B2F41F /* Preview Content */,
 			);
 			path = RiftVM;
@@ -596,6 +596,7 @@
 				7DBC02A1DA5EDF62A658954C /* VMWindowCloseObserver.swift */,
 				80BA538573FACECC4226EB65 /* OmarchyPreparationSettings.swift */,
 				E977E49C333AC0C14605183D /* OmarchyMachineCoordinator.swift */,
+				A4B7C8012D81000000000003 /* OmarchyUSBPassthroughController.swift */,
 				D934163518DB483771BA3E1A /* OmarchyMachineLifecycle.swift */,
 				099D99FCFF9AC4CC6DB6DE3B /* OmarchyVirtualMachineInputView.swift */,
 				83A3E8CEF3CF8C511FC7FA18 /* OmarchyVirtualMachineRepresentable.swift */,
@@ -782,6 +783,7 @@
 				6FD2DF65B0C62DF3D3526BA0 /* OmarchyPreparationSettings.swift in Sources */,
 				328EC59BE93B0C9D86F5B52A /* VMSnapshotFileCopier.swift in Sources */,
 				978FECA8BEF6EC44F0C2599E /* OmarchyMachineCoordinator.swift in Sources */,
+				A4B7C8012D81000000000002 /* OmarchyUSBPassthroughController.swift in Sources */,
 				3E81EAB32C8771949342EFF5 /* OmarchyMachineLifecycle.swift in Sources */,
 				D45CEC30B55B92FE66AC02BB /* OmarchyVirtualMachineInputView.swift in Sources */,
 				02D89F639FE34DC2652B6C9C /* OmarchyVirtualMachineRepresentable.swift in Sources */,
@@ -989,7 +991,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_CODE_COVERAGE = NO;
-				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVMUSB.entitlements;
+				CODE_SIGN_ENTITLEMENTS = RiftVM/RiftVM.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 56;

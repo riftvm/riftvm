@@ -93,13 +93,7 @@ if [[ -n "${RIFTVM_SIGNING_IDENTITY:-}" ]]; then
 else
   signing_identity="-"
 fi
-if [[ "$signing_identity" == "-" ]]; then
-  entitlements_path="$project_root/RiftVM/RiftVM/RiftVM.entitlements"
-  entitlement_mode="local"
-else
-  entitlements_path="$project_root/RiftVM/RiftVM/RiftVMUSB.entitlements"
-  entitlement_mode="production"
-fi
+entitlements_path="$project_root/RiftVM/RiftVM/RiftVM.entitlements"
 
 find_direct_provisioning_profile() {
   local newest=""
@@ -188,7 +182,7 @@ fi
 
 # Fail before archiving if a restricted or accidental entitlement enters the
 # production target. Runtime launch and Gatekeeper checks run after notarization.
-"$project_root/scripts/verify-production-entitlements.sh" "$app_path" "$entitlement_mode"
+"$project_root/scripts/verify-production-entitlements.sh" "$app_path"
 if otool -l "$app_path/Contents/MacOS/RiftVM" | grep -Eq '__llvm_prf|__llvm_cov'; then
   echo "RiftVM release executable contains coverage instrumentation." >&2
   exit 68

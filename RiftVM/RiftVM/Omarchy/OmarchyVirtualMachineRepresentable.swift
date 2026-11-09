@@ -22,6 +22,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
     let phaseChanged: (OmarchyVirtualMachineView.Phase) -> Void
     let acceptanceFailureChanged: (String) -> Void
     let graphicsIssueChanged: (String?) -> Void
+    let usbIssueChanged: (String?) -> Void
     let sharePlanChanged: (VMOmarchySharePlan) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -41,6 +42,7 @@ struct OmarchyVirtualMachineRepresentable: NSViewRepresentable {
             phaseChanged: phaseChanged,
             acceptanceFailureChanged: acceptanceFailureChanged,
             graphicsIssueChanged: graphicsIssueChanged,
+            usbIssueChanged: usbIssueChanged,
             sharePlanChanged: sharePlanChanged
         )
     }
