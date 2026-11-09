@@ -3,6 +3,7 @@
 set -euo pipefail
 
 app_path="${1:-}"
+entitlement_mode="${2:-production}"
 
 fail() {
   echo "verify-production-entitlements: $*" >&2
@@ -11,6 +12,8 @@ fail() {
 
 [[ -n "$app_path" ]] || fail "usage: $0 <RiftVM.app>"
 [[ -d "$app_path" ]] || fail "application not found: $app_path"
+[[ "$entitlement_mode" == "production" || "$entitlement_mode" == "local" ]] || \
+  fail "expected entitlement mode 'production' or 'local'"
 
 entitlements_file="$(mktemp "${TMPDIR:-/tmp}/riftvm-entitlements.XXXXXX")"
 cleanup() {
@@ -27,6 +30,14 @@ required_boolean_keys="com.apple.security.virtualization"
 profile_keys="com.apple.application-identifier
 com.apple.developer.team-identifier
 com.apple.security.virtualization"
+if [[ "$entitlement_mode" == "production" ]]; then
+  required_boolean_keys="com.apple.developer.accessory-access.usb
+$required_boolean_keys"
+  profile_keys="com.apple.application-identifier
+com.apple.developer.accessory-access.usb
+com.apple.developer.team-identifier
+com.apple.security.virtualization"
+fi
 
 if grep -q '^\[Dict\]$' "$entitlements_file"; then
   entitlement_keys="$(sed -n 's/^[[:space:]]*\[Key\] //p' "$entitlements_file" | LC_ALL=C sort)"
