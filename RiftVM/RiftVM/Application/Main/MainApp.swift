@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreGraphics
+import Foundation
 
 @main
 struct MainApp: App {
@@ -56,6 +57,137 @@ struct MainApp: App {
 }
 
 #if arch(arm64)
+struct RiftVMAppRelease: Equatable {
+    let version: String
+    let url: URL
+}
+
+enum RiftVMAppUpdatePolicy {
+    static let checkInterval: TimeInterval = 7 * 24 * 60 * 60
+
+    static func isCheckDue(lastCheck: Date?, now: Date) -> Bool {
+        guard let lastCheck else { return true }
+        return lastCheck > now || now.timeIntervalSince(lastCheck) >= checkInterval
+    }
+
+    static func newerRelease(from data: Data, currentVersion: String) throws -> RiftVMAppRelease? {
+        struct GitHubRelease: Decodable {
+            let tag_name: String
+            let draft: Bool
+            let prerelease: Bool
+        }
+
+        let releases = try JSONDecoder().decode([GitHubRelease].self, from: data)
+        let candidates = releases.compactMap { release -> (version: [Int], appRelease: RiftVMAppRelease)? in
+            guard !release.draft, !release.prerelease,
+                  release.tag_name.hasPrefix("riftvm-v") else { return nil }
+            let version = String(release.tag_name.dropFirst("riftvm-v".count))
+            guard let appRelease = newerRelease(version: version, currentVersion: currentVersion),
+                  let parts = versionParts(version) else { return nil }
+            return (parts, appRelease)
+        }
+        return candidates.max { $0.version.lexicographicallyPrecedes($1.version) }?.appRelease
+    }
+
+    static func newerRelease(version: String, currentVersion: String) -> RiftVMAppRelease? {
+        guard let current = versionParts(currentVersion),
+              let latest = versionParts(version),
+              current.lexicographicallyPrecedes(latest),
+              let url = URL(string: "https://github.com/riftvm/riftvm/releases/tag/riftvm-v\(version)") else {
+            return nil
+        }
+        return RiftVMAppRelease(version: version, url: url)
+    }
+
+    private static func versionParts(_ version: String) -> [Int]? {
+        let parts = version.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts.allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy({ (48...57).contains($0) }) }) else {
+            return nil
+        }
+        let numbers = parts.compactMap { Int($0) }
+        return numbers.count == 3 ? numbers : nil
+    }
+}
+
+/// Checks GitHub's latest published release at most once every seven days.
+/// The user chooses whether to open the release page; no update is installed.
+@MainActor
+@Observable
+final class RiftVMAppUpdateChecker {
+    static let shared = RiftVMAppUpdateChecker()
+
+    private enum Keys {
+        static let lastCheck = "RiftVMAppUpdateLastCheck"
+        static let latestVersion = "RiftVMAppUpdateLatestVersion"
+        static let dismissedVersion = "RiftVMAppUpdateDismissedVersion"
+    }
+
+    private let defaults: UserDefaults
+    private var timer: Timer?
+    private var checking = false
+    private(set) var availableRelease: RiftVMAppRelease?
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        showCachedRelease()
+    }
+
+    func start() {
+        guard timer == nil else { return }
+        checkIfDue()
+        // A running VM can keep the app open for days without reopening its window.
+        timer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkIfDue() }
+        }
+    }
+
+    func dismiss() {
+        guard let availableRelease else { return }
+        defaults.set(availableRelease.version, forKey: Keys.dismissedVersion)
+        self.availableRelease = nil
+    }
+
+    private func showCachedRelease() {
+        guard let version = defaults.string(forKey: Keys.latestVersion),
+              let release = RiftVMAppUpdatePolicy.newerRelease(version: version, currentVersion: AppInfo.version),
+              defaults.string(forKey: Keys.dismissedVersion) != version else { return }
+        availableRelease = release
+    }
+
+    private func checkIfDue() {
+        guard !checking,
+              RiftVMAppUpdatePolicy.isCheckDue(
+                lastCheck: defaults.object(forKey: Keys.lastCheck) as? Date,
+                now: Date()
+              ) else { return }
+        checking = true
+        defaults.set(Date(), forKey: Keys.lastCheck)
+
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/riftvm/riftvm/releases?per_page=30")!)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 15
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("RiftVM/\(AppInfo.version)", forHTTPHeaderField: "User-Agent")
+        Task { [weak self] in
+            guard let self else { return }
+            defer { self.checking = false }
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let response = response as? HTTPURLResponse, response.statusCode == 200 else { return }
+                let release = try RiftVMAppUpdatePolicy.newerRelease(
+                    from: data, currentVersion: AppInfo.version
+                )
+                self.defaults.set(release?.version, forKey: Keys.latestVersion)
+                self.availableRelease = release?.version == self.defaults.string(forKey: Keys.dismissedVersion)
+                    ? nil : release
+            } catch {
+                RiftVMLog.info("Could not check GitHub for an app update: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+
 /// Menu bar icon: filled while a workspace machine is alive.
 private struct VMWorkspaceMenuLabel: View {
     @State private var center = VMLiveMachineCenter.shared
