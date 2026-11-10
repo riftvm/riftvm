@@ -57,6 +57,7 @@ the guest's mode.
 - Starts, pauses, resumes, and stops Omarchy from its window or the menu bar
 - Reuses the verified image and gives the machine its own writable disk and machine identity
 - Integrates Omarchy keyboard shortcuts, text and image clipboard exchange, and notifications through an authenticated guest agent
+- Passes through USB accessories that you explicitly assign to RiftVM in the macOS menu bar
 - Shares Mac folders with Omarchy: `~/riftvm-shared` by default, chosen on the Prepare screen, and more from **Shared Folders…**, each read-write or read-only. Omarchy sees each one under `/mnt/mac/<name>` from its next start; **Open Shared Folder** and **Import Files** use the first writable one
 - Creates protected Omarchy recovery points before updates and restores them while the guest is stopped
 - Keeps one display mode per session, so resizing the window never rebuilds the
@@ -77,6 +78,15 @@ Dock or the menu bar (move to the top of the screen) to switch apps or reach
 RiftVM's toolbar. Click the desktop to hand the pointer back to Omarchy.
 Command-C and Command-V copy and paste inside Omarchy, and the clipboard is
 shared with the Mac.
+
+### USB devices
+
+With Omarchy running, connect a USB device to your Mac, then use the USB
+accessory icon in the macOS menu bar to assign it to RiftVM. The device appears
+in Omarchy through a virtual USB controller. Release it from the same menu to
+return it to macOS. Eject storage devices inside Omarchy before releasing them.
+RiftVM never takes a device without your assignment. The **Integration** menu
+has a **Connect USB Device…** reminder and shows attachment errors.
 
 ### Update and recover Omarchy
 
@@ -131,6 +141,12 @@ Mac; starting and stopping Omarchy happens in the app.
 3. Select the **RiftVM** scheme and your Mac as the run destination.
 4. Choose your own development team and bundle identifier if code signing requires it.
 5. Build and run with <kbd>⌘R</kbd>.
+
+USB passthrough requires a provisioning profile for your app identifier with
+Apple's **Claim USB Accessory** capability. If you only have a free Personal Team,
+remove `com.apple.developer.accessory-access.usb` from your local copy of
+`RiftVM/RiftVM/RiftVM.entitlements` to build without USB passthrough. The rest of
+RiftVM will still work; USB accessory assignment will not.
 
 See the [documentation index](docs/README.md) for troubleshooting, image formats,
 guest integration, graphics architecture, and distribution details.

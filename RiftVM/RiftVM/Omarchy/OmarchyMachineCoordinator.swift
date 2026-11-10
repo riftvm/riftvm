@@ -8,6 +8,7 @@ extension OmarchyVirtualMachineRepresentable {
         var runLease: VMRunLease?
         var machine: VZVirtualMachine?
         var graphicsBackend: (any VMGraphicsBackend)?
+        var usbPassthrough: OmarchyUSBPassthroughController?
         let sessionID: UUID
         let layout: VMOmarchyWorkspaceLayout
         let requiredGuestCapabilities: [String]
@@ -23,6 +24,7 @@ extension OmarchyVirtualMachineRepresentable {
         private let reportPhase: (OmarchyVirtualMachineView.Phase) -> Void
         let acceptanceFailureChanged: (String) -> Void
         let graphicsIssueChanged: (String?) -> Void
+        let usbIssueChanged: (String?) -> Void
         let sharePlanChanged: (VMOmarchySharePlan) -> Void
         private(set) var sharePlan: VMOmarchySharePlan?
 
@@ -54,9 +56,12 @@ extension OmarchyVirtualMachineRepresentable {
         ) {
             machine.start { [weak self, weak view] result in
                 DispatchQueue.main.async {
-                    guard let self, let view else { return }
+                    guard let self, let view, self.machine === machine else { return }
                     switch result {
                     case .success:
+                        let usb = OmarchyUSBPassthroughController(issueChanged: self.usbIssueChanged)
+                        self.usbPassthrough = usb
+                        usb.start(for: machine)
                         self.startIntegration(layout: self.layout)
                         self.startBootUnlockAcceptanceIfNeeded()
                         self.phaseChanged(.running)
@@ -215,6 +220,7 @@ extension OmarchyVirtualMachineRepresentable {
             phaseChanged: @escaping (OmarchyVirtualMachineView.Phase) -> Void,
             acceptanceFailureChanged: @escaping (String) -> Void = { _ in },
             graphicsIssueChanged: @escaping (String?) -> Void = { _ in },
+            usbIssueChanged: @escaping (String?) -> Void = { _ in },
             sharePlanChanged: @escaping (VMOmarchySharePlan) -> Void = { _ in }
         ) {
             self.sessionID = sessionID
@@ -232,6 +238,7 @@ extension OmarchyVirtualMachineRepresentable {
             self.reportPhase = phaseChanged
             self.acceptanceFailureChanged = acceptanceFailureChanged
             self.graphicsIssueChanged = graphicsIssueChanged
+            self.usbIssueChanged = usbIssueChanged
             self.sharePlanChanged = sharePlanChanged
         }
 
@@ -715,6 +722,7 @@ extension OmarchyVirtualMachineRepresentable {
                         #endif
                         self.integrationClient?.virtualMachineDidResume()
                         self.keyboardBridge?.start()
+                        self.usbPassthrough?.attachAssignedAccessories()
                         self.phaseChanged(.running)
                     case .failure(let error):
                         #if RIFTVM_ACCEPTANCE_HARNESS
@@ -844,6 +852,8 @@ extension OmarchyVirtualMachineRepresentable {
         }
 
         func stopIntegration() {
+            usbPassthrough?.stop()
+            usbPassthrough = nil
             #if RIFTVM_ACCEPTANCE_HARNESS
             lockProbeTask?.cancel()
             lockProbeTask = nil

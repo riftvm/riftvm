@@ -126,6 +126,11 @@ if [[ "$signing_identity" != "-" ]]; then
     echo "Provisioning profile is not a Developer ID distribution profile: $provisioning_profile" >&2
     exit 68
   }
+  strings "$provisioning_profile" | grep -A1 -Fx \
+    '<key>com.apple.developer.accessory-access.usb</key>' | grep -Fqx '<true/>' || {
+    echo "Provisioning profile does not grant Claim USB Accessory: $provisioning_profile" >&2
+    exit 68
+  }
   ditto "$provisioning_profile" "$app_path/Contents/embedded.provisionprofile"
 fi
 

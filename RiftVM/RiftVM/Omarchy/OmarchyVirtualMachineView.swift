@@ -51,6 +51,7 @@ struct OmarchyVirtualMachineView: View {
     @State private var showsReleaseHint = false
     @State private var notice: UserNotice?
     @State private var graphicsIssue: String?
+    @State private var usbIssue: String?
     @State private var acceptanceFailure: String?
     @State private var recordedIntegrationSignature = ""
     @State private var sharedFolderProbe: VMOmarchySharedFolderProbeState = .notRun
@@ -129,7 +130,7 @@ struct OmarchyVirtualMachineView: View {
         }
         .toolbar { workspaceToolbar }
         .safeAreaInset(edge: .top) { topBanners }
-        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil; graphicsIssue = nil }
+        .onChange(of: sessionID) { _, _ in acceptanceFailure = nil; graphicsIssue = nil; usbIssue = nil }
         .onDisappear {
             stopTimeoutTask?.cancel()
             stopTimeoutTask = nil
@@ -204,6 +205,7 @@ struct OmarchyVirtualMachineView: View {
                 phaseChanged: handlePhaseChange,
                 acceptanceFailureChanged: { acceptanceFailure = $0 },
                 graphicsIssueChanged: { graphicsIssue = $0 },
+                usbIssueChanged: { usbIssue = $0 },
                 sharePlanChanged: { sharePlan = $0 }
             )
             .id(sessionID)
@@ -242,6 +244,12 @@ struct OmarchyVirtualMachineView: View {
     private var topBanners: some View {
         if let graphicsIssue {
             Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(.orange.opacity(0.18))
+        }
+        if let usbIssue {
+            Label(usbIssue, systemImage: "cable.connector.slash")
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(.orange.opacity(0.18))
@@ -432,6 +440,17 @@ struct OmarchyVirtualMachineView: View {
             Text(microphoneEnabled
                 ? "Microphone will be available after Omarchy restarts"
                 : "Microphone sharing is off")
+            Button("Connect USB Device…", systemImage: "cable.connector") {
+                notice = UserNotice(
+                    title: "Connect USB Device",
+                    message: "Plug in the device, then use the USB accessory icon in the macOS menu bar to assign it to RiftVM. Release it there to return it to your Mac."
+                )
+            }
+            .disabled(phase != .running || !VMHostCapability.accessoryAccess.isGranted)
+            if !VMHostCapability.accessoryAccess.isGranted {
+                Text("USB access is unavailable in this build")
+            }
+            if let usbIssue { Text(usbIssue) }
             Divider()
             Button("Export Diagnostics…", systemImage: "square.and.arrow.up") {
                 exportDiagnostics()
