@@ -4,6 +4,59 @@ import UserNotifications
 import XCTest
 @testable import RiftVM
 
+final class RiftVMAppUpdatePolicyTests: XCTestCase {
+    func testChecksAtSevenDayBoundaryAndAfterClockCorrection() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(RiftVMAppUpdatePolicy.isCheckDue(lastCheck: nil, now: now))
+        XCTAssertFalse(RiftVMAppUpdatePolicy.isCheckDue(
+            lastCheck: now.addingTimeInterval(-RiftVMAppUpdatePolicy.checkInterval + 1), now: now
+        ))
+        XCTAssertTrue(RiftVMAppUpdatePolicy.isCheckDue(
+            lastCheck: now.addingTimeInterval(-RiftVMAppUpdatePolicy.checkInterval), now: now
+        ))
+        XCTAssertTrue(RiftVMAppUpdatePolicy.isCheckDue(lastCheck: now.addingTimeInterval(60), now: now))
+    }
+
+    func testSelectsHighestPublishedAppRelease() throws {
+        let data = Data("""
+        [
+          {"tag_name":"virgl-runtime-inputs-v1","draft":false,"prerelease":false},
+          {"tag_name":"riftvm-v0.6.11","draft":true,"prerelease":false},
+          {"tag_name":"riftvm-v0.6.12","draft":false,"prerelease":true},
+          {"tag_name":"riftvm-v0.6.10","draft":false,"prerelease":false},
+          {"tag_name":"riftvm-v0.6.8","draft":false,"prerelease":false}
+        ]
+        """.utf8)
+        let release = try RiftVMAppUpdatePolicy.newerRelease(from: data, currentVersion: "0.6.7")
+        XCTAssertEqual(release?.version, "0.6.10")
+        XCTAssertEqual(release?.url.absoluteString, "https://github.com/riftvm/riftvm/releases/tag/riftvm-v0.6.10")
+        XCTAssertNil(try RiftVMAppUpdatePolicy.newerRelease(from: data, currentVersion: "0.6.10"))
+    }
+
+    func testRejectsMalformedVersions() {
+        XCTAssertNil(RiftVMAppUpdatePolicy.newerRelease(version: "0.6.8-beta", currentVersion: "0.6.7"))
+        XCTAssertNil(RiftVMAppUpdatePolicy.newerRelease(version: "0.6.8/other", currentVersion: "0.6.7"))
+        XCTAssertNil(RiftVMAppUpdatePolicy.newerRelease(version: "0.6.8", currentVersion: "unknown"))
+    }
+
+    @MainActor
+    func testDismissalAppliesOnlyToTheShownVersion() throws {
+        let suite = "RiftVMAppUpdatePolicyTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("9.0.0", forKey: "RiftVMAppUpdateLatestVersion")
+
+        let checker = RiftVMAppUpdateChecker(defaults: defaults)
+        XCTAssertEqual(checker.availableRelease?.version, "9.0.0")
+        checker.dismiss()
+        XCTAssertNil(checker.availableRelease)
+        XCTAssertNil(RiftVMAppUpdateChecker(defaults: defaults).availableRelease)
+
+        defaults.set("9.0.1", forKey: "RiftVMAppUpdateLatestVersion")
+        XCTAssertEqual(RiftVMAppUpdateChecker(defaults: defaults).availableRelease?.version, "9.0.1")
+    }
+}
+
 final class RiftVMOmarchyTests: XCTestCase {
     @MainActor
     func testStopCommandEnablesRecoveryWhenNoMachineWasCreated() {

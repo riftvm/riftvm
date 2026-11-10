@@ -72,6 +72,7 @@ final class WorkspaceHomeModel {
 
 struct WorkspaceHomeView: View {
     @State private var model = WorkspaceHomeModel()
+    @State private var appUpdates = RiftVMAppUpdateChecker.shared
 
     var body: some View {
         Group {
@@ -87,6 +88,23 @@ struct WorkspaceHomeView: View {
                     remove: model.remove,
                     markOpened: model.markOpened
                 )
+            }
+        }
+        .safeAreaInset(edge: .top) {
+            if let release = appUpdates.availableRelease {
+                HStack(spacing: 12) {
+                    Label("RiftVM \(release.version) is available", systemImage: "arrow.down.circle.fill")
+                    Spacer()
+                    Button("View Release") { NSWorkspace.shared.open(release.url) }
+                    Button { appUpdates.dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Dismiss update reminder")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.blue.opacity(0.12))
             }
         }
         .task { model.load() }

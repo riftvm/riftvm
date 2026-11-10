@@ -54,4 +54,7 @@ backup against disk failure or deletion of the machine.
 ## Update RiftVM itself
 
 Use `brew upgrade --cask riftvm`, or choose **Updates → Download RiftVM Update** for
-GitHub Releases. Updating the app does not reinstall your guest operating system.
+GitHub Releases. RiftVM checks the latest published GitHub Release at most once
+every seven days while the app is open and shows a dismissible reminder when a
+newer version is available. The reminder opens the release page; installation
+remains your choice. Updating the app does not reinstall your guest operating system.

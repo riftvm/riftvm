@@ -632,7 +632,7 @@ struct OmarchyVirtualMachineView: View {
     private var updatesMenu: some View {
         Menu {
             Button("Download RiftVM Update", systemImage: "arrow.down.app") {
-                NSWorkspace.shared.open(URL(string: "https://github.com/riftvm/riftvm/releases/latest")!)
+                NSWorkspace.shared.open(URL(string: "https://github.com/riftvm/riftvm/releases")!)
             }
             Text("Homebrew users: brew upgrade --cask riftvm")
             Divider()

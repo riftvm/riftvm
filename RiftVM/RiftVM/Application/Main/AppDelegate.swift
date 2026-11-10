@@ -40,6 +40,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
 #if arch(arm64)
         scheduleGUIReadyProbe()
+        RiftVMAppUpdateChecker.shared.start()
 #endif
     }
 
