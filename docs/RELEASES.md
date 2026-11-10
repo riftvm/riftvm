@@ -121,6 +121,35 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.7
+
+RiftVM 0.6.7 adds USB accessory passthrough for Omarchy.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Features
+
+- Assign a supported USB device to RiftVM from the macOS accessory menu while
+  Omarchy is running. RiftVM attaches it to the guest and releases it when you
+  disconnect it or stop the VM. Eject storage in Omarchy before releasing it.
+- The Integration menu explains how to connect a device and reports attachment
+  errors. Debug and release builds include the USB capability by default.
+
+### Validation
+
+The macOS, shell-script, and Guest Agent CI jobs passed. The app and integration
+tests compiled, and a local Developer ID build passed entitlement and archive
+signature checks. A physical USB device was not available on the build Mac, so
+guest enumeration and release back to the host still need testing with this
+version; see [issue #55](https://github.com/riftvm/riftvm/issues/55).
+
+### Known issues
+
+- USB passthrough has not yet been verified with a physical device. Test with a
+  drive that does not contain important data.
+- Ghostty requires OpenGL 4.3 and cannot start with the guest's OpenGL ES 3.0
+  and desktop GL 2.1 support; Omarchy uses `foot` as its terminal.
+
 ## 0.6.6
 
 RiftVM 0.6.6 creates new workspaces from the signed Omarchy 4.0.6 Factory
