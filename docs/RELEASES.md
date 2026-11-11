@@ -121,6 +121,33 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.8
+
+RiftVM 0.6.8 helps you notice new app releases.
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Features
+
+- RiftVM checks published app releases on GitHub at most once every seven days.
+  When a newer version is available, a dismissible banner in the main window
+  links to that version's release page. Dismissing one version does not hide
+  later releases. Downloads and installation remain your choice.
+
+### Validation
+
+The macOS, shell-script, and Guest Agent CI jobs passed. A local Debug build and
+four focused tests passed for the seven-day interval, release filtering,
+version comparison, and reminder dismissal. The public GitHub Releases API
+returned the expected app release tags. This release does not claim that every
+USB device type has been tested; a community tester confirmed USB-C Nano YubiKey
+use with FIDO sudo on 0.6.7.
+
+### Known issues
+
+- Ghostty requires OpenGL 4.3 and cannot start with the guest's OpenGL ES 3.0
+  and desktop GL 2.1 support; Omarchy uses `foot` as its terminal.
+
 ## 0.6.7
 
 RiftVM 0.6.7 adds USB accessory passthrough for Omarchy.
