@@ -121,6 +121,20 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.9
+
+<!-- draft: generated from commits; replace with user-facing wording if the change needs it -->
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Changes
+
+- Use AtomSprout public links, contact and copyright
+
+### Internal
+
+- Sync riftvm cask to 0.6.8
+
 ## 0.6.8
 
 RiftVM 0.6.8 helps you notice new app releases.
