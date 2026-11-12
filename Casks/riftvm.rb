@@ -11,7 +11,7 @@ cask "riftvm" do
   url "https://github.com/riftvm/riftvm/releases/download/riftvm-v#{version}/RiftVM-#{version}.zip?notarized=1"
   name "RiftVM"
   desc "Simple native virtual machines for Apple silicon Macs"
-  homepage "https://riftvm.com"
+  homepage "https://atomsprout.com/riftvm"
 
   depends_on arch: :arm64
   depends_on macos: :golden_gate

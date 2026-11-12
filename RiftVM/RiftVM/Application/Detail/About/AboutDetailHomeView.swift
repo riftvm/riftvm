@@ -102,7 +102,7 @@ struct AboutDetailHomeView: View {
                 image: "globe",
                 title: "Website",
                 subtitle: "riftvm.com",
-                urlString: "https://riftvm.com"
+                urlString: "https://atomsprout.com/riftvm"
             )
             DetailLinkCardView(
                 image: "chevron.left.forwardslash.chevron.right",

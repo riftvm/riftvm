@@ -972,7 +972,7 @@
 				INFOPLIST_FILE = RiftVM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RiftVM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 AtomSprout. All rights reserved.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1005,7 +1005,7 @@
 				INFOPLIST_FILE = RiftVM/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = RiftVM;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 AtomSprout. All rights reserved.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

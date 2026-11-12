@@ -29,7 +29,7 @@ verified factory image and renders it through Custom VirGL on a macOS 27
 - [Custom VirGL architecture](CUSTOM_VIRGL_ARCHITECTURE.md): graphics ownership, invariants, and failure modes.
 - [VirGL performance](VIRGL_PERFORMANCE.md): measurement and graphics validation.
 
-The website at <https://riftvm.com> has its own repository,
+The website at <https://atomsprout.com/riftvm> has its own repository,
 [riftvm/riftvm.github.io](https://github.com/riftvm/riftvm.github.io); this
 repository carries no copy of it. Superseded plans and historical migration
 records remain available in Git history rather than the current documentation tree.
