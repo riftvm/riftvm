@@ -13,9 +13,7 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
     private var active = false
     private var registered = false
     private var assigned: [UInt64: AAUSBAccessory] = [:]
-    private var assignmentTokens: [UInt64: UUID] = [:]
-    private var attaching: Set<UInt64> = []
-    private var detaching: Set<UInt64> = []
+    private var operations = VMUSBPassthroughState()
     private var attached: [UInt64: VZUSBPassthroughDevice] = [:]
 
     init(issueChanged: @escaping (String?) -> Void) {
@@ -35,6 +33,7 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
         self.controller = controller
         controller.delegate = self
         active = true
+        let session = operations.start()
         issueChanged(nil)
 
         // An empty criteria list offers any supported USB accessory through
@@ -42,6 +41,12 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
         AAUSBAccessoryManager.shared.registerListener(self, matchingCriteria: []) { [weak self] accessories, error in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.operations.isCurrentSession(session) else {
+                    // A stopped listener's initial enumeration cannot assign
+                    // accessories to a replacement virtual machine.
+                    if !self.active { self.registered = true; self.unregister() }
+                    return
+                }
                 if let error {
                     if self.active { self.report("USB accessory access could not start: \(error.localizedDescription)") }
                     return
@@ -63,7 +68,7 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
     func stop() {
         active = false
         assigned.removeAll()
-        assignmentTokens.removeAll()
+        operations.stop()
         unregister()
         controller?.delegate = nil
         if let controller {
@@ -74,7 +79,6 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
         attached.removeAll()
         // An in-flight attach checks active in its completion and detaches
         // itself if the VM has already been stopped or replaced.
-        attaching.removeAll()
         controller = nil
         machine = nil
         issueChanged(nil)
@@ -100,7 +104,7 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
     ) {
         let disconnectedUUID = device.uuid
         DispatchQueue.main.async { [weak self] in
-            guard let self, self.controller != nil else { return }
+            guard let self, self.controller === usbController else { return }
             if let id = self.attached.first(where: { $0.value.uuid == disconnectedUUID })?.key {
                 self.attached.removeValue(forKey: id)
             }
@@ -112,15 +116,16 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
         let id = accessory.registryID
         if assigned[id] !== accessory {
             assigned[id] = accessory
-            assignmentTokens[id] = UUID()
+            operations.assign(id)
         }
         attach(accessory)
     }
 
     private func disconnect(_ accessory: AAUSBAccessory) {
         let id = accessory.registryID
+        guard active, assigned[id] != nil else { return }
         assigned.removeValue(forKey: id)
-        assignmentTokens.removeValue(forKey: id)
+        operations.release(id)
         guard let controller, let device = attached.removeValue(forKey: id),
               device.usbController === controller else { return }
         detach(device, id: id, from: controller)
@@ -129,9 +134,8 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
     private func attach(_ accessory: AAUSBAccessory) {
         let id = accessory.registryID
         guard active, machine?.state == .running, let controller,
-              attached[id] == nil, !attaching.contains(id), !detaching.contains(id),
-              let assignmentToken = assignmentTokens[id] else { return }
-        attaching.insert(id)
+              attached[id] == nil,
+              let operation = operations.beginAttachment(id) else { return }
         do {
             let configuration = VZUSBPassthroughDeviceConfiguration(device: accessory)
             let device = try VZUSBPassthroughDevice(configuration: configuration)
@@ -141,14 +145,14 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
                         if error == nil { controller.detach(device: device) { _ in } }
                         return
                     }
-                    self.attaching.remove(id)
+                    let isCurrentAssignment = self.operations.finishAttachment(operation)
                     if let error {
-                        if self.active && self.assigned[id] != nil {
+                        if isCurrentAssignment {
                             self.report("USB device could not be attached to Omarchy: \(error.localizedDescription)")
                         }
                         return
                     }
-                    guard self.active, self.assignmentTokens[id] == assignmentToken,
+                    guard isCurrentAssignment,
                           self.controller === controller else {
                         self.detach(device, id: id, from: controller)
                         return
@@ -159,7 +163,7 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
                 }
             }
         } catch {
-            attaching.remove(id)
+            _ = operations.finishAttachment(operation)
             report("USB device could not be initialized: \(error.localizedDescription)")
         }
     }
@@ -169,15 +173,19 @@ final class OmarchyUSBPassthroughController: NSObject, AAUSBAccessoryListener,
             if let replacement = assigned[id] { attach(replacement) }
             return
         }
-        detaching.insert(id)
+        let operation = self.controller === controller ? operations.beginDetachment(id) : nil
         controller.detach(device: device) { [weak self] error in
             DispatchQueue.main.async {
                 if let error {
                     RiftVMLog.error("USB device detach failed: \(error.localizedDescription)")
                 }
                 guard let self else { return }
-                self.detaching.remove(id)
-                if let replacement = self.assigned[id] { self.attach(replacement) }
+                guard let operation, self.operations.finishDetachment(id, token: operation),
+                      self.controller === controller else { return }
+                if let error {
+                    if device.usbController === controller { self.attached[id] = device }
+                    self.report("USB device could not be released: \(error.localizedDescription) Release it from the macOS USB menu before reconnecting.")
+                } else if let replacement = self.assigned[id] { self.attach(replacement) }
             }
         }
     }

@@ -22,18 +22,34 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
 
     private let lock = NSLock()
     private var activeDownloads: [Int: ActiveDownload] = [:]
-    private lazy var session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+    private let configuration: URLSessionConfiguration
+    private lazy var session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
 
-    public override init() {}
+    public override convenience init() {
+        self.init(configuration: .ephemeral)
+    }
+
+    init(configuration: URLSessionConfiguration) {
+        self.configuration = configuration
+        super.init()
+    }
 
     public func cancel() {
         session.invalidateAndCancel()
     }
 
     public func fetchData(from url: URL) async throws -> Data {
-        let (data, response) = try await session.data(for: Self.uncachedRequest(for: url))
-        try Self.validateHTTPResponse(response)
-        return data
+        for attempt in 0 ..< 3 {
+            try Task.checkCancellation()
+            let (data, response) = try await session.data(for: Self.uncachedRequest(for: url))
+            do {
+                try Self.validateHTTPResponse(response)
+                return data
+            } catch {
+                guard attempt < 2, Self.shouldRefreshReleaseURL(after: error, originalURL: url) else { throw error }
+            }
+        }
+        preconditionFailure("Every fetch attempt returns or throws")
     }
 
     public func downloadFile(
@@ -43,7 +59,28 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
         progress: @escaping (Int64, Int64) -> Void
     ) async throws {
         try? FileManager.default.removeItem(at: destination)
-        let resumeData = try? Data(contentsOf: resumeDataURL)
+        var resumeData = try? Data(contentsOf: resumeDataURL)
+        for attempt in 0 ..< 3 {
+            try Task.checkCancellation()
+            do {
+                try await downloadAttempt(from: url, to: destination, resumeDataURL: resumeDataURL,
+                                          resumeData: resumeData, progress: progress)
+                return
+            } catch {
+                guard attempt < 2, Self.shouldRefreshReleaseURL(after: error, originalURL: url) else { throw error }
+                // Resume blobs can embed an expired release-assets signed URL.
+                // Re-resolve the original release URL, never retry that token.
+                resumeData = nil
+                try? FileManager.default.removeItem(at: resumeDataURL)
+                try? FileManager.default.removeItem(at: destination)
+            }
+        }
+    }
+
+    private func downloadAttempt(
+        from url: URL, to destination: URL, resumeDataURL: URL, resumeData: Data?,
+        progress: @escaping (Int64, Int64) -> Void
+    ) async throws {
         try await withCheckedThrowingContinuation { continuation in
             let task = resumeData.map(session.downloadTask(withResumeData:))
                 ?? session.downloadTask(with: Self.uncachedRequest(for: url))
@@ -116,16 +153,34 @@ public final class VMOmarchyURLSessionTransport: NSObject, VMOmarchyFactoryTrans
     }
 
     static func uncachedRequest(for url: URL) -> URLRequest {
+        var freshURL = url
+        if isGitHubReleaseURL(url), var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            var items = (components.queryItems ?? []).filter { $0.name != "riftvm_download" }
+            items.append(URLQueryItem(name: "riftvm_download", value: UUID().uuidString))
+            components.queryItems = items
+            freshURL = components.url ?? url
+        }
         var request = URLRequest(
-            url: url,
+            url: freshURL,
             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
         )
-        // GitHub release URLs redirect to time-limited asset URLs. A 404 from
-        // before a draft is published must not survive in URLCache and make the
-        // in-app Try Again action repeat the stale response.
+        // Release redirects carry expiring JWTs. Headers alone do not bypass a
+        // stale intermediary cache, so each original GitHub release request
+        // also gets a fresh query. Never change a signed asset URL itself.
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-cache", forHTTPHeaderField: "Pragma")
         return request
+    }
+
+    private static func isGitHubReleaseURL(_ url: URL) -> Bool {
+        let parts = url.path.split(separator: "/")
+        return url.scheme == "https" && url.host?.lowercased() == "github.com"
+            && parts.count >= 6 && parts[2] == "releases" && parts[3] == "download"
+    }
+
+    private static func shouldRefreshReleaseURL(after error: Error, originalURL: URL) -> Bool {
+        isGitHubReleaseURL(originalURL)
+            && (error as? VMOmarchyFactoryInstallError) == .invalidHTTPResponse(statusCode: 618)
     }
 
     private static func validateHTTPResponse(_ response: URLResponse?) throws {

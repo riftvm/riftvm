@@ -17,7 +17,7 @@ fail() {
 "$(dirname "$0")/verify-production-test-isolation.sh" "$app_path"
 [[ "$launch_timeout" =~ ^[1-9][0-9]*$ ]] || fail "RIFTVM_LAUNCH_TIMEOUT must be a positive integer"
 
-for command in codesign defaults open osascript pgrep plutil ps spctl; do
+for command in codesign defaults open pgrep plutil ps spctl; do
   command -v "$command" >/dev/null 2>&1 || fail "required command not found: $command"
 done
 
@@ -108,9 +108,7 @@ done
 # SwiftUI can restore the persisted state where every window was closed.
 # A normal second click on the app sends reopen/activate, so exercise that
 # public lifecycle path before requiring a visible Control Center window.
-osascript \
-  -e 'tell application id "com.riftvm.app" to reopen' \
-  -e 'tell application id "com.riftvm.app" to activate'
+open "$app_path"
 
 for ((second = 1; second <= launch_timeout; second++)); do
   for _ in {1..10}; do

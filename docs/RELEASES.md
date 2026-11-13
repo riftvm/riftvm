@@ -121,6 +121,21 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
 
+## 0.6.10
+
+Requires **macOS 27 or later and Apple silicon**.
+
+### Fixes
+
+- Recover from GitHub release downloads returning HTTP 618 (`jwt:expired`). Requests obtain a fresh redirect from the original release URL; recovery is bounded to three attempts. Expired resume data is discarded on this response. Downloaded images still require the signed manifest and SHA-256 checks. Refs #54.
+- Isolate USB accessory assignment and attach/detach completions across VM sessions and rapid reassignment. A late completion cannot claim a new assignment or clear a newer pending operation. Failed release is shown in the VM and retained for cleanup. Refs #55.
+- Display the AtomSprout product address in About. The product website, assets and legacy catalog are maintained in the company website repository.
+
+### Validation scope
+
+- Automated HTTP 618 transport and USB lifecycle regressions cover expired responses, bounded recovery, error-body rejection, release/reassignment and stale VM callbacks.
+- Physical USB enumeration, release to the host, unplug/replug and pause/resume still require an explicitly selected test accessory and a running Omarchy guest. This release does not claim the hardware acceptance checklist in #55 is complete.
+
 ## 0.6.9
 
 <!-- draft: generated from commits; replace with user-facing wording if the change needs it -->
