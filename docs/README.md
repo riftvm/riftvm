@@ -16,6 +16,7 @@ verified factory image and renders it through Custom VirGL on a macOS 27
 
 ## Engineering references
 
+- [Agent desktop control plan](AGENT_DESKTOP_PLAN.md) for the 4.5.1 preview and follow-up milestones.
 - [V1 release checklist](V1_RELEASE_CHECKLIST.md): the real-guest display, cursor, input, graphics and shared-folder pass every release needs.
 - [0.4.0 developer-day record](validation/v0.4.0-developer-day-2026-09-19/README.md): what a developer can do inside Omarchy, and how it was tested.
 - [0.5.0 cleanup record](validation/v0.5.0-cleanup-2026-09-19/README.md): the full pass after the legacy and general-VM removal.
