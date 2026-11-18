@@ -240,53 +240,57 @@ struct OmarchyVirtualMachineView: View {
     /// Status banners above the guest canvas: a graphics problem, an acceptance
     /// workspace, or the Accessibility permission the Command shortcuts need.
     /// Kept out of `body` for the type checker.
-    @ViewBuilder
     private var topBanners: some View {
-        if let graphicsIssue {
-            Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
+        VStack(alignment: .leading, spacing: 0) {
+            if let graphicsIssue {
+                Label(graphicsIssue, systemImage: "display.trianglebadge.exclamationmark")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.orange.opacity(0.18))
+            }
+            if let usbIssue {
+                Label(usbIssue, systemImage: "cable.connector.slash")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.orange.opacity(0.18))
+            }
+            if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
+                        .font(.headline)
+                    Text(acceptanceFailure ?? "This temporary copy of Omarchy may type, lock, and restart automatically. Keep this window focused while testing.")
+                    if acceptanceFailure != nil {
+                        Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(.orange.opacity(0.18))
-        }
-        if let usbIssue {
-            Label(usbIssue, systemImage: "cable.connector.slash")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
+            }
+            if keyboardIntegration != .enabled {
+                HStack(spacing: 12) {
+                    if keyboardIntegration == .requestingAccessibility {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Waiting for Accessibility permission")
+                        Text("Turn on RiftVM in System Settings, then return here. If it is already on, remove its old entry and add the current RiftVM app again.")
+                    } else if keyboardIntegration == .eventTapUnavailable {
+                        Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
+                    } else {
+                        Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
+                    }
+                    Spacer(minLength: 0)
+                    Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : keyboardIntegration == .eventTapUnavailable ? "Retry" : "Enable") {
+                        NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
+                    }
+                    .fixedSize()
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
                 .background(.orange.opacity(0.18))
-        }
-        if OmarchyWorkspaceConfiguration.isAcceptanceWorkspace(layout) {
-            VStack(alignment: .leading, spacing: 4) {
-                Label(acceptanceFailure == nil ? "Automated acceptance testing" : "Acceptance test failed", systemImage: acceptanceFailure == nil ? "testtube.2" : "exclamationmark.triangle")
-                    .font(.headline)
-                Text(acceptanceFailure ?? "This temporary copy of Omarchy may type, lock, and restart automatically. Keep this window focused while testing.")
-                if acceptanceFailure != nil {
-                    Text("The test did not pass. The virtual machine remains available; use its normal controls to continue or stop it.")
-                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(.orange.opacity(0.18))
-        }
-        if keyboardIntegration != .enabled {
-            HStack {
-                if keyboardIntegration == .requestingAccessibility {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Waiting for Accessibility permission")
-                    Text("Turn on RiftVM in System Settings, then return here. If it is already on, remove its old entry and add the current RiftVM app again.")
-                } else if keyboardIntegration == .eventTapUnavailable {
-                    Text("Access is allowed, but shortcut capture could not start. Retry, or quit and reopen RiftVM.")
-                } else {
-                    Text("Allow Accessibility access so Command shortcuts stay inside Omarchy.")
-                }
-                Spacer()
-                Button(keyboardIntegration == .requestingAccessibility ? "Open System Settings" : keyboardIntegration == .eventTapUnavailable ? "Retry" : "Enable") {
-                    NotificationCenter.default.post(name: .omarchyRequestKeyboardPermission, object: sessionID)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.orange.opacity(0.18))
         }
     }
 

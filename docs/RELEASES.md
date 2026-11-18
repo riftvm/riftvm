@@ -131,6 +131,9 @@ New workspaces use Omarchy 4.5.0. This release uses the signed AArch64
 `omarchy` and `omarchy-settings` packages, both at `4.5.0-3`. First-run
 setup preserves the EFI entry RiftVM needs to boot the guest again.
 
+When multiple status messages are visible, RiftVM gives each banner its own
+row above the guest display.
+
 The floating-window titlebar plug-in is omitted because its Hyprland
 dependency does not match the version in the ARM guest.
 
