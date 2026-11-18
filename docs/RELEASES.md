@@ -4,6 +4,10 @@ RiftVM publishes one GitHub release per `riftvm-vX.Y.Z` tag. This file is the
 in-repository record of what each release contains, and the convention that
 keeps new notes consistent.
 
+Starting with RiftVM 4.5.0, the major and minor version follow the Omarchy
+series in the app's pinned Factory image. Each new series starts at patch
+zero. RiftVM increments its patch independently of Omarchy package updates.
+
 ## Where notes live
 
 - **GitHub Releases** is what users read. The note body is generated from the
@@ -120,6 +124,15 @@ scripts/verify-factory-trust.sh /Applications/RiftVM.app
 
 It reads the manifest URL out of `VMOmarchyProfile.swift` and the trust anchors
 out of the app, so neither can drift from what the check exercises.
+
+## 4.5.0
+
+New workspaces use Omarchy 4.5.0. This release uses the signed AArch64
+`omarchy` and `omarchy-settings` packages, both at `4.5.0-3`. First-run
+setup preserves the EFI entry RiftVM needs to boot the guest again.
+
+The floating-window titlebar plug-in is omitted because its Hyprland
+dependency does not match the version in the ARM guest.
 
 ## 0.6.10
 

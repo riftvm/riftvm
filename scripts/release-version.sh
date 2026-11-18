@@ -55,6 +55,18 @@ else
     : # The initial 0.1.0 release has no prior RiftVM product tag.
   elif [[ $version_reset == 1 ]]; then
     [[ $version == 1.0.0 ]] || fail "RIFTVM_RELEASE_VERSION_RESET only supports the explicit 1.0.0 product reset"
+  elif (( target_major >= 4 || latest_major >= 4 )); then
+    profile_file="$project_root/RiftVM/RiftVM/Core/VMKit/Profile/VMOmarchyProfile.swift"
+    factory_series="$(sed -nE 's@.*/releases/download/v([0-9]+\.[0-9]+)\.[0-9]+-riftvm\.[0-9]+/riftvm-omarchy-factory-manifest\.json.*@\1@p' "$profile_file")"
+    [[ "$target_major.$target_minor" == "$factory_series" ]] ||
+      fail "RiftVM $version must match the pinned Omarchy major and minor version ($factory_series)"
+    if [[ "$target_major.$target_minor" == "$latest_major.$latest_minor" ]]; then
+      (( target_patch == latest_patch + 1 )) || fail "patch release must follow $latest_tag"
+    else
+      (( target_patch == 0 && (target_major > latest_major ||
+           (target_major == latest_major && target_minor > latest_minor)) )) ||
+        fail "a new Omarchy series must advance the major or minor version and start at patch 0"
+    fi
   elif [[ "$target_minor" == 0 && "$target_patch" == 0 && "$target_major" -gt "$latest_major" ]]; then
     : # An explicitly requested new product generation may advance the major version.
   elif [[ "$target_patch" == 0 ]]; then
@@ -70,8 +82,11 @@ else
   [[ "$current_build" =~ ^[0-9]+$ ]] || fail "Xcode targets do not share one numeric build number"
   [[ -z "$latest_tag" || "$current_version" == "$latest_version" || "$current_version" == "$version" ]] || \
     fail "project version is $current_version, expected $latest_version or $version"
-  if [[ -z "$latest_tag" || $version_reset == 1 ]]; then next_build=1; else next_build="$((current_build + 1))"; fi
-  ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
+  next_build="$current_build"
+  if [[ "$current_version" != "$version" ]]; then
+    if [[ -z "$latest_tag" || $version_reset == 1 ]]; then next_build=1; else next_build="$((current_build + 1))"; fi
+    ruby -pi -e "gsub(/MARKETING_VERSION = [^;]+;/, 'MARKETING_VERSION = $version;'); gsub(/CURRENT_PROJECT_VERSION = [^;]+;/, 'CURRENT_PROJECT_VERSION = $next_build;')" "$project_file"
+  fi
   # Notes are never a gate: add a draft section now so it lands in the version
   # commit, and let the author replace it before publishing.
   "$project_root/scripts/release-notes.sh" prepare "$version"
